@@ -12040,3 +12040,4 @@ def get_fx_gain_loss():
     finally:
         db_session.close()
 
+
