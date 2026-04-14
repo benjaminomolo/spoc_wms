@@ -12040,6 +12040,3 @@ def get_fx_gain_loss():
     finally:
         db_session.close()
 
-
-if __name__ == '__main__':
-    app.run(debug=True)
