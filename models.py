@@ -9,7 +9,8 @@ from sqlalchemy import Column, Integer, String, DateTime, func, ForeignKey, Enum
 from sqlalchemy.orm import relationship, object_session, validates, declared_attr
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import event, select, func
-from datetime import datetime, timezone
+
+from datetime import datetime, timezone, date
 
 Base = declarative_base()
 
