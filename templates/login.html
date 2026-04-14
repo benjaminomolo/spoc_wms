@@ -723,6 +723,105 @@
                 padding: 24px;
             }
         }
+
+        /* Alternative Simple Version CSS */
+        .divider {
+            text-align: center;
+            margin: 28px 0 20px 0;
+            position: relative;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--gray-200);
+        }
+
+        .divider span {
+            background: var(--white);
+            padding: 0 16px;
+            position: relative;
+            color: var(--gray-500);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .help-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            margin: 20px 0 16px;
+        }
+
+        .help-links a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--gray-50);
+            border-radius: 25px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .help-links a:hover {
+            background: var(--gray-200);
+            color: var(--highlight-color-darker);
+            transform: translateY(-1px);
+        }
+
+        .help-links a:active {
+            transform: translateY(0);
+        }
+
+        .copyright {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 12px;
+            border-top: 1px solid var(--gray-200);
+            font-size: 11px;
+            color: var(--gray-400);
+        }
+
+        /* Mobile responsive adjustments */
+        @media (max-width: 768px) {
+            .help-links {
+                gap: 10px;
+            }
+
+            .help-links a {
+                font-size: 12px;
+                padding: 6px 14px;
+            }
+
+            .copyright {
+                font-size: 10px;
+                margin-top: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .help-links {
+                gap: 8px;
+            }
+
+            .help-links a {
+                font-size: 11px;
+                padding: 5px 12px;
+            }
+
+            .divider {
+                margin: 24px 0 16px 0;
+            }
+        }
     </style>
 </head>
 
@@ -809,10 +908,31 @@
                 </form>
 
                 <div class="divider">
+                    <span>Support & Resources</span>
+                </div>
+
+                <div class="help-links" style="flex-wrap: wrap; margin-top: 20px;">
+                    <a href="mailto:support@spocwms.com">
+                        <i class="fas fa-envelope"></i> Email Support
+                    </a>
+                    <a href="#"
+                        onclick="showNotification('Documentation available upon request', 'info'); return false;">
+                        <i class="fas fa-book"></i> Documentation
+                    </a>
+                    <a href="#" onclick="showNotification('SPOC WMS v2.0 - © 2026', 'info'); return false;">
+                        <i class="fas fa-info-circle"></i> About
+                    </a>
+                </div>
+
+                <div style="text-align: center; margin-top: 20px; font-size: 11px; color: var(--gray-400);">
+                    © 2026 SPOC WMS. All rights reserved.
+                </div>
+
+                <div class="divider" style="display: none;">
                     <span>New to SPOC WMS?</span>
                 </div>
 
-                <div class="register-section">
+                <div class="register-section" style="display: none;">
                     <a href="{{ url_for('register') }}" class="register-btn">
                         <i class="fas fa-user-plus"></i> Create an account
                     </a>
