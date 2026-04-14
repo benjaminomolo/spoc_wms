@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Include CSRF token in meta tag -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>NetBooks Suite</title>
+
+    <!-- CSS Links -->
+    <link href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css" rel="stylesheet" />
+    <!-- DataTables CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Google Font CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+
+    <!-- FontAwesome CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
+    <link href="{{ url_for('static', filename='styles_v1.0.1.css') }}" rel="stylesheet" />
+    <link href="{{ url_for('static', filename='mobile_styles.css') }}" rel="stylesheet" />
+
+    {% if base_currency %}
+    <script>
+        window.baseCurrency = {
+            id: "{{ base_currency.id }}",
+            code: "{{ base_currency.user_currency }}"
+        };
+    </script>
+    {% endif %}
+
+
+
+    <!-- JavaScript Links -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> <!-- jQuery -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script> <!-- DataTables JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
+        crossorigin="anonymous"></script> <!-- Bootstrap JS -->
+    <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+    <!-- FontAwesome -->
+
+    <!-- Chart.js Core and Plugins -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
+
+    <!-- Select2 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+
+    <!-- Add this line -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='lineItems.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+    <script src="{{ url_for('static', filename='exchange-rate.js') }}"></script>
+
+
+
+
+</head>
+
+<body>
+    <!-- Loading Bar -->
+    <div class="loading-bar" id="loadingBar"></div>
+    <div class="notification-container" id="notification-container"></div>
+
+
+    <header>
+        <div class="header-left">
+            <!-- Navbar Brand -->
+            <a class="navbar-brand" href="#">
+                {% if company.logo %}
+                <img src="{{ url_for('serve_logo', filename=company.logo) }}" alt="Company Logo" class="logo-img">
+                {% else %}
+                <span class="company-name">{{ company.name if company.name else "My APP" }}</span>
+                {% endif %}
+            </a>
+
+
+
+
+            <!-- Toggle bar -->
+
+            <button class="toggle-sidebar" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+        </div>
+
+        <div class="header-right">
+            <span class="header-user"> Hi, {{ session['user_name'].split()[0] }}!</span>
+
+            <div class="user-dropdown" onclick="toggleUserDropdown(event)">
+
+
+                <i class="fas fa-user"></i> <i class="fas fa-caret-down"></i>
+                <div class="dropdown-content">
+                    <a href="{{ url_for('settings') }}">Settings</a>
+
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <a href="{{ url_for('activity_logs') }}">Activity Logs</a>
+                    {% endif %}
+                    <hr class="dropdown-divider" />
+                    <a href="{{ url_for('logout') }}">Log Out</a>
+                </div>
+            </div>
+
+            <!-- Notification Icon (Bell) -->
+            <!-- Notification Icon (Bell) -->
+            <div class="notification-bell" id="notification-bell" style="display: none;">
+                <a href="#" id="notification-icon" data-bs-toggle="modal" data-bs-target="#notification-modal">
+                    <i class="fas fa-bell"></i>
+                    <span id="notification-count" class="notification-count">0</span>
+                </a>
+            </div>
+
+
+        </div>
+
+
+
+        <!-- Theme Toggle bar -->
+        <div class="theme-toggle">
+            <label class="switch">
+                <input type="checkbox" id="theme-toggle" onclick="toggleTheme()">
+                <span class="slider round"></span>
+            </label>
+            <span id="theme-status">Base Theme</span> <!-- Text showing current theme -->
+        </div>
+
+
+    </header>
+
+
+
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+
+        {% if role != 'Contributor' %}
+        {% if has_permission('Inventory', 'view') %}
+
+        <div class="side-nav-menu-heading">Dashboard</div>
+
+        <!-- WMS DASHBOARD - Standalone -->
+        <div class="dropdown module-dropdown" data-module="WMS" onclick="toggleDropdown(event)">
+            <a href="{{ url_for('inventory.wms_dashboard') }}">
+                <i class="fas fa-chalkboard-user sb-nav-link-icon"></i> WMS Dashboard
+                <span class="badge" style="float: right; background: #4cc9f0; font-size: 10px;">LIVE</span>
+            </a>
+        </div>
+
+        {% endif %}
+        {% endif %}
+
+        <div class="side-nav-menu-heading">Operations</div>
+
+
+
+
+        <!-- INVENTORY Module -->
+        <div class="dropdown module-dropdown" data-module="Inventory" onclick="toggleDropdown(event)">
+            <a href="#"><i class="fas fa-cubes sb-nav-link-icon"></i> Inventory <i class="fas fa-caret-down"></i></a>
+            <div class="dropdown-content">
+
+
+                <!-- Stock Movements -->
+                <a href="{{ url_for('inventory.inventory_entry', movement_type='in') }}">
+                    <i class="fas fa-dolly sb-nav-link-icon"></i> Receive Stock
+                </a>
+                <a href="{{ url_for('inventory.inventory_entry', movement_type='stock_out_sale') }}">
+                    <i class="fas fa-truck sb-nav-link-icon"></i> Dispatch Stock
+                </a>
+                <a href="{{ url_for('inventory.inventory_entry', movement_type='transfer') }}">
+                    <i class="fas fa-arrows-alt sb-nav-link-icon"></i> Transfer Stock
+                </a>
+                <div class="divider"></div>
+
+
+                <!-- Adjustments -->
+                <a href="{{ url_for('inventory.inventory_entry', movement_type='stock_out_write_off') }}">
+                    <i class="fas fa-trash-alt sb-nav-link-icon"></i> Write Off Stock
+                </a>
+                <a href="{{ url_for('inventory.inventory_entry', movement_type='missing') }}">
+                    <i class="fas fa-question-circle sb-nav-link-icon"></i> Missing Stock
+                </a>
+                <a href="{{ url_for('inventory.inventory_entry', movement_type='damaged') }}">
+                    <i class="fas fa-broken sb-nav-link-icon"></i> Damaged Stock
+                </a>
+                <div class="divider"></div>
+
+                <a href="{{ url_for('inventory.inventory_entry', movement_type='adjustment') }}">
+                    <i class="fas fa-sliders-h sb-nav-link-icon"></i> Stock Adjustment
+                </a>
+                <a href="{{ url_for('inventory.inventory_entry', movement_type='opening_balance') }}">
+                    <i class="fas fa-chart-line sb-nav-link-icon"></i> Opening Balance
+                </a>
+                <div class="divider"></div>
+
+            </div>
+        </div>
+
+        <!-- ASSETS Module -->
+        <div class="dropdown module-dropdown" data-module="Assets" onclick="toggleDropdown(event)">
+            <a href="#"><i class="fas fa-laptop sb-nav-link-icon"></i> Assets <i class="fas fa-caret-down"></i></a>
+            <div class="dropdown-content">
+
+
+                <!-- Receiving Assets -->
+                <a href="{{ url_for('assets.asset_entry', movement_type='acquisition') }}">
+                    <i class="fas fa-dolly sb-nav-link-icon"></i> Receive Assets
+                </a>
+
+
+                <!-- Giving Out Assets -->
+                <a href="{{ url_for('assets.asset_entry', movement_type='sale') }}">
+                    <i class="fas fa-truck sb-nav-link-icon"></i> Dispatch Assets
+                </a>
+
+                <a href="{{ url_for('assets.asset_entry', movement_type='disposal') }}">
+                    <i class="fas fa-trash-alt sb-nav-link-icon"></i> Dispose Assets
+                </a>
+                <div class="divider"></div>
+
+                <!-- Internal Movements -->
+                <a href="{{ url_for('assets.asset_entry', movement_type='transfer') }}">
+                    <i class="fas fa-arrows-alt sb-nav-link-icon"></i> Transfer Assets
+                </a>
+                <a href="{{ url_for('assets.asset_entry', movement_type='assignment') }}">
+                    <i class="fas fa-user-check sb-nav-link-icon"></i> Assign to Staff
+                </a>
+                <a href="{{ url_for('assets.asset_entry', movement_type='return') }}">
+                    <i class="fas fa-undo-alt sb-nav-link-icon"></i> Return from Staff
+                </a>
+                <div class="divider"></div>
+
+                <!-- Setup -->
+                <a href="{{ url_for('assets.asset_entry', movement_type='opening_balance') }}">
+                    <i class="fas fa-chart-line sb-nav-link-icon"></i> Opening Balance
+                </a>
+            </div>
+        </div>
+
+        <div class="side-nav-menu-heading">Reports</div>
+
+        <div class="dropdown" onclick="toggleDropdown(event)">
+            <a href="#"><i class="fas fa-chart-bar sb-nav-link-icon"></i> Reports <i class="fas fa-caret-down"></i></a>
+            <div class="dropdown-content">
+
+                <!-- INVENTORY REPORTS -->
+                <div style="padding: 8px 20px 4px; font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 1px;">
+                    <i class="fas fa-boxes"></i> INVENTORY REPORTS
+                </div>
+                <a href="{{ url_for('inventory.stock_list_list') }}">
+                    <i class="fas fa-box-open sb-nav-link-icon"></i> Stock Levels
+                </a>
+                <a href="{{ url_for('inventory.inventory_items') }}">
+                    <i class="fas fa-list sb-nav-link-icon"></i> Items List
+                </a>
+                <a href="{{ url_for('inventory.stock_movement_history') }}">
+                    <i class="fas fa-history sb-nav-link-icon"></i> Stock Movement History
+                </a>
+
+                <a href="{{ url_for('sales.sales_by_item_page') }}">
+                    <i class="fas fa-chart-line sb-nav-link-icon"></i> Stock Dispatch by Item
+                </a>
+                <a href="{{ url_for('purchases.purchases_by_item_page') }}">
+                    <i class="fas fa-chart-line sb-nav-link-icon"></i> Stock Receipt by Item
+                </a>
+                <div class="divider"></div>
+
+                <!-- ASSET REPORTS -->
+                <div style="padding: 8px 20px 4px; font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 1px;">
+                    <i class="fas fa-laptop"></i> ASSET REPORTS
+                </div>
+                <a href="{{ url_for('assets.asset_list') }}">
+                    <i class="fas fa-list sb-nav-link-icon"></i> Asset List
+                </a>
+                <a href="{{ url_for('assets.movement_history') }}">
+                    <i class="fas fa-history sb-nav-link-icon"></i> Asset History
+                </a>
+                <a href="{{ url_for('assets.asset_types') }}">
+                    <i class="fas fa-tags sb-nav-link-icon"></i> Asset Types
+                </a>
+
+            </div>
+        </div>
+
+        {% if role == 'Admin'%}
+
+        <div class="side-nav-menu-heading">Setup</div>
+
+        <div class="dropdown" onclick="toggleDropdown(event)">
+            <a href="#"><i class="fas fa-cog sb-nav-link-icon"></i> Configuration <i class="fas fa-caret-down"></i></a>
+            <div class="dropdown-content">
+
+                <!-- Stock Setup -->
+                <div style="padding: 8px 20px 4px; font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 1px;">
+                    <i class="fas fa-boxes"></i> STOCK SETUP
+                </div>
+                <a href="{{ url_for('inventory.add_new_inventory_item') }}">
+                    <i class="fas fa-plus-circle sb-nav-link-icon"></i> Add New Item
+                </a>
+
+                <a href="{{ url_for('inventory.manage_attributes_variations') }}">
+                    <i class="fas fa-tags sb-nav-link-icon"></i> Stock Variations
+                </a>
+
+
+                <a href="{{ url_for('inventory.manage_uoms') }}">
+                    <i class="fas fa-balance-scale sb-nav-link-icon"></i> Units of Measure
+                </a>
+
+
+                <div class="divider"></div>
+
+                <!-- Shared Setup -->
+                <div style="padding: 8px 20px 4px; font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 1px;">
+                    <i class="fas fa-share-alt"></i> SHARED SETUP
+                </div>
+                <a href="{{ url_for('inventory.manage_inventory_locations') }}">
+                    <i class="fas fa-map-marker-alt sb-nav-link-icon"></i> Locations
+                </a>
+                <a href="{{ url_for('inventory.manage_brands') }}">
+                    <i class="fas fa-copyright sb-nav-link-icon"></i> Brands
+                </a>
+                <a href="{{ url_for('inventory.manage_categories_subcategories') }}">
+                    <i class="fas fa-layer-group sb-nav-link-icon"></i> Categories
+                </a>
+                <div class="divider"></div>
+
+                <!-- Asset Setup -->
+                <div style="padding: 8px 20px 4px; font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 1px;">
+                    <i class="fas fa-laptop"></i> ASSET SETUP
+                </div>
+
+                <a href="{{ url_for('assets.add_new_asset_type') }}">
+                    <i class="fas fa-plus-circle sb-nav-link-icon"></i> Add Asset Type
+                </a>
+                <div class="divider"></div>
+
+                <!-- Parties -->
+                <div style="padding: 8px 20px 4px; font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 1px;">
+                    <i class="fas fa-users"></i> PARTIES
+                </div>
+                <a href="{{ url_for('general_ledger.add_vendor_form') }}">
+                    <i class="fas fa-user-friends sb-nav-link-icon"></i> Senders / Receivers
+                </a>
+                <div class="divider"></div>
+
+                <!-- Organization -->
+                <div style="padding: 8px 20px 4px; font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 1px;">
+                    <i class="fas fa-building"></i> ORGANIZATION
+                </div>
+                <a href="{{ url_for('payroll.add_employee') }}">
+                    <i class="fas fa-user-plus sb-nav-link-icon"></i> Employees / Staff
+                </a>
+                <a href="{{ url_for('manage_projects') }}">
+                    <i class="fas fa-project-diagram sb-nav-link-icon"></i> Projects
+                </a>
+                <div class="divider"></div>
+
+                <!-- System -->
+                <div style="padding: 8px 20px 4px; font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 1px;">
+                    <i class="fas fa-user-shield"></i> SYSTEM
+                </div>
+                <a href="{{ url_for('settings') }}">
+                    <i class="fas fa-sliders-h sb-nav-link-icon"></i> System Settings
+                </a>
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <a href="{{ url_for('activity_logs') }}">
+                    <i class="fas fa-history sb-nav-link-icon"></i> Activity Logs
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        {% endif %}
+
+
+
+
+        <div class="sidebar-footer">
+            <div class="app-version">SPOC WMS v1.0.1</div>
+        </div>
+
+    </div>
+
+    <div id="module-name" data-module="{{ module_name }}" hidden></div>
+
+    <!-- Scroll to Bottom Icon -->
+    <div id="scrollToBottom" class="scroll-icon">
+        <i class="fas fa-arrow-circle-down"></i>
+    </div>
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+
+
+
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="alerts-container">
+
+
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" role="alert">
+                <span class="alert-icon">
+                    {% if category == 'success' %}
+                    <i class="fas fa-check-circle"></i>
+                    {% elif category == 'error' %}
+                    <i class="fas fa-times-circle"></i>
+                    {% elif category == 'error' %}
+                    <i class="fas fa-times-circle"></i>
+                    {% elif category == 'warning' %}
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {% elif category == 'info' %}
+                    <i class="fas fa-info-circle"></i>
+                    {% endif %}
+                </span>
+                {{ message }}
+                <button class="close-btn" onclick="this.parentElement.style.display='none';">&times;</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+
+
+        {% block content %}{% endblock %}
+
+
+
+    </div>
+
+
+
+
+    <!-- Footer -->
+    <footer>
+        <p class="left">Logged in as: {{role}}</p>
+        <p class="right">&copy; 2025 NetBooks Suite. All rights reserved.</p>
+    </footer>
+
+
+
+    <!-- Modal HTML (hidden by Base) -->
+    <div class="modal fade" id="autoGenerateModal" tabindex="-1" aria-labelledby="autoGenerateModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document"> <!-- Increased size to modal-xl -->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="autoGenerateModalLabel">Smart Setup: Chart of Accounts</h5>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p class="lead">
+                        🚀 Let’s get your accounting up and running in seconds! You don’t have a Chart of Accounts
+                        yet —
+                        we can auto-generate one tailored to your industry. It’s fast, easy, and fully customizable.
+                    </p>
+                    <form method="POST" action="{{ url_for('auto_generate_chart_of_accounts') }}" id="autoGenerateForm">
+                        <div class="form-group mb-4">
+                            <label for="industry" class="form-label fw-bold">Choose Your Industry:</label>
+                            <select name="industry" id="industry" class="form-select" required>
+                                <option value="" disabled selected>-- Select an Industry --</option>
+                                <!-- Options will be dynamically added via AJAX -->
+                            </select>
+                            <small class="form-text text-muted">
+                                We’ll generate a professional Chart of Accounts based on your selection.
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="accounts_to_keep" class="form-label fw-bold">Customize Your
+                                Accounts:</label>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>
+                                                <input type="checkbox" id="select_all" class="form-check-input">
+                                            </th>
+                                            <th>Account Type</th>
+                                            <th>Category</th>
+                                            <th>Subcategory</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="accounts_table_body">
+                                        <!-- Rows will be dynamically added here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <small class="form-text text-muted">
+                                You can review and choose which accounts to include. All selected accounts will be
+                                added
+                                automatically.
+                            </small>
+                        </div>
+
+                        <div class="form-check mb-4">
+                            <input type="checkbox" class="form-check-input" id="do_not_show_again"
+                                name="do_not_show_again">
+                            <label class="form-check-label" for="do_not_show_again">
+                                Don’t show this setup guide again
+                            </label>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="button cta-button">Generate My Chart of Accounts</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Modal -->
+    <div class="modal fade" id="notification-modal" tabindex="-1" aria-labelledby="notification-modalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Notifications</h5>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close"><i
+                            class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <!-- Loading Spinner -->
+                    <div id="notification-loading" class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+
+                    <!-- Notification List -->
+
+                    <ul id="notification-list" class="notification-list">
+                        <!-- Grouped notifications will be inserted here -->
+                    </ul>
+
+                </div>
+                <div class="modal-footer">
+                    <button class="button remove-button" data-bs-dismiss="modal">Close</button>
+                    <button class="button success" onclick="markAllRead()">Mark All as Read</button>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+
+
+    <script>
+        // When making an AJAX request
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+
+
+
+
+        document.addEventListener('DOMContentLoaded', function () {
+
+
+
+
+
+            const industryDropdown = document.getElementById('industry');
+            const accountsTableBody = document.getElementById('accounts_table_body');
+            const selectAllCheckbox = document.getElementById('select_all');
+            const doNotShowAgainCheckbox = document.getElementById('do_not_show_again');
+            const autoGenerateForm = document.getElementById('autoGenerateForm');
+
+            // Function to update the "Do Not Show Again" preference in the database
+            function updateDoNotShowAgainPreference(doNotShowAgain) {
+                fetch('/update_do_not_show_again', {
+                    method: 'POST',
+                    headers: {
+                        "Content-Type": "application/json",
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        preference_type: 'auto_generate_chart_of_accounts',
+                        do_not_show_again: doNotShowAgain
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            console.log('Do Not Show Again preference updated successfully.');
+                        } else {
+                            console.error('Failed to update preference:', data.error);
+                        }
+                    })
+                    .catch(error => console.error('Error updating preference:', error));
+            }
+
+            // Handle "Do Not Show Again" checkbox change
+            doNotShowAgainCheckbox.addEventListener('change', function () {
+                const doNotShowAgain = this.checked;
+                updateDoNotShowAgainPreference(doNotShowAgain);
+            });
+
+            // Fetch industries from the backend
+            function fetchIndustries() {
+                fetch('/get_industries')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            console.error('Error fetching industries:', data.error);
+                            return;
+                        }
+                        data.industries.forEach(industry => {
+                            const option = document.createElement('option');
+                            option.value = industry.id;
+                            option.textContent = industry.name;
+                            industryDropdown.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error('Error fetching industries:', error));
+            }
+
+            // Fetch accounts for the selected industry
+            function fetchAccountsForIndustry(industryId) {
+                accountsTableBody.innerHTML = ''; // Clear previous accounts
+                allAccounts = []; // Reset stored accounts
+
+                fetch(`/get_accounts_for_industry?industry=${industryId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert(data.error);
+                            return;
+                        }
+
+                        data.accounts.forEach(account => {
+                            allAccounts.push(account); // Store the full account data if needed later
+
+                            const row = document.createElement('tr');
+
+                            // Create a checkbox for selecting the account
+                            const checkboxCell = document.createElement('td');
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.name = 'accounts_to_keep';
+                            // Store the complete account object as JSON in the checkbox value
+                            checkbox.value = JSON.stringify(account);
+                            checkbox.classList.add('form-check-input', 'account-checkbox');
+                            checkboxCell.appendChild(checkbox);
+                            row.appendChild(checkboxCell);
+
+                            // Populate table cells with account details
+                            const accountTypeCell = document.createElement('td');
+                            accountTypeCell.textContent = account.account_type;
+                            row.appendChild(accountTypeCell);
+
+                            const accountCategoryCell = document.createElement('td');
+                            accountCategoryCell.textContent = account.category;
+                            row.appendChild(accountCategoryCell);
+
+                            const accountSubcategoryCell = document.createElement('td');
+                            accountSubcategoryCell.textContent = account.sub_category;
+                            row.appendChild(accountSubcategoryCell);
+
+                            // Append the row to the table body
+                            accountsTableBody.appendChild(row);
+                            console.log('All account data stored:', allAccounts);
+                        });
+                    })
+                    .catch(error => console.error('Error fetching accounts:', error));
+            }
+
+
+            // Handle industry dropdown change
+            industryDropdown.addEventListener('change', function () {
+                const selectedIndustry = this.value;
+                if (selectedIndustry) {
+                    fetchAccountsForIndustry(selectedIndustry);
+                }
+            });
+
+
+
+
+            // Handle "Select All" checkbox functionality
+            document.getElementById('select_all').addEventListener('change', function () {
+                const checkboxes = document.querySelectorAll('.account-checkbox');
+                checkboxes.forEach(checkbox => checkbox.checked = this.checked);
+            });
+
+
+            // Handle form submission to get selected accounts
+            document.getElementById('autoGenerateForm').addEventListener('submit', function (event) {
+                event.preventDefault(); // Prevent default form submission
+
+                const formData = new FormData(this); // Create FormData object from the form
+
+                // Get the selected industry
+                const industrySelect = document.getElementById('industry');
+                const selectedIndustry = industrySelect.value;
+
+                if (!selectedIndustry) {
+                    alert('Please select an industry.');
+                    return;
+                }
+
+                // Append the selected industry to the form data
+                formData.append('industry', selectedIndustry);
+
+                const selectedAccounts = [];
+                document.querySelectorAll('.account-checkbox:checked').forEach(checkbox => {
+                    const account = JSON.parse(checkbox.value); // Parse the selected account data
+                    selectedAccounts.push(account);
+                });
+
+                // Append selected accounts to the form data
+                formData.append('accounts', JSON.stringify(selectedAccounts));
+
+                console.log(selectedAccounts);
+
+                // Send selected accounts to the server
+                fetch(autoGenerateForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken // Include the CSRF token in the headers
+                    },
+                    body: formData // Send FormData directly
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Server response:', data);
+                        // Handle the response, maybe close the modal or show a success message
+                        alert('Accounts successfully processed.');
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert(`An error: ${error} occurred while processing your request.`);
+                    });
+            });
+
+            document.getElementById('scrollToBottom').addEventListener('click', function () {
+                window.scrollTo({
+                    top: document.body.scrollHeight,
+                    behavior: 'smooth'
+                });
+            });
+
+
+            // Initialize
+
+
+            fetchNotifications();
+        });
+
+
+
+        // Function to toggle sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+
+
+            if (window.innerWidth > 768) {
+                console.log('Window width is greater than 768px. Toggling sidebar visibility and main content expansion.');
+
+                sidebar.classList.toggle('hidden');
+                mainContent.classList.toggle('expanded');
+
+            } else {
+
+                sidebar.classList.toggle('active');
+
+                console.log('Sidebar active state:', sidebar.classList.contains('active'));
+            }
+
+            // Save the sidebar state to localStorage
+            const isSidebarHidden = sidebar.classList.contains('hidden');
+            localStorage.setItem('sidebarState', isSidebarHidden ? 'hidden' : 'visible');
+
+            console.log('Sidebar state saved to localStorage:', isSidebarHidden ? 'hidden' : 'visible');
+        }
+
+        // Check if the device is a touch device
+        function isTouchDevice() {
+            return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        }
+
+        // Show submenu on hover (for non-touch devices)
+        function showSubMenu(event) {
+            if (!isTouchDevice()) {
+                const majorMenuItem = event.currentTarget;
+                majorMenuItem.classList.add('active');
+
+                const subMenu = majorMenuItem.querySelector('.sub-menu');
+                subMenu.style.display = 'block';
+            }
+        }
+
+        function hideSubMenu(event) {
+            if (!isTouchDevice()) {
+                const majorMenuItem = event.currentTarget;
+                majorMenuItem.classList.remove('active');
+
+                const subMenu = majorMenuItem.querySelector('.sub-menu');
+                subMenu.style.display = 'none';
+            }
+        }
+
+        // Toggle submenu on click (for touch devices)
+        // Toggle submenu on click (touch devices)
+        function toggleSubMenu(event) {
+            if (isTouchDevice()) {
+                const target = event.target;
+                const majorMenuItem = event.currentTarget;
+                const subMenu = majorMenuItem.querySelector('.sub-menu');
+
+                // Check if the click is on the submenu item itself
+                if (target.classList.contains('sub-menu') || target.closest('.sub-menu')) {
+                    return; // Allow the default action for submenu items
+                }
+
+                event.preventDefault();
+                event.stopPropagation(); // Stop the event from propagating to the parent dropdown
+
+                const isVisible = subMenu.style.display === 'block';
+
+                // Close all other submenus
+                document.querySelectorAll('.major-menu-item .sub-menu').forEach(menu => {
+                    menu.style.display = 'none';
+                });
+
+                // Toggle the clicked one
+                subMenu.style.display = isVisible ? 'none' : 'block';
+            }
+        }
+
+
+        // Close all submenus when clicking outside
+        function closeAllSubMenus(event) {
+            if (!event.target.closest('.major-menu-item')) {
+                document.querySelectorAll('.sub-menu').forEach(sub => {
+                    sub.style.display = 'none';
+                });
+            }
+        }
+
+        // Prevent submenu toggle when clicking inside the submenu itself
+        document.querySelectorAll('.sub-menu').forEach(subMenu => {
+            subMenu.addEventListener('click', function (event) {
+                event.stopPropagation();
+            });
+        });
+
+        // Prevent parent dropdown toggle when clicking inside dropdown-content or sub-menu
+        document.querySelectorAll('.dropdown-content').forEach(menu => {
+            menu.addEventListener('click', function (event) {
+                event.stopPropagation();
+                // Temporarily stop propagation for 2 seconds
+                menu.classList.add('stop-propagation');
+                setTimeout(() => {
+                    menu.classList.remove('stop-propagation');
+                }, 2000);
+            });
+        });
+
+        // Prevent double clicks on dropdowns (disable for 500ms after click and change cursor)
+        document.querySelectorAll('.dropdown, .module-dropdown').forEach(dropdown => {
+            dropdown.addEventListener('click', function (event) {
+                if (dropdown.classList.contains('dropdown-disabled')) {
+                    event.stopPropagation();
+                    event.preventDefault();
+                    return false;
+                }
+                dropdown.classList.add('dropdown-disabled');
+                dropdown.style.cursor = 'not-allowed';
+                setTimeout(() => {
+                    dropdown.classList.remove('dropdown-disabled');
+                    dropdown.style.cursor = '';
+                }, 0);
+            }, false);
+        });
+
+
+        // Function to restore sidebar state from localStorage
+        function restoreSidebarState() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const sidebarState = localStorage.getItem('sidebarState');
+
+            if (sidebarState === 'hidden') {
+                sidebar.classList.add('hidden');
+                mainContent.classList.add('expanded');
+            } else {
+                sidebar.classList.remove('hidden');
+                mainContent.classList.remove('expanded');
+            }
+        }
+
+        // Restore sidebar state on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            restoreSidebarState();
+        });
+
+        function toggleUserDropdown(event) {
+            event.stopPropagation();
+            const userDropdown = event.currentTarget;
+            userDropdown.classList.toggle('active');
+        }
+
+
+        // Leaving the menu in its current state
+        // ----------------------------------
+        function submenuItemClicked(event) {
+            event.stopPropagation(); // Prevent event from bubbling up
+            clearOtherModules(); // Clear dropdown states of all other modules
+        }
+
+        function toggleDropdown(event) {
+
+
+
+
+            event.stopPropagation();
+
+            const dropdown = event.currentTarget;
+            dropdown.classList.toggle('active'); // Toggle the clicked dropdown's state
+            const isExpanded = dropdown.getAttribute('aria-expanded') === 'true';
+            dropdown.setAttribute('aria-expanded', !isExpanded);
+
+
+            const moduleElement = document.getElementById('module-name');
+            const currentModule = moduleElement ? moduleElement.getAttribute('data-module') : null;
+
+            if (!currentModule) {
+                console.warn("Module name not found! Skipping state save.");
+                return;
+            }
+
+            const dropdownTitleElement = dropdown.querySelector('a');
+            const dropdownTitle = dropdownTitleElement ? dropdownTitleElement.textContent.trim() : "Unknown";
+
+            let dropdownState = JSON.parse(localStorage.getItem('dropdownState')) || {};
+
+            if (!dropdownState[currentModule]) {
+                dropdownState[currentModule] = {};
+            }
+
+            // Save or remove state based on toggling
+            dropdownState[currentModule][dropdownTitle] = dropdown.classList.contains('active');
+
+            localStorage.setItem('dropdownState', JSON.stringify(dropdownState));
+        }
+
+        function restoreDropdownState() {
+            const dropdowns = document.querySelectorAll('.module-dropdown');
+            const moduleElement = document.getElementById('module-name');
+            const currentModule = moduleElement ? moduleElement.getAttribute('data-module') : null;
+
+            let dropdownState = JSON.parse(localStorage.getItem('dropdownState')) || {};
+
+            dropdowns.forEach(dropdown => {
+                const dropdownTitleElement = dropdown.querySelector('a');
+                const dropdownTitle = dropdownTitleElement ? dropdownTitleElement.textContent.trim() : "Unknown";
+
+                if (dropdownState[currentModule] && dropdownState[currentModule][dropdownTitle]) {
+                    dropdown.classList.add('active');
+                } else {
+                    dropdown.classList.remove('active');
+                }
+            });
+        }
+
+        function clearOtherModules() {
+            const moduleElement = document.getElementById('module-name');
+            const currentModule = moduleElement ? moduleElement.getAttribute('data-module') : null;
+
+            let dropdownState = JSON.parse(localStorage.getItem('dropdownState')) || {};
+
+            Object.keys(dropdownState).forEach(module => {
+                if (module !== currentModule) {
+                    delete dropdownState[module]; // Remove states for other modules
+                }
+            });
+
+            localStorage.setItem('dropdownState', JSON.stringify(dropdownState));
+
+            // Collapse all dropdowns except for the current module
+            document.querySelectorAll('.module-dropdown').forEach(dropdown => {
+                dropdown.classList.remove('active');
+            });
+
+            restoreDropdownState(); // Reapply state for the current module
+        }
+
+
+
+
+
+        // Function to toggle between Base and primary themes
+        function toggleTheme() {
+            const body = document.body;
+            const themeStatus = document.getElementById('theme-status');
+            const toggleSwitch = document.getElementById('theme-toggle');
+
+            // Toggle the 'primary-theme' class on the <body> element
+            body.classList.toggle('primary-theme');
+
+            // Update the theme status text based on the toggle state
+            if (toggleSwitch.checked) {
+                themeStatus.textContent = 'Bold Theme'; // Set text to Dark Theme
+                localStorage.setItem('theme', 'primary'); // Save primary theme
+            } else {
+                themeStatus.textContent = 'Base Theme'; // Set text to Light Theme
+                localStorage.setItem('theme', 'Base'); // Save Base theme
+            }
+        }
+
+        // Check for saved theme preference in localStorage
+        document.addEventListener('DOMContentLoaded', function () {
+            const savedTheme = localStorage.getItem('theme');
+            const toggleSwitch = document.getElementById('theme-toggle');
+            const themeStatus = document.getElementById('theme-status');
+            const body = document.body;
+
+            // Initially, hide the body until the theme is applied
+            body.style.visibility = 'hidden';
+
+            // Disable transitions temporarily for a smooth transition after applying the theme
+            body.style.transition = 'none';
+
+            // Apply the theme based on saved preference
+            if (savedTheme === 'primary') {
+                body.classList.add('primary-theme');
+                toggleSwitch.checked = true; // Check the toggle switch
+                themeStatus.textContent = 'Bold Theme'; // Set text to Dark Theme
+            } else {
+                body.classList.remove('primary-theme');
+                toggleSwitch.checked = false; // Uncheck the toggle switch
+                themeStatus.textContent = 'Base Theme'; // Set text to Light Theme
+            }
+
+            // Make the body content visible after the theme is applied
+            setTimeout(() => {
+                body.style.transition = ''; // Re-enable transitions
+                body.style.visibility = 'visible'; // Show the body after the theme is applied
+            }, 50); // Short delay to ensure theme is applied before visibility is changed
+        });
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function (event) {
+            const dropdowns = document.querySelectorAll('.dropdown, .user-dropdown, .shortcut-dropdown');
+            dropdowns.forEach(dropdown => {
+                if (!dropdown.contains(event.target)) {
+                    dropdown.classList.remove('active');
+                }
+            });
+        });
+
+        // Automatically hide alerts after 2 seconds
+        setTimeout(function () {
+            const alerts = document.querySelectorAll('.alerts-container .alert');
+            alerts.forEach(alert => {
+                alert.style.display = 'none'; // Hide the alert
+            });
+        }, 5000); // 4000 milliseconds = 2 seconds
+
+
+
+
+        // Get the element with id="BaseOpen" and click on it This section is for tabs paginated
+        // document.getElementById("BaseOpen").click();
+
+
+        // Initialize all Select2 fields
+        $('select.select2-custom').select2({
+            placeholder: '--Select--', // Generic placeholder
+            allowClear: true, // Allow clearing the selection
+        });
+
+        // Handle "Add New" option for all Select2 fields
+        $('select.select2-custom').on('change', function () {
+            const selectedValue = $(this).val();
+            if (selectedValue === 'add_new_option') {
+                const fieldName = $(this).attr('name'); // Get the field name (e.g., department_id)
+                showAddNewModal(fieldName); // Show the appropriate modal
+                $(this).val('').trigger('change'); // Reset Select2
+            }
+        });
+
+
+
+        // Open Notification Modal
+        // Open modal when notification icon is clicked
+        document.getElementById('notification-icon').addEventListener('click', function (event) {
+            event.preventDefault(); // Prevent the default link behavior
+            $('#notification-modal').modal('show'); // Show the modal using jQuery
+        });
+
+
+        // Close Notification Modal
+        function closeNotificationModal() {
+            document.getElementById("notification-modal").style.display = "none";
+        }
+
+        // Fetch Notifications (AJAX Call)
+        // Fetch Notifications (AJAX Call)
+        // Get notification icon based on type
+        function getNotificationIcon(type) {
+            switch (type) {
+                case 'info':
+                    return 'fa-info-circle';
+                case 'warning':
+                    return 'fa-exclamation-triangle';
+                case 'error':
+                    return 'fa-times-circle';
+                case 'success':
+                    return 'fa-check-circle';
+                default:
+                    return 'fa-bell';
+            }
+        }
+
+
+        // Fetch Notifications (AJAX Call)
+        function fetchNotifications() {
+            console.log("Fetching notifications...");
+            document.getElementById('notification-loading').style.display = 'block';
+
+            fetch("/notifications")
+                .then(response => {
+                    if (!response.ok) {
+                        console.error('Network response was not ok:', response);
+                        throw new Error('Network response was not ok');
+                    }
+                    console.log("Network response was successful");
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Notifications data received:", data);
+
+                    const notificationList = document.getElementById("notification-list");
+                    notificationList.innerHTML = ""; // Clear previous notifications
+
+                    if (data.notifications.length === 0) {
+                        notificationList.innerHTML = '<li class="text-muted">No new notifications</li>';
+                        document.getElementById("notification-count").innerText = "0";
+                        document.getElementById("notification-bell").style.display = "none";
+                        return;
+                    }
+
+                    // Group notifications by type
+                    const groupedNotifications = {
+                        info: [],
+                        warning: [],
+                        error: [],
+                        success: []
+                    };
+
+                    data.notifications.forEach(notification => {
+                        groupedNotifications[notification.type.toLowerCase()].push(notification);
+                    });
+
+                    // Function to create notification category section
+                    function createNotificationCategory(category, notifications) {
+                        if (notifications.length === 0) return ''; // Skip empty categories
+
+                        let categoryHeader = `<h6 class="notification-category ${category}">${category.toUpperCase()}</h6>`;
+                        let categoryItems = notifications.map(notification => `
+          <li class="notification-item ${notification.status}">
+            <i class="fas ${getNotificationIcon(notification.type)} notification-icon"></i>
+            <div class="notification-content">
+              <p>${notification.message}</p>
+              <small>${notification.created_at}</small>
+            </div>
+            <div class="notification-actions">
+              <a href="${notification.url || '#'}" onclick="markAsRead(event, ${notification.id}, '${notification.url || '#'}')">
+                ${notification.url ? "See Details" : "Mark as Read"}
+              </a>
+            </div>
+          </li>
+        `).join('');
+
+                        return categoryHeader + categoryItems;
+                    }
+
+                    // Append grouped notifications to the list
+                    notificationList.innerHTML =
+                        createNotificationCategory("info", groupedNotifications.info) +
+                        createNotificationCategory("warning", groupedNotifications.warning) +
+                        createNotificationCategory("error", groupedNotifications.error) +
+                        createNotificationCategory("success", groupedNotifications.success);
+
+                    // Update notification count
+                    document.getElementById("notification-count").innerText = data.metadata.unread_count;
+                    document.getElementById("notification-bell").style.display = data.metadata.unread_count > 0 ? "block" : "none";
+                })
+                .catch(error => {
+                    console.error('Error fetching notifications:', error);
+                    document.getElementById("notification-list").innerHTML = '<li class="text-muted">Error loading notifications</li>';
+                })
+                .finally(() => {
+                    document.getElementById('notification-loading').style.display = 'none';
+                });
+        }
+
+        // Mark a single notification as read
+        // Mark a single notification as read
+        function markAsRead(event, notificationId, url) {
+            event.preventDefault();
+
+
+            fetch(`/notifications/read/${notificationId}`, {
+                method: "PUT",
+                headers: {
+                    'Content-Type': 'application/json', // Ensure the request is in JSON format
+                    'X-CSRFToken': csrfToken           // Add CSRF token to the header
+                }
+            })
+                .then(response => response.json())
+                .then(() => {
+                    fetchNotifications();
+                    setTimeout(() => {
+                        window.location.href = url;
+                    }, 500); // Delay navigation by 500ms
+                })
+                .catch(error => {
+                    console.error('Error marking notification as read:', error);
+                });
+        }
+
+
+        // Mark all notifications as read
+        function markAllRead() {
+            fetch("/notifications")
+
+                .then(response => response.json())
+                .then(data => {
+                    const unreadIds = data.notifications
+                        .filter(notification => notification.status === "unread")
+                        .map(notification => notification.id);
+
+                    if (unreadIds.length === 0) {
+                        console.log("No unread notifications to mark as read.");
+                        return;
+                    }
+
+                    fetch("/notifications/read", {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json",
+                            'X-CSRFToken': csrfToken
+                        },
+
+                        body: JSON.stringify({ ids: unreadIds })
+                    })
+                        .then(response => response.json())
+                        .then(() => fetchNotifications());
+                });
+        }
+
+
+        /**
+         * Global form submission handler for all forms in the ERP
+         */
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', function () {
+            // Handle ALL form submissions
+            document.addEventListener('submit', function (e) {
+                const form = e.target;
+                disableSubmitButtons(form);
+            });
+
+            // For AJAX forms: Re-enable buttons after completion
+            document.addEventListener('ajax:complete', function () {
+                enableAllSubmitButtons();
+            });
+        });
+
+
+
+
+
+
+        // Disable all submit buttons and regular buttons in a form
+        function disableSubmitButtons(form) {
+            const buttons = form.querySelectorAll(`
+                button[type="submit"],
+                button[type="button"],
+                input[type="submit"],
+                input[type="image"],
+                button:not([type])
+            `);
+
+            buttons.forEach(btn => {
+                // Skip this button if it has the skip attribute
+                if (btn.dataset.skipDisable === "true") return;
+
+                btn.disabled = true;
+
+                // Store original state
+                if (!btn.dataset.originalHtml) {
+                    btn.dataset.originalHtml = btn.innerHTML;
+                }
+
+                // Add visual feedback
+                btn.classList.add('is-submitting');
+
+                // Add spinner for buttons (but preserve any existing icons)
+                if (btn.tagName === 'BUTTON') {
+                    // Check if button already has a spinner to avoid duplicates
+                    if (!btn.querySelector('.button-spinner')) {
+                        btn.innerHTML = `
+                    <span class="button-spinner">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                    ${btn.dataset.originalHtml}
+                `;
+                    }
+                }
+            });
+        }
+
+        // Corresponding enable function
+        function enableAllSubmitButtons() {
+            document.querySelectorAll(`
+        button[type="submit"].is-submitting,
+        button[type="button"].is-submitting,
+        input[type="submit"].is-submitting,
+        input[type="image"].is-submitting,
+        button.is-submitting:not([type])
+    `).forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('is-submitting');
+                if (btn.dataset.originalHtml) {
+                    btn.innerHTML = btn.dataset.originalHtml;
+                }
+            });
+        }
+
+
+        // Enhanced version with timeout protection
+        function disableSubmitButtonsWithTimeout(form, timeoutMs = 30000) {
+            disableSubmitButtons(form);
+
+            // Set a timeout to re-enable buttons after specified time (safety net)
+            if (window.submissionTimeout) {
+                clearTimeout(window.submissionTimeout);
+            }
+
+            window.submissionTimeout = setTimeout(() => {
+                enableAllSubmitButtons();
+                showNotification('Submission timeout. Buttons have been re-enabled.', 'warning');
+            }, timeoutMs);
+        }
+
+
+
+        // Function to convert UTC dates to local time
+        function convertAuditTimes() {
+            // Convert created dates
+            const createdSpans = document.querySelectorAll('.audit-created-at');
+            createdSpans.forEach(span => {
+                const utcDate = span.getAttribute('data-utc');
+                if (utcDate) {
+                    const date = new Date(utcDate + ' UTC');
+                    span.textContent = date.toLocaleString();
+                }
+            });
+
+            // Convert updated dates
+            const updatedSpans = document.querySelectorAll('.audit-updated-at');
+            updatedSpans.forEach(span => {
+                const utcDate = span.getAttribute('data-utc');
+                if (utcDate) {
+                    const date = new Date(utcDate + ' UTC');
+                    span.textContent = date.toLocaleString();
+                }
+            });
+        }
+
+
+        // Hide tablinks and dim border after scrolling down, show when scrolling up
+        // Hide tablinks and dim border after scrolling past threshold
+        let lastScrollTop = 0;
+        const tabContainer = document.querySelector('.tab');
+        const scrollThreshold = 100; // Scroll distance before hiding
+
+        window.addEventListener('scroll', function () {
+            const tabLinks = document.querySelectorAll('.tablinks');
+            let st = window.pageYOffset || document.documentElement.scrollTop;
+
+            if (st > lastScrollTop && st > scrollThreshold) {
+                // Scrolling down past threshold -> hide
+                tabLinks.forEach(btn => {
+                    btn.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+                    btn.style.transform = 'translateY(-100%)';
+                    btn.style.opacity = '0';
+                });
+                if (tabContainer) tabContainer.style.borderColor = 'transparent';
+            } else {
+                // Scrolling up -> show
+                tabLinks.forEach(btn => {
+                    btn.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+                    btn.style.transform = 'translateY(0)';
+                    btn.style.opacity = '1';
+                });
+                if (tabContainer) tabContainer.style.borderColor = '#ddd';
+            }
+
+            lastScrollTop = st <= 0 ? 0 : st; // Prevent negative scroll
+        });
+
+
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // Setup for New button
+            const newButton = document.getElementById("qbNewBtn");
+            const newDropdown = document.getElementById("qbNewDropdown");
+            const newContainer = document.getElementById("qbSidebarNew");
+
+
+            let newIsClickOpen = false;
+
+            if (newButton && newDropdown && newContainer) {
+                function showNewDropdown() {
+                    newDropdown.classList.remove("hidden");
+                }
+                function hideNewDropdown() {
+                    newDropdown.classList.add("hidden");
+                }
+
+                newButton.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    newIsClickOpen = !newDropdown.classList.contains("hidden");
+                    if (newIsClickOpen) {
+                        hideNewDropdown();
+                        newIsClickOpen = false;
+                    } else {
+                        showNewDropdown();
+                        newIsClickOpen = true;
+                    }
+                });
+
+                document.addEventListener("click", function (e) {
+                    if (!newContainer.contains(e.target)) {
+                        hideNewDropdown();
+                        newIsClickOpen = false;
+                    }
+                });
+            }
+
+            // Setup for View button (only if present)
+            const viewButton = document.getElementById("qbViewBtn");
+            const viewDropdown = document.getElementById("qbViewDropdown");
+            const viewContainer = document.getElementById("qbSidebarView");
+            let viewIsClickOpen = false;
+
+            if (viewButton && viewDropdown && viewContainer) {
+                function showViewDropdown() {
+                    viewDropdown.classList.remove("hidden");
+                }
+                function hideViewDropdown() {
+                    viewDropdown.classList.add("hidden");
+                }
+
+                viewButton.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    viewIsClickOpen = !viewDropdown.classList.contains("hidden");
+                    if (viewIsClickOpen) {
+                        hideViewDropdown();
+                        viewIsClickOpen = false;
+                    } else {
+                        showViewDropdown();
+                        viewIsClickOpen = true;
+                    }
+                });
+
+                document.addEventListener("click", function (e) {
+                    if (!viewContainer.contains(e.target)) {
+                        hideViewDropdown();
+                        viewIsClickOpen = false;
+                    }
+                });
+            }
+
+            convertAuditTimes();
+        });
+
+
+        // Add to your existing JavaScript
+        $(document).ready(function () {
+            // Toggle balances dropdown
+            $('#qbBalancesBtn').click(function () {
+                $('#qbBalancesDropdown').toggleClass('hidden');
+                loadCashBalances();
+            });
+
+            // Close when clicking elsewhere
+            $(document).click(function (e) {
+                if (!$(e.target).closest('#qbSidebarBalances').length) {
+                    $('#qbBalancesDropdown').addClass('hidden');
+                }
+            });
+
+
+            // Helper function to get badge class based on account type
+
+            function getBadgeClass(type) {
+                const classes = {
+                    'cash': 'bg-success',
+                    'bank': 'bg-info',
+                    'receivable': 'bg-warning text-dark',
+                    'payable': 'bg-danger'
+                };
+                return classes[type] || 'bg-secondary';
+            }
+
+            function formatCurrency(amount, currency) {
+                try {
+
+                    return new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: currency // Adjust based on your base currency
+                    }).format(amount);
+
+                }
+                catch (e) {
+                    return `${currency} ${amount}`;
+                }
+            }
+
+
+
+        });
+
+        // Show All Sections functionality (toggle show/hide)
+        document.addEventListener("DOMContentLoaded", function () {
+            let showAllSectionsVisible = false;
+
+            // Hide all optional sections initially
+            document.querySelectorAll('.optional-section').forEach(section => {
+                section.style.display = 'none';
+            });
+
+            // Grab the toggle button safely
+            const showAllBtn = document.getElementById('showAllSections');
+
+            if (showAllBtn) {
+                showAllBtn.textContent = 'Show All Sections';
+
+                showAllBtn.addEventListener('click', function () {
+                    showAllSectionsVisible = !showAllSectionsVisible;
+
+                    document.querySelectorAll('.optional-section').forEach(section => {
+                        section.style.display = showAllSectionsVisible ? 'block' : 'none';
+                    });
+
+                    this.textContent = showAllSectionsVisible ? 'Hide All Sections' : 'Show All Sections';
+                });
+            }
+        });
+
+        $(document).ready(function () {
+            $('.form-select2').select2({
+                dropdownParent: $('body'), // This helps with focus issues
+                width: '100%'
+            });
+
+            // Enable automatic focus on the search input when dropdown opens
+            $('.form-select2').on('select2:open', function () {
+                // Focus on the search input immediately when dropdown opens
+                document.querySelector('.select2-container--open .select2-search__field').focus();
+            });
+        });
+
+
+
+        // ============================================
+        // SELECT2 UNIFIED INITIALIZATION SYSTEM
+        // ============================================
+
+        // Generic function to initialize Select2 for any container
+        function initSelect2(container, options = {}) {
+            const $container = $(container);
+            const defaultOptions = {
+                width: '100%',
+                allowClear: true,
+                minimumResultsForSearch: 5,
+                placeholder: 'Select an option'
+            };
+
+            const settings = { ...defaultOptions, ...options };
+
+            // Add dropdownParent if it's a modal
+            if ($container.hasClass('modal')) {
+                settings.dropdownParent = $container;
+            }
+
+            // Find all form-select2 elements in the container
+            $container.find('.form-select2').each(function () {
+                const $select = $(this);
+
+                // Skip if already initialized
+                if ($select.hasClass('select2-hidden-accessible')) {
+                    $select.select2('destroy');
+                }
+
+                $select.select2(settings);
+            });
+        }
+
+        // Initialize for modals when they open
+        $(document).on('shown.bs.modal', '.modal', function () {
+            initSelect2(this);
+        });
+
+        // Initialize for main content on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            // Initialize Select2 for main content
+            initSelect2(document.body);
+
+            // Also initialize for specific sections with IDs
+            const sections = [
+                '#purchase_order-main-content',
+                '#sales_invoice-main-content',
+                '#purchase_order_sidebar',
+                '#purchase-order-accounts-section',
+                '#lineItemsContainer'
+            ];
+
+            sections.forEach(section => {
+                const $section = $(section);
+                if ($section.length) {
+                    initSelect2($section);
+                }
+            });
+        });
+
+        // For dynamically added content (like new line items)
+        function refreshSelect2(container) {
+            if (!container) return;
+            console.log('refreshSelect2 called for container:', container);
+
+            // Check how many .form-select2 elements are in this container
+            const select2Elements = $(container).find('.form-select2');
+            console.log('Found .form-select2 elements count:', select2Elements.length);
+
+            // Log each one
+            select2Elements.each(function (index) {
+                console.log(`Element ${index}:`, this);
+            });
+
+            initSelect2(container);
+        }
+
+
+
+    </script>
+</body>
+
+</html>

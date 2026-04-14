@@ -1,0 +1,44 @@
+{% extends "payroll_lists_base.html" %}
+{% block content %}
+
+<h2>Payroll Transactions</h2>
+                    <a href="/payroll_transaction" class="btn btn-primary btn-sm" style="margin-bottom: 3px;">Add New
+                        Transaction</a>
+                    <table id="payrollTable" class="display table table-striped table-bordered" style="border-radius: 5px;">
+                        <thead>
+                        <tr>
+                            <th>Employee Name</th>
+                            <th>Payment Type</th>
+                            <th>Date of Payment</th>
+                            <th>Year</th>
+                            <th>Month</th>
+                            <th>Amount</th>
+                            <th>NSSF</th>
+                            <th>PAYE</th>
+                            <th style="width:15%;">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for entry in payroll_entries %}
+                        <tr>
+                            <td>{{ entry.payroll.employee_name }}</td>
+                            <td>{{ entry.payment_type }}</td>
+                            <td>{{ entry.date_of_payment }}</td>
+                            <td>{{ entry.year }}</td>
+                            <td>{{ entry.month }}</td>
+                            <td>{{ "{:,.2f}".format(entry.amount) }}</td>
+                            <td>{{ entry.nssf }}</td>
+                            <td>{{ entry.paye }}</td>
+                            <td>
+                                <a href="/edit_payroll_transaction/{{ entry.id }}"
+                                   class="btn btn-sm btn-warning">Edit</a>
+                                <a href="/delete_payroll_transaction/{{ entry.id }}" class="btn btn-sm btn-danger"
+                                   onclick="return confirm('Are you sure you want to delete this transaction?');">Delete</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+
+{% endblock %}
+

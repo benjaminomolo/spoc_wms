@@ -1,0 +1,654 @@
+/* Theme 1: Corporate Blue and Light Neutrals */
+.theme-corporate {
+  --primary-blue: #1d3557;
+  --light-blue: #a8dadc;
+  --neutral-gray: #f1faee;
+  --dark-gray: #2b2d42;
+  --accent-green: #4caf50;
+  --accent-yellow: #f4a261;
+}
+
+/* Theme 2: Minimalist Monochrome with Highlights */
+.theme-monochrome {
+  --primary-blue: #1a3c5b;
+  --light-blue: #f5f5f5;
+  --neutral-gray: #424242;
+  --dark-gray: #333333;
+  --accent-green: #6abf69;
+  --accent-orange: #ff6f3c;
+}
+
+/* Theme 3: Soft Purple and Gray */
+.theme-purple-gray {
+  --primary-blue: #6a4c9c;
+  --light-blue: #d1b7e0;
+  --neutral-gray: #424242;
+  --dark-gray: #333333;
+  --accent-green: #00b2b2;
+  --accent-orange: #ff6f61;
+}
+
+/* Theme 4: Earthy Green and Beige */
+.theme-earthy {
+  --primary-blue: #2d5a42;
+  --light-blue: #9e9d24;
+  --neutral-gray: #f0e5d8;
+  --dark-gray: #6f4f37;
+  --accent-green: #f8c500;
+  --accent-orange: #ff6f61;
+}
+
+/* Theme 5: Techy Blue and Bright Accents */
+.theme-techy {
+  --primary-blue: #006f9b;
+  --light-blue: #76d7c4;
+  --neutral-gray: #2d3436;
+  --dark-gray: #333333;
+  --accent-green: #a5d301;
+  --accent-red: #ff4c4c;
+}
+
+.header {
+  background-color: var(--primary-blue);
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+
+/* Headings: Adjust the size and weight for emphasis */
+h1 {
+  font-size: 24px; /* Larger font size for the main heading */
+  font-weight: 600; /* Make heading bold */
+  color: var(--primary-blue);
+}
+
+h2 {
+  font-size: 20px; /* Slightly smaller than h1 */
+  font-weight: 500;
+}
+
+h3 {
+  font-size: 18px; /* Subheading */
+  font-weight: 500;
+}
+
+h4 {
+  font-size: 16px; /* Smaller subheading */
+  font-weight: 400;
+}
+
+/* Paragraphs: Regular size for content */
+p {
+  font-size: 14px; /* Standard size for paragraphs */
+  font-weight: 400;
+  line-height: 1.6; /* Better readability */
+}
+
+/* Links: Custom size for links */
+a {
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+/* Optional: Add responsiveness */
+@media (max-width: 768px) {
+  body {
+    font-size: 12px; /* Smaller font size on mobile */
+  }
+
+  h1 {
+    font-size: 24px; /* Smaller heading on mobile */
+  }
+
+  h2 {
+    font-size: 20px;
+  }
+
+  p {
+    font-size: 12px; /* Smaller paragraphs on mobile */
+  }
+}
+
+.container {
+  width: 80%;
+  margin: 10px auto;
+  padding: 20px;
+  background-color: #ffffff;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.container-fluid {
+  margin-top: 5px;
+}
+
+/*================================ Buttons=====================================*/
+button {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  background-color: #007bff;
+  color: white;
+  border: none;
+
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: var(--bs-hover);
+}
+
+footer {
+  background-color: var(--primary-blue);
+  color: white;
+  padding: 10px;
+  text-align: center;
+}
+.btn-danger {
+  background-color: #d9534f;
+  padding: 2px 10px;
+}
+.btn-danger:hover {
+  background-color: #c9302c;
+}
+
+/* -------------------- Filter Controls-------------------------*/
+
+/* Filter Controls */
+.filter-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.filter-group {
+  flex: 1;
+  min-width: 150px;
+}
+
+.filter-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.filter-group select,
+.filter-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+@media (max-width: 767.98px) {
+  .form-table table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+.btn-warning {
+  padding: 2px 18px;
+}
+#employeeTable th,
+#employeeTable td {
+  white-space: wrap;
+  width: 100%;
+}
+
+#employeeTable th {
+  width: auto;
+}
+
+#chartOfAccountsForm {
+  border: 2px solid #ecd9f9;
+  margin-top: 10px;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 50px;
+}
+
+.tfoot input {
+  width: 5%;
+  padding: 3px;
+  box-sizing: border-box;
+  display: table-header-group;
+}
+
+.input-helper {
+  position: relative;
+  top: -1px;
+  margin-left: 5px;
+  cursor: help;
+  color: green;
+}
+
+.input-helper:hover {
+  color: #308291; /* Bootstrap's primary color */
+}
+
+#addCategoryForm {
+  border: 2px solid #ecd9f9;
+  margin-top: 10px;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 50px;
+}
+
+#addSiteForm {
+  border: 2px solid #ecd9f9;
+  margin-top: 10px;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 50px;
+}
+
+#updateSiteForm {
+  border: 2px solid #ecd9f9;
+  margin-top: 10px;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 50px;
+}
+
+#expenseForm {
+  border: 2px solid #ecd9f9;
+  margin-top: 10px;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 50px;
+}
+
+#addVendorForm {
+  border: 2px solid #ecd9f9;
+  margin-top: 10px;
+  padding: 40px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 50px;
+}
+
+#payroll_transaction_form {
+  margin-top: 10px;
+  padding: 1px;
+  margin-bottom: 30px;
+}
+
+.form-group {
+  margin-bottom: 25px;
+}
+.form-group label {
+  margin-bottom: 5px;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 10px;
+  }
+
+  .breadcrumb {
+    font-size: 14px;
+  }
+
+  .row .col-md-3,
+  .row .col-sm-6 {
+    width: 100%;
+    margin-bottom: 15px;
+  }
+
+  .form-control-sm {
+    font-size: 14px;
+    padding: 0.375rem 0.75rem;
+  }
+
+  .form-table th,
+  .form-table td {
+    font-size: 14px;
+  }
+
+  .btn-sm {
+    font-size: 14px;
+  }
+
+  /* Adjustments for form-table */
+  .form-table {
+    overflow-x: auto;
+  }
+
+  .form-table table {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .form-table th,
+  .form-table td {
+    white-space: nowrap;
+    font-size: 12px;
+    padding: 0.25rem;
+  }
+
+  /* Styles for buttons */
+  .btn {
+    padding: 0.5rem 1rem;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 576px) {
+  .container {
+    padding: 0 5px;
+  }
+
+  .breadcrumb {
+    font-size: 12px;
+  }
+
+  .row .col-md-3,
+  .row .col-sm-6 {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  .form-control-sm {
+    font-size: 12px;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .form-table th,
+  .form-table td {
+    font-size: 12px;
+  }
+
+  .btn-sm {
+    font-size: 12px;
+  }
+
+  .btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 12px;
+  }
+
+  .form-table table {
+    width: 100%;
+    min-width: 100%;
+  }
+}
+
+.shake-horizontal {
+  -webkit-animation: shake-horizontal 0.8s
+    cubic-bezier(0.455, 0.03, 0.515, 0.955) both;
+  animation: shake-horizontal 0.8s cubic-bezier(0.455, 0.03, 0.515, 0.955) both;
+}
+/* ----------------------------------------------
+* Generated by Animista on 2024-6-12 22:17:43
+* Licensed under FreeBSD License.
+* See http://animista.net/license for more info.
+* w: http://animista.net, t: @cssanimista
+* ---------------------------------------------- */
+
+/**
+* ----------------------------------------
+* animation shake-horizontal
+* ----------------------------------------
+*/
+@-webkit-keyframes shake-horizontal {
+  0%,
+  100% {
+    -webkit-transform: translateX(0);
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70% {
+    -webkit-transform: translateX(-10px);
+    transform: translateX(-10px);
+  }
+  20%,
+  40%,
+  60% {
+    -webkit-transform: translateX(10px);
+    transform: translateX(10px);
+  }
+  80% {
+    -webkit-transform: translateX(8px);
+    transform: translateX(8px);
+  }
+  90% {
+    -webkit-transform: translateX(-8px);
+    transform: translateX(-8px);
+  }
+}
+@keyframes shake-horizontal {
+  0%,
+  100% {
+    -webkit-transform: translateX(0);
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70% {
+    -webkit-transform: translateX(-10px);
+    transform: translateX(-10px);
+  }
+  20%,
+  40%,
+  60% {
+    -webkit-transform: translateX(10px);
+    transform: translateX(10px);
+  }
+  80% {
+    -webkit-transform: translateX(8px);
+    transform: translateX(8px);
+  }
+  90% {
+    -webkit-transform: translateX(-8px);
+    transform: translateX(-8px);
+  }
+}
+.dataTables_filter input {
+  width: 200px; /* Set the desired width */
+  max-width: 100%; /* Ensure it does not exceed the container width */
+  margin-bottom: 2px;
+}
+.breadcrumb {
+  background-color: #e9ecef;
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 20px;
+}
+
+.notification-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.notification {
+  background-color: #4caf50;
+  color: white;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  opacity: 0.9;
+  transition: opacity 0.5s ease;
+}
+
+.notification.error {
+  background-color: #dc3545; /* Error color */
+}
+
+.notification.warning {
+  background-color: #ffc107; /* Warning color */
+}
+
+.notification.hide {
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+}
+
+.notification.success {
+  background-color: green;
+}
+
+.notification.danger {
+  background-color: red;
+}
+
+.required-mark {
+  color: #ff0000; /* bright red color */
+  font-weight: bold;
+  font-size: 12px;
+  vertical-align: super;
+  margin-left: 2px;
+}
+
+.modal-body {
+  max-height: 90vh; /* Control the height of the modal body */
+  overflow-y: auto; /* Enable vertical scrolling */
+  padding: 10px;
+  font-size: 12px;
+}
+
+.modal-body .form-group {
+  margin-bottom: 8px; /* Reduce space between form groups */
+}
+
+.modal-body .input-group {
+  margin-bottom: 6px; /* Reduce space between input groups */
+}
+
+.modal-body .input-group .input-group-prepend .input-group-text {
+  padding: 5px 10px; /* Reduce padding inside the input group text */
+  font-size: 12px; /* Decrease font size for the text inside input groups */
+}
+
+.modal-body .form-control {
+  padding: 5px 10px; /* Decrease padding for input fields */
+  font-size: 12px; /* Reduce font size for form controls */
+}
+
+.modal-body .rate-display {
+  padding: 4px 8px; /* Make the rate display more compact */
+}
+
+.modal-body button {
+  padding: 5px 15px; /* Compact button styling */
+  font-size: 13px; /* Slightly smaller font size */
+}
+
+.modal-header {
+  padding: 10px 15px; /* Compact modal header */
+}
+
+.modal-title {
+  font-size: 16px; /* Decrease modal title font size */
+}
+
+.modal-content {
+  max-width: 450px; /* Reduce the modal width for a more compact appearance */
+}
+.readonly-field {
+  background-color: #f8f9fa; /* Light gray background */
+  cursor: not-allowed; /* Indicates non-editable */
+}
+
+.loading-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: none;
+}
+
+.loading-spinner i {
+  font-size: 50px;
+  color: #4caf50;
+}
+
+.custom-footer-padding {
+  padding-top: 0.7rem; /* equivalent to between py-2 and py-3 */
+  padding-bottom: 0.7rem; /* same value */
+  background-color: var(--primary-blue);
+  color: white;
+  padding: 10px;
+  text-align: center;
+}
+
+.layoutSidenav_content {
+  background-color: var(--primary-blue);
+  color: white;
+  padding: 10px;
+  text-align: center;
+}
+
+/* Summary Section */
+.summary-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.summary-item {
+  flex: 1;
+  margin: 10px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  text-align: center;
+  width: calc(25% - 20px);
+  height: 110px;
+
+  min-width: 200px;
+
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* Make the summary items take up 25% of the width, minus the margin */
+}
+
+.summary-item h2 {
+  margin: 5px 0;
+  font-size: 1em;
+  font-weight: bold;
+}
+
+.summary-item p {
+  margin: 0;
+}
+
+.summary-item ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.summary-item li {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.summary-item li:last-child {
+  border-bottom: none;
+}
+
+body {
+  font-family: "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif;
+}
+.input-helper {
+  position: relative;
+  top: -1px;
+  margin-left: 5px;
+  cursor: help;
+  color: green;
+}
+
+.input-helper:hover {
+  color: #308291; /* Bootstrap's primary color */
+}

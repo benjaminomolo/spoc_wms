@@ -1,0 +1,510 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Journal Entries</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+
+                    {% if role == 'Admin' or role == 'Supervisor' or role == 'Viewer' %}
+                    <li><a href="{{ url_for('general_ledger_routes.general_ledger_dashboard') }}">Accounting
+                            Dashboard</a></li>
+                    {% endif %}
+
+                    {% if role == 'Admin' or role == 'Contributor' %}
+
+                    <li><a href="{{url_for('add_transaction')}}">Journal Entry</a></li>
+                    <li><a href="{{ url_for('general_ledger_routes.journal_adjustment') }}">Journal
+                            Adjustment</a></li>
+                    <li><a href="{{ url_for('general_ledger.new_category') }}">Manage Account Category</a></li>
+                    <li><a href="{{ url_for('general_ledger.add_chart_of_accounts') }}">Manage Chart of Accounts</a>
+                    </li>
+                    <li><a href="{{ url_for('manage_projects') }}">Manage Projects</a></li>
+                    <li><a href="{{ url_for('add_vendor_form') }}">Manage Vendors & Customers</a></li>
+                    <li><a href="{{ url_for('add_payment_mode_form') }}">Manage Payment Modes</a></li>
+                    {% endif %}
+
+
+
+                </ul>
+            </nav>
+        </div>
+
+
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+
+
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+
+        </div>
+
+
+
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" onclick="toggleDropdown(event)">
+                        <span>Manage </span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('general_ledger.new_category') }}">Parent Category</a>
+                            <a href="{{ url_for('general_ledger.add_chart_of_accounts') }}">Chart of Accounts</a>
+                            <a href="{{ url_for('manage_projects') }}">Projects</a>
+                            <a href="{{ url_for('add_vendor_form') }}">Payers & Payees</a>
+                            <a href="{{ url_for('add_payment_mode_form') }}">Payment Modes</a>
+                        </div>
+                    </div>
+                </li>
+                {% endif %}
+
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{url_for('add_transaction')}}">Journal Entry</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('general_ledger_routes.journal_adjustment') }}">Journal
+                        Adjustment</a></li>
+                <li class="shortcut-item"><a
+                        href="{{ url_for('general_ledger_routes.general_ledger_dashboard') }}">Dashboard</a></li>
+                {% endif %}
+
+
+
+
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Enhanced Filter Section with Select2 Journal Number Search -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+
+
+        <form method="GET" action="{{ url_for('general_ledger.journal_entries') }}" class="date-filter-form"
+            id="filter-form">
+            <div class="filter-group">
+                <label for="filter_type" class="filter-label">Filter By</label>
+                <select id="filter_type" name="filter_type" class="form-select">
+                    <option value="transaction_date" {% if request.args.get('filter_type')=='transaction_date'
+                        %}selected{% endif %}>
+                        Transaction Date
+                    </option>
+                    <option value="date_added" {% if request.args.get('filter_type')=='date_added' %}selected{% endif
+                        %}>
+                        Date Added
+                    </option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control"
+                    value="{{ request.args.get('start_date', '') }}">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control"
+                    value="{{ request.args.get('end_date', '') }}">
+            </div>
+
+
+
+            <div class="filter-actions">
+                <button type="submit" class="filter-section-button filter">Apply Filter</button>
+
+                <form action="{{ url_for('general_ledger.journal_entries') }}" method="get" style="display:inline;">
+                    <button type="submit" class="filter-section-button reset">Reset</button>
+                </form>
+            </div>
+        </form>
+
+
+
+    </div>
+
+    <!-- Table with Journal Entries -->
+    <div class="table-responsive mt-3">
+        <table id="journals-table" class="display table table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th></th> <!-- Expand/Collapse column -->
+                    <th>Journal #</th>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Payment Mode</th>
+                    <th>Payer/Payee</th>
+                    <th>Project</th>
+                    <th>Currency</th>
+                    <th>Amount</th>
+                    {% if company.has_multiple_currencies %}
+                    <th>Amount (Base)</th>
+                    {% endif %}
+                    <th>Date Added</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for journal_number, journal_data in journal_groups.items() %}
+                <tr class="journal-row" data-journal-id="{{ journal_number }}">
+                    <td class="expand-collapse">
+                        <button class="button-outline toggle-transactions" data-journal-id="{{ journal_number }}">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </td>
+                    <td>
+                        {{ journal_number }}
+
+                        {% if journal_data.source_type %}
+                        <span class="badge bg-success">
+                            {{ journal_data.source_type }}
+                        </span>
+                        {% else %}
+                        <span class="badge bg-info">
+                            General Ledger
+                        </span>
+                        {% endif %}
+
+
+
+                    </td>
+                    <td>{{ journal_data.date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ journal_data.description }}</td>
+
+                    <td>{{ journal_data.payment_mode }}</td>
+                    <td>{{ journal_data.vendor }}</td>
+                    <td>{{ journal_data.project }}</td>
+                    <td>{{ journal_data.currency }}</td>
+                    <td>{{ "{:,.2f}".format(journal_data.total_amount) }}</td>
+                    {% if company.has_multiple_currencies %}
+                    <td>{{ "{:,.2f}".format(journal_data.total_base_amount) }}</td>
+                    {% endif %}
+                    <td>{{ journal_data.date_added.strftime('%Y-%m-%d %H:%M') if journal_data.date_added else '-' }}
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="#" class="view-icon view-journal" data-journal-id="{{ journal_number }}"
+                                data-tooltip="View Transactions">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            {% if role == 'Admin' or role == 'Contributor' %}
+                            <a href="#" class="delete-icon delete-journal" data-journal-id="{{ journal_number }}"
+                                onclick="deleteJournal(event, '{{ journal_number }}')" data-tooltip="Delete Journal">
+                                <i class="fas fa-trash-alt"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                <!-- Transactions row (hidden by default) -->
+                <tr class="transactions-row" id="transactions-{{ journal_number|e }}" style="display: none;">
+                    <td colspan="{{ 11 + (1 if company.has_multiple_currencies else 0) }}">
+                        <div class="transactions-container">
+                            <h6 class="mb-3">Transactions for Journal #{{ journal_number }}</h6>
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Account Type</th>
+                                        <th>Category</th>
+                                        <th>Subcategory</th>
+                                        <th>D/C</th>
+                                        <th>Amount</th>
+                                        {% if company.has_multiple_currencies %}<th>Amount (Base)</th>{% endif %}
+                                        <th>Description</th>
+                                        {% if role in ['Admin', 'Contributor'] %}<th>Action</th>{% endif %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if journal_data.transactions %}
+                                    {% for transaction in journal_data.transactions %}
+                                    <tr>
+                                        <td>{{ transaction.transaction_type }}</td>
+                                        <td>{{ transaction.category.category if transaction.category else '-' }}</td>
+                                        <td>{{ transaction.chart_of_accounts.sub_category if
+                                            transaction.chart_of_accounts else '-' }}</td>
+                                        <td>{{ transaction.dr_cr }}</td>
+                                        <td>{{ "{:,.2f}".format(transaction.amount) }}</td>
+                                        {% if company.has_multiple_currencies %}
+                                        <td>
+                                            {% if transaction.exchange_rate %}
+                                            {{ "{:,.2f}".format(transaction.amount|float *
+                                            transaction.exchange_rate.rate|float) }}
+                                            {% else %}
+                                            {{ "{:,.2f}".format(transaction.amount) }}
+                                            {% endif %}
+                                        </td>
+                                        {% endif %}
+                                        <td>{{ transaction.description }}</td>
+                                        {% if role in ['Admin', 'Contributor'] %}
+                                        <td>
+                                            <div class="action-icons">
+                                                <a href="/transaction/{{ transaction.id }}" class="view-icon"
+                                                    data-tooltip="View">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="#" class="delete-icon" data-id="{{ transaction.id }}"
+                                                    onclick="deleteTransaction(event, {{ transaction.id }})">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endfor %}
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="{{ 6 + (1 if company.has_multiple_currencies else 0) }}">No
+                                            transactions found.</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th></th>
+                    <th><input type="text" placeholder="Search Journal #"
+                            class="form-control form-control-sm search-input" /></th>
+                    <th><input type="text" placeholder="Search Date"
+                            class="form-control form-control-sm search-input" /></th>
+                    <th><input type="text" placeholder="Search Description"
+                            class="form-control form-control-sm search-input" /></th>
+                    <th><input type="text" placeholder="Search Source"
+                            class="form-control form-control-sm search-input" /></th>
+                    <th><input type="text" placeholder="Search Payment Mode"
+                            class="form-control form-control-sm search-input" /></th>
+                    <th><input type="text" placeholder="Search Payer/Payee"
+                            class="form-control form-control-sm search-input" /></th>
+                    <th><input type="text" placeholder="Search Project"
+                            class="form-control form-control-sm search-input" /></th>
+                    <th><input type="text" placeholder="Search Currency"
+                            class="form-control form-control-sm search-input" /></th>
+                    <th><input type="text" placeholder="Search Amount"
+                            class="form-control form-control-sm search-input" /></th>
+                    {% if company.has_multiple_currencies %}
+                    <th><input type="text" placeholder="Search Base Amount"
+                            class="form-control form-control-sm search-input" /></th>
+                    {% endif %}
+                    <th><input type="text" placeholder="Search Date Added"
+                            class="form-control form-control-sm search-input" /></th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Show loading state
+        setLoadingState(true);
+
+        // Initialize DataTable for journals
+        var table = $('#journals-table').DataTable({
+            "lengthMenu": [
+                [10, 25, 50, 100, -1],
+                [10, 25, 50, 100, 'All']
+            ],
+            "dom": '<"top"lf>rt<"bottom"ip>',
+            "order": [[2, "desc"]], // Sort by date descending
+            "initComplete": function () {
+                // Hide loading state when table is initialized
+
+
+                var api = this.api();
+                var lastColumnIndex = api.columns().header().length - 1;
+
+                // Add search inputs for each column except the first and last
+                api.columns().every(function (index) {
+                    var column = this;
+
+                    // Skip the first column (expand/collapse) and last column (actions)
+                    if (index !== 0 && index !== lastColumnIndex) {
+                        $('input', column.footer()).on('keyup change', function () {
+                            column.search(this.value).draw();
+                        });
+                    }
+                });
+                setLoadingState(false);
+            }
+        });
+
+        // Toggle transactions visibility
+        $(document).on('click', '.toggle-transactions', function () {
+            const journalId = $(this).data('journal-id');
+            const transactionsRow = $('#transactions-' + journalId);
+            const icon = $(this).find('i');
+
+            if (!transactionsRow.length) return;
+
+            transactionsRow.toggle();
+            icon.toggleClass('fa-plus fa-minus');
+        });
+
+
+        // View journal transactions
+        $(document).on('click', '.view-journal', function (e) {
+            e.preventDefault();
+            const journalId = $(this).data('journal-id');
+            const transactionsRow = $('#transactions-' + journalId);
+            const toggleButton = $('.toggle-transactions[data-journal-id="' + journalId + '"]');
+
+            if (!transactionsRow.length) {
+                console.warn('Transactions row not found for journal:', journalId);
+                return;
+            }
+
+            if (!transactionsRow.is(':visible')) {
+                transactionsRow.show();
+                toggleButton.find('i').removeClass('fa-plus').addClass('fa-minus');
+            }
+
+            $('html, body').animate({
+                scrollTop: transactionsRow.offset().top - 100
+            }, 500);
+        });
+
+        // Toggle the filter section visibility with animation
+        document.getElementById('toggleFilterForm').addEventListener('click', function () {
+            const filterSection = document.getElementById('filter-section');
+            filterSection.classList.toggle('visible');
+        });
+    });
+
+    // Function to delete a journal (all transactions with the same journal number)
+    function deleteJournal(event, journalNumber) {
+        event.preventDefault();
+
+        if (confirm('Are you sure you want to delete this entire journal? This will delete all transactions with journal number ' + journalNumber)) {
+            setLoadingState(true);
+
+            $.ajax({
+                url: '/delete_journal/' + journalNumber,
+                headers: { 'X-CSRFToken': csrfToken },
+                type: 'POST',
+                success: function (response) {
+                    setLoadingState(false);
+                    if (response.success) {
+                        showNotification(response.success, 'success');
+                        // Remove the journal row from the table
+                        $('.journal-row[data-journal-id="' + journalNumber + '"]').remove();
+                        $('#transactions-' + journalNumber).remove();
+                    } else {
+                        showNotification(response.error, 'danger');
+                    }
+                },
+                error: function (xhr) {
+                    setLoadingState(false);
+                    let errorMsg = xhr.responseJSON?.error || 'An error occurred while deleting the journal.';
+                    showNotification(errorMsg, 'danger');
+                }
+            });
+        }
+    }
+
+    // Function to delete a transaction
+    window.deleteTransaction = function (event, transactionId) {
+        event.preventDefault();
+
+        if (confirm('Are you sure you want to delete this transaction?')) {
+            setLoadingState(true);
+
+            $.ajax({
+                url: '/delete_transaction/' + transactionId,
+                headers: { 'X-CSRFToken': csrfToken },
+                type: 'POST',
+                success: function (response) {
+                    setLoadingState(false);
+                    if (response.success) {
+                        const row = $(`a[data-id="${transactionId}"]`).closest('tr');
+                        showNotification(response.success, 'success');
+                        row.remove();
+
+                        // If this was the last transaction in the journal, remove the journal too
+                        const journalContainer = row.closest('.transactions-container');
+                        const journalRow = journalContainer.closest('.transactions-row');
+                        const journalId = journalRow.attr('id').replace('transactions-', '');
+
+                        if (journalContainer.find('tbody tr').length === 0) {
+                            $('.journal-row[data-journal-id="' + journalId + '"]').remove();
+                            journalRow.remove();
+                        } else {
+                            // Recalculate and update journal totals
+                            let totalAmount = 0;
+                            let totalBaseAmount = 0;
+
+                            journalContainer.find('tbody tr').each(function () {
+                                const amountCell = $(this).find('td:eq(4)');
+                                const baseAmountCell = $(this).find('td:eq(5)');
+
+                                if (amountCell.length) {
+                                    totalAmount += parseFloat(amountCell.text().replace(/,/g, ''));
+                                }
+                                if (baseAmountCell.length) {
+                                    totalBaseAmount += parseFloat(baseAmountCell.text().replace(/,/g, ''));
+                                }
+                            });
+
+                            // Update journal row totals
+                            const journalRow = $('.journal-row[data-journal-id="' + journalId + '"]');
+                            journalRow.find('td:eq(9)').text(totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                            {% if company.has_multiple_currencies %}
+                            journalRow.find('td:eq(10)').text(totalBaseAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                            {% endif %}
+
+                            // Update transaction footer totals
+                            journalContainer.find('tfoot td:eq(1)').text(totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                            {% if company.has_multiple_currencies %}
+                            journalContainer.find('tfoot td:eq(2)').text(totalBaseAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                            {% endif %}
+                        }
+                    } else {
+                        showNotification(response.error, 'danger');
+                    }
+                },
+                error: function (xhr) {
+                    setLoadingState(false);
+                    let errorMsg = xhr.responseJSON?.error || 'An error occurred while deleting the transaction.';
+                    showNotification(errorMsg, 'danger');
+                }
+            });
+        }
+    };
+
+    // Hide delete icons for transactions with source types
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.delete-icon[data-source]').forEach(function (icon) {
+            const source = icon.getAttribute('data-source')?.trim();
+            if (source !== '') {
+                icon.style.display = 'none';
+            }
+        });
+    });
+</script>
+
+{% endblock %}

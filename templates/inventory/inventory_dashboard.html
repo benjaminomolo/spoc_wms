@@ -1,0 +1,902 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+    /* Inventory Specific Styles */
+    .stock-status {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .inventory {
+        margin-top: 1rem;
+        margin-left: 5px;
+    }
+
+    .stock-status.in-stock {
+        background-color: rgba(76, 201, 240, 0.1);
+        color: #4cc9f0;
+    }
+
+    .stock-status.low-stock {
+        background-color: rgba(248, 150, 30, 0.1);
+        color: #f8961e;
+    }
+
+    .stock-status.out-of-stock {
+        background-color: rgba(255, 107, 107, 0.1);
+        color: #ff6b6b;
+    }
+
+    .stock-status.overstock {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: #4361ee;
+    }
+
+    .variation-chip {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        margin: 0.1rem;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        background-color: #f0f0f0;
+        color: #555;
+    }
+
+
+
+    /* Table Cards */
+    .table-card {
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .table-header h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .table-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+
+    /* Tables */
+    .table-responsive {
+        overflow-x: auto;
+        width: 100%;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th,
+    td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--text-light);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    td {
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+
+    .text-end {
+        text-align: right;
+    }
+
+    /* Status Badges */
+    .badge {
+        display: inline-block;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border-radius: 4px;
+    }
+
+    .badge.primary {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: var(--primary-color);
+    }
+
+    .badge.success {
+        background-color: rgba(76, 201, 240, 0.1);
+        color: var(--success-color);
+    }
+
+    .badge.warning {
+        background-color: rgba(248, 150, 30, 0.1);
+        color: var(--warning-color);
+    }
+
+    .badge.info {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: var(--primary-color);
+    }
+
+    /* Action Buttons */
+    .action-btn {
+        background-color: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 0.4rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+    }
+
+    .action-btn:hover {
+        background-color: #f5f5f5;
+    }
+
+    /* Table Footer */
+    .table-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .table-info {
+        font-size: 0.85rem;
+        color: var(--text-light);
+    }
+
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .dashboard-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .dashboard-controls {
+            width: 100%;
+        }
+
+        .dashboard-dropdown-toggle {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .date-range-picker {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        th,
+        td {
+            padding: 0.75rem 0.5rem;
+        }
+
+        .table-footer {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .pagination {
+            justify-content: center;
+        }
+    }
+
+    /* Utility Classes */
+    .text-success {
+        color: var(--success-color);
+    }
+
+    .text-warning {
+        color: var(--warning-color);
+    }
+
+    .text-danger {
+        color: var(--danger-color);
+    }
+
+    .text-muted {
+        color: var(--text-lighter);
+    }
+
+    .trend-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .trend-badge.positive {
+        background-color: rgba(76, 201, 240, 0.1);
+        color: #4cc9f0;
+    }
+
+    .trend-badge.negative {
+        background-color: rgba(255, 107, 107, 0.1);
+        color: #ff6b6b;
+    }
+
+    .trend-badge.neutral {
+        background-color: rgba(158, 158, 158, 0.1);
+        color: #9e9e9e;
+    }
+
+
+    /* Markup Distribution Bars */
+    .distribution-bars {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .dist-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .dist-label {
+        width: 100px;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .bar-container {
+        flex: 1;
+        height: 25px;
+        background-color: #f0f0f0;
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .bar {
+        height: 100%;
+        transition: width 0.3s ease;
+        border-radius: 6px;
+    }
+
+    .bar.negative {
+        background-color: #ff6b6b;
+    }
+
+    .bar.low {
+        background-color: #f8961e;
+    }
+
+    .bar.medium {
+        background-color: #ffd166;
+    }
+
+    .bar.good {
+        background-color: var(--highlight-color-darker);
+    }
+
+    .bar.high {
+        background-color: var(--secondary-color);
+    }
+
+    .bar.very-high {
+        background-color: var(--highlight-color);
+    }
+
+    .dist-value {
+        width: 80px;
+        text-align: right;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    /* Markup colors in table */
+    .markup-negative {
+        color: var(--danger-color);
+        font-weight: 600;
+    }
+
+    .markup-low {
+        color: var(--warning-color);
+        font-weight: 600;
+    }
+
+    .markup-good {
+        color: var(--highlight-color-darker);
+        font-weight: 600;
+    }
+
+    .markup-high {
+        color: var(--highlight-color);
+        font-weight: 600;
+    }
+
+    .
+
+    /* Pagination Styles - Updated from Sales Dashboard */
+    .pagination {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .page-numbers {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .page-btn,
+    .page-number {
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--border-color);
+        background-color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+
+    .page-btn:hover:not(.disabled),
+    .page-number:hover:not(.active) {
+        background-color: #f5f5f5;
+        border-color: #999;
+    }
+
+    .page-btn.disabled,
+    .page-number.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    .page-number.active {
+        background-color: var(--primary-color, #4361ee);
+        color: white;
+        border-color: var(--primary-color, #4361ee);
+    }
+
+    .page-ellipsis {
+        padding: 0.5rem 0.25rem;
+        color: var(--text-light);
+    }
+</style>
+
+<div class="content-container">
+    <!-- Dashboard Header - Keep your existing header structure -->
+    <div class="dashboard-header">
+        <div class="header-top-row">
+            <h1>Inventory Dashboard</h1>
+        </div>
+
+        <!-- Controls - Remove time filter, keep only refresh -->
+        <div class="dashboard-controls">
+            <button class="refresh-btn" id="refreshData">
+                <span class="icon">🔄</span> Refresh
+            </button>
+        </div>
+
+        <!-- Filter Controls - Keep all your existing filters -->
+        <div class="filter-wrapper">
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <label for="item-select">Inventory Item</label>
+                    <select id="item-select" class="form-select2">
+                        <option value="">All Inventory Items</option>
+                        {% for item in items %}
+                        <option value="{{ item.id }}">
+                            {{ item.inventory_item.item_name }}
+                            {% if item.inventory_item_variation %}
+                            - {{ item.inventory_item_variation.variation_name }}
+                            {% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="location-select">Location</label>
+                    <select id="location-select" class="form-select">
+                        <option value="">All Locations</option>
+                        {% for loc in locations %}
+                        <option value="{{ loc.id }}">{{ loc.location }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="category-select">Category</label>
+                    <select id="category-select" class="form-select">
+                        <option value="">All Categories</option>
+                        {% for category in categories %}
+                        <option value="{{ category.id }}">{{ category.category_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="subcategory-select">Subcategory</label>
+                    <select id="subcategory-select" class="form-select">
+                        <option value="">All Subcategories</option>
+                        {% for subcategory in subcategories %}
+                        <option value="{{ subcategory.id }}">{{ subcategory.subcategory_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="brand-select">Brand</label>
+                    <select id="brand-select" class="form-select">
+                        <option value="">All Brands</option>
+                        {% for brand in brands %}
+                        <option value="{{ brand.id }}">{{ brand.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="status-select">Status</label>
+                    <select id="status-select" class="form-select">
+                        <option value="active" selected>Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="all">All Statuses</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards - Keep only warehouse relevant -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <h3>Total Items (SKUs)</h3>
+            <p class="metric-value" id="totalItems">0</p>
+        </div>
+        <div class="metric-card">
+            <h3>Total Stock Quantity</h3>
+            <p class="metric-value" id="totalQuantity">0</p>
+        </div>
+        <div class="metric-card">
+            <h3>Out of Stock</h3>
+            <p class="metric-value" id="outOfStock">0</p>
+        </div>
+        <div class="metric-card">
+            <h3>Transactions</h3>
+            <p class="metric-value" id="transactionCount">0</p>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="dashboards-charts-container">
+        <div class="chart-card main-chart">
+            <div class="chart-header">
+                <h3>Stock Status</h3>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="stockStatusChart" height="300"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card secondary-chart">
+            <div class="chart-header">
+                <h3>Stock Quantity by Category</h3>
+                <div class="chart-period-selector">
+                    <button class="period-btn active" data-view="category">By Category</button>
+                    <button class="period-btn" data-view="subcategory">By Subcategory</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="categoryStockChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Movement Chart -->
+    <div class="secondary-metric">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Inventory Movement (Last 30 Days)</h3>
+                <div class="chart-period-selector">
+                    <button class="period-btn active" data-period="daily">Daily</button>
+                    <button class="period-btn" data-period="weekly">Weekly</button>
+                    <button class="period-btn" data-period="monthly">Monthly</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="inventoryMovementChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Items by Quantity -->
+    <div class="secondary-metric">
+        <div class="table-card">
+            <div class="table-header">
+                <h3>Top 10 Items by Stock Quantity</h3>
+            </div>
+            <div class="table-responsive">
+                <table id="topItemsTable">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Category</th>
+                            <th>Location</th>
+                            <th class="text-center">Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="4" class="text-center">Loading...</td< /tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Movements -->
+    <div class="secondary-metric">
+        <div class="table-card">
+            <div class="table-header">
+                <h3>Recent Stock Movements</h3>
+            </div>
+            <div class="table-responsive">
+                <table id="recentMovementsTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Item</th>
+                            <th>Type</th>
+                            <th class="text-center">Quantity</th>
+                            <th>Location</th>
+                            <th>Reference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="6" class="text-center">Loading...</td< /tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const apiKey = "{{ api_key }}";
+    let currentPeriod = 'daily';
+    let categoryView = 'category';
+    let stockStatusChart, inventoryMovementChart, categoryStockChart;
+
+    function initCharts() {
+        const stockCtx = document.getElementById('stockStatusChart').getContext('2d');
+        stockStatusChart = new Chart(stockCtx, {
+            type: 'doughnut',
+            data: { labels: ['In Stock', 'Out of Stock'], datasets: [{ data: [0, 0], backgroundColor: ['#28a745', '#dc3545'] }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        });
+
+        const movementCtx = document.getElementById('inventoryMovementChart').getContext('2d');
+        inventoryMovementChart = new Chart(movementCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        });
+
+        const categoryCtx = document.getElementById('categoryStockChart').getContext('2d');
+        categoryStockChart = new Chart(categoryCtx, {
+            type: 'bar',
+            data: { labels: [], datasets: [] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } } }
+        });
+    }
+
+    async function loadDashboardData() {
+        const params = new URLSearchParams({
+            time_filter: 'all',
+            item: document.getElementById('item-select')?.value || '',
+            location: document.getElementById('location-select')?.value || '',
+            category: document.getElementById('category-select')?.value || '',
+            subcategory: document.getElementById('subcategory-select')?.value || '',
+            brand: document.getElementById('brand-select')?.value || '',
+            status: document.getElementById('status-select')?.value || 'active'
+        });
+
+        try {
+            const response = await fetch(`/api/inventory/transactions?${params}`, {
+                headers: { 'X-API-Key': apiKey }
+            });
+            const data = await response.json();
+
+            if (data && data[4] && data[4].transactions) {
+                updateDashboard(data[4].transactions);
+            }
+        } catch (error) {
+            console.error('Error loading data:', error);
+        }
+    }
+
+    function updateDashboard(transactions) {
+        const itemMap = new Map();
+        let totalQuantity = 0;
+        let outOfStockCount = 0;
+        let inStockCount = 0;
+        const categoryData = new Map();
+        const subcategoryData = new Map();
+
+        transactions.forEach(t => {
+            const key = `${t.item_id}_${t.location_id}`;
+            const currentStock = t.current_stock || 0;
+
+            if (!itemMap.has(key)) {
+                itemMap.set(key, { current_stock: currentStock, category: t.category || 'Uncategorized', subcategory: t.subcategory || 'Uncategorized' });
+                totalQuantity += currentStock;
+                if (currentStock <= 0) outOfStockCount++;
+                else inStockCount++;
+            }
+
+            const cat = t.category || 'Uncategorized';
+            if (!categoryData.has(cat)) categoryData.set(cat, { quantity: 0, items: new Set() });
+            const catItem = categoryData.get(cat);
+            if (!catItem.items.has(key)) {
+                catItem.items.add(key);
+                catItem.quantity += currentStock;
+            }
+
+            const subcat = t.subcategory || 'Uncategorized';
+            const subcatKey = `${cat}|${subcat}`;
+            if (!subcategoryData.has(subcatKey)) subcategoryData.set(subcatKey, { name: `${cat} - ${subcat}`, quantity: 0, items: new Set() });
+            const subcatItem = subcategoryData.get(subcatKey);
+            if (!subcatItem.items.has(key)) {
+                subcatItem.items.add(key);
+                subcatItem.quantity += currentStock;
+            }
+        });
+
+        document.getElementById('totalItems').textContent = itemMap.size;
+        document.getElementById('totalQuantity').textContent = totalQuantity.toLocaleString();
+        document.getElementById('outOfStock').textContent = outOfStockCount;
+        document.getElementById('transactionCount').textContent = transactions.length;
+
+        stockStatusChart.data.datasets[0].data = [inStockCount, outOfStockCount];
+        stockStatusChart.update();
+
+        updateTopItemsTable(transactions);
+        updateRecentMovements(transactions);
+        updateCategoryChart(categoryData, subcategoryData);
+        loadMovementData();
+    }
+
+    function updateCategoryChart(categoryData, subcategoryData) {
+        let labels, data;
+
+        if (categoryView === 'category') {
+            const categories = Array.from(categoryData.entries())
+                .map(([name, d]) => ({ name, quantity: d.quantity }))
+                .sort((a, b) => b.quantity - a.quantity);
+            labels = categories.map(c => c.name);
+            data = categories.map(c => c.quantity);
+        } else {
+            const subcats = Array.from(subcategoryData.entries())
+                .map(([key, d]) => ({ name: d.name, quantity: d.quantity }))
+                .sort((a, b) => b.quantity - a.quantity)
+                .slice(0, 15);
+            labels = subcats.map(s => s.name);
+            data = subcats.map(s => s.quantity);
+        }
+
+        categoryStockChart.data.labels = labels;
+        categoryStockChart.data.datasets = [{
+            label: categoryView === 'category' ? 'Stock Quantity by Category' : 'Stock Quantity by Subcategory',
+            data: data,
+            backgroundColor: '#4361ee',
+            borderColor: '#3a0ca3',
+            borderWidth: 1
+        }];
+        categoryStockChart.update();
+    }
+
+    function updateTopItemsTable(transactions) {
+        const itemMap = new Map();
+
+        transactions.forEach(t => {
+            const key = `${t.item_id}_${t.location_id}`;
+            if (!itemMap.has(key)) {
+                itemMap.set(key, {
+                    item_name: t.item_name,
+                    variation: t.variation_name,
+                    category: t.category,
+                    location: t.location_name,
+                    current_stock: t.current_stock || 0
+                });
+            }
+        });
+
+        const items = Array.from(itemMap.values())
+            .sort((a, b) => b.current_stock - a.current_stock)
+            .slice(0, 10);
+
+        const tbody = document.querySelector('#topItemsTable tbody');
+        tbody.innerHTML = items.map(item => `
+            <tr>
+                <td>${item.item_name}${item.variation ? ` (${item.variation})` : ''}</td>
+                <td>${item.category || '-'}</td>
+                <td>${item.location || '-'}</td>
+                <td class="text-center">${item.current_stock.toLocaleString()}</td>
+            </tr>
+        `).join('');
+    }
+
+    function updateRecentMovements(transactions) {
+        const recent = [...transactions].sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date)).slice(0, 20);
+
+        const tbody = document.querySelector('#recentMovementsTable tbody');
+        tbody.innerHTML = recent.map(t => `
+            <tr>
+                <td>${t.transaction_date}</td>
+                <td>${t.item_name}${t.variation_name ? ` (${t.variation_name})` : ''}</td>
+                <td><span class="badge ${t.movement_type === 'in' ? 'bg-success' : 'bg-danger'}">${t.movement_type === 'in' ? 'Stock In' : 'Stock Out'}</span></td>
+                <td class="text-center">${Math.abs(t.quantity)}</td>
+                <td>${t.location_name || '-'}</td>
+                <td>${t.reference_number || '-'}</td>
+            </tr>
+        `).join('');
+    }
+
+    async function loadMovementData() {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+
+        const params = new URLSearchParams({
+            start_date: startDate.toISOString().split('T')[0],
+            end_date: endDate.toISOString().split('T')[0],
+            item: document.getElementById('item-select')?.value || '',
+            location: document.getElementById('location-select')?.value || '',
+            category: document.getElementById('category-select')?.value || ''
+        });
+
+        try {
+            const response = await fetch(`/api/inventory/transactions?${params}`, {
+                headers: { 'X-API-Key': apiKey }
+            });
+            const data = await response.json();
+
+            if (data && data[4] && data[4].transactions) {
+                updateMovementChart(data[4].transactions);
+            }
+        } catch (error) {
+            console.error('Error loading movement data:', error);
+        }
+    }
+
+    function updateMovementChart(transactions) {
+        const grouped = {};
+
+        const movementTypes = {
+            'purchase': { label: 'Stock In', color: '#28a745' },
+            'sale': { label: 'Stock Out', color: '#dc3545' },
+            'transfer': { label: 'Transfer', color: '#17a2b8' },
+            'adjustment': { label: 'Adjustment', color: '#ffc107' }
+        };
+
+        transactions.forEach(t => {
+            let dateKey;
+            const date = new Date(t.transaction_date);
+
+            if (currentPeriod === 'daily') {
+                dateKey = t.transaction_date;
+            } else if (currentPeriod === 'weekly') {
+                const week = getWeekNumber(date);
+                dateKey = `Week ${week}`;
+            } else {
+                dateKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+            }
+
+            if (!grouped[dateKey]) grouped[dateKey] = { date: t.transaction_date };
+
+            let sourceType = t.inventory_source || t.source_type || t.movement_type;
+
+            if (sourceType === 'in' || sourceType === 'purchase') sourceType = 'purchase';
+            if (sourceType === 'out' || sourceType === 'sale' || sourceType === 'stock_out_sale') sourceType = 'sale';
+
+            if (movementTypes[sourceType]) {
+                if (!grouped[dateKey][sourceType]) grouped[dateKey][sourceType] = 0;
+                grouped[dateKey][sourceType] += Math.abs(t.quantity);
+            }
+        });
+
+        let sorted = Object.entries(grouped).sort((a, b) => new Date(a[1].date) - new Date(b[1].date));
+
+        if (currentPeriod === 'weekly') {
+            sorted = sorted.slice(-12);
+        }
+
+        inventoryMovementChart.data.labels = sorted.map(s => s[0]);
+        inventoryMovementChart.data.datasets = Object.entries(movementTypes)
+            .filter(([key]) => sorted.some(s => s[1][key]))
+            .map(([key, config]) => ({
+                label: config.label,
+                data: sorted.map(s => s[1][key] || 0),
+                borderColor: config.color,
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: false
+            }));
+        inventoryMovementChart.update();
+    }
+
+    function getWeekNumber(date) {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+        const week1 = new Date(d.getFullYear(), 0, 4);
+        return 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+    }
+
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        initCharts();
+        loadDashboardData();
+
+        $('#item-select').select2({ width: '100%', placeholder: 'Select Item', allowClear: true });
+
+        ['item-select', 'location-select', 'category-select', 'subcategory-select', 'brand-select', 'status-select'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) element.addEventListener('change', () => loadDashboardData());
+        });
+
+        $('#item-select').on('change', () => loadDashboardData());
+
+        document.getElementById('refreshData').addEventListener('click', () => loadDashboardData());
+
+        document.querySelectorAll('[data-period]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('[data-period]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentPeriod = btn.dataset.period;
+                loadMovementData();
+            });
+        });
+
+        document.querySelectorAll('[data-view]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                categoryView = btn.dataset.view;
+                loadDashboardData();
+            });
+        });
+    });
+</script>
+
+{% endblock %}

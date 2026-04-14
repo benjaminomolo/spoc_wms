@@ -1,0 +1,640 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <!-- HEADER SECTION -->
+    <div class="header-section">
+        <h1>Customer Credits</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li><a href="{{ url_for('sales.add_sales_transaction') }}">Quick Sale</a></li>
+                    <li><a href="{{ url_for('sales.invoice_management') }}">Sales Invoices</a></li>
+                    {% endif %}
+                    <li><a href="{{ url_for('sales.view_sales_transactions') }}">Sales Transactions</a></li>
+                    <li><a href="{{ url_for('sales.payment_history') }}">Payment History</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Header buttons and controls -->
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+            <!-- Multi-select button -->
+            <button class="btn button-outline" type="button" id="toggleMultiSelect">
+                <i class="fas fa-check-square"></i> Select
+            </button>
+
+            <button class="btn button-outline" type="button" id="hideMultiSelect" style="display: none;">
+                <i class="fas fa-eye-slash"></i> Hide
+            </button>
+
+            <!-- Bulk delete button -->
+            <div class="bulk-actions" id="bulkActions" style="display: none;">
+                <button class="button-outline" type="button" id="bulkDelete">
+                    <i class="fas fa-trash"></i> Delete Selected
+                </button>
+            </div>
+
+            <!-- Export button -->
+            <button class="button-outline" type="button" id="exportBtn">
+                <i class="fas fa-download"></i> Export
+            </button>
+
+            <!-- View selector -->
+            <div style="display: flex; align-items: center;">
+                <select id="viewSelector" class="form-select" style="width: 180px;"
+                    onchange="window.location.href=this.value;">
+                    <option value="{{ url_for('sales.view_sales_transactions') }}">📄 Invoice & Direct</option>
+                    <option value="{{ url_for('sales.payment_history') }}">💰 Payment History</option>
+                    <option value="{{ url_for('sales.view_customer_credits') }}" selected>💳 Customer Credits</option>
+                </select>
+            </div>
+
+            <div class="custom-tooltip-container">
+                <button class="refresh-btn" id="refreshCacheBtn">
+                    <span class="icon">🔄</span>
+                </button>
+                <span class="custom-tooltip">Refresh Page</span>
+            </div>
+        </div>
+
+        <!-- Dashboard Shortcuts -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{ url_for('sales.add_sales_transaction') }}">Quick Sale</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('sales.invoice_management') }}">Sales Invoices</a></li>
+                {% endif %}
+                <li class="shortcut-item"><a href="{{ url_for('sales.view_sales_transactions') }}">Sales
+                        Transactions</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('sales.payment_history') }}">Payment History</a></li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- FILTER SECTION -->
+    <div class="filter-section" id="filter-section">
+        <form class="date-filter-form" id="filter-form">
+            <!-- Customer Filter -->
+            <div class="filter-group">
+                <label for="customer" class="filter-label">Customer</label>
+                <select id="customer" name="customer" class="form-select select2">
+                    <option value="">All Customers</option>
+                    {% for customer in customers %}
+                    <option value="{{ customer.id }}">{{ customer.vendor_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Currency Filter -->
+            <div class="filter-group">
+                <label for="currency" class="filter-label">Currency</label>
+                <select id="currency" name="currency" class="form-select">
+                    <option value="">All Currencies</option>
+                    {% for currency in currencies %}
+                    <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Date Range Filter -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control">
+            </div>
+
+            <!-- Status Filter -->
+            <div class="filter-group">
+                <label for="status" class="filter-label">Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="active">Active</option>
+                    <option value="partially_used">Partially Used</option>
+                    <option value="used">Fully Used</option>
+                    <option value="expired">Expired</option>
+                </select>
+            </div>
+
+            <!-- Items Per Page -->
+            <div class="filter-group">
+                <label for="per_page" class="filter-label">Items Per Page</label>
+                <select id="per_page" name="per_page" class="form-select">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="button" class="filter-section-button filter" id="applyFilter">Apply Filter</button>
+                <button type="button" class="filter-section-button reset" id="resetFilters">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- CREDITS TABLE -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" id="creditsTable">
+            <thead class="table-light">
+                <tr>
+                    <th id="selectAllHeader" style="display: none; width: 40px;">
+                        <input type="checkbox" id="selectAll">
+                    </th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Source</th>
+                    <th>Original</th>
+                    <th>Used</th>
+                    <th>Available</th>
+                    <th>Currency</th>
+                    <th>Status</th>
+                    <th>Reason</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="creditsBody">
+                <!-- Content loaded via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAGINATION -->
+    <nav>
+        <ul class="pagination" id="pagination"></ul>
+        <div id="paginationInfo" class="mt-2"></div>
+    </nav>
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Initialize Select2
+        $('#customer').select2({ placeholder: 'Select Customer', allowClear: true, width: '100%' });
+
+        // ========== STATE VARIABLES ==========
+        let currentPage = 1;
+        let perPage = 20;
+        let customerId = '';
+        let currencyId = '';
+        let startDate = '';
+        let endDate = '';
+        let status = '';
+        let isMultiSelectMode = false;
+        let selectedCredits = new Set();
+        let currentCredits = [];
+
+        // ========== DOM ELEMENTS ==========
+        const creditsBody = document.getElementById('creditsBody');
+        const paginationElement = document.getElementById('pagination');
+        const paginationInfoElement = document.getElementById('paginationInfo');
+        const applyFilterBtn = document.getElementById('applyFilter');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+        const toggleMultiSelectBtn = document.getElementById('toggleMultiSelect');
+        const hideMultiSelectBtn = document.getElementById('hideMultiSelect');
+        const bulkActionsDiv = document.getElementById('bulkActions');
+        const bulkDeleteBtn = document.getElementById('bulkDelete');
+        const selectAllHeader = document.getElementById('selectAllHeader');
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const filterButton = document.getElementById('toggleFilterForm');
+        const dashboardShortcuts = document.querySelector('.dashboard-shortcuts');
+
+        // ========== EVENT LISTENERS ==========
+        $('#toggleFilterForm').on('click', () => $('#filter-section').toggleClass('visible'));
+        $('#shortcutToggleBtn').on('click', () => $('#mobileShortcutsSidebar').toggleClass('open'));
+        $('#closeShortcutsBtn').on('click', () => $('#mobileShortcutsSidebar').removeClass('open'));
+        $('#refreshCacheBtn').on('click', () => location.reload());
+
+        // Multi-select toggle
+        toggleMultiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = !isMultiSelectMode;
+            updateMultiSelectUI();
+        });
+
+        hideMultiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = false;
+            selectedCredits.clear();
+            updateMultiSelectUI();
+            loadCredits();
+        });
+
+        // Select all
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.credit-checkbox:not(:disabled)');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+                const creditId = checkbox.value;
+                if (e.target.checked) {
+                    selectedCredits.add(creditId);
+                } else {
+                    selectedCredits.delete(creditId);
+                }
+            });
+            updateBulkActionButtons();
+        });
+
+        // Apply filter
+        applyFilterBtn.addEventListener('click', () => {
+            currentPage = 1;
+            customerId = $('#customer').val();
+            currencyId = $('#currency').val();
+            startDate = $('#start_date').val();
+            endDate = $('#end_date').val();
+            status = $('#status').val();
+            perPage = $('#per_page').val();
+            loadCredits();
+        });
+
+        // Reset filters
+        resetFiltersBtn.addEventListener('click', () => {
+            $('#filter-form')[0].reset();
+            $('#customer').val(null).trigger('change');
+            currentPage = 1;
+            customerId = '';
+            currencyId = '';
+            startDate = '';
+            endDate = '';
+            status = '';
+            perPage = '20';
+            loadCredits();
+        });
+
+        // Bulk delete
+        bulkDeleteBtn.addEventListener('click', () => {
+            if (selectedCredits.size === 0) return;
+
+            Swal.fire({
+                title: 'Delete Credits?',
+                text: `Are you sure you want to delete ${selectedCredits.size} credit(s)?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete them!',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    deleteCredits(Array.from(selectedCredits));
+                }
+            });
+        });
+
+        // ========== FUNCTIONS ==========
+        function loadCredits(page = 1) {
+            currentPage = page;
+            creditsBody.innerHTML = '<tr><td colspan="11" class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Loading credits...</td></tr>';
+
+            const params = new URLSearchParams({
+                page: currentPage,
+                per_page: perPage,
+                customer: customerId,
+                currency: currencyId,
+                start_date: startDate,
+                end_date: endDate,
+                status: status
+            });
+
+            fetch(`/sales/api/customer-credits?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentCredits = data.credits;
+                        renderCredits(data.credits);
+                        renderPagination(data.pagination);
+                    } else {
+                        creditsBody.innerHTML = `<tr><td colspan="11" class="text-center text-danger py-3">${data.message}</td></tr>`;
+                    }
+                })
+                .catch(err => {
+                    creditsBody.innerHTML = '<tr><td colspan="11" class="text-center text-danger py-3">Error loading credits</td></tr>';
+                    console.error(err);
+                });
+        }
+
+        function renderCredits(credits) {
+            if (!credits || credits.length === 0) {
+                creditsBody.innerHTML = '<tr><td colspan="11" class="text-center py-3">No credits found</td></tr>';
+                return;
+            }
+
+            let html = '';
+            credits.forEach(credit => {
+                // Skip if credit is invalid or missing ID
+                if (!credit || !credit.id) {
+                    console.warn('Skipping invalid credit:', credit);
+                    return;
+                }
+
+                const isChecked = selectedCredits.has(credit.id.toString());
+
+                // Status badge
+                let statusClass = 'bg-secondary';
+                let statusText = credit.status || 'unknown';
+
+                if (credit.status === 'active') {
+                    statusClass = 'bg-success';
+                    statusText = 'Active';
+                } else if (credit.status === 'partially_used') {
+                    statusClass = 'bg-warning';
+                    statusText = 'Partially Used';
+                } else if (credit.status === 'used') {
+                    statusClass = 'bg-secondary';
+                    statusText = 'Fully Used';
+                } else if (credit.status === 'expired') {
+                    statusClass = 'bg-danger';
+                    statusText = 'Expired';
+                }
+
+                // Format date
+                const date = credit.issued_date || credit.created_date || '-';
+                const customerName = credit.customer_name || '-';
+                const sourceRef = credit.source_reference || '-';
+                const original = credit.original_amount || 0;
+                const used = credit.used_amount || 0;
+                const available = credit.available_amount || 0;
+                const currency = credit.currency || '-';
+                const reason = credit.credit_reason || '-';
+
+                html += `
+                <tr>
+                    <td style="display: ${isMultiSelectMode ? '' : 'none'}; width: 30px;">
+                        <input type="checkbox" class="credit-checkbox" value="${credit.id}" ${isChecked ? 'checked' : ''}>
+                    </td>
+                    <td>${date}</td>
+                    <td>${customerName}</td>
+                    <td>${sourceRef}</td>
+                    <td class="text-end">${formatAmount(original)}</td>
+                    <td class="text-end">${formatAmount(used)}</td>
+                    <td class="text-end">${formatAmount(available)}</td>
+                    <td>${currency}</td>
+                    <td><span class="badge ${statusClass}">${statusText}</span></td>
+                    <td>${reason}</td>
+                    <td>
+                        <div class="action-icons-clean">
+                            <div class="custom-tooltip-container">
+                                <a href="/sales/credit/${credit.id}" class="view-icon">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <span class="custom-tooltip">View Details</span>
+                            </div>
+                            ${available > 0 ? `
+                            <div class="custom-tooltip-container">
+                                <a href="/sales/apply-credit/${credit.id}" class="info-icon">
+                                    <i class="fas fa-hand-holding-usd"></i>
+                                </a>
+                                <span class="custom-tooltip left">Apply to Invoice</span>
+                            </div>
+                            <div class="custom-tooltip-container">
+                                <a href="#" onclick="writeOffCredit(${credit.id}, ${available}, '${currency}')" class="btn-icon">
+                                    <i class="fas fa-ban"></i>
+                                </a>
+                                <span class="custom-tooltip left">Write Off Credit</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+                `;
+            });
+
+            // If all credits were skipped, show message
+            if (html === '') {
+                creditsBody.innerHTML = '<tr><td colspan="11" class="text-center py-3">No valid credits found</td></tr>';
+            } else {
+                creditsBody.innerHTML = html;
+            }
+
+            // Add checkbox listeners
+            document.querySelectorAll('.credit-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const creditId = e.target.value;
+                    if (e.target.checked) {
+                        selectedCredits.add(creditId);
+                    } else {
+                        selectedCredits.delete(creditId);
+                        selectAllCheckbox.checked = false;
+                    }
+                    updateBulkActionButtons();
+                });
+            });
+        }
+
+        function renderPagination(pagination) {
+            const { page, per_page, total_pages, total_items, has_next, has_prev } = pagination;
+
+            paginationInfoElement.textContent = `Showing ${(page - 1) * per_page + 1} to ${Math.min(page * per_page, total_items)} of ${total_items} entries`;
+
+            let html = '';
+
+            // Previous button
+            if (has_prev) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page - 1}">‹ Previous</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">‹ Previous</a></li>`;
+            }
+
+            // Page numbers
+            for (let i = 1; i <= total_pages; i++) {
+                if (i === 1 || i === total_pages || (i >= page - 2 && i <= page + 2)) {
+                    html += `<li class="page-item ${i === page ? 'active' : ''}">
+                        <a class="page-link" href="#" data-page="${i}">${i}</a>
+                    </li>`;
+                } else if (i === page - 3 || i === page + 3) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+
+            // Next button
+            if (has_next) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page + 1}">Next ›</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">Next ›</a></li>`;
+            }
+
+            paginationElement.innerHTML = html;
+
+            // Add event listeners
+            document.querySelectorAll('.page-link[data-page]').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const newPage = parseInt(el.getAttribute('data-page'));
+                    loadCredits(newPage);
+                });
+            });
+        }
+
+        function updateMultiSelectUI() {
+            if (isMultiSelectMode) {
+                filterButton.style.display = 'none';
+                dashboardShortcuts.style.display = 'none';
+                toggleMultiSelectBtn.style.display = 'none';
+                hideMultiSelectBtn.style.display = '';
+                selectAllHeader.style.display = '';
+
+                document.querySelectorAll('#creditsBody tr td:first-child').forEach(td => {
+                    td.style.display = '';
+                });
+            } else {
+                filterButton.style.display = '';
+                dashboardShortcuts.style.display = '';
+                toggleMultiSelectBtn.style.display = '';
+                hideMultiSelectBtn.style.display = 'none';
+                selectAllHeader.style.display = 'none';
+
+                document.querySelectorAll('#creditsBody tr td:first-child').forEach(td => {
+                    td.style.display = 'none';
+                });
+                bulkActionsDiv.style.display = 'none';
+            }
+
+            updateBulkActionButtons();
+        }
+
+        function updateBulkActionButtons() {
+            if (selectedCredits.size > 0 && isMultiSelectMode) {
+                bulkActionsDiv.style.display = 'flex';
+                bulkDeleteBtn.textContent = `Delete (${selectedCredits.size})`;
+            } else {
+                bulkActionsDiv.style.display = 'none';
+            }
+        }
+
+        function deleteCredits(ids) {
+            fetch('/sales/api/credits/bulk-delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ ids: ids })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let message = data.message;
+                        if (data.bulk_payment_credits && data.bulk_payment_credits.length > 0) {
+                            message += '\n\nCredits from bulk payments must be reversed via the original receipt.';
+                        }
+                        showNotification(message, 'success');
+                        selectedCredits.clear();
+                        isMultiSelectMode = false;
+                        updateMultiSelectUI();
+                        loadCredits(currentPage);
+                    } else {
+                        showNotification(data.message || 'Error deleting credits', 'error');
+                    }
+                })
+                .catch(err => {
+                    showNotification('Error deleting credits', 'error');
+                    console.error(err);
+                });
+        }
+
+        // Helper function for notifications
+        function showNotification(message, type) {
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(message, type);
+            } else {
+                alert(message);
+            }
+        }
+
+        // Initial load
+        loadCredits();
+    });
+
+    function writeOffCredit(creditId, amount, currency) {
+        Swal.fire({
+            title: 'Write Off Credit?',
+            html: `
+            <p>This will write off <strong>${formatAmount(amount)} ${currency}</strong> from this credit.</p>
+            <p>Enter reason (optional):</p>
+            <input type="text" id="writeOffReason" class="swal2-input" placeholder="Reason for write-off">
+            <p>Additional notes (optional):</p>
+            <textarea id="writeOffNotes" class="swal2-textarea" placeholder="Additional notes"></textarea>
+        `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Write Off',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content',
+                confirmButton: 'custom-swal-confirm-btn',
+                icon: 'custom-swal-icon'
+            },
+            preConfirm: () => {
+                const reason = document.getElementById('writeOffReason').value;
+                const notes = document.getElementById('writeOffNotes').value;
+                return { reason, notes };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('/sales/api/credit/write-off', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        credit_id: creditId,
+                        amount: amount,
+                        reason: result.value.reason || 'write_off',
+                        notes: result.value.notes
+
+                    })
+
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Write-off response:', data);
+                        if (data.success) {
+                            showNotification(data.message, 'success');
+                            location.reload();
+                        } else {
+                            showNotification(data.message || 'Error writing off credit', 'error');
+                        }
+                    })
+                    .catch(err => {
+                        showNotification('Error writing off credit', 'error');
+                        console.error(err);
+                    });
+            }
+        });
+    }
+
+    // Helper function to format amounts
+    function formatAmount(amount) {
+        return new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(amount);
+    }
+</script>
+{% endblock %}

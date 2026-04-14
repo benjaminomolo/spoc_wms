@@ -1,0 +1,471 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Exchange Rates</h1>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item">
+                    <button class="button cta-button" data-bs-toggle="modal" data-bs-target="#exchangeRateModal">
+                        Enter New Rates
+                    </button>
+                </li>
+                {% endif %}
+
+                <li class="shortcut-item">
+                    <div class="action-icons">
+                        <button class="filter-icon" type="button" id="toggleFilterForm" data-tooltip="Apply Filter">
+                            <i class="fas fa-filter"></i>
+                        </button>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+        <form method="GET" action="{{ url_for('view_exchange_rates') }}" class="date-filter-form" id="filter-form">
+            <!-- From Currency Dropdown -->
+            <div class="filter-group">
+                <label for="from_currency" class="filter-label">From Currency</label>
+                <select id="from_currency" name="from_currency" class="form-select">
+                    <option value="">All Currencies</option>
+                    {% for currency in currencies %}
+                    <option value="{{ currency.id }}" {% if request.args.get('from_currency')==currency.id|string
+                        %}selected{% endif %}>
+                        {{ currency.user_currency }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- To Currency Dropdown -->
+            <div class="filter-group">
+                <label for="to_currency" class="filter-label">To Currency</label>
+                <select id="to_currency" name="to_currency" class="form-select">
+                    <option value="">All Currencies</option>
+                    {% for currency in currencies %}
+                    <option value="{{ currency.id }}" {% if request.args.get('to_currency')==currency.id|string
+                        %}selected{% endif %}>
+                        {{ currency.user_currency }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+            <!-- Start Date Input -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control"
+                    value="{{ request.args.get('start_date', '') }}">
+            </div>
+
+            <!-- End Date Input -->
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control"
+                    value="{{ request.args.get('end_date', '') }}">
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="filter-actions">
+                <button type="submit" class="add-button">Apply Filter</button>
+                <a href="{{ url_for('view_exchange_rates') }}" class="btn reset-button">Reset</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Exchange Rates Table -->
+
+    <!-- Exchange Rates Table -->
+    <!-- Exchange Rates Table -->
+    <div class="table-container table-responsive">
+        <div id="loadingSpinner" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+        <table class="exchange-rates-list-table stripe">
+            <thead>
+                <tr>
+                    <th>From Currency</th>
+                    <th>To Currency</th>
+                    <th>Rate</th>
+                    <th>Date</th>
+                    <th>Is Currency Exchange</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rate in exchange_rates %}
+                <tr data-rate-id="{{ rate.id }}">
+                    <td>{{ rate.from_currency.user_currency }}</td>
+                    <td>{{ rate.currencies.user_currency }}</td>
+                    <td>
+                        <span class="rate-value">{{ rate.rate }}</span>
+                        <input type="number" step="0.00000001" class="rate-edit" value="{{ rate.rate }}"
+                            style="display: none; width: 80px;">
+                    </td>
+                    <td>{{ rate.date }}</td>
+                    <td>
+                        {{ rate.currency_exchange_transaction.exchange_date or "-" }}
+                        {% if rate.currency_exchange_transaction.exchange_time %}
+                        <br>
+                        <small>{{ rate.currency_exchange_transaction.exchange_time }}</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            {% if role == 'Admin' or role == 'Contributor' %}
+
+                            {%if not rate.currency_exchange_transaction %}
+                            <a href="#" class="edit-rate" data-tooltip="Edit" data-rate-id="{{ rate.id }}">
+                                <i class="fas fa-edit edit-icon"></i>
+                            </a>
+                            {% endif %}
+                            <a href="#" class="save-rate" data-tooltip="Save" style="display: none;">
+                                <i class="fas fa-save save-icon"></i>
+                            </a>
+                            <a href="#" class="cancel-edit" data-tooltip="Cancel" style="display: none;">
+                                <i class="fas fa-times cancel-icon"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th><input type="text" placeholder="Search From Currency"></th>
+                    <th><input type="text" placeholder="Search To Currency"></th>
+                    <th><input type="text" placeholder="Search Rate"></th>
+                    <th><input type="text" placeholder="Search Date"></th>
+                    <th><input type="text" placeholder="Search Description"></th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- Exchange Rate Modal -->
+<div class="modal fade" id="exchangeRateModal" tabindex="-1" aria-labelledby="exchangeRateModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="exchangeRateModalLabel">Submit Exchange Rates</h5>
+                <button type="button " class="button add-button" data-bs-dismiss="modal" aria-label="Close"><i
+                        class="fas fa-times"></i></button>
+            </div>
+            <form id="exchangeRateForm" method="POST" action="{{ url_for('fund_transfers.submit_exchange_rates') }}">
+                <div class="modal-body">
+                    <div class="alert alert-info mb-3">
+                        <strong>Base Currency:</strong>
+                        {% for currency in currencies if currency.currency_index == 1 %}
+                        {{ currency.user_currency }}
+                        <input type="hidden" name="base_currency_id" value="{{ currency.id }}">
+                        {% endfor %}
+                    </div>
+
+                    <div class="form-group" style="width: 200px;">
+                        <label for="rate_date" class="form-label">Effective Date</label>
+                        <input type="date" class="form-control" id="rate_date" name="date" required>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="30%">Foreign (Target) Currency</th>
+                                    <th width="30%">Rate (1 Base → Target)<br><small class="text-muted">(e.g. 1 USD
+                                            (Base) =
+                                            4,500 SSP (Target))</small></th>
+
+                                    <th width="30%">Inverse Rate (1 Target → Base)</th>
+                                    <th width="10%">Action</th>
+                                </tr>
+
+                            </thead>
+                            <tbody id="ratesTableBody">
+                                {% for currency in currencies if currency.currency_index != 1 %}
+                                <tr data-currency-id="{{ currency.id }}">
+                                    <td>{{ currency.user_currency }}</td>
+                                    <td>
+                                        <div class="input-group">
+                                            <span class="input-group-text">1 {{base_currency}} = </span>
+                                            <input type="number" step="0.0000000001" min="0.0000000001"
+                                                max="9999999999.9999999999" class="form-control target-rate"
+                                                name="to_value_{{ currency.id }}" placeholder="Enter rate"
+                                                data-currency-id="{{ currency.id }}" required>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <span class="input-group-text">1 :</span>
+                                            <input type="number" step="0.0000000001" class="form-control inverse-rate"
+                                                readonly placeholder="Auto-calculated"
+                                                name="inverse_value_{{ currency.id }}">
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="button remove-button" data-bs-toggle="tooltip"
+                                            title="Clear rate">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn remove-button" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="button cta-button" id="submitRatesBtn">
+                        <i class="fas fa-save me-1"></i> Save All Rates
+                    </button>
+                </div>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Set today's date as default
+        document.getElementById('rate_date').valueAsDate = new Date();
+
+        // Initialize tooltips
+        $('[data-bs-toggle="tooltip"]').tooltip();
+
+        // Auto-calculate inverse rates when target rates change
+        $('#ratesTableBody').on('input', '.target-rate', function () {
+            const targetRate = parseFloat($(this).val());
+            const row = $(this).closest('tr');
+            const inverseInput = row.find('.inverse-rate');
+
+            if (targetRate && !isNaN(targetRate) && targetRate > 0) {
+                const inverseRate = (1 / targetRate).toFixed(10); // 10 decimal places
+                inverseInput.val(inverseRate);
+            } else {
+                inverseInput.val('');
+            }
+        });
+
+        // Clear rate button handler
+        $('#ratesTableBody').on('click', '.clear-rate', function () {
+            const row = $(this).closest('tr');
+            row.find('.target-rate').val('').trigger('input');
+        });
+
+        // Form submission handler
+        $('#exchangeRateForm').submit(function (e) {
+            e.preventDefault();
+            const form = $(this);
+            const submitBtn = $('#submitRatesBtn');
+
+            // Validate at least one rate is entered
+            if ($('.target-rate').filter(function () { return $(this).val() !== ''; }).length === 0) {
+                showNotification('Please enter at least one exchange rate', 'error');
+                return;
+            }
+
+            $.ajax({
+                url: form.attr('action'),
+                method: 'POST',
+                data: form.serialize(),
+                success: function (response) {
+                    if (response.status === 'success') {
+                        // Show notification immediately
+                        showNotification(response.message, 'success');
+
+                        // Hide modal after a short delay
+                        setTimeout(function () {
+                            $('#exchangeRateModal').modal('hide');
+                        }, 1500); // 1.5 second delay
+
+                        // Reload page after modal is hidden
+                        $('#exchangeRateModal').on('hidden.bs.modal', function () {
+                            setTimeout(function () {
+                                location.reload();
+                            }, 300); // Small additional delay
+                        });
+                    } else {
+                        showNotification(response.message, 'danger');
+                    }
+                },
+                error: function (xhr) {
+                    let errorMsg = 'An error occurred while saving rates';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.message) errorMsg = response.message;
+                    } catch (e) { }
+                    showNotification(errorMsg, 'danger'); // Fixed: changed showToast to showNotification
+                },
+                complete: function () {
+                    submitBtn.prop('disabled', false);
+                    submitBtn.html('<i class="fas fa-save me-1"></i> Save All Rates');
+                }
+            });
+        });
+    });
+</script>
+
+
+
+
+<script>
+    $(document).ready(function () {
+        // Initialize DataTables
+        var table = $('.exchange-rates-list-table').DataTable({
+            "paging": true,
+            "ordering": true,
+            "info": true,
+            "searching": true,
+            "order": [[3, "desc"]],  // Sort by Date descending
+            "columnDefs": [
+                { "orderable": false, "targets": [4] }, // Disable sorting on Actions column
+                { "type": "num-fmt", "targets": [2] } // Proper sorting for rate numbers
+            ],
+            "initComplete": function () {
+                $('#loadingSpinner').hide(); // Hide spinner after initialization
+
+                // Apply column search
+                this.api().columns().every(function () {
+                    var column = this;
+                    var footer = $(column.footer());
+
+                    // Only add search if there's an input in the footer
+                    if (footer.find('input').length) {
+                        var input = footer.find('input');
+
+                        input.on('keyup change clear', function () {
+                            if (column.search() !== this.value) {
+                                column.search(this.value).draw();
+                            }
+                        });
+
+                        // Clear search when clicking X in search field
+                        input.on('click', function (e) {
+                            if ($(this).val() != '' && e.offsetX > $(this).outerWidth() - 20) {
+                                $(this).val('').trigger('change');
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+
+        // Handle edit button click
+        $('.exchange-rates-list-table').on('click', '.edit-rate', function (e) {
+            e.preventDefault();
+            var row = $(this).closest('tr');
+            row.find('.rate-value').hide();
+            row.find('.rate-edit').show().focus();
+            row.find('.edit-rate').hide();
+            row.find('.save-rate, .cancel-edit').show();
+        });
+
+        // Handle cancel button click
+        $('.exchange-rates-list-table').on('click', '.cancel-edit', function (e) {
+            e.preventDefault();
+            var row = $(this).closest('tr');
+            var originalValue = row.find('.rate-edit').val();
+            row.find('.rate-value').show().text(originalValue);
+            row.find('.rate-edit').hide();
+            row.find('.save-rate, .cancel-edit').hide();
+            row.find('.edit-rate').show();
+        });
+
+        // Handle save button click
+        $('.exchange-rates-list-table').on('click', '.save-rate', function (e) {
+            e.preventDefault();
+            var row = $(this).closest('tr');
+            var rateId = row.data('rate-id');
+            var newRate = row.find('.rate-edit').val();
+
+            // Show loading state
+            row.find('.save-rate i').removeClass('fa-save').addClass('fa-spinner fa-spin');
+
+            // Send AJAX request to update the rate
+            $.ajax({
+                url: "/exchange_rates/" + rateId + "/edit",
+                method: "POST",
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                data: {
+                    rate: newRate,
+                    csrf_token: "{{ csrf_token() }}"
+                },
+                success: function (response) {
+                    if (response.success) {
+                        // Update the displayed value
+                        row.find('.rate-value').show().text(response.new_rate);
+                        row.find('.rate-edit').val(response.new_rate).hide();
+                        row.find('.save-rate, .cancel-edit').hide();
+                        row.find('.edit-rate').show();
+                    } else {
+                        alert('Error: ' + response.message);
+                        // Revert to original value
+                        row.find('.cancel-edit').click();
+                    }
+                    // Restore save icon
+                    row.find('.save-rate i').removeClass('fa-spinner fa-spin').addClass('fa-save');
+                },
+                error: function (xhr) {
+                    var errorMsg = 'Error updating rate';
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        if (response.message) {
+                            errorMsg += ': ' + response.message;
+                        }
+                    } catch (e) { }
+                    alert(errorMsg);
+                    row.find('.save-rate i').removeClass('fa-spinner fa-spin').addClass('fa-save');
+                }
+            });
+        });
+        // Toggle the filter section visibility with animation
+        document.getElementById('toggleFilterForm').addEventListener('click', function () {
+            const filterSection = document.getElementById('filter-section');
+            filterSection.classList.toggle('visible');
+        });
+
+        // Highlight today's date in the table
+        const today = new Date().toISOString().split('T')[0];
+        $('td').filter(function () {
+            return $(this).text().trim() === today;
+        }).addClass('today-highlight');
+    });
+</script>
+
+<style>
+    .today-highlight {
+        background-color: #fffde7;
+        font-weight: bold;
+    }
+
+    .today-icon {
+        color: #4caf50;
+    }
+
+    .history-icon {
+        color: #2196f3;
+    }
+
+    .action-icons a {
+        margin-right: 10px;
+    }
+</style>
+
+{% endblock %}

@@ -1,0 +1,438 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+
+    {% set selected_currency_id = request.form.get('currency') or (company.currency[0].id) %}
+    {% set selected_filter_by = request.form.get('filter_by') or 'date_generated' %}
+    {% set selected_start_date = request.form.get('start_date') or '' %}
+    {% set selected_end_date = request.form.get('end_date') or '' %}
+
+
+
+    <div class="header-section">
+        <h1>Pay Runs ({{(company.currency | selectattr("id", "equalto", selected_currency_id|int) | first).user_currency
+            }})</h1>
+
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li><a href="{{ url_for('payroll.generate_pay_run') }}">Create Pay Run</a></li>
+                    {% endif %}
+                    <li><a href="{{ url_for('payroll.add_employee') }}">View Employees</a></li>
+                    <li><a href="{{ url_for('payroll.get_employee_deductions') }}">Employee Deductions</a></li>
+                </ul>
+            </nav>
+        </div>
+
+
+
+
+        <div class="header-buttons">
+
+
+
+
+            <button class="filter-button" type="filter-button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+
+
+
+
+        </div>
+
+        <nav>
+
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{ url_for('payroll.generate_pay_run') }}">Create
+                        Pay Run</a></li>
+                {% endif %}
+
+                <li class="shortcut-item">
+                    <a href="{{ url_for('payroll.add_employee') }}">View Employees</a>
+                </li>
+
+                <li class="shortcut-item">
+                    <a href="{{ url_for('payroll.get_employee_deductions') }}">Employee Deductions</a>
+                </li>
+
+
+
+            </ol>
+        </nav>
+
+
+
+
+
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+        <form method="POST" action="{{ url_for('payroll.get_pay_runs') }}" class="date-filter-form" id="filter-form">
+
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <!-- Currency Filter -->
+            <div class="filter-group">
+                <label for="currency" class="filter-label">Currency</label>
+                <select id="currency" name="currency" class="form-select">
+                    {% for currency in company.currency %}
+                    <option value="{{ currency.id }}" {% if selected_currency_id|int==currency.id %} selected {% endif
+                        %}>
+                        {{ currency.user_currency }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Filter By (e.g., Date Generated) -->
+            <div class="filter-group">
+                <label for="filter_by" class="filter-label">Filter By</label>
+                <select id="filter_by" name="filter_by" class="form-select">
+                    <option value="date_generated" {% if selected_filter_by=='date_generated' %}selected{% endif %}>Date
+                        Generated</option>
+                    <option value="start_end_date" {% if selected_filter_by=='start_end_date' %}selected{% endif %}>
+                        Start & End Date</option>
+                </select>
+            </div>
+
+            <!-- Date Filters -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control"
+                    value="{{ selected_start_date }}">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control" value="{{ selected_end_date }}">
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="filter-actions">
+                <button type="submit" class="filter-section-button filter">Apply Filter</button>
+                <button type="button" class="filter-section-button reset"
+                    onclick="window.location.href='{{ url_for('payroll.get_pay_runs') }}'">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-responsive">
+
+        <table id="payrun-list">
+            <thead>
+                <tr>
+                    <th>Pay Run Name</th>
+
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Total Gross Salary</th>
+                    <th>Total Net Salary</th>
+                    <th>Total Paid Amount</th>
+                    <th>Total Balance Due</th>
+                    <th>Payment Status</th>
+                    <th>Employee Count</th>
+
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="chart-list-body">
+                {% for payrun in payruns %}
+                <tr>
+                    <td style="width:120px;">{{ payrun.PayrollPeriod.payroll_period_name }}</td>
+
+                    <td>{{ payrun.PayrollPeriod.start_date }}</td>
+                    <td>{{ payrun.PayrollPeriod.end_date }}</td>
+                    <td>{{ "{:,.2f}".format(payrun.total_gross_salary) }}</td>
+                    <td>{{ "{:,.2f}".format(payrun.total_net_salary) }}</td>
+                    <td>{{ "{:,.2f}".format(payrun.total_paid_amount) }}</td>
+                    <td>{{ "{:,.2f}".format(payrun.total_balance_due) }}</td>
+                    <td>
+                        <span class="badge 
+                            {% if payrun.PayrollPeriod.payroll_status.name == 'CANCELLED' %} bg-danger
+                            {% elif payrun.PayrollPeriod.payment_status.name == 'PENDING' %} bg-warning 
+                            {% elif payrun.PayrollPeriod.payment_status.name == 'PARTIAL' %} bg-info
+                            {% elif payrun.PayrollPeriod.payment_status.name == 'PAID' %} bg-success 
+                            {% endif %}">
+                            {% if payrun.PayrollPeriod.payroll_status.name == 'CANCELLED' %}
+                            Canceled
+                            {% else %}
+                            {{ payrun.PayrollPeriod.payment_status.value }}
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>{{ payrun.employee_count }}</td>
+
+                    <td>
+                        <div class="action-icons">
+                            <!-- View Button -->
+                            <button type="button" class="view-icon" data-tooltip="View"
+                                onclick="viewPayrun('{{ payrun.PayrollPeriod.id }}')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+
+                            {% if role == 'Admin' or role == 'Contributor' %}
+                            {% if payrun.PayrollPeriod.payroll_status.name != 'CANCELLED' %}
+                            <!-- Delete Button (only for unposted transactions) -->
+                            {% if not payrun.is_posted_to_ledger %}
+                            <button type="button" class="delete-icon" data-tooltip="Delete"
+                                onclick="deletePayrun('{{ payrun.PayrollPeriod.id }}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% else %}
+                            <!-- Cancel Button (only for posted transactions) -->
+                            {% if role == 'Admin' %}
+                            <button type="button" class="delete-icon" data-tooltip="Cancel Payrun"
+                                onclick="cancelPayrun('{{ payrun.PayrollPeriod.id }}')">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                            {% endif %}
+                            {% endif %}
+                            {% endif %}
+                            {% endif %}
+                            <!-- Download Button -->
+                            <form method="GET"
+                                action="{{ url_for('download_route.download_payrun', payroll_period_id=payrun.PayrollPeriod.id) }}"
+                                style="display:inline;">
+                                <button type="submit" class="download-icon" data-tooltip="Download">
+                                    <i class="fas fa-file-pdf"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th><input type="text" placeholder="Search Pay Run Name" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Start Date" class="column-search"></th>
+                    <th><input type="text" placeholder="Search End Date" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Total Gross Salary" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Total Net Salary" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Total Paid Amount" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Total Balance Due" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Payment Status" class="column-search"></th>
+                    <th></th> <!-- No search for Actions column -->
+                    <th></th>
+                </tr>
+            </tfoot>
+
+
+        </table>
+
+        {% if company.has_multiple_currencies %}
+        <div class="text-muted" role="alert">
+            <i class="fas fa-info-circle me-2"></i>
+            Amounts are displayed in <strong>
+                {% for currency in company.currency %}
+                {% if currency.currency_index == 1 %}
+                {{ currency.user_currency }}
+                {% endif %}
+                {% endfor %}
+            </strong> by default.
+            Use the currency filter above to view payrun transactions in other available currencies.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Initialize DataTable
+        var table = $('#payrun-list').DataTable({
+            "lengthMenu": [
+                [10, 25, 50, 100, -1],
+                [10, 25, 50, 100, 'All']
+            ],
+            "aaSorting": [[0, 'desc']], // Sort by the first column in descending order
+            "initComplete": function () {
+
+            },
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                // Format the amount column with thousands separators
+                function formatNumber(num) {
+                    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+
+                // Calculate total for columns
+                var intVal = function (i) {
+                    return typeof i === 'string' ? i.replace(/[\$,]/g, '') * 1 : typeof i === 'number' ? i : 0;
+                };
+
+                // Total Gross Salary
+                var total_gross_salary = api.column(3, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Total Net Salary
+                var total_net_salary = api.column(4, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Total Paid Amount
+                var total_paid_amount = api.column(5, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Total Balance Due
+                var total_balance_due = api.column(6, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Update footer with totals
+                $(api.column(3).footer()).html('Total: ' + formatNumber(total_gross_salary));
+                $(api.column(4).footer()).html('Total: ' + formatNumber(total_net_salary));
+                $(api.column(5).footer()).html('Total: ' + formatNumber(total_paid_amount));
+                $(api.column(6).footer()).html('Total: ' + formatNumber(total_balance_due));
+            }
+        });
+
+        // Trigger initial update of footer totals
+        table.draw();
+    });
+
+    // Function to view and delete pay runs
+    // Function to view and delete pay runs
+    function viewPayrun(payrunId) {
+        // Navigate to the detailed view of the pay run
+        window.location.href = `/payroll/payrun_summary/${payrunId}`;
+    }
+
+    function deletePayrun(payrunId) {
+        Swal.fire({
+            title: 'Are you sure?',
+            html: "This will:<br><br>" +
+                "1. Remove all payroll transactions<br>" +
+                "2. Delete the payrun period<br>" +
+                "3. Delete all deductions<br>" +
+                "4. Resolve advances<br>" +
+                "5. <strong>Cannot be undone</strong>",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete payrun!',
+            width: '500px',
+            padding: '1.5rem',
+            backdrop: 'rgba(0,0,0,0.4)',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(`/payroll/delete_payrun/${payrunId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification(data.message || "Payrun deleted successfully.", 'success');
+                            window.location.reload(); // Refresh the page to reflect the changes
+                        } else {
+                            showNotification(data.message || "Failed to delete payrun.", 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error deleting payrun:", error);
+                        showNotification(
+                            "An error occurred while deleting the payrun.",
+                            'error'
+                        );
+                    });
+            }
+        });
+    }
+
+
+
+    function cancelPayrun(payrunId) {
+        Swal.fire({
+            title: 'Are you sure?',
+            html: "This will:<br><br>" +
+                "1. Cancel all payroll transactions<br>" +
+                "2. Cancel the payrun period<br>" +
+                "3. Remove all deductions<br>" +
+                "4. <strong>Cannot be undone</strong>",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, cancel payrun!',
+            width: '500px',
+            padding: '1.5rem',
+            backdrop: 'rgba(0,0,0,0.4)',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(`/payroll/cancel_payrun/${payrunId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    }
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(err => { throw err; });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            showNotification(data.message || "Payrun cancelled successfully.", 'success');
+                            // Refresh the page after 1.5 seconds
+                            setTimeout(() => window.location.reload(), 1500);
+                        } else {
+                            showNotification(data.message || "Failed to cancel payrun.", 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error cancelling payrun:", error);
+                        showNotification(
+                            error.message || "An error occurred while cancelling the payrun.",
+                            'error'
+                        );
+                    });
+            }
+        });
+    }
+    // Toggle the filter section visibility with animation
+    document.getElementById('toggleFilterForm').addEventListener('click', function () {
+        const filterSection = document.getElementById('filter-section');
+        filterSection.classList.toggle('visible');
+    });
+</script>
+{% endblock %}

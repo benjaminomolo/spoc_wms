@@ -1,0 +1,1549 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+    /* Payroll Specific Styles */
+    .payroll-summary-card {
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+    }
+
+    .payroll-metric {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #eee;
+    }
+
+    .payroll-metric:last-child {
+        border-bottom: none;
+    }
+
+    .payroll-metric-label {
+        font-size: 0.9rem;
+        color: #555;
+    }
+
+    .payroll-metric-value {
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .payroll-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .badge-paid {
+        background-color: rgba(76, 201, 240, 0.1);
+        color: #4cc9f0;
+    }
+
+    .badge-pending {
+        background-color: rgba(248, 150, 30, 0.1);
+        color: #f8961e;
+    }
+
+    .badge-cancelled {
+        background-color: rgba(255, 107, 107, 0.1);
+        color: #ff6b6b;
+    }
+
+    .employee-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background-color: #f0f0f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 10px;
+        font-weight: 600;
+        color: #555;
+    }
+
+    .department-tag {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        background-color: #f0f0f0;
+        color: #555;
+    }
+
+    /* Override some accounting dashboard styles for payroll */
+    .metrics-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    @media (max-width: 1024px) {
+        .metrics-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .metrics-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+
+
+    /* Table Cards */
+    .table-card {
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.5rem;
+    }
+
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .table-header h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .table-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+
+    /* Tables */
+    .table-responsive {
+        overflow-x: auto;
+        width: 100%;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th,
+    td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--text-light);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    td {
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+
+    .text-end {
+        text-align: right;
+    }
+
+    /* Status Badges */
+    .badge {
+        display: inline-block;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border-radius: 4px;
+    }
+
+    .badge.primary {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: var(--primary-color);
+    }
+
+    .badge.success {
+        background-color: rgba(76, 201, 240, 0.1);
+        color: var(--success-color);
+    }
+
+    .badge.warning {
+        background-color: rgba(248, 150, 30, 0.1);
+        color: var(--warning-color);
+    }
+
+    .badge.info {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: var(--primary-color);
+    }
+
+    /* Action Buttons */
+    .action-btn {
+        background-color: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 0.4rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+    }
+
+    .action-btn:hover {
+        background-color: #f5f5f5;
+    }
+
+    /* Table Footer */
+    .table-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .table-info {
+        font-size: 0.85rem;
+        color: var(--text-light);
+    }
+
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .dashboard-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .dashboard-controls {
+            width: 100%;
+        }
+
+        .dashboard-dropdown-toggle {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .date-range-picker {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        th,
+        td {
+            padding: 0.75rem 0.5rem;
+        }
+
+        .table-footer {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .pagination {
+            justify-content: center;
+        }
+    }
+
+    /* Utility Classes */
+    .text-success {
+        color: var(--success-color);
+    }
+
+    .text-warning {
+        color: var(--warning-color);
+    }
+
+    .text-danger {
+        color: var(--danger-color);
+    }
+
+    .text-muted {
+        color: var(--text-lighter);
+    }
+</style>
+
+<div class="content-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="header-top-row">
+            <h1>Payroll Dashboard</h1>
+            <button class="mobile-filter-btn" id="mobileFilterBtn">
+                <svg class="filter-icon" viewBox="0 0 24 24">
+                    <path d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+                <span class="filter-text">Filters</span>
+            </button>
+        </div>
+
+        <!-- Time Period Controls -->
+        <div class="dashboard-controls">
+            <div class="dashboard-dropdown">
+                <button class="button add-button" id="timePeriodDropdown">
+                    <span class="icon">📅</span>Last Month
+                </button>
+                <div class="dashboard-dropdown-menu">
+                    <a class="dashboard-dropdown-item time-filter" data-value="today">Today</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="week">This Week</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="month">This Month</a>
+                    <a class="dashboard-dropdown-item time-filter active" data-value="last_month">Last Month</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="quarter">This Quarter</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="year">This Year</a>
+                    <div class="dashboard-dropdown-divider"></div>
+                    <a class="dashboard-dropdown-item time-filter" data-value="custom">Custom Range</a>
+                </div>
+            </div>
+            <div id="customRangePicker" class="hidden">
+                <div class="date-range-picker">
+                    <input type="date" id="startDate">
+                    <span>to</span>
+                    <input type="date" id="endDate">
+                    <button id="applyDateRange">Apply</button>
+                </div>
+            </div>
+            <button class="refresh-btn" id="refreshData">
+                <span class="icon">🔄</span>
+            </button>
+        </div>
+
+        <!-- Payroll Specific Filters -->
+        <!-- Payroll Specific Filters -->
+        <div class="filter-wrapper">
+            <div class="filter-controls">
+                <!-- Payroll Period Filter -->
+                <div class="filter-group">
+                    <label for="payroll-period-select">Payroll Period</label>
+                    <select id="payroll-period-select" class="form-select">
+                        <option value="">All Periods</option>
+                        {% for period in payroll_periods %}
+                        <option value="{{ period.id }}">{{ period.payroll_period_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Employee Filter -->
+                <div class="filter-group">
+                    <label for="employee-select">Employee</label>
+                    <select id="employee-select" class="form-select">
+                        <option value="">All Employees</option>
+                        {% for employee in employees %}
+                        <option value="{{ employee.id }}">{{ employee.first_name }} {{ employee.last_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Department Filter -->
+                <div class="filter-group">
+                    <label for="department-select">Department</label>
+                    <select id="department-select" class="form-select">
+                        <option value="">All Departments</option>
+                        {% for department in departments %}
+                        <option value="{{ department.id }}">{{ department.department_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Project Filter -->
+                <div class="filter-group">
+                    <label for="project-select">Project</label>
+                    <select id="project-select" class="form-select">
+                        <option value="">All Projects</option>
+                        {% for project in projects %}
+                        <option value="{{ project.id }}">{{ project.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Payment Status Filter -->
+                <div class="filter-group">
+                    <label for="status-select">Payment Status</label>
+                    <select id="status-select" class="form-select">
+                        <option value="">All Statuses</option>
+                        <option value="PAID">Paid</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="PARTLY_PAID">Partly Paid</option>
+                    </select>
+                </div>
+
+                <!-- Currency Filter -->
+                <div class="filter-group">
+                    <label for="currency-select">Currency</label>
+                    <select id="currency-select" class="form-select">
+                        {% for currency in currencies %}
+                        {% if currency.currency_index == 1 %}
+                        <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                        {% endif %}
+                        {% endfor %}
+                        {% for currency in currencies %}
+                        {% if currency.currency_index != 1 %}
+                        <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payroll Summary Metrics -->
+    <div class="metrics-grid">
+        <div class="metric-card revenue">
+            <div class="metric-content">
+                <div>
+                    <h3>Total Gross Pay (<span class="currency-symbol">{{ base_currency }}</span>)</h3>
+                    <p class="metric-value" id="totalGrossPay">0.00</p>
+                </div>
+                <div class="metric-icon">💰</div>
+            </div>
+            <div class="metric-trend">
+                <span class="trend-badge positive" id="grossPayChange">
+                    ↑ 0%
+                </span>
+                <span class="trend-label">vs previous period</span>
+            </div>
+        </div>
+
+        <div class="metric-card expenses">
+            <div class="metric-content">
+                <div>
+                    <h3>Total Deductions (<span class="currency-symbol">{{ base_currency }}</span>)</h3>
+                    <p class="metric-value" id="totalDeductions">0.00</p>
+                </div>
+                <div class="metric-icon">💸</div>
+            </div>
+            <div class="metric-trend">
+                <span class="trend-badge negative" id="deductionsChange">
+                    ↑ 0%
+                </span>
+                <span class="trend-label">vs previous period</span>
+            </div>
+        </div>
+
+        <div class="metric-card balance">
+            <div class="metric-content">
+                <div>
+                    <h3>Total Net Pay (<span class="currency-symbol">{{ base_currency }}</span>)</h3>
+                    <p class="metric-value" id="totalNetPay">0.00</p>
+                </div>
+                <div class="metric-icon">📈</div>
+            </div>
+            <div class="metric-trend">
+                <span class="trend-badge positive" id="netPayChange">
+                    ↑ 0%
+                </span>
+                <span class="trend-label">vs previous period</span>
+            </div>
+        </div>
+
+        <div class="metric-card transactions">
+            <div class="metric-content">
+                <div>
+                    <h3>Employees Paid</h3>
+                    <p class="metric-value" id="totalEmployees">0</p>
+                </div>
+                <div class="metric-icon">👥</div>
+            </div>
+            <div class="metric-trend">
+                <span class="trend-badge neutral" id="employeesChange">
+                    ↑ 0%
+                </span>
+                <span class="trend-label">vs previous period</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payroll Charts Section -->
+    <div class="dashboards-charts-container">
+        <div class="chart-card main-chart">
+            <div class="chart-header">
+                <h3>Payroll Trend by Department</h3>
+                <div class="chart-period-selector">
+                    <button class="period-btn active" data-value="gross">Gross Pay</button>
+                    <button class="period-btn" data-value="net">Net Pay</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="payrollTrendChart" height="300"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card secondary-chart">
+            <div class="chart-header">
+                <h3>Payroll Composition</h3>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="payrollCompositionChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payroll Breakdown Section -->
+    <div class="secondary-metrics">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Deductions Breakdown</h3>
+                <div class="chart-period-selector">
+                    <button class="period-btn active" data-value="type">By Type</button>
+                    <button class="period-btn" data-value="employee">By Employee</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="deductionsChart" height="250"></canvas>
+            </div>
+        </div>
+
+        <div class="payroll-summary-card">
+            <h3>Payroll Summary</h3>
+
+            <div class="payroll-summary-row">
+                <div class="payroll-metric">
+                    <span class="label">Total Employees</span>
+                    <span class="value" id="totalEmployeesSummary">0</span>
+                </div>
+                <div class="payroll-metric">
+                    <span class="label">Gross Salary</span>
+                    <span class="value" id="totalGrossSalary">0.00</span>
+                </div>
+                <div class="payroll-metric">
+                    <span class="label">Net Salary</span>
+                    <span class="value" id="totalNetSalary">0.00</span>
+                </div>
+            </div>
+
+            <div class="payroll-summary-row">
+
+                <div class="payroll-metric">
+                    <span class="label">Benefits</span>
+                    <span class="value" id="totalBenefits">0.00</span>
+                </div>
+
+
+
+                <div class="payroll-metric">
+                    <span class="label">Advance Repayments</span>
+                    <span class="value" id="totalAdvance">0.00</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Payroll Transactions Table -->
+    <div class="table-card">
+        <div class="table-header">
+            <h3>Payroll Transactions</h3>
+            <div class="table-controls">
+                <div class="search-box">
+                    <input type="text" id="payrollSearch" placeholder="Search employee...">
+                    <button class="search-btn">🔍</button>
+                </div>
+                <button class="button add-button" id="exportPayroll">
+                    <span class="icon">📤</span> Export
+                </button>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table id="payrollTable">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Period</th>
+                        <th>Gross Pay</th>
+                        <th>Deductions</th>
+                        <th>Benefits</th>
+                        <th>Net Pay</th>
+                        <th>Status</th>
+                        <th>Period Start Date</th>
+                        <th>Period End date</th>
+
+
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Will be populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+        <div class="table-footer">
+            <div class="table-info" id="payrollCount">Showing 0 of 0 payroll records</div>
+            <div class="pagination" id="payrollPagination">
+                <button class="page-btn disabled" id="prevPayrollPage">Previous</button>
+                <div class="page-numbers">
+                    <button class="page-number active">1</button>
+                </div>
+                <button class="page-btn disabled" id="nextPayrollPage">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payroll Detail Modal -->
+<div class="modal" id="payrollDetailModal">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h3>Payroll Details</h3>
+            <button class="close-btn" id="closePayrollModal">×</button>
+        </div>
+        <div class="modal-body" id="payrollDetailContent">
+            <!-- Will be populated by JavaScript -->
+        </div>
+        <div class="modal-footer">
+            <button class="secondary-btn" id="closePayrollModalBtn">Close</button>
+            <button class="primary-btn" id="printPayroll">Print Payslip</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const apiKey = "{{ api_key }}";
+    const baseCurrency = "{{ base_currency }}";
+
+    // Main Payroll Dashboard Controller
+    class PayrollDashboard {
+        constructor() {
+            this.currentData = [];
+            this.currentPage = 1;
+            this.itemsPerPage = 10;
+            this.currentTimeFilter = 'last_month';
+            this.payrollTrendBy = 'gross';
+            this.deductionsBreakdownBy = 'type';
+
+            this.initElements();
+            this.initEventListeners();
+            this.loadData();
+        }
+
+        async initElements() {
+            // Charts
+            this.payrollTrendChart = this.createChart('payrollTrendChart', 'bar');
+            this.payrollCompositionChart = this.createChart('payrollCompositionChart', 'doughnut');
+            this.deductionsChart = this.createChart('deductionsChart', 'bar');
+
+            // Tables
+            this.payrollTable = document.getElementById('payrollTable').querySelector('tbody');
+        }
+
+        initEventListeners() {
+            // Time filters dropdown
+            const timeDropdown = document.querySelector('.dashboard-dropdown');
+            const timeDropdownToggle = document.getElementById('timePeriodDropdown');
+
+            timeDropdownToggle.addEventListener('click', () => {
+                document.querySelector('.dashboard-dropdown-menu').classList.toggle('show');
+            });
+
+            document.querySelectorAll('.time-filter').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelector('.time-filter.active').classList.remove('active');
+                    item.classList.add('active');
+                    this.currentTimeFilter = item.dataset.value;
+                    timeDropdownToggle.innerHTML = `<span class="icon">📅</span>${item.textContent}`;
+                    document.querySelector('.dashboard-dropdown-menu').classList.remove('show');
+
+                    if (this.currentTimeFilter === 'custom') {
+                        document.getElementById('customRangePicker').classList.remove('hidden');
+                    } else {
+                        document.getElementById('customRangePicker').classList.add('hidden');
+                        this.loadData();
+                    }
+                });
+            });
+
+
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!timeDropdown.contains(e.target)) {
+                    document.querySelector('.dashboard-dropdown-menu').classList.remove('show');
+                }
+
+            });
+
+            // Apply custom date range
+            document.getElementById('applyDateRange').addEventListener('click', () => {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+
+                if (startDate && endDate) {
+                    this.currentTimeFilter = 'custom';
+                    this.loadData(startDate, endDate);
+                } else {
+                    alert('Please select both start and end dates');
+                }
+            });
+
+            // Chart period filter
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (btn.parentElement.classList.contains('chart-period-selector')) {
+                        if (btn.parentElement.parentElement.querySelector('h3').textContent === 'Payroll Trend by Department') {
+                            document.querySelectorAll('.chart-period-selector .period-btn').forEach(b => b.classList.remove('active'));
+                            btn.classList.add('active');
+                            this.payrollTrendBy = btn.dataset.value;
+                            this.updatePayrollTrendChart();
+                        } else if (btn.parentElement.parentElement.querySelector('h3').textContent === 'Deductions Breakdown') {
+                            document.querySelectorAll('.secondary-metrics .chart-period-selector .period-btn').forEach(b => b.classList.remove('active'));
+                            btn.classList.add('active');
+                            this.deductionsBreakdownBy = btn.dataset.value;
+                            this.updateDeductionsChart();
+                        }
+                    }
+                });
+            });
+
+            // Initialize debounced loadData
+            const debouncedLoadData = debounce(() => this.loadData(), 500);
+
+            // Filter change listeners with debounce
+            ['payroll-period-select', 'employee-select', 'department-select', 'project-select',
+                'status-select', 'currency-select'].forEach(id => {
+                    document.getElementById(id).addEventListener('change', debouncedLoadData);
+                });
+
+            // Search functionality
+            document.getElementById('payrollSearch').addEventListener('input', (e) => {
+                this.filterPayroll(e.target.value);
+            });
+
+            // Refresh button
+            document.getElementById('refreshData').addEventListener('click', () => {
+                this.loadData();
+            });
+
+            // Export button
+            document.getElementById('exportPayroll').addEventListener('click', () => {
+                this.exportPayrollData();
+            });
+
+            // Print payroll
+            document.getElementById('printPayroll').addEventListener('click', () => {
+                window.print();
+            });
+
+            // Pagination
+            document.getElementById('prevPayrollPage').addEventListener('click', () => {
+                if (this.currentPage > 1) {
+                    this.currentPage--;
+                    this.updatePayrollTable();
+                }
+            });
+
+            document.getElementById('nextPayrollPage').addEventListener('click', () => {
+                const totalPages = Math.ceil(this.currentData.length / this.itemsPerPage);
+                if (this.currentPage < totalPages) {
+                    this.currentPage++;
+                    this.updatePayrollTable();
+                }
+            });
+
+            // Modal close buttons
+            document.getElementById('closePayrollModal').addEventListener('click', () => {
+                this.closeModal();
+            });
+            document.getElementById('closePayrollModalBtn').addEventListener('click', () => {
+                this.closeModal();
+            });
+        }
+
+        createChart(elementId, type) {
+            const ctx = document.getElementById(elementId).getContext('2d');
+            return new Chart(ctx, {
+                type: type,
+                data: { labels: [], datasets: [] },
+                options: this.getChartOptions(elementId, type)
+            });
+        }
+
+        getChartOptions(chartId, type) {
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: type === 'doughnut' ? 'right' : 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== undefined) {
+                                    label += this.formatCurrency(context.parsed.y, baseCurrency);
+                                } else if (context.raw !== undefined) {
+                                    label += this.formatCurrency(context.raw, baseCurrency);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            };
+
+            if (type === 'bar') {
+                commonOptions.scales = {
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: (value) => this.formatCurrency(value, baseCurrency, false)
+                        }
+                    }
+                };
+            }
+
+            return commonOptions;
+        }
+
+        async loadData(startDate, endDate) {
+            try {
+                setLoadingState(true);
+
+                // 1. First get the current period data
+                const currentData = await this.fetchPayrollData(startDate, endDate);
+                this.currentData = currentData;
+
+
+                // 2. Calculate previous period dates
+                const previousPeriod = this.getPreviousPeriod(startDate, endDate);
+
+                console.log('Previous period:', previousPeriod);
+
+                // 3. Fetch previous period data
+                this.previousPeriodData = await this.fetchPayrollData(
+                    previousPeriod.startDate,
+                    previousPeriod.endDate
+                );
+
+                console.log('Previous period data:', this.previousPeriodData);
+
+                // 4. Update dashboard with both current and previous data
+                this.updateDashboard();
+
+            } catch (error) {
+                console.error('Error loading payroll data:', error);
+                alert('Failed to load payroll data. Please try again.');
+            } finally {
+                setLoadingState(false);
+            }
+        }
+
+        // Helper function to fetch payroll data
+        async fetchPayrollData(startDate, endDate) {
+            let url = '/api/payroll/payruns';
+            const params = new URLSearchParams();
+
+            // Handle time filters
+            if (startDate && endDate) {
+                params.append('start_date', startDate);
+                params.append('end_date', endDate);
+            } else if (this.currentTimeFilter !== 'all') {
+                params.append('time_filter', this.currentTimeFilter);
+            }
+
+            // Add other filters
+            const filters = {
+                payroll_period_id: document.getElementById('payroll-period-select')?.value,
+                employee_id: document.getElementById('employee-select')?.value,
+                department_id: document.getElementById('department-select')?.value,
+                project_id: document.getElementById('project-select')?.value,
+                payment_status: document.getElementById('status-select')?.value,
+                currency: document.getElementById('currency-select')?.value
+            };
+
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value) params.append(key, value);
+            });
+
+            const headers = { 'X-API-Key': apiKey };
+            const response = await fetch(url + (params.toString() ? `?${params.toString()}` : ''), { headers });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            const data = await response.json();
+            return data.payrun_data || [];
+        }
+
+        updateDashboard() {
+            if (this.currentData.length === 0) {
+                this.resetMetrics();
+                this.updateCharts();
+                this.updatePayrollTable(); // Add this to clear the table
+                return;
+            }
+
+            const currentMetrics = this.calculateMetrics(this.currentData);
+            const previousMetrics = this.calculateMetrics(this.previousPeriodData || []);
+
+            this.updateMetricValues(currentMetrics);
+            this.updateTrendIndicators(currentMetrics, previousMetrics);
+            this.updatePayrollTrendChart();
+            this.updatePayrollCompositionChart();
+            this.updateDeductionsChart();
+            this.updatePayrollTable(); // Make sure this is called
+            this.updatePayrollPagination(); // And this too
+        }
+
+        // Add this new method to calculate trends
+        updateTrendIndicators(current, previous) {
+            const indicators = [
+                { id: 'grossPayChange', current: current.totalGross, previous: previous.totalGross },
+                { id: 'deductionsChange', current: current.totalDeductions, previous: previous.totalDeductions },
+                { id: 'netPayChange', current: current.totalNet, previous: previous.totalNet },
+                { id: 'employeesChange', current: current.totalEmployees, previous: previous.totalEmployees }
+            ];
+
+            indicators.forEach(({ id, current, previous }) => {
+                const element = document.getElementById(id);
+                if (!element) return;
+
+                if (previous === 0) {
+                    if (current > 0) {
+                        element.textContent = "↑ New";
+                        element.className = "trend-badge positive";
+                    } else {
+                        element.textContent = "-";
+                        element.className = "trend-badge neutral";
+                    }
+                    return;
+                }
+
+                const percentage = ((current - previous) / previous) * 100;
+                const absoluteValue = Math.abs(percentage).toFixed(1);
+                const isPositive = percentage >= 0;
+
+                element.textContent = `${isPositive ? '↑' : '↓'} ${absoluteValue}%`;
+                element.className = `trend-badge ${isPositive ? 'positive' : 'negative'}`;
+            });
+        }
+
+
+        calculateMetrics(data) {
+            const totalGross = data.reduce((sum, item) => sum + item.gross_salary, 0);
+            const totalDeductions = data.reduce((sum, item) => sum + item.deductions.total, 0);
+            const totalBenefits = data.reduce((sum, item) => sum + item.benefits.total, 0);
+            const totalAdvance = data.reduce((sum, item) => sum + item.advance_payments.total, 0);
+            const totalNet = data.reduce((sum, item) => sum + item.net_salary, 0);
+
+
+            console.log('Calculating payroll metrics:', {
+                totalGross, totalDeductions, totalBenefits, totalAdvance, totalNet
+            });
+
+
+            return {
+                totalGross,
+                totalDeductions,
+                totalBenefits,
+                totalAdvance,
+                totalNet,
+                totalEmployees: data.length
+            };
+        }
+
+
+        updateMetricValues(metrics) {
+            document.getElementById('totalGrossPay').textContent = this.formatCurrency(metrics.totalGross, baseCurrency, false);
+            document.getElementById('totalDeductions').textContent = this.formatCurrency(metrics.totalDeductions, baseCurrency, false);
+            document.getElementById('totalNetPay').textContent = this.formatCurrency(metrics.totalNet, baseCurrency, false);
+
+
+            document.getElementById('totalEmployees').textContent = metrics.totalEmployees;
+
+            // Update summary metrics
+            document.getElementById('totalGrossSalary').textContent = this.formatCurrency(metrics.totalGross, baseCurrency, false);
+            document.getElementById('totalNetSalary').textContent = this.formatCurrency(metrics.totalNet, baseCurrency, false);
+            document.getElementById('totalBenefits').textContent = this.formatCurrency(metrics.totalBenefits, baseCurrency, false);
+            document.getElementById('totalAdvance').textContent = this.formatCurrency(metrics.totalAdvance, baseCurrency, false);
+            document.getElementById('totalDeductions').textContent = this.formatCurrency(metrics.totalDeductions, baseCurrency, false);
+            document.getElementById('totalEmployeesSummary').textContent = metrics.totalEmployees;
+
+        }
+
+        resetMetrics() {
+            document.getElementById('totalGrossPay').textContent = '0';
+            document.getElementById('totalDeductions').textContent = '0';
+            document.getElementById('totalNetPay').textContent = '0';
+            document.getElementById('totalEmployees').textContent = '0';
+
+            // Reset summary metrics
+
+            document.getElementById('totalNetSalary').textContent = this.formatCurrency(0);
+            document.getElementById('totalBenefits').textContent = this.formatCurrency(0);
+            document.getElementById('totalAdvance').textContent = this.formatCurrency(0);
+            document.getElementById('totalGrossSalary').textContent = this.formatCurrency(0);
+
+            document.getElementById('totalEmployeesSummary').textContent = '0';
+
+        }
+
+
+
+
+        getPreviousPeriod(startDate, endDate) {
+            // If custom dates are provided, calculate based on the date range
+            if (startDate && endDate) {
+                const start = luxon.DateTime.fromISO(startDate);
+                const end = luxon.DateTime.fromISO(endDate);
+                const diff = end.diff(start, 'days').days;
+
+                return {
+                    startDate: start.minus({ days: diff + 1 }).toISODate(),
+                    endDate: start.minus({ days: 1 }).toISODate()
+                };
+            }
+
+            // Handle standard time periods
+            const now = luxon.DateTime.now();
+            let previousStart, previousEnd;
+
+            switch (this.currentTimeFilter) {
+                case 'today':
+                    previousStart = now.minus({ days: 1 }).startOf('day');
+                    previousEnd = now.minus({ days: 1 }).endOf('day');
+                    break;
+                case 'week':
+                    previousStart = now.minus({ weeks: 1 }).startOf('week');
+                    previousEnd = now.minus({ weeks: 1 }).endOf('week');
+                    break;
+                case 'month': // This month so far
+                    previousStart = now.startOf('month');
+                    previousEnd = now;
+                    break;
+                case 'last_month': // Full last month
+                    const lastMonth = now.minus({ months: 1 });
+                    previousStart = lastMonth.startOf('month');
+                    previousEnd = lastMonth.endOf('month');
+                    break;
+                case 'quarter':
+                    const lastQuarter = now.minus({ quarters: 1 });
+                    previousStart = lastQuarter.startOf('quarter');
+                    previousEnd = lastQuarter.endOf('quarter');
+                    break;
+                case 'year':
+                    const lastYear = now.minus({ years: 1 });
+                    previousStart = lastYear.startOf('year');
+                    previousEnd = lastYear.endOf('year');
+                    break;
+                default:
+                    const defaultMonth = now.minus({ months: 1 });
+                    previousStart = defaultMonth.startOf('month');
+                    previousEnd = defaultMonth.endOf('month');
+            }
+
+
+            return {
+                startDate: previousStart.toISODate(),
+                endDate: previousEnd.toISODate()
+            };
+        }
+
+
+
+        updateCharts() {
+            if (this.currentData.length === 0) {
+                this.payrollTrendChart.data.labels = [];
+                this.payrollTrendChart.data.datasets = [];
+                this.payrollCompositionChart.data.labels = [];
+                this.payrollCompositionChart.data.datasets = [];
+                this.deductionsChart.data.labels = [];
+                this.deductionsChart.data.datasets = [];
+
+                this.payrollTrendChart.update();
+                this.payrollCompositionChart.update();
+                this.deductionsChart.update();
+                return;
+            }
+
+            this.updatePayrollTrendChart();
+            this.updatePayrollCompositionChart();
+            this.updateDeductionsChart();
+        }
+
+        updatePayrollTrendChart() {
+            // Group by department
+            const departments = {};
+            this.currentData.forEach(item => {
+                const dept = item.employee.department || 'No Department';
+                if (!departments[dept]) {
+                    departments[dept] = {
+                        gross: 0,
+                        net: 0
+                    };
+                }
+                departments[dept].gross += item.gross_salary;
+                departments[dept].net += item.net_salary;
+            });
+
+            const sortedDepartments = Object.keys(departments).sort((a, b) =>
+                departments[b][this.payrollTrendBy] - departments[a][this.payrollTrendBy]
+            );
+
+            this.payrollTrendChart.data.labels = sortedDepartments;
+            this.payrollTrendChart.data.datasets = [{
+                label: this.payrollTrendBy === 'gross' ? 'Gross Pay' : 'Net Pay',
+                data: sortedDepartments.map(dept => departments[dept][this.payrollTrendBy]),
+                backgroundColor: '#4361ee',
+                borderColor: '#3a0ca3',
+                borderWidth: 1
+            }];
+            this.payrollTrendChart.update();
+        }
+
+        updatePayrollCompositionChart() {
+            const composition = {
+                'Gross Pay': 0,
+                'Deductions': 0,
+                'Benefits': 0,
+                'Net Pay': 0
+            };
+
+            this.currentData.forEach(item => {
+                composition['Gross Pay'] += item.gross_salary;
+                composition['Deductions'] += item.deductions.total;
+                composition['Benefits'] += item.benefits.total;
+                composition['Net Pay'] += item.net_salary;
+            });
+
+            this.payrollCompositionChart.data.labels = Object.keys(composition);
+            this.payrollCompositionChart.data.datasets = [{
+                data: Object.values(composition),
+                backgroundColor: [
+                    '#4361ee', // Gross Pay
+                    '#ff6b6b', // Deductions
+                    '#4cc9f0', // Benefits
+                    '#3a0ca3'  // Net Pay
+                ],
+                borderWidth: 1
+            }];
+            this.payrollCompositionChart.update();
+        }
+
+        updateDeductionsChart() {
+            if (this.deductionsBreakdownBy === 'type') {
+                // Group by deduction type
+                const deductionTypes = {};
+                this.currentData.forEach(item => {
+                    item.deductions.items.forEach(deduction => {
+                        deductionTypes[deduction.name] = (deductionTypes[deduction.name] || 0) + deduction.amount;
+                    });
+                });
+
+                const sortedDeductions = Object.entries(deductionTypes)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10);
+
+                this.deductionsChart.data.labels = sortedDeductions.map(item => item[0]);
+                this.deductionsChart.data.datasets = [{
+                    label: 'Deductions by Type',
+                    data: sortedDeductions.map(item => item[1]),
+                    backgroundColor: '#ff6b6b',
+                    borderColor: '#ff4757',
+                    borderWidth: 1
+                }];
+            } else {
+                // Group by employee
+                const employeeDeductions = {};
+                this.currentData.forEach(item => {
+                    const employeeName = `${item.employee.name}`;
+                    employeeDeductions[employeeName] = (employeeDeductions[employeeName] || 0) + item.deductions.total;
+                });
+
+                const sortedEmployees = Object.entries(employeeDeductions)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10);
+
+                this.deductionsChart.data.labels = sortedEmployees.map(item => item[0]);
+                this.deductionsChart.data.datasets = [{
+                    label: 'Deductions by Employee',
+                    data: sortedEmployees.map(item => item[1]),
+                    backgroundColor: '#ff6b6b',
+                    borderColor: '#ff4757',
+                    borderWidth: 1
+                }];
+            }
+            this.deductionsChart.update();
+        }
+
+        filterPayroll(searchTerm = '') {
+            this.currentData = this.currentData.filter(item => {
+                if (searchTerm) {
+                    const searchLower = searchTerm.toLowerCase();
+                    const matchesName = item.employee.name.toLowerCase().includes(searchLower);
+                    const matchesDepartment = item.employee.department?.toLowerCase().includes(searchLower);
+
+                    if (!matchesName && !matchesDepartment) return false;
+                }
+                return true;
+            });
+
+            this.currentPage = 1;
+            this.updatePayrollTable();
+        }
+
+
+
+        updatePayrollTable() {
+            try {
+                if (!this.currentData || this.currentData.length === 0) {
+                    this.payrollTable.innerHTML = '<tr><td colspan="10" class="text-center">No payroll records found</td></tr>';
+                    document.getElementById('payrollCount').textContent = 'Showing 0 of 0 payroll records';
+                    this.updatePayrollPagination();
+
+                    return;
+                }
+
+
+                // Calculate pagination
+                const totalPages = Math.ceil(this.currentData.length / this.itemsPerPage);
+                const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+                const endIndex = Math.min(startIndex + this.itemsPerPage, this.currentData.length);
+                const paginatedData = this.currentData.slice(startIndex, endIndex);
+
+                // Update table
+                this.payrollTable.innerHTML = paginatedData.map(item => {
+                    const statusClass = item.payment_status === 'paid' ? 'badge-paid' :
+                        item.payment_status === 'pending' ? 'badge-pending' : 'badge-cancelled';
+
+                    return `
+                <tr>
+                    <td>
+                        <div style="display: flex; align-items: center;">
+                            <div class="employee-avatar">
+                                ${item.employee.name.split(' ').map(n => n[0]).join('')}
+                            </div>
+                            ${item.employee.name}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="department-tag">${item.employee.department || 'N/A'}</span>
+                    </td>
+                    <td>${item.payroll_period_name}</td>
+                    <td class="text-end">${this.formatCurrency(item.gross_salary, item.currency)}</td>
+                    <td class="text-end">${this.formatCurrency(item.deductions.total, item.currency)}</td>
+                    <td class="text-end">${this.formatCurrency(item.benefits.total, item.currency)}</td>
+                    <td class="text-end">${this.formatCurrency(item.net_salary, item.currency)}</td>
+                    <td>
+                        <span class="payroll-badge ${statusClass}">${item.payment_status}</span>
+                    </td>
+                    <td>${item.period_start_date || 'N/A'}</td>
+                    <td>${item.period_end_date || 'N/A'}</td>
+                </tr>
+            `;
+                }).join('');
+
+                document.getElementById('payrollCount').textContent =
+                    `Showing ${startIndex + 1}-${endIndex} of ${this.currentData.length} payroll records`;
+                this.updatePayrollPagination();
+
+            } catch (error) {
+                console.error('Error updating payroll table:', error);
+                this.payrollTable.innerHTML = '<tr><td colspan="10" class="text-center">Error loading payroll data</td></tr>';
+            }
+        }
+
+
+        updatePayrollPagination() {
+            const totalPages = Math.ceil(this.currentData.length / this.itemsPerPage);
+            const pagination = document.getElementById('payrollPagination');
+            const pageNumbers = pagination.querySelector('.page-numbers');
+
+            // Clear existing page numbers
+            pageNumbers.innerHTML = '';
+
+            // Update previous/next buttons
+            const prevBtn = document.getElementById('prevPayrollPage');
+            const nextBtn = document.getElementById('nextPayrollPage');
+
+            prevBtn.classList.toggle('disabled', this.currentPage === 1);
+            nextBtn.classList.toggle('disabled', this.currentPage === totalPages || totalPages === 0);
+
+            // Add page numbers
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, this.currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            if (startPage > 1) {
+                const firstPage = document.createElement('button');
+                firstPage.className = 'page-number';
+                firstPage.textContent = '1';
+                firstPage.addEventListener('click', () => {
+                    this.currentPage = 1;
+                    this.updatePayrollTable();
+                });
+                pageNumbers.appendChild(firstPage);
+
+                if (startPage > 2) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'page-ellipsis';
+                    ellipsis.textContent = '...';
+                    pageNumbers.appendChild(ellipsis);
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = `page-number ${this.currentPage === i ? 'active' : ''}`;
+                pageBtn.textContent = i;
+                pageBtn.addEventListener('click', () => {
+                    this.currentPage = i;
+                    this.updatePayrollTable();
+                });
+                pageNumbers.appendChild(pageBtn);
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'page-ellipsis';
+                    ellipsis.textContent = '...';
+                    pageNumbers.appendChild(ellipsis);
+                }
+
+                const lastPage = document.createElement('button');
+                lastPage.className = 'page-number';
+                lastPage.textContent = totalPages;
+                lastPage.addEventListener('click', () => {
+                    this.currentPage = totalPages;
+                    this.updatePayrollTable();
+                });
+                pageNumbers.appendChild(lastPage);
+            }
+        }
+
+        showPayrollDetail(periodId, employeeId) {
+            const payrollItem = this.currentData.find(item =>
+                item.payroll_period_id == periodId && item.employee.id == employeeId
+            );
+
+            if (!payrollItem) {
+                alert('Payroll record not found');
+                return;
+            }
+
+            const modalContent = `
+                <div class="payroll-detail-grid">
+                    <div class="employee-info">
+                        <h4>Employee Information</h4>
+                        <table>
+                            <tr>
+                                <th>Name:</th>
+                                <td>${payrollItem.employee.name}</td>
+                            </tr>
+                            <tr>
+                                <th>Employee ID:</th>
+                                <td>${payrollItem.employee.id}</td>
+                            </tr>
+                            <tr>
+                                <th>Department:</th>
+                                <td>${payrollItem.employee.department || 'N/A'}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="payroll-period-info">
+                        <h4>Payroll Period</h4>
+                        <table>
+                            <tr>
+                                <th>Period:</th>
+                                <td>${payrollItem.payroll_period_name}</td>
+                            </tr>
+                            <tr>
+                                <th>Dates:</th>
+                                <td>${payrollItem.period_start_date} to ${payrollItem.period_end_date}</td>
+                            </tr>
+                            <tr>
+                                <th>Status:</th>
+                                <td><span class="payroll-badge ${payrollItem.payment_status === 'paid' ? 'badge-paid' :
+                    payrollItem.payment_status === 'pending' ? 'badge-pending' : 'badge-cancelled'}">
+                                    ${payrollItem.payment_status}
+                                </span></td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="payroll-summary">
+                        <h4>Payroll Summary</h4>
+                        <table>
+                            <tr>
+                                <th>Gross Salary:</th>
+                                <td>${this.formatCurrency(payrollItem.gross_salary, payrollItem.currency)}</td>
+                            </tr>
+                            <tr>
+                                <th>Total Deductions:</th>
+                                <td>${this.formatCurrency(payrollItem.deductions.total, payrollItem.currency)}</td>
+                            </tr>
+                            <tr>
+                                <th>Total Benefits:</th>
+                                <td>${this.formatCurrency(payrollItem.benefits.total, payrollItem.currency)}</td>
+                            </tr>
+                            <tr>
+                                <th>Net Salary:</th>
+                                <td>${this.formatCurrency(payrollItem.net_salary, payrollItem.currency)}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="deductions-breakdown">
+                        <h4>Deductions</h4>
+                        ${payrollItem.deductions.items.length > 0 ? `
+                            <table>
+                                ${payrollItem.deductions.items.map(d => `
+                                    <tr>
+                                        <td>${d.name}</td>
+                                        <td class="text-end">${this.formatCurrency(d.amount, payrollItem.currency)}</td>
+                                    </tr>
+                                `).join('')}
+                            </table>
+                        ` : '<p>No deductions</p>'}
+                    </div>
+                    
+                    <div class="benefits-breakdown">
+                        <h4>Benefits</h4>
+                        ${payrollItem.benefits.items.length > 0 ? `
+                            <table>
+                                ${payrollItem.benefits.items.map(b => `
+                                    <tr>
+                                        <td>${b.name}</td>
+                                        <td class="text-end">${this.formatCurrency(b.amount, payrollItem.currency)}</td>
+                                    </tr>
+                                `).join('')}
+                            </table>
+                        ` : '<p>No benefits</p>'}
+                    </div>
+                    
+                    <div class="advance-payments">
+                        <h4>Advance Payments</h4>
+                        ${payrollItem.advance_payments.items.length > 0 ? `
+                            <table>
+                                ${payrollItem.advance_payments.items.map(a => `
+                                    <tr>
+                                        <td>${a.date}</td>
+                                        <td>${a.description || 'No description'}</td>
+                                        <td class="text-end">${this.formatCurrency(a.amount, payrollItem.currency)}</td>
+                                    </tr>
+                                `).join('')}
+                            </table>
+                        ` : '<p>No advance payments</p>'}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('payrollDetailContent').innerHTML = modalContent;
+            document.getElementById('payrollDetailModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        closeModal() {
+            document.getElementById('payrollDetailModal').classList.remove('show');
+            document.body.style.overflow = '';
+        }
+
+        exportPayrollData() {
+            // Convert filtered data to CSV
+            const headers = [
+                'Employee ID', 'Employee Name', 'Department', 'Payroll Period',
+                'Gross Pay', 'Deductions', 'Benefits', 'Net Pay', 'Status'
+            ];
+
+            const csvRows = [
+                headers.join(','),
+                ...this.currentData.map(item => [
+                    `"${item.employee.id}"`,
+                    `"${item.employee.name}"`,
+                    `"${item.employee.department || ''}"`,
+                    `"${item.payroll_period_name}"`,
+                    item.gross_salary,
+                    item.deductions.total,
+                    item.benefits.total,
+                    item.net_salary,
+                    `"${item.payment_status}"`
+                ].join(','))
+            ];
+
+            const csvContent = csvRows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `payroll_export_${new Date().toISOString().slice(0, 10)}.csv`);
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+
+        formatCurrency(amount, currency = baseCurrency, includeSymbol = true) {
+            const value = parseFloat(amount || 0);
+            const options = {
+                style: includeSymbol ? 'currency' : 'decimal',
+                currency: currency,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            };
+
+            try {
+                return new Intl.NumberFormat(navigator.language, options).format(value);
+            } catch (e) {
+                return `${currency} ${value.toFixed(2)}`;
+            }
+        }
+    }
+
+    function debounce(func, wait) {
+        let timeout;
+        return function (...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+    document.getElementById('currency-select').addEventListener('change', function () {
+        // Get the selected option text (USD, UGX, etc.)
+        const selectedCurrency = this.options[this.selectedIndex].textContent;
+
+        // If "Base Currency" is selected, use the template value
+        const currencyToShow = this.value ? selectedCurrency : "{{ base_currency }}";
+
+        // Update all currency displays
+        document.querySelectorAll('.currency-symbol').forEach(el => {
+            el.textContent = currencyToShow;
+        });
+    });
+
+
+
+    // Initialize the dashboard when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+        new PayrollDashboard();
+    });
+</script>
+{% endblock %}

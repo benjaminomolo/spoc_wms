@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Expense Report</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+<style>
+    /* Adjustments for Font Sizes and Padding */
+    .category-name {
+        font-weight: bold;
+        font-size: 18px; /* Increase font size */
+        padding-left: 10px; /* Adjust padding */
+    }
+
+    .subcategory-name {
+        font-style: italic;
+        padding-left: 30px; /* Adjust padding */
+    }
+
+    .subtotal-row {
+        font-weight: bold;
+        font-size: 16px; /* Increase font size */
+        padding-left: 20px; /* Adjust padding */
+    }
+
+    .total-row {
+        font-weight: bold;
+        font-size: 20px; /* Increase font size */
+    }
+
+    .table th {
+        font-size: 16px; /* Increase font size for table headers */
+    }
+
+    .table td {
+        font-size: 14px; /* Increase font size for table data */
+    }
+
+    /* Adjustments for Button Sizes and Margin */
+    .btn {
+        font-size: 14px; /* Increase font size for buttons */
+        margin-right: 10px; /* Add margin between buttons */
+        margin-bottom: 10px; /* Add margin below buttons */
+        padding: 10px 20px; /* Adjust padding for buttons */
+    }
+
+    /* Adjustments for Title */
+    h1 {
+        margin-top: 20px; /* Add margin above the title */
+        font-size: 32px; /* Increase font size */
+    }
+
+    /* Additional Adjustments for Overall Layout */
+    .container {
+        margin-top: 20px; /* Add margin above the container */
+    }
+
+    .form-group {
+        margin-bottom: 20px; /* Add margin below the form group */
+    }
+</style>
+
+</head>
+
+<body>
+    <h1 class="text-center">Expense Report</h1>
+    <div class="container">
+        <form action="" method="post" class="mb-3">
+            <label for="start_date">Start Date:</label>
+            <input type="date" id="start_date" name="start_date" required>
+            <label for="end_date">End Date:</label>
+            <input type="date" id="end_date" name="end_date" required>
+            <button type="submit">Filter</button>
+            <button type="button" onclick="location.reload()">Clear Filter</button>
+        </form>
+        <button id="toggle-all" class="btn btn-secondary mb-3">Show All Subcategories</button>
+        <button id="download-pdf" class="btn btn-success mb-3">Download PDF</button>
+        <table class="table table-bordered" id="expense-table">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Category/Subcategory</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody id="expense-table-body">
+                {% for category, data in category_totals.items() %}
+                <tr class="category-row" onclick="">
+                    <td class="category-name"><strong>{{ category }}</strong> <span class="view-subcategories">+</span></td>
+                    <td class="category-amount">{{ "{:,.0f}".format(data.total) }}</td>
+                </tr>
+                {% for subcategory, total in data.subtotals.items() %}
+                <tr class="subcategory-row">
+                    <td class="subcategory-name">{{ subcategory }}</td>
+                    <td class="subcategory-amount">{{ "{:,.0f}".format(total) }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="subtotal-row">
+                    <td>Subtotal</td>
+                    <td class="subtotal-amount">{{ "{:,.0f}".format(data.total) }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="total-row overall-total-row">
+                    <td><b>Total</b></td>
+                    <td><b>{{ "{:,.0f}".format(total_expense) }}</b></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.17/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        function toggleSubcategories(element) {
+            var nextRow = element.nextElementSibling;
+            var isVisible = nextRow.style.display === 'table-row';
+
+            while (nextRow && nextRow.classList.contains('subcategory-row')) {
+                nextRow.style.display = isVisible ? 'none' : 'table-row';
+                nextRow = nextRow.nextElementSibling;
+            }
+
+            if (nextRow && nextRow.classList.contains('subtotal-row')) {
+                nextRow.style.display = isVisible ? 'none' : 'table-row';
+            }
+
+            var categoryAmountCell = element.querySelector('.category-amount');
+            categoryAmountCell.style.display = isVisible ? 'table-cell' : 'none';
+
+            element.querySelector('.view-subcategories').textContent = isVisible ? '+' : '-';
+
+            // Set the custom attribute to track toggled state
+            element.setAttribute('data-toggled', !isVisible);
+        }
+
+        document.getElementById('toggle-all').addEventListener('click', function() {
+            var subcategoryRows = document.querySelectorAll('.subcategory-row');
+            var subtotalRows = document.querySelectorAll('.subtotal-row');
+            var categoryRows = document.querySelectorAll('.category-row');
+
+            var showAll = this.textContent === 'Show All Subcategories';
+
+            subcategoryRows.forEach(function(row) {
+                row.style.display = showAll ? 'table-row' : 'none';
+            });
+
+            subtotalRows.forEach(function(row) {
+                row.style.display = showAll ? 'table-row' : 'none';
+            });
+
+            categoryRows.forEach(function(row) {
+                row.querySelector('.view-subcategories').textContent = showAll ? '-' : '+';
+                row.querySelector('.category-amount').style.display = showAll ? 'none' : 'table-cell';
+                row.setAttribute('data-toggled', showAll);
+            });
+
+            this.textContent = showAll ? 'Hide All Subcategories' : 'Show All Subcategories';
+        });
+
+        document.getElementById('download-pdf').addEventListener('click', function() {
+            var { jsPDF } = window.jspdf;
+            var doc = new jsPDF();
+            var rows = [];
+            var headers = [['Category/Subcategory', 'Amount']];
+
+            document.querySelectorAll('#expense-table tbody tr').forEach(function(row) {
+                if (row.style.display !== 'none') {
+                    var cells = row.querySelectorAll('td');
+                    var rowData = [];
+                    cells.forEach(function(cell) {
+                        rowData.push(cell.textContent.trim());
+                    });
+
+                    if (row.classList.contains('category-row')) {
+                        var toggled = row.getAttribute('data-toggled') === 'true';
+                        if (!toggled) {
+                            rowData[1] = row.querySelector('.category-amount').textContent.trim();
+                        } else {
+                            rowData[1] = '';
+                        }
+                    } else {
+                        if (row.classList.contains('subcategory-row')) {
+                            rowData[0] = '      ' + rowData[0]; // Increase margin for subcategories
+                        }
+                        if (row.classList.contains('subtotal-row')) {
+                            rowData[0] = '    ' + rowData[0]; // Increase margin for subtotals
+                        }
+                    }
+                    rows.push(rowData);
+                }
+            });
+
+            doc.autoTable({
+                head: headers,
+                body: rows,
+                theme: 'striped',
+                headStyles: { fillColor: [0, 0, 0] },
+                styles: { cellPadding: 3, fontSize: 10 },
+                margin: { top: 10 }
+            });
+
+            doc.save('expense_report.pdf');
+        });
+    </script>
+</body>
+
+</html>

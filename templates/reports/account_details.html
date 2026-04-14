@@ -1,0 +1,353 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <!-- Header Section -->
+    <div class="header-section">
+        <h1>Account Transactions</h1>
+
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{url_for('add_transaction')}}">Journal Entry</a></li>
+
+                <li class="shortcut-item"><a
+                        href="{{ url_for('general_ledger_routes.general_ledger_dashboard') }}">Dashboard</a></li>
+                {% endif %}
+
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" onclick="toggleDropdown(event)">
+                        <span>Manage </span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('general_ledger.new_category') }}">Parent Category</a>
+                            <a href="{{ url_for('general_ledger.add_chart_of_accounts') }}">Chart of Accounts</a>
+                            <a href="{{ url_for('manage_projects') }}">Projects</a>
+                            <a href="{{ url_for('general_ledger.add_vendor_form') }}">Vendors & Customers</a>
+                            <a href="{{ url_for('add_payment_mode_form') }}">Payment Modes</a>
+                        </div>
+                    </div>
+                </li>
+                {% endif %}
+
+                <li class="shortcut-item">
+                    <div class="action-icons">
+                        <button class="filter-icon" type="button" id="toggleFilterForm" data-tooltip="Apply Filter">
+                            <i class="fas fa-filter"></i>
+                        </button>
+
+                        <button id="downloadReportBtn" class="filter-icon" type="button"
+                            data-tooltip="Download PDF Report" style="margin-left: 8px;">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+
+        <div class="account-header-card">
+            <div class="account-header-info">
+                <h2>{{ account.sub_category }} <span class="text-muted">{{ account.sub_category_id }}</span>
+                </h2>
+                <div class="account-meta">
+                    <span class="text-muted">Normal Balance: {{ account.normal_balance }}</span>
+                    {% if company and company.has_multiple_currencies %}
+                    <span class="badge bg-info" style="margin-left: 10px;">Multi-Currency</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="account-header-balance">
+                <div class="balance-label">Current Balance ({{ base_currency }})</div>
+                <div class="account-balance {% if ending_balance < 0 %}negative-color{% endif %}">
+                    {{ "{:,.2f}".format(ending_balance) }} {{ base_currency }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section {% if currency_filter_applied or account_filter %}visible{% endif %}"
+        id="filter-section">
+        <form method="GET" action="{{ url_for('report_routes.account_details', account_id=account.id) }}"
+            class="date-filter-form">
+
+            <div class="filter-group">
+                <label for="accountSelect" class="filter-label">Select Account</label>
+                <select id="accountSelect" name="account_id" class="form-select">
+                    {% for parent_type, categories in grouped_accounts.items() %}
+                    <optgroup label="{{ parent_type }}">
+                        {% for category, accounts in categories.items() %}
+                    <optgroup label="&nbsp;&nbsp;{{ category }}">
+                        {% for acct in accounts %}
+                        <option value="{{ acct.id }}" {% if acct.id==account.id %}selected{% endif %}>
+                            {{ acct.sub_category }} (ID: {{ acct.sub_category_id }})
+                        </option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">From Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control"
+                    value="{{ filter_start_date }}">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">To Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control" value="{{ filter_end_date }}">
+            </div>
+
+            {% if company and company.has_multiple_currencies %}
+            <div class="filter-group">
+                <label for="currency" class="filter-label">Filter by Currency</label>
+                <select id="currency" name="currency_id" class="form-select">
+                    <option value="">All Currencies</option>
+                    {% for curr in currencies %}
+                    <option value="{{ curr.id }}" {% if request.args.get('currency_id')|int==curr.id %}selected{% endif
+                        %}>
+                        {{ curr.user_currency }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <small class="text-muted">Leave empty to see all currencies converted to {{ base_currency }}</small>
+            </div>
+            {% endif %}
+
+            <div class="filter-actions">
+                <button type="submit" class="button add-button">Apply Filter</button>
+                <a href="{{ url_for('report_routes.account_details', account_id=account.id) }}"
+                    class="button reset-button">Reset</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Balance Summary -->
+    <div class="balance-summary-card">
+        <div class="balance-summary-item">
+            <span class="balance-label">Starting Balance ({{ base_currency }})</span>
+            <span class="balance-amount {% if starting_balance < 0 %}negative-color{% endif %}">
+                {{ "{:,.2f}".format(starting_balance) }} {{ base_currency }}
+            </span>
+        </div>
+        <div class="balance-summary-item">
+            <span class="balance-label">Ending Balance ({{ base_currency }})</span>
+            <span class="balance-amount {% if ending_balance < 0 %}negative-color{% endif %}">
+                {{ "{:,.2f}".format(ending_balance) }} {{ base_currency }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Transactions Table -->
+    <div class="table-responsive">
+        <table class="transactions-table">
+            <thead>
+                <tr>
+                    <th width="8%">Date</th>
+                    <th width="10%">Journal #</th>
+                    <th width="20%">Description</th>
+                    <th width="8%">Project</th>
+                    <th width="5%">Type</th>
+                    <th width="10%" class="text-end">Original Amount</th>
+                    {% if company and company.has_multiple_currencies %}
+                    <th width="5%">Curr</th>
+                    <th width="10%" class="text-end">Debit ({{ base_currency }})</th>
+                    <th width="10%" class="text-end">Credit ({{ base_currency }})</th>
+                    {% else %}
+                    <th width="10%" class="text-end">Amount</th>
+                    {% endif %}
+                    <th width="12%" class="text-end">Balance ({{ base_currency }})</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Starting Balance Row -->
+                <tr class="starting-balance-row">
+                    <td colspan="{% if company and company.has_multiple_currencies %}9{% else %}6{% endif %}"
+                        class="text-end">
+                        <strong>Starting Balance</strong>
+                    </td>
+                    <td class="text-end {% if starting_balance < 0 %}negative-color{% endif %}">
+                        {{ "{:,.2f}".format(starting_balance) }}
+                    </td>
+                </tr>
+
+                <!-- Transactions -->
+                {% for trans in transactions %}
+                <tr class="{% if trans.reconciled %}reconciled{% endif %}">
+                    <td>{{ trans.date }}</td>
+                    <td>{{ trans.journal_number }}</td>
+                    <td>{{ trans.description }}</td>
+                    <td>{{ trans.project if trans.project else '-' }}</td>
+                    <td>
+                        <span class="badge
+                            {% if trans.dr_cr == 'D' and account.normal_balance == 'Debit' %}
+                                bg-success
+                            {% elif trans.dr_cr == 'C' and account.normal_balance == 'Credit' %}
+                                bg-success
+                            {% else %}
+                                bg-danger
+                            {% endif %}
+    ">
+                            {{ trans.dr_cr }}
+                        </span>
+                    </td>
+                    <td class="text-end">{{ "{:,.2f}".format(trans.original_amount) }}</td>
+
+                    {% if company and company.has_multiple_currencies %}
+                    <td>{{ trans.original_currency if trans.original_currency else base_currency }}</td>
+                    <td class="text-end">
+                        {% if trans.debit > 0 %}
+                        {{ "{:,.2f}".format(trans.debit) }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if trans.credit > 0 %}
+                        {{ "{:,.2f}".format(trans.credit) }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    {% endif %}
+
+                    <td class="text-end {% if trans.running_balance < 0 %}negative-color{% endif %}">
+                        {{ "{:,.2f}".format(trans.running_balance) }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="{% if company and company.has_multiple_currencies %}10{% else %}7{% endif %}"
+                        class="text-center py-4">
+                        <div class="empty-state">
+                            <i class="fas fa-file-invoice fa-2x text-muted mb-3"></i>
+                            <p class="text-muted">No transactions found for this period</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if company and company.has_multiple_currencies %}
+    <div class="alert alert-info" role="alert"
+        style="margin-bottom: 1rem; padding: 0.75rem; background-color: #e7f3ff; border-left: 4px solid #2196F3;">
+        <i class="fas fa-info-circle"></i>
+        <strong>Multi-Currency Note:</strong>
+        <ul style="margin-top: 5px; margin-bottom: 0;">
+            <li><strong>Original Amount</strong> - Shown in the transaction's original currency</li>
+            <li><strong>Debit/Credit</strong> - Converted to {{ base_currency }} using historical rate at transaction
+                date</li>
+            <li><strong>Running Balance</strong> - Always in {{ base_currency }} for consistency</li>
+            <li><strong>Filter by Currency</strong> - Select a specific currency to see only transactions in that
+                currency</li>
+        </ul>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Get account ID from the URL
+        const pathParts = window.location.pathname.split('/');
+        const accountId = pathParts[pathParts.length - 1];
+
+        // Set up date pickers
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+        const currencySelect = document.getElementById('currency');
+
+        if (startDateInput && endDateInput) {
+            startDateInput.addEventListener('change', function () {
+                endDateInput.min = this.value;
+            });
+
+            endDateInput.addEventListener('change', function () {
+                startDateInput.max = this.value;
+            });
+        }
+
+        // Toggle filter section
+        document.getElementById('toggleFilterForm').addEventListener('click', function () {
+            const filterSection = document.getElementById('filter-section');
+            filterSection.classList.toggle('visible');
+        });
+
+        // PDF Export functionality
+        document.getElementById('downloadReportBtn').addEventListener('click', function () {
+            const startDate = startDateInput?.value || null;
+            const endDate = endDateInput?.value || null;
+            const currencyId = currencySelect?.value || null;
+
+            // Prepare payload
+            const payload = {
+                account_id: accountId,
+                start_date: startDate,
+                end_date: endDate,
+                currency_id: currencyId
+            };
+
+            // Show loading state
+            const btn = this;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+            btn.disabled = true;
+
+            fetch('{{ url_for("download_route.download_account_transactions") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/pdf',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(payload)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.error || 'Failed to generate PDF');
+                        });
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    // Create download link
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+
+                    // Generate filename
+                    let filename = `Account_${accountId}_Transactions`;
+                    if (startDate) filename += `_from_${startDate}`;
+                    if (endDate) filename += `_to_${endDate}`;
+                    filename += `.pdf`;
+
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+
+                    // Clean up
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+                })
+                .catch(error => {
+                    console.error('Export error:', error);
+                    alert('Export failed: ' + error.message);
+                })
+                .finally(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                });
+        });
+    });
+</script>
+
+{% endblock %}

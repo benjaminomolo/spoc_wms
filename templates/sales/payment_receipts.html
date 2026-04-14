@@ -1,0 +1,285 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div class="header-section">
+        <h1>Payment Receipt Management</h1>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{ url_for('sales.add_payment_receipt') }}">Create New Payment
+                        Receipt</a>
+                </li>
+                <li class="shortcut-item"><a href="{{ url_for('sales.invoice_management') }}">Sales Invoices</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('sales.delivery_note_management') }}">Delivery Notes</a>
+                </li>
+                {% endif %}
+
+                <li class="shortcut-item">
+                    <div class="action-icons">
+                        <button class="filter-icon" type="button" id="toggleFilterForm" data-tooltip="Apply Filter">
+                            <i class="fas fa-filter"></i>
+                        </button>
+                    </div>
+                </li>
+
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+        <form method="GET" action="{{ url_for('sales.payment_receipts') }}" class="date-filter-form" id="filter-form">
+            <!-- Start Date Input -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control"
+                    value="{{ request.args.get('start_date', '') }}">
+            </div>
+
+            <!-- End Date Input -->
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control"
+                    value="{{ request.args.get('end_date', '') }}">
+            </div>
+
+            <!-- Status Filter Dropdown -->
+            <div class="filter-group">
+                <label for="status" class="filter-label">Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">All</option>
+                    <option value="draft" {% if request.args.get('status')=='draft' %}selected{% endif %}>Draft</option>
+                    <option value="paid" {% if request.args.get('status')=='paid' %}selected{% endif %}>Paid</option>
+                    <option value="cancelled" {% if request.args.get('status')=='cancelled' %}selected{% endif %}>
+                        Cancelled</option>
+                    <option value="refunded" {% if request.args.get('status')=='refunded' %}selected{% endif %}>Refunded
+                    </option>
+                    <option value="failed" {% if request.args.get('status')=='failed' %}selected{% endif %}>Failed
+                    </option>
+                </select>
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="filter-actions">
+                <button type="submit" class="add-button">Apply Filter</button>
+                <a href="{{ url_for('sales.payment_receipts') }}" class="btn reset-button">Reset</a>
+            </div>
+        </form>
+    </div>
+
+
+    <!-- Summary Section -->
+    <div class="summary-container">
+        <!-- Total Payment Receipts -->
+        <div class="summary-item">
+            <i class="fa fa-sort-numeric-up"></i>
+            <h2>Total Payment Receipts</h2>
+            <h1>{{ total_payment_receipts }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar info" style="width: 100%;">100%</div>
+            </div>
+        </div>
+
+        <!-- Draft Payment Receipts -->
+        <div class="summary-item">
+            <i class="fas fa-hourglass-half"></i>
+            <h2>Draft Payment Receipts</h2>
+            <h1>{{ draft_payment_receipts }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar pending"
+                    style="width: {% if total_payment_receipts > 0 %}{{ (draft_payment_receipts / total_payment_receipts * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_payment_receipts > 0 %}
+                    {{ (draft_payment_receipts / total_payment_receipts * 100) | round(2) }}%
+                    {% else %}
+                    0.0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Completed Payment Receipts -->
+        <div class="summary-item">
+            <i class="fas fa-check-circle"></i>
+            <h2>Paid</h2>
+            <h1>{{ completed_payment_receipts }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar approved"
+                    style="width: {% if total_payment_receipts > 0 %}{{ (completed_payment_receipts / total_payment_receipts * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_payment_receipts > 0 %}
+                    {{ (completed_payment_receipts / total_payment_receipts * 100) | round(2) }}%
+                    {% else %}
+                    0.0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Canceled Payment Receipts -->
+        <div class="summary-item">
+            <i class="fas fa-times-circle"></i>
+            <h2>Canceled</h2>
+            <h1>{{ canceled_payment_receipts }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar cancelled"
+                    style="width: {% if total_payment_receipts > 0 %}{{ (canceled_payment_receipts / total_payment_receipts * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_payment_receipts > 0 %}
+                    {{ (canceled_payment_receipts / total_payment_receipts * 100) | round(2) }}%
+                    {% else %}
+                    0.0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Receipts List Table -->
+    <div class="table-container table-responsive">
+        <div id="loadingSpinner" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+        <table class="payment-receipts-list-table stripe">
+            <thead>
+                <tr>
+                    <th>Receipt Number</th>
+                    <th>Customer</th>
+                    <th>Payment Date</th>
+                    <th>Amount Received</th>
+                    <th>Currency</th>
+                    <th>Payment Mode</th>
+                    <th>Reference Number</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for receipt in payment_receipts %}
+                <tr class="status-{{ receipt.status | lower }}">
+                    <td>{{ receipt.payment_receipt_number }}</td>
+                    <td>{{ receipt.customer.vendor_name }}</td>
+                    <td>{{ receipt.payment_date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ "{:,.2f}".format(receipt.amount_received) }}</td>
+                    <td>{{ receipt.currency.user_currency }}</td>
+                    <td>{{ receipt.payment_modes.payment_mode if receipt.payment_modes else "-" }}</td>
+                    <td>{{ receipt.reference_number or "-" }}</td>
+                    <td>
+                        <span class="status 
+                        {% if receipt.status == 'draft' %} pending
+                        {% elif receipt.status == 'paid' %} approved
+                        {% elif receipt.status == 'cancelled' %} cancelled
+                        {% elif receipt.status == 'refunded' %} cancelled
+                        {% elif receipt.status == 'failed' %} cancelled
+                        {% endif %}">
+                            {{ receipt.status }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <button
+                                onclick="location.href='{{ url_for('sales.payment_receipt_details', receipt_id=receipt.id) }}'"
+                                data-tooltip="View Details">
+                                <i class="fas fa-eye view-icon"></i>
+                            </button>
+
+                            {% if receipt.status == 'draft' %}
+                            <button
+                                onclick="location.href='{{ url_for('sales.edit_payment_receipt', receipt_id=receipt.id) }}'"
+                                data-tooltip="Edit">
+                                <i class="fas fa-edit edit-icon"></i>
+                            </button>
+
+                            <button
+                                onclick="location.href='{{ url_for('sales.delete_payment_receipt', receipt_id=receipt.id) }}'"
+                                data-tooltip="Delete">
+                                <i class="fas fa-trash delete-icon"></i>
+                            </button>
+                            {% endif %}
+
+                            <button
+                                onclick="location.href='{{ url_for('download_route.download_payment_receipt', receipt_id=receipt.id) }}'"
+                                data-tooltip="Download">
+                                <i class="fas fa-download download-icon"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th><input type="text" placeholder="Search Receipt Number" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Customer" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Payment Date" class="column-search"></th>
+                    <th>Total: <span id="totalAmount">0.00</span></th>
+                    <th><input type="text" placeholder="Search Currency" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Payment Mode" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Reference Number" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Status" class="column-search"></th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Initialize DataTables
+        var table = $('.payment-receipts-list-table').DataTable({
+            "paging": true,
+            "ordering": true,
+            "info": true,
+            "searching": true,
+            "order": [[0, "desc"]],  // Sort by Receipt Number descending
+            "columnDefs": [
+                { "orderable": false, "targets": [8] } // Disable sorting on Actions column
+            ],
+            "initComplete": function () {
+                $('#loadingSpinner').hide(); // Hide spinner after initialization
+            },
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                // Format the amount column with thousands separators
+                function formatNumber(num) {
+                    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+
+                // Calculate totals for numeric columns
+                var intVal = function (i) {
+                    return typeof i === 'string' ? i.replace(/[^0-9.-]+/g, '') * 1 : typeof i === 'number' ? i : 0;
+                };
+
+                // Total Amount Received
+                var totalAmount = api.column(3, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Update footer with totals
+                $('#totalAmount').text(formatNumber(totalAmount));
+            }
+        });
+
+        // Apply search for each column
+        $('.payment-receipts-list-table tfoot th').each(function (index) {
+            if (index < 8) { // Exclude 'Actions' column
+                $('input', this).on('keyup change clear', function () {
+                    if (table.column(index).search() !== this.value) {
+                        table.column(index).search(this.value).draw();
+                    }
+                });
+            }
+        });
+    });
+
+
+
+    // Toggle the filter section visibility with animation
+    document.getElementById('toggleFilterForm').addEventListener('click', function () {
+        const filterSection = document.getElementById('filter-section');
+        filterSection.classList.toggle('visible');
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,748 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Asset Types</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Supervisor' or role == 'Viewer' %}
+                    <li><a href="{{ url_for('assets.asset_types') }}">Asset Types</a></li>
+                    {% endif %}
+                    {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
+                    <li><a href="{{ url_for('assets.asset_entry') }}">New Asset</a></li>
+                    {% endif %}
+                    <li><a href="#">Asset List</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Header buttons and controls -->
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+            <!-- Multi-select button -->
+            <button class="btn button-outline" type="button" id="toggleMultiSelect">
+                <i class="fas fa-check-square"></i> Select
+            </button>
+
+            <!-- Hide button (initially hidden) -->
+            <button class="btn button-outline" type="button" id="hideMultiSelect" style="display: none;">
+                <i class="fas fa-eye-slash"></i> Hide
+            </button>
+
+            <!-- Bulk action buttons (hidden by default) -->
+            <div class="bulk-actions" id="bulkActions" style="gap: 10px; display: none;">
+                <div>
+                    <button class="button-outline" type="button" id="bulkDelete">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+
+
+
+            <!-- Quick Search -->
+            <input type="text" id="assetTypeSearch" class="form-control search-input"
+                placeholder="Search asset types...">
+
+            <div class="custom-tooltip-container">
+                <!-- Refresh Button -->
+                <button class="refresh-btn" id="refreshBtn">
+                    <span class="icon">🔄</span>
+                </button>
+                <span class="custom-tooltip">Refresh Page</span>
+            </div>
+        </div>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
+                <li class="shortcut-item"><a href="{{ url_for('assets.asset_entry') }}">New Asset</a></li>
+                {% endif %}
+
+                {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
+                <li class="shortcut-item"><a href="{{ url_for('assets.add_new_asset_type') }}">New Asset Type</a></li>
+                {% endif %}
+                <li class="shortcut-item"><a href="{{ url_for('assets.asset_list') }}">Asset List</a></li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section" id="filter-section">
+        <form class="date-filter-form" id="filter-form">
+            <!-- Search Filter -->
+            <div class="filter-group">
+                <label for="search" class="filter-label">Search</label>
+                <input type="text" id="search" name="search" class="form-control"
+                    placeholder="Name, code, description...">
+            </div>
+
+            <!-- Status Filter -->
+            <div class="filter-group">
+                <label for="status" class="filter-label">Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">All</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+            </div>
+
+            <!-- Brand Filter -->
+            <div class="filter-group">
+                <label for="brand" class="filter-label">Brand</label>
+                <select id="brand" name="brand" class="form-select select2">
+                    <option value="">All Brands</option>
+                    {% for brand in brands %}
+                    <option value="{{ brand.id }}">{{ brand.brand_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="filter-group">
+                <label for="category" class="filter-label">Category</label>
+                <select id="category" name="category" class="form-select select2">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.category_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Items Per Page -->
+            <div class="filter-group">
+                <label for="per_page" class="filter-label">Items Per Page</label>
+                <select id="per_page" name="per_page" class="form-select">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="button" class="filter-section-button filter" id="applyFilter">Apply Filter</button>
+                <button type="button" class="filter-section-button reset" id="resetFilters">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Asset Types Table -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" id="assetTypesTable">
+            <thead class="table-light">
+                <tr>
+                    <th id="selectAllHeader" style="display: none; width: 40px;">
+                        <input type="checkbox" id="selectAll">
+                    </th>
+                    <th>Name/Code</th>
+                    <th>Brand</th>
+                    <th>Category</th>
+                    <th>Useful Life</th>
+                    <th>Depreciation</th>
+                    <th>Salvage</th>
+                    <th>Assets</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="assetTypesBody">
+                <!-- Content loaded via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <nav>
+        <ul class="pagination" id="pagination"></ul>
+        <div id="paginationInfo" class="mt-2"></div>
+    </nav>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="confirmationModal" style="display: none;">
+    <p id="deleteMessage">Are you sure you want to delete this asset type?</p>
+    <p class="text-danger mb-0"><small>This action cannot be undone. Asset types with linked assets cannot be
+            deleted.</small></p>
+    <div>
+        <button id="confirmDelete" class="confirmDelete">Yes, Delete</button>
+        <button id="cancelDelete" class="cancelDelete">Cancel</button>
+    </div>
+</div>
+
+<script>
+    // Initialize Select2
+    $('#brand').select2({
+        placeholder: 'Select Brand',
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('#category').select2({
+        placeholder: 'Select Category',
+        allowClear: true,
+        width: '100%'
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // State
+        let currentPage = 1;
+        let perPage = 20;
+        let search = '';
+        let status = '';
+        let brandId = '';
+        let categoryId = '';
+        let isMultiSelectMode = false;
+        let selectedTypes = new Set();
+        let currentTypes = [];
+
+        // DOM Elements
+        const tableBody = document.getElementById('assetTypesBody');
+        const paginationElement = document.getElementById('pagination');
+        const paginationInfoElement = document.getElementById('paginationInfo');
+        const filterButton = document.getElementById('toggleFilterForm');
+        const filterSection = document.getElementById('filter-section');
+        const applyFilterBtn = document.getElementById('applyFilter');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+        const shortcutButton = document.getElementById('shortcutToggleBtn');
+        const dashboardShortcuts = document.querySelector('.dashboard-shortcuts');
+        const searchInput = document.getElementById('assetTypeSearch');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const toggleMultiSelectBtn = document.getElementById('toggleMultiSelect');
+        const hideMultiSelectBtn = document.getElementById('hideMultiSelect');
+        const selectAllHeader = document.getElementById('selectAllHeader');
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const bulkActionsDiv = document.getElementById('bulkActions');
+        const bulkDeleteBtn = document.getElementById('bulkDelete');
+
+        // Modal elements
+        const confirmationModal = document.getElementById('confirmationModal');
+        const confirmDeleteBtn = document.getElementById('confirmDelete');
+        const cancelDeleteBtn = document.getElementById('cancelDelete');
+        let deleteId = null;
+        let deleteMultipleIds = [];
+
+        // Toggle filter section
+        filterButton.addEventListener('click', () => {
+            filterSection.classList.toggle('visible');
+        });
+
+        // Shortcuts toggle
+        shortcutButton.addEventListener('click', () => {
+            document.getElementById('mobileShortcutsSidebar').classList.toggle('open');
+        });
+
+        document.getElementById('closeShortcutsBtn').addEventListener('click', () => {
+            document.getElementById('mobileShortcutsSidebar').classList.remove('open');
+        });
+
+        // Refresh button
+        refreshBtn.addEventListener('click', function () {
+            const originalHtml = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            this.disabled = true;
+            location.reload();
+        });
+
+        // Toggle multi-select mode
+        toggleMultiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = !isMultiSelectMode;
+            updateMultiSelectUI();
+        });
+
+        // Hide multi-select mode
+        hideMultiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = false;
+            selectedTypes.clear();
+            updateMultiSelectUI();
+            renderTable(currentTypes);
+        });
+
+        // Select all checkbox
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.type-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+                const typeId = checkbox.getAttribute('data-type-id');
+                if (e.target.checked) {
+                    selectedTypes.add(typeId);
+                } else {
+                    selectedTypes.delete(typeId);
+                }
+            });
+            updateBulkActionButtons();
+            updateMultiSelectUI();
+        });
+
+        // Bulk delete
+        bulkDeleteBtn.addEventListener('click', () => {
+            if (selectedTypes.size === 0) return;
+            deleteMultipleIds = Array.from(selectedTypes);
+            document.getElementById('deleteMessage').textContent = `Are you sure you want to delete ${selectedTypes.size} asset type(s)?`;
+            confirmationModal.style.display = 'block';
+        });
+
+        // Confirm delete
+        confirmDeleteBtn.addEventListener('click', function () {
+            if (deleteMultipleIds.length > 0) {
+                bulkDeleteTypes(deleteMultipleIds);
+            } else if (deleteId) {
+                deleteAssetType(deleteId);
+            }
+            confirmationModal.style.display = 'none';
+        });
+
+        // Cancel delete
+        cancelDeleteBtn.addEventListener('click', function () {
+            confirmationModal.style.display = 'none';
+            deleteId = null;
+            deleteMultipleIds = [];
+        });
+
+        function updateMultiSelectUI() {
+            if (isMultiSelectMode) {
+                // Hide other buttons and elements
+                filterButton.style.display = 'none';
+                if (dashboardShortcuts) dashboardShortcuts.style.display = 'none';
+                if (searchInput) searchInput.style.display = 'none';
+
+                // Show multi-select elements
+                toggleMultiSelectBtn.style.display = 'none';
+                hideMultiSelectBtn.style.display = '';
+                selectAllHeader.style.display = '';
+
+                document.querySelectorAll('.action-icons-clean').forEach(el => {
+                    el.style.display = 'none';
+                });
+
+                // Show checkboxes in existing rows
+                document.querySelectorAll('#assetTypesBody tr td:first-child').forEach(td => {
+                    td.style.display = '';
+                });
+            } else {
+                // Show other buttons and elements
+                filterButton.style.display = '';
+                if (dashboardShortcuts) dashboardShortcuts.style.display = '';
+                if (searchInput) searchInput.style.display = '';
+
+                // Hide multi-select elements
+                toggleMultiSelectBtn.style.display = '';
+                hideMultiSelectBtn.style.display = 'none';
+                selectAllHeader.style.display = 'none';
+
+                document.querySelectorAll('.action-icons-clean').forEach(el => {
+                    el.style.display = 'flex';
+                });
+
+                // Hide checkboxes in existing rows
+                document.querySelectorAll('#assetTypesBody tr td:first-child').forEach(td => {
+                    td.style.display = 'none';
+                });
+            }
+
+            // Show/hide bulk actions based on selections
+            if (selectedTypes.size > 0 && isMultiSelectMode) {
+                bulkActionsDiv.style.display = 'flex';
+            } else {
+                bulkActionsDiv.style.display = 'none';
+            }
+
+            updateBulkActionButtons();
+        }
+
+        function updateBulkActionButtons() {
+            const hasSelections = selectedTypes.size > 0;
+            bulkDeleteBtn.disabled = !hasSelections;
+
+            if (hasSelections) {
+                bulkDeleteBtn.textContent = `Delete (${selectedTypes.size})`;
+            } else {
+                bulkDeleteBtn.textContent = 'Delete';
+            }
+        }
+
+        // Apply filters
+        applyFilterBtn.addEventListener('click', function () {
+            currentPage = 1;
+            search = document.getElementById('search').value;
+            status = document.getElementById('status').value;
+            brandId = document.getElementById('brand').value;
+            categoryId = document.getElementById('category').value;
+            perPage = document.getElementById('per_page').value;
+            loadAssetTypes();
+            filterSection.classList.remove('visible');
+        });
+
+        // Reset filters
+        resetFiltersBtn.addEventListener('click', function () {
+            document.getElementById('filter-form').reset();
+            $('#brand').val(null).trigger('change');
+            $('#category').val(null).trigger('change');
+            search = '';
+            status = '';
+            brandId = '';
+            categoryId = '';
+            perPage = '20';
+            currentPage = 1;
+            loadAssetTypes();
+        });
+
+        // Quick Search
+        searchInput.addEventListener('input', function () {
+            const searchValue = this.value.toLowerCase();
+            const rows = tableBody.getElementsByTagName('tr');
+            Array.from(rows).forEach(row => {
+                const rowText = row.textContent.toLowerCase();
+                row.style.display = rowText.includes(searchValue) ? '' : 'none';
+            });
+        });
+
+        // Load asset types
+        function loadAssetTypes() {
+            setLoadingState(true);
+
+            const columnCount = 10;
+            tableBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center py-3">Loading asset types...</td></tr>`;
+
+            const params = new URLSearchParams({
+                page: currentPage,
+                per_page: perPage,
+                search: search,
+                status: status,
+                brand_id: brandId,
+                category_id: categoryId
+            });
+
+            fetch(`/assets/api/asset_types?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentTypes = data.asset_types;
+                        renderTable(data.asset_types);
+                        renderPagination(data.pagination);
+                    } else {
+                        tableBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center text-danger py-3">${data.message}</td></tr>`;
+                    }
+                    setLoadingState(false);
+                })
+                .catch(err => {
+                    tableBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center text-danger py-3">Error loading asset types</td></tr>`;
+                    console.error(err);
+                    setLoadingState(false);
+                });
+        }
+
+        // Render table
+        function renderTable(types) {
+            if (!types || types.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="10" class="text-center py-3">No asset types found</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            types.forEach(type => {
+                // Depreciation method badge
+                let depMethodClass = 'bg-secondary';
+                let depMethodLabel = type.depreciation_method_label || type.depreciation_method?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Straight Line';
+
+                // Status badge
+                let statusClass = type.status === 'active' ? 'bg-success' : 'bg-secondary';
+
+                const isChecked = selectedTypes.has(type.id.toString());
+
+                html += `
+                <tr>
+                    <td style="display: ${isMultiSelectMode ? '' : 'none'};">
+                        <input type="checkbox" class="type-checkbox" 
+                               data-type-id="${type.id}" 
+                               ${isChecked ? 'checked' : ''}>
+                    </td>
+                    <td>
+                        <div class="d-flex flex-column">
+                            <span class="fw-medium">${escapeHtml(type.asset_name)}</span>
+                            ${type.asset_code ? `<small class="text-muted">${escapeHtml(type.asset_code)}</small>` : ''}
+                        </div>
+                    </td>
+                    <td>${type.brand_name || '—'}</td>
+                    <td>
+                        ${type.category_name || ''}
+                        ${type.subcategory_name ? `<br><small class="text-muted">${escapeHtml(type.subcategory_name)}</small>` : ''}
+                    </td>
+                    <td>${type.expected_useful_life_years || '—'} yrs</td>
+                    <td>
+                        <span class="badge ${depMethodClass}">${depMethodLabel}</span>
+                    </td>
+                    <td>${type.salvage_value_percentage || '0'}%</td>
+                    <td>
+                        <span class="badge bg-primary">${type.asset_count || 0}</span>
+                    </td>
+                    <td>
+                        <span class="badge ${statusClass}">${type.status}</span>
+                    </td>
+                    <td style="width:80px;" class="text-center">
+                        <div class="action-icons-clean" style="display: ${isMultiSelectMode ? 'none' : 'flex'};">
+                            <div class="custom-tooltip-container">
+                                <a href="/assets/asset_type/${type.id}" class="view-icon">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <span class="custom-tooltip left">View Asset Type</span>
+                            </div>
+                            ${type.asset_count === 0 ? `
+                            <div class="custom-tooltip-container">
+                                <button class="btn btn-sm btn-link p-0 text-danger delete-btn" data-type-id="${type.id}" style="background: none; border: none;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <span class="custom-tooltip left">Delete</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+                `;
+            });
+
+            tableBody.innerHTML = html;
+
+            // Add event listeners to delete buttons
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const typeId = this.getAttribute('data-type-id');
+                    deleteId = typeId;
+                    deleteMultipleIds = [];
+                    document.getElementById('deleteMessage').textContent = 'Are you sure you want to delete this asset type?';
+                    confirmationModal.style.display = 'block';
+                });
+            });
+
+            // Add event listeners to checkboxes
+            document.querySelectorAll('.type-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const typeId = e.target.getAttribute('data-type-id');
+                    if (e.target.checked) {
+                        selectedTypes.add(typeId);
+                    } else {
+                        selectedTypes.delete(typeId);
+                        selectAllCheckbox.checked = false;
+                    }
+                    updateBulkActionButtons();
+                    updateMultiSelectUI();
+                });
+            });
+        }
+
+        // Delete asset type
+        function deleteAssetType(typeId) {
+            fetch(`/assets/api/asset_types/${typeId}/delete`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        selectedTypes.delete(typeId.toString());
+                        loadAssetTypes();
+                    } else {
+                        showNotification(data.message || 'Failed to delete asset type', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Failed to delete asset type', 'error');
+                });
+        }
+
+        // Bulk delete
+        function bulkDeleteTypes(typeIds) {
+            fetch('/assets/api/asset_types/bulk_delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ type_ids: typeIds })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        typeIds.forEach(id => selectedTypes.delete(id.toString()));
+                        loadAssetTypes();
+                    } else {
+                        showNotification(data.message || 'Failed to delete asset types', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Failed to delete asset types', 'error');
+                });
+        }
+
+        // Pagination
+        function renderPagination(pagination) {
+            const { page, per_page, total_pages, total_items, has_next, has_prev } = pagination;
+            paginationInfoElement.textContent = `Showing ${(page - 1) * per_page + 1} to ${Math.min(page * per_page, total_items)} of ${total_items} entries`;
+
+            let html = '';
+
+            if (has_prev) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page - 1}">‹ Previous</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">‹ Previous</a></li>`;
+            }
+
+            const maxVisiblePages = 7;
+            let startPage = Math.max(1, page - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(total_pages, startPage + maxVisiblePages - 1);
+
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<li class="page-item ${i === page ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+            }
+
+            if (has_next) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page + 1}">Next ›</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">Next ›</a></li>`;
+            }
+
+            paginationElement.innerHTML = html;
+
+            document.querySelectorAll('.page-link[data-page]').forEach(el => {
+                el.addEventListener('click', e => {
+                    e.preventDefault();
+                    currentPage = parseInt(el.getAttribute('data-page'));
+                    loadAssetTypes();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            });
+        }
+
+        function setLoadingState(loading) {
+            const applyBtn = document.getElementById("applyFilter");
+            const resetBtn = document.getElementById("resetFilters");
+
+            if (loading) {
+                if (applyBtn) applyBtn.disabled = true;
+                if (resetBtn) resetBtn.disabled = true;
+            } else {
+                if (applyBtn) applyBtn.disabled = false;
+                if (resetBtn) resetBtn.disabled = false;
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showNotification(message, type = 'info') {
+            alert(message);
+        }
+
+        // Initial load
+        loadAssetTypes();
+    });
+</script>
+
+<style>
+    /* Add to your existing styles */
+    .btn-primary {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+        color: white;
+        padding: 0.375rem 0.75rem;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .btn-primary:hover {
+        background-color: #0b5ed7;
+        border-color: #0a58ca;
+    }
+
+    .action-icons-clean {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+    }
+
+    .delete-btn {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .delete-btn:hover {
+        color: #bb2d3b;
+    }
+
+    #confirmationModal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        max-width: 400px;
+        width: 90%;
+    }
+
+    #confirmationModal p {
+        margin-bottom: 15px;
+    }
+
+    #confirmDelete {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+
+    #cancelDelete {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+</style>
+
+{% endblock %}

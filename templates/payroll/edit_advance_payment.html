@@ -1,0 +1,562 @@
+{% extends "transaction_base_template.html" %}
+{% block content %}
+
+<!-- Add Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+
+<!-- Add Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+
+<style>
+    .container {
+        display: flex;
+        gap: 20px;
+        width: 100%;
+        max-width: 1200px;
+        margin: 20px auto;
+    }
+
+    .salary_advance_sidebar {
+        width: 350px;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+    }
+
+    .salary_advance_main_content {
+        flex: 1;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+    .form-section {
+        margin-bottom: 20px;
+    }
+
+    .form-section h2 {
+        font-size: 1.25rem;
+        color: #34495e;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .summary-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 20px;
+    }
+
+    .summary-section h3 {
+        font-size: 1.1rem;
+        color: #2c3e50;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .summary-section p {
+        font-size: 0.9rem;
+        color: #495057;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .summary-section p span {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .custom-tooltip {
+        max-width: 300px;
+        min-width: 200px;
+    }
+
+    /* Exchange Rate Container */
+    #exchange_rate_container {
+        margin-top: 15px;
+        padding: 12px;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+        margin-bottom: 15px;
+    }
+
+    .converted-amount {
+        margin-top: 10px;
+        padding: 8px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+        }
+
+        .salary_advance_sidebar,
+        .salary_advance_main_content {
+            width: 100%;
+        }
+
+        .salary_advance_sidebar {
+            position: static;
+            margin-bottom: 20px;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="content-container">
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="salary_advance_sidebar">
+            <h2>Quick Actions</h2>
+            <div class="summary-section">
+                <h3>Advance Summary</h3>
+                <p>Employee: <span id="summaryEmployee">{{ advance_payment.employees.first_name }} {{
+                        advance_payment.employees.last_name }}</span></p>
+                <p>Currency: <span id="summaryCurrency">{{ advance_payment.currency.user_currency }}</span></p>
+                <p>Advance Amount: <span id="summaryAdvanceAmount">{{ advance_payment.advance_amount }}</span></p>
+                <p>Deduction Per Payroll: <span id="summaryDeductionPerPayroll">{{ advance_payment.deduction_per_payroll
+                        }}</span></p>
+                <p>Number of Installments: <span id="summaryInstallments">{{ advance_payment.installments }}</span></p>
+                <p id="convertedTotalRow" style="display: none;">
+                    Converted Amount: <span id="convertedTotal">0.00</span>
+                    <span id="convertedCurrency"></span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="salary_advance_main_content">
+            <h1>Edit Salary Advance</h1>
+
+            <form id="advanceForm">
+
+                <!-- Hidden field for version (optimistic locking) -->
+                <input type="hidden" id="advance_version" name="version" value="{{ advance_payment.version }}">
+
+                <!-- Basic Information Section -->
+                <div class="form-section">
+                    <h2>Basic Information</h2>
+                    <div class="form-grid">
+                        <!-- Employee Selection -->
+                        <div class="form-group">
+                            <label for="employee">Employee <span class="required">*</span></label>
+                            <select id="employee" name="employee_id" class="form-select2" required>
+                                <option value="">-- Select Employee --</option>
+                                {% for employee in employees %}
+                                <option value="{{ employee.id }}" data-currency="{{ employee.currency.user_currency }}"
+                                    data-currency-id="{{ employee.currency.id }}" {% if
+                                    employee.id==advance_payment.employee_id %}selected{% endif %}>
+                                    {{ employee.first_name }} {{ employee.last_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Currency Selection -->
+                        <div class="form-group">
+                            <label for="currency">Currency <span class="required">*</span></label>
+                            <select id="currency_select" name="currency_id" required>
+                                <option value="{{ advance_payment.currency.id }}" selected>{{
+                                    advance_payment.currency.user_currency }}</option>
+                            </select>
+                            <input type="text" id="currency_display"
+                                value="{{ advance_payment.currency.user_currency }}" style="display: none;">
+                        </div>
+
+                        <!-- Advance Amount -->
+                        <div class="form-group">
+                            <label for="advanceAmount">
+                                Advance Amount <span class="required">*</span>
+                                <div class="custom-tooltip-container ms-2">
+                                    <i class="fas fa-question-circle input-helper"></i>
+                                    <span class="custom-tooltip">
+                                        Enter the total advance amount to be given to the employee.
+                                    </span>
+                                </div>
+                            </label>
+                            <input type="text" id="advanceAmount" name="advance_amount"
+                                value="{{ advance_payment.advance_amount }}" required>
+                        </div>
+
+                        <!-- Deduction Per Payroll -->
+                        <div class="form-group">
+                            <label for="deductionPerPayroll">
+                                Deduction Per Payroll <span class="required">*</span>
+                                <div class="custom-tooltip-container ms-2">
+                                    <i class="fas fa-question-circle input-helper"></i>
+                                    <span class="custom-tooltip">
+                                        Specify the amount to be deducted from each payroll cycle until the advance is
+                                        fully repaid.
+                                    </span>
+                                </div>
+                            </label>
+                            <input type="text" id="deductionPerPayroll" name="deduction_per_payroll"
+                                value="{{ advance_payment.deduction_per_payroll }}" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Details Section -->
+                <div class="form-section">
+                    <h2>Payment Details</h2>
+                    <div class="form-grid">
+                        <!-- Funding Account -->
+                        <div class="form-group">
+                            <label for="accountSubCategory">
+                                Funding Account <span class="required">*</span>
+                                <div class="custom-tooltip-container ms-2">
+                                    <i class="fas fa-question-circle input-helper"></i>
+                                    <span class="custom-tooltip">
+                                        Select the account that will fund this salary advance.
+                                    </span>
+                                </div>
+                            </label>
+                            <select id="accountSubCategory" name="accountSubCategory" class="form-select2" required>
+                                <option value="" disabled>Select Funding Account</option>
+                                {% for category, accounts in funding_accounts.items() %}
+                                <optgroup label="{{ category }}">
+                                    {% for account in accounts %}
+                                    <option value="{{ account.id }}" {% if account.id==advance_payment.payment_account
+                                        %}selected{% endif %}>
+                                        {{ account.sub_category }}
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="form-group">
+                            <label for="paymentMethod">Payment Method</label>
+                            <select id="paymentMethod" name="payment_method">
+                                <option value="">-- Select Payment Method --</option>
+                                {% for mode in company.payment_modes %}
+                                <option value="{{ mode.id }}" {% if mode.id==advance_payment.payment_method %}selected{%
+                                    endif %}>
+                                    {{ mode.payment_mode }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Payment Date -->
+                        <div class="form-group">
+                            <label for="paymentDate">Payment Date <span class="required">*</span></label>
+                            <input type="date" id="paymentDate" name="payment_date"
+                                value="{{ advance_payment.payment_date.strftime('%Y-%m-%d') }}" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Information Section -->
+                <div class="form-section">
+                    <h2>Additional Information</h2>
+                    <div class="form-grid">
+                        <!-- Notes -->
+                        <div class="form-group">
+                            <label for="notes">Notes</label>
+                            <textarea id="notes" name="notes" rows="4"
+                                maxlength="500">{{ advance_payment.notes }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hidden field for base currency ID -->
+                <input type="hidden" id="base_currency_id" name="base_currency_id"
+                    value="{{ base_currency.id if base_currency else '' }}">
+
+                <!-- Exchange Rate Field (Hidden by default) -->
+                <div id="exchange_rate_container"
+                    style="display: {% if advance_payment.currency.id != base_currency.id %}block{% else %}none{% endif %};">
+                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                        <span style="font-weight: 500;">Exchange Rate</span>
+                        <span id="from_currency_display">1 {{ advance_payment.currency.user_currency }}</span>
+                        <span>=</span>
+                        <input type="number" id="exchange_rate" name="exchange_rate" step="0.0000000001"
+                            min="0.0000000001" placeholder="Enter rate"
+                            value="{{ advance_payment.exchange_rate.rate if advance_payment.exchange_rate else '' }}"
+                            style="padding: 6px 10px; width: 150px; border-radius: 4px; border: 1px solid #ccc;">
+                        <span id="to_currency_display">{{ base_currency.user_currency if base_currency else '' }}</span>
+                        <small class="text-muted" style="color: #666; font-size: 0.85rem;">
+                            (Rate at payment date)
+                        </small>
+                    </div>
+                    <div id="converted_amount_display" class="converted-amount"
+                        style="display: {% if advance_payment.currency.id != base_currency.id %}block{% else %}none{% endif %};">
+                        Amount in <span id="converted_currency_code">{{ base_currency.user_currency if base_currency
+                            else '' }}</span>:
+                        <strong><span id="convertedAmountValue">0.00</span></strong>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="button" class="button remove-button" onclick="window.history.back()">Cancel</button>
+                    <button type="submit" class="button cta-button">Update Advance</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+
+
+    function updateSummary() {
+        const employeeSelect = document.getElementById('employee');
+        const selectedOption = employeeSelect.options[employeeSelect.selectedIndex];
+        const employeeName = selectedOption ? selectedOption.text : '-';
+        document.getElementById('summaryEmployee').textContent = employeeName;
+
+        const currencySelect = document.getElementById('currency_select');
+        const selectedCurrencyId = currencySelect.value;
+        const currencyText = currencySelect.options[currencySelect.selectedIndex]?.text || '-';
+        document.getElementById('summaryCurrency').textContent = currencyText;
+
+        const advanceAmount = parseFloat(document.getElementById('advanceAmount').value.replace(/,/g, '')) || 0;
+        document.getElementById('summaryAdvanceAmount').textContent = formatAmount(advanceAmount);
+
+        const deductionPerPayroll = parseFloat(document.getElementById('deductionPerPayroll').value.replace(/,/g, '')) || 0;
+        document.getElementById('summaryDeductionPerPayroll').textContent = formatAmount(deductionPerPayroll);
+
+        let installments = 0;
+        if (advanceAmount > 0 && deductionPerPayroll > 0) {
+            installments = Math.ceil(advanceAmount / deductionPerPayroll);
+        }
+        document.getElementById('summaryInstallments').textContent = formatAmount(installments);
+
+        // Check if foreign currency
+        const isForeignCurrency = selectedCurrencyId && window.baseCurrency && selectedCurrencyId !== window.baseCurrency.id;
+        const container = document.getElementById('exchange_rate_container');
+
+        if (isForeignCurrency && container && container.style.display !== 'none') {
+            const rate = parseFloat(document.getElementById('exchange_rate').value) || 1;
+            const convertedAmount = advanceAmount * rate;
+            document.getElementById('convertedAmountValue').textContent = formatAmount(convertedAmount);
+            document.getElementById('convertedTotalRow').style.display = 'block';
+            document.getElementById('convertedTotal').textContent = formatAmount(convertedAmount);
+            document.getElementById('converted_amount_display').style.display = 'block';
+        } else {
+            document.getElementById('convertedTotalRow').style.display = 'none';
+            document.getElementById('converted_amount_display').style.display = 'none';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Format initial amounts
+        const advanceAmount = document.getElementById('advanceAmount');
+        const deductionAmount = document.getElementById('deductionPerPayroll');
+
+        if (advanceAmount.value) {
+            advanceAmount.value = formatAmount(advanceAmount.value.replace(/,/g, ''));
+        }
+        if (deductionAmount.value) {
+            deductionAmount.value = formatAmount(deductionAmount.value.replace(/,/g, ''));
+        }
+
+        // Initialize Exchange Rate Manager
+        if (typeof ExchangeRateManager !== 'undefined') {
+            window.rateManager = ExchangeRateManager.init({
+                currencySelectId: 'currency_select',
+                dateInputId: 'paymentDate',
+                exchangeRateInputId: 'exchange_rate',
+                containerId: 'exchange_rate_container',
+                fromDisplayId: 'from_currency_display',
+                toDisplayId: 'to_currency_display',
+                baseCurrencyId: 'base_currency_id',
+                appId: '{{ app_id }}',
+                apiEndpoint: '/multi_currency/api/get_exchange_rate',
+                csrfToken: csrfToken,
+                callbacks: {
+                    onRateChange: function (rate) {
+                        updateSummary();
+                    },
+                    onSuccess: function (rate, source) {
+                        console.log(`Rate ${rate} loaded from ${source}`);
+                        updateSummary();
+                    },
+                    onVisibilityChange: function (isVisible) {
+                        updateSummary();
+                    }
+                }
+            });
+        }
+
+        updateSummary();
+    });
+
+    // Employee selection change handler
+    // Employee selection change handler - for Select2
+    $('#employee').on('change', function () {
+        const selectedOption = $(this).find('option:selected');
+        const currencyName = selectedOption.data('currency') || '';
+        const currencyId = selectedOption.data('currency-id') || '';
+
+        const baseCurrencyId = String(window.baseCurrency.id);
+        const selectedCurrencyId = String(currencyId);
+
+        const currencySelect = document.getElementById('currency_select');
+        const currencyDisplay = document.getElementById('currency_display');
+        const exchangeRateContainer = document.getElementById('exchange_rate_container');
+
+        if (currencyName && currencyId) {
+            // Update the select (always update, even if value is same)
+            if (currencySelect.options.length === 0) {
+                const newOption = document.createElement('option');
+                newOption.value = currencyId;
+                newOption.text = currencyName;
+                newOption.selected = true;
+                currencySelect.appendChild(newOption);
+            } else {
+                currencySelect.options[0].value = currencyId;
+                currencySelect.options[0].text = currencyName;
+                currencySelect.options[0].selected = true;
+            }
+
+            currencyDisplay.value = currencyName;
+
+            const isForeignCurrency = selectedCurrencyId !== baseCurrencyId;
+
+            if (isForeignCurrency) {
+                exchangeRateContainer.style.display = 'block';
+                const fromDisplay = document.getElementById('from_currency_display');
+                if (fromDisplay) {
+                    fromDisplay.textContent = `1 ${currencyName}`;
+                }
+                // Force fetch rate by triggering date change
+                const paymentDate = document.getElementById('paymentDate');
+                if (paymentDate && window.rateManager) {
+                    paymentDate.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            } else {
+                exchangeRateContainer.style.display = 'none';
+                const exchangeRateInput = document.getElementById('exchange_rate');
+                if (exchangeRateInput) {
+                    exchangeRateInput.value = '';
+                }
+            }
+
+            // Always trigger change to update visibility
+            const changeEvent = new Event('change', { bubbles: true });
+            currencySelect.dispatchEvent(changeEvent);
+        }
+
+        updateSummary();
+    });
+
+
+
+
+    // Advance amount input handler
+    document.getElementById('advanceAmount').addEventListener('input', function () {
+        let value = this.value.replace(/,/g, "");
+        if (!isNaN(value) && value !== "") {
+            this.value = parseFloat(value).toLocaleString("en-US");
+        }
+        updateSummary();
+    });
+
+    // Deduction per payroll input handler
+    document.getElementById('deductionPerPayroll').addEventListener('input', function () {
+        let value = this.value.replace(/,/g, "");
+        if (!isNaN(value) && value !== "") {
+            this.value = parseFloat(value).toLocaleString("en-US");
+        }
+        updateSummary();
+    });
+
+    // Payment date change handler
+    document.getElementById('paymentDate').addEventListener('change', function () {
+        if (window.rateManager) {
+            window.rateManager.toggleVisibility();
+        }
+        updateSummary();
+    });
+
+    // Form submission handler
+    document.getElementById('advanceForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const formData = new FormData(this);
+        const payload = {};
+
+        formData.forEach((value, key) => {
+            if (key === 'advance_amount' || key === 'deduction_per_payroll') {
+                payload[key] = value.replace(/,/g, "");
+            } else {
+                payload[key] = value;
+            }
+        });
+
+        // Add advance payment ID
+        payload.advance_payment_id = '{{ advance_payment.id }}';
+
+        payload.version = document.getElementById('advance_version').value;
+
+        const exchangeRate = document.getElementById('exchange_rate').value;
+        if (exchangeRate) {
+            payload.exchange_rate = exchangeRate;
+        }
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        fetch('/payroll/update_advance_payment/{{ advance_payment.id }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(payload)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, "success");
+                    setTimeout(() => {
+                        window.location.href = '/payroll/advance_payments';
+                    }, 2000);
+                } else {
+                    showNotification(data.message, "error");
+                    if (typeof enableAllSubmitButtons === 'function') {
+                        enableAllSubmitButtons();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred. Please try again later.', "error");
+                if (typeof enableAllSubmitButtons === 'function') {
+                    enableAllSubmitButtons();
+                }
+            });
+    });
+</script>
+
+{% endblock %}

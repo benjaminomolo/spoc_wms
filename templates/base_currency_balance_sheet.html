@@ -1,0 +1,663 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        font-size: 0.9em;
+        text-align: left;
+    }
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 6px;
+    }
+
+    th {
+        background-color: #f4f4f4;
+    }
+
+    .category-row {
+        font-weight: bold;
+        background-color: #f9f9f9;
+    }
+
+    .subtotal-row,
+    .total-row {
+        font-style: italic;
+    }
+
+    .total-row {
+        font-weight: bold;
+    }
+
+    .total-row td {
+        text-align: right;
+    }
+
+    tfoot tr td {
+        border-top: 2px solid #ddd;
+    }
+
+    .description-column {
+        width: 80.66%;
+    }
+
+    .amount-column,
+    .amount {
+        width: 33.33%;
+        text-align: right;
+    }
+
+    .category-column {
+        width: 40%;
+    }
+
+    .subcategory-column {
+        width: 40%;
+    }
+
+    /* Space after subtotal rows */
+    .subtotal-spacer {
+        height: 25px;
+        background-color: none;
+        border: none;
+    }
+
+    .subtotal-spacer td {
+        border: none;
+        padding: 0;
+    }
+
+    /* Filter toggle styles */
+    .filter-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 10px 0;
+        padding: 8px 12px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+    }
+
+    .filter-toggle label {
+        margin: 0;
+        font-weight: normal;
+        cursor: pointer;
+    }
+
+    .filter-toggle input[type="checkbox"] {
+        margin: 0;
+        cursor: pointer;
+    }
+
+    /* Loading spinner */
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: none;
+        /* Hidden by default */
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        /* Ensure it appears above other content */
+    }
+
+    #loading-spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        /* Light grey */
+        border-left: 4px solid var(--primary-color);
+        /* Blue */
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+
+<div class="content-container" data-api-key="{{ api_key }}" data-base-currency="{{ base_currency }}"
+    data-base-currency-id="{{ base_currency_id }}" data-currency-map="{{ currency_map_json|safe }}"
+    data-foreign-currency-ids="{{ foreign_currency_ids_json|safe }}">
+
+
+    <div class="header-section">
+        <h1>Balance Sheet Report</h1>
+
+        <!-- Slide-in sidebar for shortcuts (if you want the mobile version) -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('financial_reports.income_expense_report') }}">Profit & Loss</a></li>
+                    <li><a href="{{ url_for('financial_reports.trial_balance') }}">Trial Balance</a></li>
+                    <li><a href="{{ url_for('report_routes.receivable_accounts_report') }}">Accounts Receivable</a>
+                    </li>
+                    <li><a href="{{ url_for('report_routes.payable_accounts_report') }}">Accounts Payable</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Header buttons and controls -->
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <!-- Shortcuts toggle button (for mobile sidebar) -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+            <!-- PDF Download button -->
+            <button class="button-outline" type="button" id="download-pdf">
+                <i class="fas fa-file-pdf"></i> PDF
+            </button>
+
+            <!-- Refresh button with tooltip -->
+            <div class="custom-tooltip-container">
+                <button class="refresh-btn" id="refreshBtn">
+                    <span class="icon">🔄</span>
+                </button>
+                <span class="custom-tooltip">Refresh Data</span>
+            </div>
+        </div>
+
+        <!-- Dashboard Shortcuts (horizontal links) -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+
+                <li class="shortcut-item"><a href="{{ url_for('financial_reports.income_expense_report') }}">Profit &
+                        Loss</a>
+                </li>
+                <li class="shortcut-item"><a href="{{ url_for('financial_reports.trial_balance') }}">Trial
+                        Balance</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('report_routes.receivable_accounts_report') }}">A/R</a>
+                </li>
+                <li class="shortcut-item"><a href="{{ url_for('report_routes.payable_accounts_report') }}">A/P</a>
+                </li>
+            </ol>
+        </nav>
+    </div>
+
+    <div id="loading-overlay">
+        <div id="loading-spinner"></div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section date-filter date-filter-form" id="filter-section">
+        <div class="filter-group">
+            <label for="end-date" class="filter-label">As at</label>
+            <input type="date" id="end-date" name="end-date" class="form-control">
+        </div>
+
+        <!-- Hide Zero Values Toggle -->
+        <div class="filter-toggle">
+            <input type="checkbox" id="hide-zero-values" name="hide_zero_values">
+            <label for="hide-zero-values">Hide Zero (0) Values</label>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" id="apply-filter" class="add-button">Apply Filter</button>
+            <a href="{{ url_for('financial_reports.balance_sheet') }}" class="btn reset-button">Reset</a>
+        </div>
+    </div>
+
+    {% if company.has_multiple_currencies %}
+
+    <!-- FX Rates Display -->
+    <div class="fx-rates-display"
+        style="margin: 10px 0; font-size: 0.9rem; padding: 10px; background-color: #f8f9fa; border-radius: 4px; border-left: 4px solid #008c8a;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="font-weight: 500;">
+                <i class="fas fa-exchange-alt" style="margin-right: 8px;"></i>
+                Exchange Rates Used <span id="as-at-date">(as at <span id="rate-date">loading...</span>)</span>
+            </div>
+            <div id="fx-rates-list"
+                style="font-size: 0.85em; color: #6c757d; display: flex; flex-wrap: wrap; gap: 15px;">
+                Loading rates...
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+
+
+    <h2 class="transaction-headings">Assets</h2>
+    <table id="assets-table">
+        <thead>
+            <tr>
+                <th class="category-column">Category</th>
+                <th class="subcategory-column">Subcategory</th>
+                <th class="amount-column">Amount (<span class="currency-symbol"></span>)</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+            <tr id="total-assets-row">
+                <td><strong>Total Assets</strong></td>
+                <td></td>
+                <td class="amount"><strong id="total-assets"></strong></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <h2 class="transaction-headings">Liabilities</h2>
+    <table id="liabilities-table">
+        <thead>
+            <tr>
+                <th class="category-column">Category</th>
+                <th class="subcategory-column">Subcategory</th>
+                <th class="amount-column">Amount (<span class="currency-symbol"></span>)</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+            <tr id="total-liabilities-row">
+                <td><strong>Total Liabilities</strong></td>
+                <td></td>
+                <td class="amount"><strong id="total-liabilities"></strong></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <h2 class="transaction-headings">Equity</h2>
+    <table id="equity-table">
+        <thead>
+            <tr>
+                <th class="category-column">Category</th>
+                <th class="subcategory-column">Subcategory</th>
+                <th class="amount-column">Amount (<span class="currency-symbol"></span>)</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+            <tr id="total-equity-liabilities-row">
+                <td><strong>Total Liabilities and Equity</strong></td>
+                <td></td>
+                <td class="amount"><strong id="total-equity-liabilities"></strong></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Set the API key in JavaScript
+        const apiKey = "{{ api_key }}";
+        const applyFilterBtn = document.getElementById("apply-filter");
+        const currencySymbolSpans = document.querySelectorAll(".currency-symbol");
+        const endDateInput = document.getElementById("end-date");
+        const hideZeroCheckbox = document.getElementById("hide-zero-values");
+
+        const baseCurrency = "{{ base_currency }}";
+        const baseCurrencyId = "{{ base_currency_id }}";
+        const currencyMap = {{ currency_map | tojson
+    }};
+    const foreignCurrencyIds = {{ foreign_currency_ids | tojson }};
+
+
+    // Set default end date to today on page load
+    const today = new Date().toISOString().split('T')[0];
+    endDateInput.value = today;
+
+    // Store the original data for filtering
+    let originalData = null;
+
+    async function fetchBalanceSheet() {
+        let endDate = endDateInput.value;
+
+        // Ensure end date is always set (fallback to today if somehow empty)
+        if (!endDate) {
+            endDate = today;
+            endDateInput.value = today;
+        }
+
+        setLoadingState(true);
+
+        try {
+            // Build URL with parameters
+            const url = `/api/balance_sheet?date=${endDate}`
+                + `&currency_map=${encodeURIComponent(JSON.stringify(currencyMap))}`
+                + `&foreign_currency_ids=${encodeURIComponent(JSON.stringify(foreignCurrencyIds))}`
+                + `&base_currency=${baseCurrency}`
+                + `&base_currency_id=${baseCurrencyId}`;
+
+
+            const response = await fetch(url, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch balance sheet data.");
+            }
+
+            const data = await response.json();
+
+            originalData = data; // Store original data for filtering
+            applyZeroFilter(data);
+        } catch (error) {
+            console.error(error);
+            alert("Something went wrong loading the balance sheet.");
+        } finally {
+            setLoadingState(false);
+        }
+
+
+        // Fetch and display exchange rates
+        await fetchExchangeRates();  // Add this line
+
+    }
+
+
+    // Refresh button
+    $('#refreshBtn').on('click', () => fetchBalanceSheet());
+
+    function applyZeroFilter(data) {
+        const hideZero = hideZeroCheckbox.checked;
+
+        if (!hideZero || !data.categories) {
+            renderBalanceSheet(data);
+            return;
+        }
+
+        // Create a filtered copy of the data
+        const filteredData = {
+            ...data,
+            categories: {}
+        };
+
+        // Filter each category (Asset, Liability, Equity)
+        Object.keys(data.categories).forEach(category => {
+            filteredData.categories[category] = data.categories[category].filter(item => {
+                // Keep items with non-zero balances
+                return Math.abs(item.balance || 0) > 0.01;
+            });
+        });
+
+        renderBalanceSheet(filteredData);
+    }
+
+    function renderTable(data, tableId) {
+        const tableBody = document.getElementById(tableId).querySelector("tbody");
+        tableBody.innerHTML = "";
+
+        if (!data || data.length === 0) {
+            const noDataRow = document.createElement("tr");
+            noDataRow.innerHTML = `<td colspan="3" class="text-center">No data available</td>`;
+            tableBody.appendChild(noDataRow);
+            return;
+        }
+
+        let lastCategory = null;
+        let sectionTotal = 0;
+
+        data.forEach((row, index) => {
+            const isSubtotal = row.is_subtotal || false;
+            const isFxComponent = row.is_fx_component || false;
+
+            // Show category only when it changes (except for subtotal rows)
+            const categoryDisplay = (row.category !== lastCategory && !isSubtotal) ? row.category : "";
+            lastCategory = row.category;
+
+            const subcategory = row.subcategory || 'N/A';
+            const amount = row.balance || 0;
+
+            const tr = document.createElement("tr");
+
+            // Apply different styling based on row type
+            if (isSubtotal) {
+                tr.classList.add('subtotal-row');
+                tr.innerHTML = `
+                <td><strong>${categoryDisplay}</strong></td>
+                <td><strong>${subcategory}</strong></td>
+                <td class="amount-column"><strong>${formatAmount(amount)}</strong></td>
+            `;
+
+                // Add space after subtotal row (unless it's the last row)
+                if (index < data.length - 1) {
+                    const spacerRow = document.createElement("tr");
+                    spacerRow.classList.add('subtotal-spacer');
+                    spacerRow.innerHTML = `<td colspan="3"></td>`;
+                    tableBody.appendChild(tr);
+                    tableBody.appendChild(spacerRow);
+                    return; // Skip the normal append below
+                }
+            } else if (isFxComponent) {
+                tr.classList.add('fx-component-row');
+                tr.innerHTML = `
+                <td>${categoryDisplay}</td>
+                <td><em>${subcategory}</em></td>
+                <td class="amount-column">${formatAmount(amount)}</td>
+            `;
+            } else {
+                tr.innerHTML = `
+                <td>${categoryDisplay}</td>
+                <td>${subcategory}</td>
+                <td class="amount-column">${formatAmount(amount)}</td>
+            `;
+            }
+
+            tableBody.appendChild(tr);
+            sectionTotal += amount;
+        });
+    }
+
+    function calculateTotal(dataList) {
+        if (!dataList) return 0;
+        return dataList.reduce((sum, item) => sum + (item.balance || 0), 0);
+    }
+
+    function formatAmount(amount) {
+        amount = Number(amount);
+
+        if (isNaN(amount)) return '0.00';
+
+        const absAmount = Math.abs(amount);
+        const formatted = new Intl.NumberFormat("en-US", {
+            style: "decimal",
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(absAmount);
+
+        return amount < 0 ? `(${formatted})` : formatted;
+    }
+
+    function renderBalanceSheet(data) {
+        // Update currency symbol
+        currencySymbolSpans.forEach(span => {
+            span.textContent = data.base_currency || 'USD';
+        });
+
+        // Ensure Equity category exists
+        if (!data.categories.Equity) {
+            data.categories.Equity = [];
+        }
+
+        // Add Net Profit or Net Loss
+        if (data.totals?.net_income && Math.abs(data.totals.net_income) > 0.01) {
+            const isProfit = data.totals.net_income >= 0;
+            data.categories.Equity.push({
+                category: "Net Income",
+                subcategory: isProfit ? "Net Profit" : "Net Loss",
+                balance: data.totals.net_income
+            });
+        }
+
+        // Add Unrealized FX Gain/Loss
+        if (data.totals?.unrealized_fx_gain_loss && Math.abs(data.totals.unrealized_fx_gain_loss) > 0.01) {
+            const isGain = data.totals.unrealized_fx_gain_loss >= 0;
+            data.categories.Equity.push({
+                category: "FX Revaluation",
+                subcategory: isGain ? "Unrealized Gain" : "Unrealized Loss",
+                balance: data.totals.unrealized_fx_gain_loss
+            });
+        }
+
+        // Render each section
+        renderTable(data.categories?.Asset, "assets-table");
+        renderTable(data.categories?.Liability, "liabilities-table");
+        renderTable(data.categories?.Equity, "equity-table");
+
+        // Update totals
+        document.getElementById("total-assets").textContent = formatAmount(data.totals?.assets);
+        document.getElementById("total-liabilities").textContent = formatAmount(data.totals?.liabilities);
+
+        // Show Total Liabilities + Equity (with Net Income included)
+        const totalEquity = (data.totals?.equity || 0);
+        document.getElementById("total-equity-liabilities").textContent =
+            formatAmount((data.totals?.liabilities || 0) + totalEquity);
+    }
+
+    let activeFilters = {};
+
+    function updateFilters() {
+        const endDate = document.getElementById("end-date").value;
+        const hideZero = document.getElementById("hide-zero-values").checked;
+
+        if (endDate) activeFilters.endDate = endDate;
+        else delete activeFilters.endDate;
+
+        activeFilters.hideZero = hideZero;
+
+        console.log("Updated Active Filters:", activeFilters);
+    }
+
+    // Toggle the filter section visibility
+    document.getElementById('toggleFilterForm').addEventListener('click', function () {
+        const filterSection = document.getElementById('filter-section');
+        filterSection.classList.toggle('visible');
+    });
+
+    // Apply filter when checkbox changes
+    hideZeroCheckbox.addEventListener('change', function () {
+        if (originalData) {
+            applyZeroFilter(originalData);
+        }
+    });
+
+    applyFilterBtn.addEventListener("click", fetchBalanceSheet);
+
+    // Download PDF button click event
+    document.getElementById('download-pdf').addEventListener('click', () => {
+        updateFilters();
+        console.log("Active Filters before Download:", activeFilters);
+
+        fetch("/download_balance_sheet_report", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(activeFilters),
+        })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `Balance Sheet Report.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => console.error("Error:", error));
+    });
+
+    // Initial load when page opens
+    fetchBalanceSheet();
+    });
+
+    function setLoadingState(isLoading) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (isLoading) {
+            loadingOverlay.style.display = 'flex';
+        } else {
+            loadingOverlay.style.display = 'none';
+        }
+    }
+
+
+    async function fetchExchangeRates() {
+        try {
+            const endDate = document.getElementById('end-date').value;
+            const baseCurrency = "{{ base_currency }}";
+            const baseCurrencyId = "{{ base_currency_id }}";
+
+            const response = await fetch(`/multi_currency/api/exchange-rates?date=${endDate}&base_currency=${baseCurrency}&base_currency_id=${baseCurrencyId}`);
+
+            if (!response.ok) throw new Error('Failed to fetch rates');
+
+            const data = await response.json();
+            displayExchangeRates(data);
+        } catch (error) {
+            console.error('Error fetching rates:', error);
+            document.getElementById('fx-rates-list').innerHTML =
+                '<span style="color: #dc3545;">Rates unavailable</span>';
+        }
+    }
+    function displayExchangeRates(ratesData) {
+        const ratesList = document.getElementById('fx-rates-list');
+        const rateDateSpan = document.getElementById('rate-date');
+
+        if (rateDateSpan && ratesData.date) {
+            rateDateSpan.textContent = formatDate(ratesData.date);
+        }
+
+        if (!ratesData.rates || Object.keys(ratesData.rates).length === 0) {
+            ratesList.innerHTML = '<span>No foreign currency transactions</span>';
+            return;
+        }
+
+        let ratesHtml = '';
+        const baseCurrency = ratesData.base_currency || '{{ base_currency }}';
+
+        // Sort currencies alphabetically
+        const sortedCurrencies = Object.keys(ratesData.rates).sort();
+
+        sortedCurrencies.forEach(currency => {
+            const rate = ratesData.rates[currency];
+            ratesHtml += `
+            <span style="background: white; padding: 4px 10px; border-radius: 15px; border: 1px solid #dee2e6;">
+                <strong>1 ${currency}</strong> = ${formatNumber(rate)} ${baseCurrency}
+            </span>
+        `;
+        });
+
+        ratesList.innerHTML = ratesHtml;
+    }
+
+    // Shortcuts sidebar toggle (for mobile)
+    $('#shortcutToggleBtn').on('click', () => $('#mobileShortcutsSidebar').toggleClass('open'));
+    $('#closeShortcutsBtn').on('click', () => $('#mobileShortcutsSidebar').removeClass('open'));
+
+
+</script>
+
+{% endblock %}

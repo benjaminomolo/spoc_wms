@@ -1,0 +1,1592 @@
+{% extends "transaction_base_template.html" %}
+{% block content %}
+
+<style>
+    .heading-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        /* Adjust spacing as needed */
+    }
+
+    #viewAllColumnsBtn {
+        margin-left: auto;
+        /* Pushes the button to the far right */
+    }
+
+
+    /* Form Tabs Styling */
+    .form-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e0e0e0;
+        padding-bottom: 10px;
+    }
+
+    .form-tab {
+        padding: 10px 20px;
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 5px 5px 0 0;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        margin-bottom: -2px;
+    }
+
+    .form-tab:hover {
+        background: #e9e9e9;
+    }
+
+    .form-tab.active {
+        background: #2980b9;
+        color: white;
+        border-color: #2980b9;
+    }
+
+    .form-tab-content {
+        display: none;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .form-tab-content.active {
+        display: block;
+    }
+
+    .form-navigation {
+        border-top: 1px solid #eee;
+        padding-top: 15px;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    /* Form Validation Styles */
+    .form-control.is-invalid {
+        border-color: #dc3545;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23dc3545' viewBox='0 0 12 12'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right calc(0.375em + 0.1875rem) center;
+        background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+        padding-right: 2.5rem;
+    }
+
+    .form-control.is-invalid:focus {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+    }
+
+    .invalid-feedback {
+        display: block;
+        width: 100%;
+        margin-top: 0.25rem;
+        font-size: 0.875em;
+        color: #dc3545;
+    }
+
+    /* If using Bootstrap-like floating labels, add this too */
+    .form-label+.invalid-feedback {
+        margin-top: -0.25rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* For Select2 validation */
+    .select2-container--default .select2-selection.is-invalid {
+        border-color: #dc3545 !important;
+    }
+
+    .select2-container--default.select2-container--focus .select2-selection.is-invalid {
+        border-color: #dc3545 !important;
+        box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important;
+    }
+</style>
+
+<div class="content-container">
+    <!-- Tab Links -->
+    <div class="tab">
+        <button class="tablinks" onclick="openTab(event, 'employeeList')" id="defaultOpen">Employee List</button>
+        <button class="tablinks" onclick="openTab(event, 'addEmployee')">Add New Employee</button>
+
+    </div>
+
+    <!-- Tab Content: Add Employee -->
+    <!-- Tab Content: Add Employee -->
+    <!-- Tab Content: Add Employee -->
+    <div id="addEmployee" class="tabcontent">
+        <h4>Enter New Employee Details</h4>
+
+        <!-- Form Tabs Navigation -->
+        <div class="form-tabs">
+            <button type="button" class="form-tab active" data-tab="personal">Personal Info</button>
+            <button type="button" class="form-tab" data-tab="employment">Employment</button>
+            <button type="button" class="form-tab" data-tab="compensation">Compensation</button>
+            <button type="button" class="form-tab" data-tab="accounting">Accounting</button>
+            <button type="button" class="form-tab" data-tab="additional">Additional Info</button>
+        </div>
+
+        <form autocomplete="off" id="addEmployeeForm" action="{{ url_for('payroll.add_employee') }}" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <!-- Personal Information Tab -->
+            <div class="form-tab-content active" id="personal-tab">
+                <h5>Personal Information</h5>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <input type="text" id="first_name" class="form-control" name="first_name" placeholder=""
+                            autocomplete="off" required>
+                        <label for="first_name" class="form-label">First Name: <span class="required">*</span></label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="middle_name" class="form-control" name="middle_name" placeholder=""
+                            autocomplete="off">
+                        <label for="middle_name" class="form-label">Middle Name:</label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="last_name" class="form-control" name="last_name" placeholder=""
+                            autocomplete="off" required>
+                        <label for="last_name" class="form-label">Last Name: <span class="required">*</span></label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="employee_id" class="form-control" name="employee_id"
+                            placeholder="e.g., EMP2024001" autocomplete="off">
+                        <label for="employee_id" class="form-label">Employee ID:</label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="date" id="date_of_birth" class="form-control" name="date_of_birth" placeholder=""
+                            autocomplete="off">
+                        <label for="date_of_birth" class="form-label">Date of Birth:</label>
+                    </div>
+
+                    <div class="form-group">
+                        <select class="form-control" id="gender" name="gender" required>
+                            <option value="">--Select Gender--</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <label for="gender" class="form-label">Gender: <span class="required">*</span></label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="email" id="email" class="form-control" name="email" placeholder=""
+                            autocomplete="off">
+                        <label for="email" class="form-label">Email:</label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="emergency_contact_name" class="form-control"
+                            name="emergency_contact_name" placeholder="" autocomplete="off">
+                        <label for="emergency_contact_name" class="form-label">Emergency Contact Name:</label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="emergency_contact_phone" class="form-control"
+                            name="emergency_contact_phone" placeholder="" autocomplete="off">
+                        <label for="emergency_contact_phone" class="form-label">Emergency Contact Phone:</label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="tax_id" class="form-control" name="tax_id" placeholder=""
+                            autocomplete="off">
+                        <label for="tax_id" class="form-label">Tax ID:</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employment Information Tab -->
+            <div class="form-tab-content" id="employment-tab">
+                <h5>Employment Information</h5>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="department_id" class="form-label">Department: <span
+                                class="required">*</span></label>
+                        <select class="form-control select2-custom" id="department_id" name="department_id" required>
+                            <option value="">-- Select Department --</option>
+                            {% for department in company.departments %}
+                            <option value="{{ department.id }}">{{ department.department_name }}</option>
+                            {% endfor %}
+                            <option value="add_new_department" class="add-new-option">Add New Department</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="project_id" class="form-label">Project: (Optional)</label>
+                        <select class="form-control select2-custom" id="project_id" name="project_id">
+                            <option value="">-- Select Project --</option>
+                            {% for project in company.projects %}
+                            <option value="{{ project.id }}">{{ project.name }} ({{ project.project_id }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="job_title" class="form-control" name="job_title" placeholder=""
+                            autocomplete="off" required>
+                        <label for="job_title" class="form-label">Job Title: <span class="required">*</span></label>
+                    </div>
+
+                    <div class="form-group">
+                        <select class="form-control" id="employment_status" name="employment_status" required>
+                            <option value="">--Select Employment Status--</option>
+                            <option value="Full-time">Full-time</option>
+                            <option value="Part-time">Part-time</option>
+                            <option value="Contract">Contract</option>
+                            <option value="Temporary">Temporary</option>
+                            <option value="Seasonal">Seasonal</option>
+                            <option value="Freelance">Freelance</option>
+                            <option value="Intern">Intern</option>
+                            <option value="Apprentice">Apprentice</option>
+                        </select>
+                        <label for="employment_status" class="form-label">Employment Status: <span
+                                class="required">*</span></label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="date" id="hire_date" class="form-control" name="hire_date" placeholder=""
+                            autocomplete="off" required>
+                        <label for="hire_date" class="form-label">Hire Date: <span class="required">*</span></label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="date" id="termination_date" class="form-control" name="termination_date"
+                            placeholder="" autocomplete="off">
+                        <label for="termination_date" class="form-label">Termination Date:</label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="date" id="last_promotion_date" class="form-control" name="last_promotion_date"
+                            placeholder="" autocomplete="off">
+                        <label for="last_promotion_date" class="form-label">Last Promotion Date:</label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="work_location" class="form-control" name="work_location" placeholder=""
+                            autocomplete="off">
+                        <label for="work_location" class="form-label">Work Location:</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compensation Information Tab -->
+            <div class="form-tab-content" id="compensation-tab">
+                <h5>Compensation Information</h5>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <select class="form-control" id="salary_type" name="salary_type" required>
+                            <option value="">-- Select Salary Type --</option>
+                            <option value="Monthly">Monthly</option>
+                            <option value="Bi-weekly">Bi-weekly</option>
+                            <option value="Weekly">Weekly</option>
+                            <option value="Daily">Daily</option>
+                            <option value="Hourly">Hourly</option>
+                            <option value="Piece Rate">Piece Rate</option>
+                            <option value="Commission">Commission</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <label for="salary_type" class="form-label">Salary Type: <span class="required">*</span></label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="base_salary" class="form-control" name="base_salary"
+                            placeholder="Gross Salary (e.g 100000)" autocomplete="off">
+                        <label for="base_salary" class="form-label">Base Salary (Gross):</label>
+                    </div>
+
+                    <div class="form-group">
+                        <select class="form-control" id="base_currency" name="base_currency" required>
+                            <option value="">--Select Currency--</option>
+                            {% for c in company.currency %}
+                            <option value="{{ c.id }}">{{ c.user_currency }}</option>
+                            {% endfor %}
+                        </select>
+                        <label for="base_currency" class="form-label">Base Currency:<span class="required">*</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="payment_account_number" class="form-control"
+                            name="payment_account_number" placeholder="" autocomplete="off">
+                        <label for="payment_account_number" class="form-label">Payment Account Number:</label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="payment_account_name" class="form-control" name="payment_account_name"
+                            placeholder="" autocomplete="off">
+                        <label for="payment_account_name" class="form-label">Payment Account Name:</label>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="payment_platform" class="form-control" name="payment_platform"
+                            placeholder="" autocomplete="off">
+                        <label for="payment_platform" class="form-label">Payment Platform / Entity:</label>
+                    </div>
+
+                    <!-- Multi-select for Benefits -->
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="benefits" class="form-label">Select Benefits:</label>
+                        <select class="form-control select2-custom" id="benefits" name="benefits[]" multiple>
+                            {% for benefit in company.benefit_types %}
+                            <option value="{{ benefit.id }}">{{ benefit.name }}</option>
+                            {% endfor %}
+                            <option value="add_new_benefit" class="add-new-option">Add New Benefit</option>
+                        </select>
+                        <small class="form-text text-muted">Selected benefits will increase the employee's total
+                            compensation.</small>
+                    </div>
+
+                    <!-- Multi-select for Deductions -->
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="deductions" class="form-label">Select Deductions:</label>
+                        <select class="form-control select2-custom" id="deductions" name="deductions[]" multiple>
+                            {% for deduction in company.deduction_types %}
+                            <option value="{{ deduction.id }}">{{ deduction.name }}</option>
+                            {% endfor %}
+                            <option value="add_new_deduction" class="add-new-option">Add New Deduction</option>
+                        </select>
+                        <small class="form-text text-muted">Deductions selected here will be applied to reduce the gross
+                            amount.</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Accounting Information Tab -->
+            <div class="form-tab-content" id="accounting-tab">
+                <h5>Accounting Information</h5>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="payroll_expense_account" class="form-label">Payroll Expense Account: <span
+                                class="required">*</span></label>
+                        <select id="payroll_expense_account" name="payroll_expense_account_id" required
+                            class="form-control form-select2">
+                            <option value="">Loading payroll expense accounts...</option>
+                        </select>
+                        <div class="text-muted">Expense account for recording payroll costs.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="payable_account" class="form-label">Payable Account: <span
+                                class="required">*</span></label>
+                        <select id="payable_account" name="payable_account_id" class="form-control form-select2"
+                            required>
+                            <option value="">Loading payable accounts...</option>
+                        </select>
+                        <div class="text-muted">Liability account for recording payroll payables.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="deduction_payable_account" class="form-label">Deduction Payable Account:
+                            (Optional)</label>
+                        <select id="deduction_payable_account" name="deduction_payable_account_id"
+                            class="form-control form-select2">
+                            <option value="">Loading deduction payable accounts...</option>
+                        </select>
+                        <div class="text-muted">Liability account for employee deductions (taxes, benefits, etc.).</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="advance_account" class="form-label">Advance Account: <span
+                                class="required">*</span></label>
+                        <select id="advance_account" name="advance_account_id" class="form-control form-select2"
+                            required>
+                            <option value="">Loading advance accounts...</option>
+                        </select>
+                        <div class="text-muted">Asset account for tracking employee advances.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Information Tab -->
+            <div class="form-tab-content" id="additional-tab">
+                <h5>Additional Information</h5>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <input type="number" id="performance_rating" min="0" max="9.99" class="form-control"
+                            name="performance_rating" placeholder="Enter a value between 0.00 and 9.99."
+                            autocomplete="off" step="0.01">
+                        <label for="performance_rating" class="form-label">Performance Rating:</label>
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <textarea id="skills" class="form-control" name="skills"
+                            placeholder="List relevant skills separated by commas" autocomplete="off"
+                            rows="3"></textarea>
+                        <label for="skills" class="form-label">Skills:</label>
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <textarea id="certifications" class="form-control" name="certifications"
+                            placeholder="List certifications separated by commas" autocomplete="off"
+                            rows="3"></textarea>
+                        <label for="certifications" class="form-label">Certifications:</label>
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <textarea id="notes" class="form-control" name="notes"
+                            placeholder="Additional notes or comments" autocomplete="off" rows="4"></textarea>
+                        <label for="notes" class="form-label">Notes:</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Navigation Buttons -->
+            <div class="form-navigation" style="grid-column: 1 / -1; margin-top: 20px;">
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="button add-button" id="prevBtn">Previous</button>
+                    <button type="button" class="button cta-button" id="nextBtn">Next</button>
+                </div>
+            </div>
+
+            <!-- Submit Button (only shown on last tab) -->
+            <div class="form-submit" style="grid-column: 1 / -1; margin-top: 20px; display: none;">
+                <input type="submit" class="reset-button" style="border: none; width: 100%; padding: 12px;"
+                    value="Submit Employee">
+            </div>
+        </form>
+    </div>
+
+    <!-- Tab Content: View Employees -->
+    <div id="employeeList" class="tabcontent">
+        <!-- Heading and View All Columns Button -->
+        <div class="heading-container">
+            <h4>Employee List</h4>
+            <button id="viewAllColumnsBtn" class="button cta-button">View All Columns</button>
+        </div>
+
+
+        <div class="table-responsive mt-3">
+            <table id="employee-list" class="">
+                <thead>
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Employee Name</th>
+                        <th>Base Salary</th>
+                        <th>Currency</th>
+                        <th>Gender</th>
+                        <th>Email</th>
+                        <th>Department</th>
+                        <th>Job Title</th>
+                        <th>Employment Status</th>
+                        <th>Salary Type</th>
+                        <th>Payment Account</th>
+                        <th>Account Name</th>
+                        <th>Payment Platform</th>
+                        <th>Tax ID</th>
+                        <th>Hire Date</th>
+                        <th>Termination Date</th>
+                        <th>Last Promotion Date</th>
+                        <th>Work Location</th>
+                        <th>Performance Rating</th>
+                        <th>Is Active</th>
+                        <th>Project</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee in company.employees %}
+                    <tr>
+                        <td>
+                            {% if employee.employee_id %}
+                            {{ employee.employee_id }}
+                            {% else %}
+                            -
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+                            {% if employee.first_name %}
+                            {{ employee.first_name }}
+                            {% endif %}
+                            {% if employee.middle_name %}
+                            {{ employee.middle_name }}
+                            {% endif %}
+                            {% if employee.last_name %}
+                            {{ employee.last_name }}
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.base_salary %}
+                            {{ "{:,.2f}".format(employee.base_salary) }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.currency and employee.currency.user_currency %}
+                            {{ employee.currency.user_currency }}
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.gender %}
+                            {{ employee.gender }}
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.email %}
+                            {{ employee.email }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.department and employee.department.department_name %}
+                            {{ employee.department.department_name }}
+                            {% else %}
+                            -
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+                            {% if employee.job_title %}
+                            {{ employee.job_title }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.employment_status %}
+                            {{ employee.employment_status }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.salary_type %}
+                            {{ employee.salary_type }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.payment_account_number %}
+                            {{ employee.payment_account_number }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.payment_account_name %}
+                            {{ employee.payment_account_name }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.payment_platform %}
+                            {{ employee.payment_platform }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.tax_id %}
+                            {{ employee.tax_id }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.hire_date %}
+                            {{ employee.hire_date }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.termination_date %}
+                            {{ employee.termination_date }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.last_promotion_date %}
+                            {{ employee.last_promotion_date }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.work_location %}
+                            {{ employee.work_location }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.performance_rating %}
+                            {{ employee.performance_rating }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.is_active is not none %}
+                            {{ employee.is_active }}
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if employee.project and employee.project.name %}
+                            {{ employee.project.name }}
+                            {% if employee.project.project_id %}
+                            ({{ employee.project.project_id }})
+                            {% endif %}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td style="width: 50px;">
+                            <div class="action-icons-clean">
+
+
+
+                                <!-- View Employee Profile -->
+                                <div class="custom-tooltip-container">
+                                    <form action="/payroll/employee_profile/{{ employee.id }}" method="get"
+                                        style="display:inline;">
+                                        <button type="submit" class="view-icon">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </form>
+                                    <span class="custom-tooltip left">View Profile</span>
+                                </div>
+
+
+
+                                <!-- Edit Employee -->
+                                <div class="custom-tooltip-container">
+                                    <button type="button" class="button edit-icon"
+                                        onclick="window.location.href='/payroll/edit_employee/{{ employee.id }}'">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <span class="custom-tooltip left">Edit Employee</span>
+                                </div>
+
+
+                                <!-- Delete Employee -->
+                                <div class="custom-tooltip-container">
+                                    <form action="/delete_employee/{{ employee.id }}" method="post"
+                                        style="display:inline;">
+                                        <button type="submit" class="delete-icon">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                    <span class="custom-tooltip left">Delete Employee</span>
+                                </div>
+                            </div>
+                        </td>
+
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th><input type="text" placeholder="Search Employee ID" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Name" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Base Salary" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Currency" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Gender" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Email" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Department" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Job Title" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Employment Status" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Salary Type" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Payment Account" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Account Name" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Payment Platform" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Tax ID" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Hire Date" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Termination Date" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Last Promotion Date" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Work Location" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Performance Rating" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Is Active" class="column-search"></th>
+                        <th><input type="text" placeholder="Search Project" class="column-search"></th>
+                        <th></th> <!-- No search for Actions column -->
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<!-- Modal For department -->
+
+
+<!-- Add Department Modal -->
+<!-- Add Department Modal -->
+<div class="modal" id="addDepartmentModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Department</h5>
+                <button type="button " class="button add-button" data-bs-dismiss="modal" aria-label="Close"><i
+                        class="fas fa-times"></i></button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="modal-body">
+                <form id="addDepartmentForm">
+                    <!-- Department Name -->
+                    <div class="form-group">
+                        <label for="departmentName">Department Name <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="departmentName" name="department_name" required>
+                    </div>
+
+                    <!-- Department Head -->
+                    <div class="form-group">
+                        <label for="departmentHead">Department Head</label>
+                        <select class="form-control select2-custom" id="departmentHead" name="department_head_id">
+                            <option value="">Select Department Head</option>
+                            {% for employee in company.employees %}
+                            <option value="{{ employee.id }}">{{ employee.first_name }} {{ employee.last_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Location -->
+                    <div class="form-group">
+                        <label for="location">Location</label>
+                        <input type="text" class="form-control" id="location" name="location">
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    </div>
+
+                    <!-- Budget -->
+                    <div class="form-group">
+                        <label for="budget">Budget
+                            <input type="number" class="form-control" id="budget" name="budget">
+                    </div>
+                </form>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="modal-footer">
+                <button type="button" class="button add-button" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="button cta-button" id="saveDepartmentBtn">Save Department</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Add Benefit Modal -->
+<!-- Add Benefit Modal -->
+<!-- Add Benefit Modal -->
+<div class="modal" id="addBenefitModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Benefit</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="addBenefitForm">
+                    <!-- Benefit Name -->
+                    <div class="form-group">
+                        <label for="benefitName">Benefit Name <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="benefitName" name="name" required>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label for="benefitDescription">Description</label>
+                        <textarea class="form-control" id="benefitDescription" name="description" rows="3"></textarea>
+                    </div>
+
+                    <!-- Benefit Type: Rate or Fixed Amount -->
+                    <div class="form-group">
+                        <label for="benefitType">Benefit Type <span class="required">*</span></label>
+                        <select class="form-control" id="benefitType" name="benefitType" required>
+                            <option value="">Select Benefit Type</option>
+                            <option value="rate">Rate</option>
+                            <option value="fixed_amount">Fixed Amount</option>
+                        </select>
+                    </div>
+
+
+                    <!-- Rate or Fixed Amount Fields -->
+                    <div class="form-group" id="rateField" style="display:none;">
+                        <label for="rateAmount">Rate</label>
+                        <input type="number" class="form-control" id="rateAmount" name="rate">
+                    </div>
+
+                    <div class="form-group" id="fixedAmountField" style="display:none; margin-bottom: 20px;">
+
+                        <select class="form-control" id="fixedAmountCurrency" name="currency"
+                            style="margin-bottom: 15px;">
+                            <option value="">Select Currency</option>
+                            {% for c in company.currency %}
+                            <option value="{{ c.id }}">{{ c.user_currency }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <label for="fixedAmount" style="margin-bottom: 5px;">Fixed Amount</label>
+
+                        <input type="number" class="form-control" id="fixedAmount" name="fixed_amount"
+                            style="margin-bottom: 10px;" placeholder="--Enter Amount--">
+                    </div>
+
+
+                    <!-- App ID (hidden) - Will be auto-populated in backend -->
+                    <input type="hidden" id="appId" name="app_id" value="{{ current_user.app_id }}">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="button add-button" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="button cta-button" id="saveBenefitBtn">Save Benefit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Add Deduction Modal -->
+<!-- Add Deduction Modal -->
+<div class="modal" id="addDeductionModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Deduction</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="addDeductionForm">
+                    <!-- Deduction Name -->
+                    <div class="form-group">
+                        <label for="deductionName">Deduction Name <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="deductionName" name="deductionName" required>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label for="deductionDescription">Description</label>
+                        <textarea class="form-control" id="deductionDescription" name="deductionDescription"
+                            rows="3"></textarea>
+                    </div>
+
+                    <!-- Deduction Type: Rate or Fixed Amount -->
+                    <div class="form-group">
+                        <label for="deductionType">Deduction Type <span class="required">*</span></label>
+                        <select class="form-control" id="deductionType" name="deductionType" required>
+                            <option value="">Select Deduction Type</option>
+                            <option value="rate">Rate</option>
+                            <option value="fixed_amount">Fixed Amount</option>
+                        </select>
+                    </div>
+
+                    <!-- Rate or Fixed Amount Fields -->
+                    <div class="form-group" id="rateFieldDeductions" style="display:none;">
+                        <label for="rate">Rate</label>
+                        <input type="number" class="form-control" id="rateDeductions" name="rateDeductions">
+                    </div>
+
+                    <div class="form-group" id="fixedAmountFieldDeductions" style="display:none;">
+
+                        <select class="form-control" id="fixedAmountCurrencyDeductions" name="currency"
+                            style="margin-bottom: 15px;">
+                            <option value="">Select Currency</option>
+                            {% for c in company.currency %}
+                            <option value="{{ c.id }}">{{ c.user_currency }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <label for="fixedAmount">Fixed Amount</label>
+                        <input type="number" class="form-control" id="fixedAmountDeductions"
+                            name="fixedAmountDeductions" style="margin-bottom: 5px;" placeholder="--Enter Amount--">
+                    </div>
+
+                    <!-- App ID (hidden) - Will be auto-populated in backend -->
+                    <input type="hidden" id="appId" name="app_id" value="{{ current_user.app_id }}">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="button add-button" data-bs-dismiss="modal"
+                    aria-label="Close">Close</button>
+                <button type="button" class="button cta-button" id="saveDeductionBtn">Save Deduction</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+
+
+    $(document).ready(function () {
+        // Initialize DataTable
+        var table = $('#employee-list').DataTable({
+            "lengthMenu": [10, 25, 50, 100],
+            "searching": true,
+            "paging": true,
+            "ordering": true,
+            "info": true,
+            "autoWidth": false,
+            "columnDefs": [
+                {
+                    // Hide Some columns
+                    targets: [5, 10, 11, 12, 13, 14, 15, 16, 18, 20],
+                    visible: false
+                }
+            ],
+            "initComplete": function () {
+                // Initialize search functionality when table is fully loaded
+                initializeSearchInputs();
+            }
+        });
+
+        // Function to initialize search inputs
+        function initializeSearchInputs() {
+            // Remove any existing event listeners first
+            $('#employee-list tfoot input').off('keyup change');
+
+            // Add new search functionality for all columns
+            $('#employee-list tfoot input').on('keyup change', function () {
+                let columnIndex = $(this).closest('th').index();
+                table.column(columnIndex).search(this.value).draw();
+            });
+        }
+
+        // Handle column visibility toggle
+        $('#viewAllColumnsBtn').on('click', function () {
+            var columns = [5, 10, 11, 12, 13, 14, 15, 16, 18, 20];
+            var isHidden = table.column(columns[0]).visible();
+
+            // Toggle visibility for all targeted columns
+            table.columns(columns).visible(!isHidden);
+
+            // Keep full width after toggling
+            table.columns.adjust().draw();
+
+            // Reinitialize search functionality for newly visible columns
+            setTimeout(function () {
+                initializeSearchInputs();
+            }, 50); // Small delay to ensure DOM is updated
+
+            // Update button text
+            $(this).text(isHidden ? "View All Columns" : "Hide Additional Columns");
+        });
+    });
+
+
+    function openTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tabcontent");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+        tablinks = document.getElementsByClassName("tablinks");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+
+        // Load accounting dropdowns when Add Employee tab is opened
+        if (tabName === 'addEmployee') {
+            loadEmployeeAccountingDropdowns();
+        }
+    }
+
+    // Function to load accounting dropdowns for employee
+    function loadEmployeeAccountingDropdowns() {
+        const payrollExpenseDropdown = document.getElementById('payroll_expense_account');
+        const payableDropdown = document.getElementById('payable_account');
+        const deductionPayableDropdown = document.getElementById('deduction_payable_account');
+        const advanceDropdown = document.getElementById('advance_account');
+
+        if (!payrollExpenseDropdown || !payableDropdown || !deductionPayableDropdown || !advanceDropdown) {
+            console.error("Could not find accounting dropdown elements");
+            showNotification("Failed to initialize accounting fields. Please refresh and try again.", "error");
+            return;
+        }
+
+        // Show loading state
+        payrollExpenseDropdown.innerHTML = '<option value="">Loading payroll expense accounts...</option>';
+        payableDropdown.innerHTML = '<option value="">Loading payable accounts...</option>';
+        deductionPayableDropdown.innerHTML = '<option value="">Loading deduction payable accounts...</option>';
+        advanceDropdown.innerHTML = '<option value="">Loading advance accounts...</option>';
+
+        fetch('/api/chart_of_accounts_grouped')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Clear old options
+                payrollExpenseDropdown.innerHTML = '<option value="">Select Payroll Expense Account</option>';
+                payableDropdown.innerHTML = '<option value="">Select Payable Account</option>';
+                deductionPayableDropdown.innerHTML = '<option value="">Select Deduction Payable Account</option>';
+                advanceDropdown.innerHTML = '<option value="">Select Advance Account</option>';
+
+                // Sort categories alphabetically
+                const sortedCategories = data.chart_of_accounts_grouped.sort((a, b) =>
+                    a.category.localeCompare(b.category)
+                );
+
+                // Populate Payroll Expense Accounts (Expense accounts)
+                sortedCategories.forEach(cat => {
+                    const expenseAccounts = cat.accounts
+                        .filter(acc => acc.account_type === 'Expense')
+                        .sort((a, b) => a.sub_category.localeCompare(b.sub_category));
+
+                    if (expenseAccounts.length > 0) {
+                        const optGroup = document.createElement('optgroup');
+                        optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                        expenseAccounts.forEach(acc => {
+                            const option = document.createElement('option');
+                            option.value = acc.sub_category_id;
+                            option.textContent = `${acc.sub_category} (${acc.sub_category_code})`;
+                            option.setAttribute('data-account-type', acc.account_type);
+                            optGroup.appendChild(option);
+                        });
+
+                        payrollExpenseDropdown.appendChild(optGroup);
+                    }
+                });
+
+                // Populate Payable Accounts (Liability accounts)
+                sortedCategories.forEach(cat => {
+                    const payableAccounts = cat.accounts
+                        .filter(acc => acc.account_type === 'Liability' && acc.is_payable === true)
+                        .sort((a, b) => a.sub_category.localeCompare(b.sub_category));
+
+                    if (payableAccounts.length > 0) {
+                        const optGroup = document.createElement('optgroup');
+                        optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                        payableAccounts.forEach(acc => {
+                            const option = document.createElement('option');
+                            option.value = acc.sub_category_id;
+                            option.textContent = `${acc.sub_category} (${acc.sub_category_code})`;
+                            option.setAttribute('data-account-type', acc.account_type);
+                            optGroup.appendChild(option);
+                        });
+
+                        payableDropdown.appendChild(optGroup);
+                    }
+                });
+
+                // Populate Deduction Payable Accounts (Liability accounts)
+                sortedCategories.forEach(cat => {
+                    const deductionAccounts = cat.accounts
+                        .filter(acc => acc.account_type === 'Liability')
+                        .sort((a, b) => a.sub_category.localeCompare(b.sub_category));
+
+                    if (deductionAccounts.length > 0) {
+                        const optGroup = document.createElement('optgroup');
+                        optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                        deductionAccounts.forEach(acc => {
+                            const option = document.createElement('option');
+                            option.value = acc.sub_category_id;
+                            option.textContent = `${acc.sub_category} (${acc.sub_category_code})`;
+                            option.setAttribute('data-account-type', acc.account_type);
+                            optGroup.appendChild(option);
+                        });
+
+                        deductionPayableDropdown.appendChild(optGroup);
+                    }
+                });
+
+                // Populate Advance Accounts (Asset accounts)
+                sortedCategories.forEach(cat => {
+                    const advanceAccounts = cat.accounts
+                        .filter(acc => acc.account_type === 'Asset' &&
+                            acc.is_receivable !== true && // Exclude accounts receivable
+                            acc.is_cash !== true && // Exclude cash accounts
+                            acc.is_bank !== true) // Exclude bank accounts
+                        .sort((a, b) => a.sub_category.localeCompare(b.sub_category));
+
+                    if (advanceAccounts.length > 0) {
+                        const optGroup = document.createElement('optgroup');
+                        optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                        advanceAccounts.forEach(acc => {
+                            const option = document.createElement('option');
+                            option.value = acc.sub_category_id;
+                            option.textContent = `${acc.sub_category} (${acc.sub_category_code})`;
+                            option.setAttribute('data-account-type', acc.account_type);
+                            optGroup.appendChild(option);
+                        });
+
+                        advanceDropdown.appendChild(optGroup);
+                    }
+                });
+
+
+                console.log("Successfully loaded employee accounting options");
+            })
+            .catch(error => {
+                console.error('Error loading accounting accounts:', error);
+                payrollExpenseDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+                payableDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+                deductionPayableDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+                advanceDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+                showNotification("Failed to load accounting options. Please try again.", "error");
+            });
+    }
+
+
+    // Open the default tab on page load
+    document.getElementById("defaultOpen").click();
+
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Save Department Button Click Event
+
+
+        // ----------------------------- Modal pop ups ------------------------------------------------------------
+        // Get the modal for adding a new department
+        $(document).ready(function () {
+            // Initialize Select2
+            $('#department_id').select2({
+                placeholder: '--Select Department--', // Add a placeholder
+                allowClear: true, // Allow clearing the selection
+            });
+
+            // Handle the "Add New Department" option
+            $('#department_id').on('change', function () {
+                if (this.value === 'add_new_department') {
+                    $('#addDepartmentModal').modal('show');
+                    $(this).val('').trigger('change'); // Reset Select2
+                }
+            });
+        });
+
+        // Handle "Add New Benefit" option
+        $('#benefits').on('change', function () {
+            const selectedValue = $(this).val();
+            if (selectedValue && selectedValue.includes('add_new_benefit')) {
+                $('#addBenefitModal').modal('show');
+                $(this).val('').trigger('change'); // Reset Select2
+            }
+        });
+
+        // Handle "Add New Deduction" option
+        $('#deductions').on('change', function () {
+            const selectedValue = $(this).val();
+            if (selectedValue && selectedValue.includes('add_new_deduction')) {
+                $('#addDeductionModal').modal('show');
+                $(this).val('').trigger('change'); // Reset Select2
+            }
+        });
+
+        //------------------ Modal pop ups End ------------------------------------------------------------
+
+
+        // -------------------Modal Submissions --------------------------------------------------------------
+
+
+        // Saving Benefit
+        $(document).ready(function () {
+            // Toggle between Rate and Fixed Amount fields based on dropdown selection
+            $('#benefitType').on('change', function () {
+                if ($(this).val() === 'rate') {
+                    // Show the Rate field and hide the Fixed Amount field
+                    $('#rateField').show();
+                    $('#fixedAmountField').hide();
+                    // Clear Fixed Amount field if any value exists
+                    $('#fixedAmount').val('');
+                } else if ($(this).val() === 'fixed_amount') {
+                    // Show the Fixed Amount field and hide the Rate field
+                    $('#fixedAmountField').show();
+                    $('#rateField').hide();
+                    // Clear Rate field if any value exists
+                    $('#rateAmount').val('');
+                } else {
+                    // If no option is selected, hide both fields
+                    $('#rateField').hide();
+                    $('#fixedAmountField').hide();
+                }
+            });
+
+            // Handle "Save Benefit" button click event
+            $('#saveBenefitBtn').on('click', function () {
+                const formData = {
+                    name: $('#benefitName').val(),
+                    description: $('#benefitDescription').val(),
+                    benefitType: $('#benefitType').val(),
+                    rate: $('#rateAmount').val(),
+                    currency: $('#fixedAmountCurrency').val(),
+                    fixed_amount: $('#fixedAmount').val(),
+                    app_id: $('#appId').val()
+                };
+
+                $.ajax({
+                    url: '/payroll/add_benefit', // Your endpoint for saving benefit
+                    method: 'POST',
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRFToken': csrfToken // Include the CSRF token in the headers
+                    },
+                    data: JSON.stringify(formData),
+                    success: function (response) {
+                        if (response.success) {
+                            // Show success notification
+                            showNotification(response.message, 'success');
+
+                            // Close the modal
+                            $('#addBenefitModal').modal('hide');
+
+                            // Reset the form
+                            $('#addBenefitForm')[0].reset();
+                            // Hide both fields
+                            $('#rateField').hide();
+                            $('#fixedAmountField').hide();
+                            $('#fixedAmountCurrency').val('');
+
+                            // Add the new benefit to the multi-select dropdown
+                            const newOption = new Option(
+                                formData.name, // Text
+                                response.benefit_id, // Value
+                                false, // Not selected by default
+                                true // Mark as selected
+                            );
+                            $('#benefits').append(newOption).trigger('change');
+
+                            // Refresh Select2 to reflect the changes
+                            $('#benefits').trigger('change');
+                        } else {
+                            // Show error notification
+                            showNotification(response.message, 'error');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        // Show error notification
+                        console.log(error);
+                        showNotification('Failed to add benefit. Please try again.', 'error');
+                    }
+                });
+            });
+        });
+
+
+        // Saving Deduction
+        $(document).ready(function () {
+            // Initially hide both Rate and Fixed Amount fields
+            $('#rateFieldDeductions').hide();
+            $('#fixedAmountField').hide();
+
+            // Handle Deduction Type selection change
+            $('#deductionType').on('change', function () {
+                if ($(this).val() === 'rate') {
+                    // Show the Rate field and hide the Fixed Amount field
+                    $('#rateFieldDeductions').show();
+                    $('#fixedAmountFieldDeductions').hide();
+                    // Update the label for Rate field
+                    $('#rateFieldDeductions label').text('Rate');
+                    // Clear Fixed Amount field if any value exists
+                    $('#fixedAmountDeductions').val('');
+                } else if ($(this).val() === 'fixed_amount') {
+                    // Show the Fixed Amount field and hide the Rate field
+                    $('#fixedAmountFieldDeductions').show();
+                    $('#rateFieldDeductions').hide();
+                    // Update the label for Rate field
+                    $('#rateFieldDeductions label').text('Fixed Amount');
+                    // Clear Rate field if any value exists
+                    $('#rateDeductions').val('');
+                } else {
+                    // If no option is selected, hide both fields
+                    $('#rateFieldDeductions').hide();
+                    $('#fixedAmountFieldDeductions').hide();
+                }
+            });
+
+
+
+            // Handle "Save Deduction" button click event
+            $('#saveDeductionBtn').on('click', function () {
+                const formData = {
+                    name: $('#deductionName').val(),
+                    description: $('#deductionDescription').val(),
+                    deductionType: $('#deductionType').val(),
+                    rate: $('#rateDeductions').val(),
+                    currency: $('#fixedAmountCurrencyDeductions').val(),
+                    fixed_amount: $('#fixedAmountDeductions').val(),
+                    app_id: $('#appId').val() // Passing the app_id from hidden input field
+                };
+
+                $.ajax({
+                    url: '/payroll/add_deduction', // Your endpoint for saving deduction
+                    method: 'POST',
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRFToken': csrfToken // Include the CSRF token in the headers
+                    },
+                    data: JSON.stringify(formData),
+                    success: function (response) {
+                        if (response.success) {
+                            // Show success notification
+                            showNotification(response.message, 'success');
+
+                            // Close the modal
+                            $('#addDeductionModal').modal('hide');
+
+                            // Reset the form
+                            $('#addDeductionForm')[0].reset();
+                            // Hide both fields
+                            $('#rateField').hide();
+                            $('#fixedAmountField').hide();
+                            $('#fixedAmountCurrencyDeductions').val('');
+
+                            // Add the new deduction to the multi-select dropdown
+                            const newOption = new Option(
+                                formData.name, // Text
+                                response.deduction_id, // Value
+                                false, // Not selected by default
+                                true // Mark as selected
+                            );
+                            $('#deductions').append(newOption).trigger('change');
+
+                            // Refresh Select2 to reflect the changes
+                            $('#deductions').trigger('change');
+                        } else {
+                            // Show error notification
+                            showNotification(response.message, 'error');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        // Show error notification
+                        console.log(error);
+                        showNotification('Failed to add deduction. Please try again.', 'error');
+                    }
+                });
+            });
+        });
+
+        // Saving Department
+
+        $(document).ready(function () {
+            // Handle "Add New Department" option selection
+            $('#department_id').on('select2:select', function (e) {
+                if (e.params.data.id === 'add_new_department') {
+                    $('#addDepartmentModal').modal('show'); // Show the modal
+                }
+            });
+
+            // Handle form submission
+            $('#saveDepartmentBtn').on('click', function () {
+                const formData = {
+                    department_name: $('#departmentName').val(),
+                    department_head_id: $('#departmentHead').val(),
+                    location: $('#location').val(),
+                    description: $('#description').val(),
+                    budget: $('#budget').val()
+                };
+
+                $.ajax({
+                    url: '/payroll/add_department',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRFToken': csrfToken // Include the CSRF token in the headers
+                    },
+                    data: JSON.stringify(formData),
+                    success: function (response) {
+                        if (response.success) {
+                            // Show success notification
+                            showNotification(response.message, 'success');
+
+                            // Add the new department to the dropdown
+                            const newOption = new Option(
+                                formData.department_name, // Text
+                                response.department_id,  // Value (New Department ID)
+                                false,                   // Not selected by default
+                                true                     // Mark as selected
+                            );
+
+                            // Append the new option before the "Add New Department" option
+                            $('#department_id option[value="add_new_department"]').before($(newOption));
+
+                            // Refresh Select2 to reflect the changes
+                            $('#department_id').trigger('change');
+
+                            // Close the modal
+                            $('#addDepartmentModal').modal('hide');
+
+                            // Reset the form
+                            $('#addDepartmentForm')[0].reset();
+                        } else {
+                            // Show error notification
+                            showNotification(response.message, 'error');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        // Show error notification
+                        showNotification('Failed to add department. Please try again.', 'error');
+                    }
+                });
+            });
+        });
+
+
+
+    });
+
+
+    // Form Tab Navigation
+    $(document).ready(function () {
+        const formTabs = $('.form-tab');
+        const tabContents = $('.form-tab-content');
+        const prevBtn = $('#prevBtn');
+        const nextBtn = $('#nextBtn');
+        const submitSection = $('.form-submit');
+
+        let currentTab = 0;
+
+        // Initialize tabs
+        showTab(currentTab);
+
+        // Next button click
+        nextBtn.on('click', function () {
+            if (currentTab < formTabs.length - 1) {
+                // Validate current tab before proceeding
+                if (validateTab(currentTab)) {
+                    currentTab++;
+                    showTab(currentTab);
+                }
+            }
+        });
+
+        // Previous button click
+        prevBtn.on('click', function () {
+            if (currentTab > 0) {
+                currentTab--;
+                showTab(currentTab);
+            }
+        });
+
+        // Tab click
+        formTabs.on('click', function () {
+            const tabIndex = $(this).index();
+            if (validateTab(currentTab)) {
+                currentTab = tabIndex;
+                showTab(currentTab);
+            }
+        });
+
+        function showTab(tabIndex) {
+            // Hide all tab contents
+            tabContents.removeClass('active');
+            formTabs.removeClass('active');
+
+            // Show current tab
+            $(tabContents[tabIndex]).addClass('active');
+            $(formTabs[tabIndex]).addClass('active');
+
+            // Update navigation buttons
+            if (tabIndex === 0) {
+                prevBtn.hide();
+                nextBtn.show();
+                submitSection.hide();
+                nextBtn.text('Next');
+            } else if (tabIndex === formTabs.length - 1) {
+                prevBtn.show();
+                nextBtn.hide();
+                submitSection.show();
+            } else {
+                prevBtn.show();
+                nextBtn.show();
+                submitSection.hide();
+                nextBtn.text('Next');
+            }
+
+            // Load accounting dropdowns when accounting tab is opened
+            if (tabIndex === 3) { // Accounting tab index
+                setTimeout(() => {
+                    loadEmployeeAccountingDropdowns();
+                }, 100);
+            }
+        }
+
+        function validateTab(tabIndex) {
+            let isValid = true;
+            const currentTabContent = $(tabContents[tabIndex]);
+
+            // Find required fields in current tab
+            const requiredFields = currentTabContent.find('[required]');
+
+            requiredFields.each(function () {
+                const field = $(this);
+                if (!field.val().trim()) {
+                    field.addClass('is-invalid');
+                    isValid = false;
+
+                    // Show error message
+                    if (!field.next('.invalid-feedback').length) {
+                        field.after('<div class="invalid-feedback">This field is required</div>');
+                    }
+                } else {
+                    field.removeClass('is-invalid');
+                    field.next('.invalid-feedback').remove();
+                }
+            });
+
+            if (!isValid) {
+                // Scroll to first error
+                currentTabContent.find('.is-invalid').first().focus();
+                showNotification('Please fill in all required fields before proceeding.', 'error');
+            }
+
+            return isValid;
+        }
+
+        // Clear validation on field change
+        $('input, select, textarea').on('input change', function () {
+            $(this).removeClass('is-invalid');
+            $(this).next('.invalid-feedback').remove();
+        });
+    });
+</script>
+
+{% endblock %}

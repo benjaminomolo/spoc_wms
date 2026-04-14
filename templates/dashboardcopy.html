@@ -1,0 +1,485 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    /* Card Deck for Charts */
+    .charts-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .card {
+        flex: 1;
+        min-width: 300px;
+        background-color: #fff;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 20px;
+    }
+
+    .card-title {
+        margin-bottom: 20px;
+
+    }
+
+
+
+
+    .cash-balances-hover {
+        position: relative;
+    }
+
+    .cash-balances-tooltip {
+        position: absolute;
+        top: -150px;
+        /* Adjust based on your layout */
+        width: 200px;
+        left: 10px;
+        background-color: #f9f9f9;
+        border: 1px solid #ccc;
+        padding: 10px;
+        display: none;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        /* Added z-index to bring tooltip above other elements */
+    }
+
+    .cash-balances-hover:hover .cash-balances-tooltip {
+        display: block;
+    }
+
+
+    /* Line Graph */
+    #incomeExpenseLineChart {
+        height: 10px;
+        /* reduce the height of the line graph */
+    }
+
+    /* Media Queries for Responsiveness */
+    @media (max-width: 768px) {
+        .summary-item {
+            flex: 1 1 45%;
+            /* Adjust to 50% width on medium screens */
+        }
+
+        #incomeExpenseLineChart,
+        #incomeByCategoryChart,
+        #expenseByCategoryChart {
+            height: 200px;
+            /* Adjust height for charts */
+        }
+    }
+
+    @media (max-width: 576px) {
+        .summary-item {
+            flex: 1 1 100%;
+            /* Stack vertically on small screens */
+
+        }
+
+        #incomeExpenseLineChart,
+        #incomeByCategoryChart,
+        #expenseByCategoryChart {
+            height: 200px;
+            /* Adjust height for charts */
+        }
+    }
+</style>
+
+
+
+<div class="container" style="width:95%;">
+    <main>
+
+        <div class="container-fluid px-4" id="dashboard-container"
+            style="font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;">
+            <div class="header-row">
+                {% if user_currency %}
+                {% for uc in user_currency %}
+                {% if uc.id == currency %}
+                <h1 class="mt-4">Dashboard - {{ uc.user_currency }}</h1>
+                {% endif %}
+                {% endfor %}
+                {% else %}
+                <div class="alert alert-info mt-4" role="alert">
+                    Currency is not set. <a href="{{ url_for('settings') }}" class="alert-link">Click here to set up
+                        currency</a>.
+                </div>
+                {% endif %}
+
+
+                <div id="notification-container"></div>
+
+
+
+                <!-- Breadcrumbs for navigation -->
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('add_transaction') }}">Add New Transaction</a>
+                        </li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('all_transactions') }}">View Transactions</a>
+                        </li>
+                        <!-- New items -->
+                        <li class="breadcrumb-item dropdown">
+                            <a href="#" id="newDropdownLink" class="dropdown-toggle" data-bs-toggle="dropdown"
+                                aria-haspopup="true" aria-expanded="false">
+                                Manage <span class="dropdown-icon"></span>
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="newDropdownLink">
+                                <li><a class="dropdown-item" href="{{ url_for('new_category') }}">Parent Category</a>
+                                </li>
+                                <li><a class="dropdown-item" href="{{ url_for('add_chart_of_accounts') }}">Chart of
+                                        Accounts</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('manage_projects') }}">Projects</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('add_vendor_form') }}">Vendors &
+                                        Customers</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('add_payment_mode_form') }}">Payment
+                                        Modes</a></li>
+                            </ul>
+                        </li>
+                    </ol>
+                </nav>
+            </div>
+
+
+
+            <!-- Filter Controls -->
+            <form id="filter-form" method="GET" action="{{ url_for('dashboard') }}">
+                <div class="filter-container">
+                    <div class="filter-group">
+                        <label for="currency">Currency:</label>
+                        <select id="currency" name="currency">
+                            {% for currency in user_currency %}
+                            <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="start-date">Start Date:</label>
+                        <input type="date" id="start-date" name="start_date" placeholder="YYYY-MM-DD">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="end-date">End Date:</label>
+                        <input type="date" id="end-date" name="end_date" placeholder="YYYY-MM-DD">
+                    </div>
+
+                    <button type="submit" id="apply-filter" class="btn-primary" style="margin-top: 25px;"
+                        onclick="document.getElementById('loading-spinner').style.display = 'block';">
+                        Apply Filter
+                    </button>
+                </div>
+            </form>
+
+            <!-- Loading Spinner -->
+            <div id="loading-spinner" class="loading-spinner"></div>
+
+            <!-- Summary Section -->
+            <div class="summary-container">
+                <div class="summary-item cash-balances-hover">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <h2>Total Cash Balance</h2>
+                    <h1>{{ '{:,.2f}'.format(total_cash_balance*1000) }}</h1>
+                    {% if cash_balances %}
+                    <div class="cash-balances-hover">
+                        <ul class="cash-balances-tooltip">
+                            {% for cash_account in cash_balances %}
+                            <li>{{ cash_account.subcategory }}: {{ '{:,.2f}'.format(cash_account.amount * 1000) }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="summary-item">
+                    <i class="fas fa-chart-line"></i>
+                    <h2>Net Profit</h2>
+                    <h1 id="net_profit">{{'{:,.2f}'.format(net_profit)}}</h1>
+                </div>
+                <div class="summary-item">
+                    <i class="fas fa-arrow-up"></i>
+                    <h2>Total Income</h2>
+                    <h1 id="income">{{'{:,.2f}'.format(total_income)}}</h1>
+                    <canvas id="income-over-time" width="100" height="50"></canvas>
+                </div>
+                <div class="summary-item">
+                    <i class="fas fa-arrow-down"></i>
+                    <h2>Total Expenses</h2>
+                    <h1 id="expenses">{{'{:,.2f}'.format(total_expense)}}</h1>
+                </div>
+            </div>
+
+
+            <!-- Line Graph -->
+            <div class="card">
+                <h3 class="card-title">Income and Expense by Year and Month
+                    time</h3>
+                <canvas id="incomeExpenseLineChart" height="190"></canvas>
+            </div>
+
+            <!-- Card Deck for Charts -->
+            <div class="charts-container" style="margin-top: 10px;">
+                <div class="card">
+                    <h3 class="card-title">Income by Category</h3>
+                    <canvas id="incomeByCategoryChart"></canvas>
+                </div>
+                <div class="card">
+                    <h3 class="card-title">Expense by Category</h3>
+                    <canvas id="expenseByCategoryChart"></canvas>
+                </div>
+            </div>
+
+
+        </div>
+
+    </main>
+</div>
+<!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
+
+
+<script>
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Helper function to format labels as "YY-MMM"
+        function formatMonthLabels(months) {
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            return months.map(month => {
+                const date = new Date(month);
+                const year = date.getFullYear().toString().slice(-2); // Get last 2 digits of the year
+                const monthName = monthNames[date.getMonth()];
+                return `${year}-${monthName}`;
+            });
+        }
+
+        // Data for Line Chart
+        var lineChartLabels = {{ line_chart_data.months| tojson | safe
+    }};
+    var formattedLabels = formatMonthLabels(lineChartLabels);
+    var lineChartIncome = {{ line_chart_data.income| tojson | safe }};
+    var lineChartExpense = {{ line_chart_data.expense| tojson | safe }};
+
+    var ctx1 = document.getElementById('incomeExpenseLineChart').getContext('2d');
+    var incomeExpenseLineChart = new Chart(ctx1, {
+        type: 'line',
+        data: {
+            labels: formattedLabels,
+            datasets: [
+                {
+                    label: 'Total Income',
+                    data: lineChartIncome,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    fill: true
+                },
+                {
+                    label: 'Total Expense',
+                    data: lineChartExpense,
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            scales: {
+                x: {
+                    title: { display: true, text: 'Year-Month' },
+                    ticks: {
+                        autoSkip: true,
+                        maxTicksLimit: 12
+                    }
+                },
+                y: {
+                    title: { display: true, text: 'Amount' },
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function (value) {
+                            return '$' + value.toLocaleString();
+                        }
+                    }
+                }
+            },
+            responsive: true,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            var label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            var value = context.raw;
+                            var total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                            var percentage = ((value / total) * 100).toFixed(2);
+                            label += `$${value.toLocaleString()} (${percentage}%)`;
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+
+    // Function to generate dynamic colors
+    function dynamicColors() {
+        var r = Math.floor(Math.random() * 255);
+        var g = Math.floor(Math.random() * 255);
+        var b = Math.floor(Math.random() * 255);
+        return "rgb(" + r + "," + g + "," + b + ")";
+    }
+
+    // Function to generate an array of dynamic colors
+    function generateColors(count) {
+        var colors = [];
+        for (var i = 0; i < count; i++) {
+            colors.push(dynamicColors());
+        }
+        return colors;
+    }
+
+    // Data for Income by Category Doughnut Chart
+    var incomeByCategoryLabels = {{ income_by_category_data.categories | tojson | safe }};
+    var incomeByCategoryData = {{ income_by_category_data.amounts | tojson | safe }};
+
+    var incomeColors = generateColors(incomeByCategoryLabels.length);
+
+    var ctx2 = document.getElementById('incomeByCategoryChart').getContext('2d');
+    var incomeByCategoryChart = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+            labels: incomeByCategoryLabels,
+            datasets: [{
+                data: incomeByCategoryData,
+                backgroundColor: incomeColors
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            var label = context.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            var total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                            var percentage = ((context.raw / total) * 100).toFixed(2);
+                            label += context.raw + ' (' + percentage + '%)';
+                            return label;
+                        }
+                    }
+                },
+                legend: {
+                    position: 'bottom',
+                }
+            },
+            elements: {
+                center: {
+                    text: 'Total: ' + incomeByCategoryData.reduce((a, b) => a + b, 0),
+                    color: '#FF6384', // Default is #000000
+                    fontStyle: 'Arial', // Default is Arial
+                    sidePadding: 20 // Default is 20 (as a percentage)
+                }
+            }
+        }
+    });
+
+    // Data for Expense by Category Doughnut Chart
+    var expenseByCategoryLabels = {{ expense_by_category_data.categories | tojson | safe }};
+    var expenseByCategoryData = {{ expense_by_category_data.amounts | tojson | safe }};
+
+    var expenseColors = generateColors(expenseByCategoryLabels.length);
+
+    var ctx3 = document.getElementById('expenseByCategoryChart').getContext('2d');
+    var expenseByCategoryChart = new Chart(ctx3, {
+        type: 'doughnut',
+        data: {
+            labels: expenseByCategoryLabels,
+            datasets: [{
+                data: expenseByCategoryData,
+                backgroundColor: expenseColors
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            var label = context.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            var total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                            var percentage = ((context.raw / total) * 100).toFixed(2);
+                            label += context.raw + ' (' + percentage + '%)';
+                            return label;
+                        }
+                    }
+                },
+                legend: {
+                    position: 'bottom',
+                }
+            },
+            elements: {
+                center: {
+                    text: 'Total: ' + expenseByCategoryData.reduce((a, b) => a + b, 0),
+                    color: '#FF6384', // Default is #000000
+                    fontStyle: 'Lato', // Default is Arial
+                    sidePadding: 20 // Default is 20 (as a percentage)
+                }
+            }
+        }
+    });
+
+
+    fetch(`/dashboard?${queryParams}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.text();
+        })
+        .then(html => {
+            //...
+
+            // Extract updated graph data
+            const updatedLineChartData = JSON.parse(tempDiv.querySelector('#line-chart-data').textContent);
+            const updatedIncomeByCategoryData = JSON.parse(tempDiv.querySelector('#income-by-category-data').textContent);
+            const updatedExpenseByCategoryData = JSON.parse(tempDiv.querySelector('#expense-by-category-data').textContent);
+
+            // Update graph elements
+            incomeExpenseLineChart.data.labels = updatedLineChartData.months;
+            incomeExpenseLineChart.data.datasets[0].data = updatedLineChartData.income;
+            incomeExpenseLineChart.data.datasets[1].data = updatedLineChartData.expense;
+            incomeExpenseLineChart.update();
+
+            incomeByCategoryChart.data.labels = updatedIncomeByCategoryData.categories;
+            incomeByCategoryChart.data.datasets[0].data = updatedIncomeByCategoryData.amounts;
+            incomeByCategoryChart.update();
+
+            expenseByCategoryChart.data.labels = updatedExpenseByCategoryData.categories;
+            expenseByCategoryChart.data.datasets[0].data = updatedExpenseByCategoryData.amounts;
+            expenseByCategoryChart.update();
+            document.getElementById('loading-spinner').style.display = 'none';
+        })
+        .catch(error => console.error('Error:', error));
+    document.getElementById('loading-spinner').style.display = 'none';
+});
+</script>
+{% endblock %}

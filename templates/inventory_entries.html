@@ -1,0 +1,979 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+    .hidden {
+        display: none !important;
+    }
+</style>
+
+<div class="content-container">
+
+    <div class="header-section">
+
+
+        <h1 class="mt-4">Inventory Entries</h1>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{url_for('inventory.inventory_entry')}}">New Stock Entry</a></li>
+
+                {% endif %}
+
+                <li class="shortcut-item"><a href="{{ url_for('inventory.inventory_dashboard') }}">Dashboard</a></li>
+
+                <!-- View Lists -->
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" onclick="toggleDropdown(event)">
+                        <span>&nbsp;View&nbsp;</span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('stock_list_grid') }}">Stock List</a>
+                            <a href="{{ url_for('warehouse_management') }}">Warehouse</a>
+                            <a href="{{ url_for('backorders') }}">Backorders</a>
+                        </div>
+                    </div>
+                </li>
+
+
+                <li class="shortcut-item">
+                    <div class="action-icons">
+                        <button class="filter-icon" type="button" id="toggleColumnsButton"
+                            data-tooltip="Toggle Columns">
+                            <i class="fas fa-eye"> </i>
+                        </button>
+                    </div>
+                </li>
+                <li class="shortcut-item">
+                    <div class="action-icons">
+                        <button class="filter-icon" type="button" id="toggleFilterForm" data-tooltip="Apply Filter">
+                            <i class="fas fa-filter"></i>
+                        </button>
+                    </div>
+                </li>
+
+            </ol>
+        </nav>
+
+
+
+    </div>
+
+
+
+
+    <!-- Filter Section -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+        <form method="GET" action="{{ url_for('inventory_entries') }}" class="date-filter-form" id="filter-form">
+            <!-- Filter By Dropdown -->
+            <div class="filter-group">
+                <label for="filter_type" class="filter-label">Filter By</label>
+                <select id="filter_type" name="filter_type" class="form-select">
+                    <option value="transaction_date" {% if request.args.get('filter_type')=='transaction_date'
+                        %}selected{% endif %}>
+                        Transaction Date
+                    </option>
+                    <option value="date_added" {% if request.args.get('filter_type')=='date_added' %}selected{% endif
+                        %}>
+                        Date Added
+                    </option>
+                </select>
+            </div>
+
+            <!-- Start Date Input -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control"
+                    value="{{ request.args.get('start_date', '') }}">
+            </div>
+
+            <!-- End Date Input -->
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control"
+                    value="{{ request.args.get('end_date', '') }}">
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="filter-actions">
+                <button type="submit" class="add-button">Apply Filter</button>
+                <a href="{{ url_for('inventory_entries') }}" class="btn reset-button">Reset</a>
+            </div>
+        </form>
+    </div>
+
+
+    <div class="table-responsive">
+        <table id="inventory-table" class="display stripe">
+            <thead>
+                <tr>
+                    <th>Item Name</th>
+                    <th>Item Code</th>
+                    <th>Brand</th>
+                    <th>Attributes</th>
+                    <th>Variation</th>
+                    <th>Quantity</th>
+                    <th>UOM</th>
+                    <th>Currency</th>
+                    <th>Unit Price</th>
+                    <th>Category</th>
+                    <th>Subcategory</th>
+                    <th>Stock Movement</th>
+                    <th>From Location/WH</th>
+                    <th>To Location/WH</th>
+                    <th>Lot / Batch Number</th>
+                    <th>Project</th>
+                    <th>Supplier/Vendor</th>
+                    <th>Transaction Date</th>
+                    <th>Date Added</th>
+                    <th>Status</th>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <th>Action</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in inventory_entries %}
+                <tr>
+                    <td>{{ entry.inventory_item_variation_link.inventory_item.item_name | default('-') }}</td>
+                    <td>{{ entry.inventory_item_variation_link.inventory_item.item_code or '-' }}</td>
+                    <td>{{ entry.inventory_item_variation_link.inventory_item.brand.name | default('-') }}</td>
+                    <td>
+                        {% if entry.inventory_item_variation_link.inventory_item_attributes %}
+                        {{ entry.inventory_item_variation_link.inventory_item_attributes.attribute_name }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if entry.inventory_item_variation_link.inventory_item_variation %}
+                        {{ entry.inventory_item_variation_link.inventory_item_variation.variation_name }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>{{ entry.quantity | default('-') }}</td>
+                    <td>{{ entry.unit_of_measurement.full_name | default('-') }}</td>
+                    <td>{{ entry.currency.user_currency | default('-') }}</td>
+                    <td>{{ "{:,.2f}".format(entry.unit_price) if entry.unit_price is not none else '-' }}</td>
+                    <td>
+                        {% if entry.inventory_item_variation_link.inventory_item.inventory_category %}
+                        {{ entry.inventory_item_variation_link.inventory_item.inventory_category.category_name }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if entry.inventory_item_variation_link.inventory_item.inventory_subcategory %}
+                        {{ entry.inventory_item_variation_link.inventory_item.inventory_subcategory.subcategory_name }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="status 
+                            {% if entry.stock_movement == 'in' %}approved
+                            {% elif entry.stock_movement == 'out' %}pending
+                            {% elif entry.stock_movement == 'missing' %}cancelled
+                            {% elif entry.stock_movement == 'transfer' %}in-progress
+                            {% endif %}">{{ entry.stock_movement }}
+                        </span>
+                    </td>
+                    <td>{{ entry.from_inventory_location.location | default('-') }}</td>
+                    <td>{{ entry.to_inventory_location.location | default('-') }}</td>
+                    <td>{{ entry.batch.batch_number | default('-') }}
+
+                        {% if entry.source_type %}
+                        <span class="badge bg-success">
+                            {{ entry.source_type }}
+                        </span>
+                        {% else %}
+                        <span class="badge bg-info">
+                            manual_entry
+                        </span>
+                        {% endif %}
+
+                    </td>
+                    <td>{{ entry.project.name | default('-') }}</td>
+                    <td>{{ entry.vendor.vendor_name | default('-') }}</td>
+                    <td>{{ entry.transaction_date.strftime('%Y-%m-%d') if entry.transaction_date else '-' }}</td>
+                    <td>{{ entry.date_added.strftime('%Y-%m-%d') if entry.date_added else '-' }}</td>
+                    <td>
+                        <span class="status
+                            {% if entry.stock_movement == 'transfer' or entry.inventory_source in ['donation', 'adjustment'] %}closed
+                            {% elif not entry.is_posted_to_ledger %}pending
+                            {% else %}approved
+                            {% endif %}">
+                            {% if entry.stock_movement == 'transfer' or entry.inventory_source in ['donation',
+                            'adjustment'] %}N/A
+                            {% elif not entry.is_posted_to_ledger %}Not Posted
+                            {% else %}Posted
+                            {% endif %}
+                        </span>
+
+                    </td>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <td>
+                        <div class="action-icons">
+                            <a href="{{ url_for('edit_inventory_entry', entry_id=entry.id) }}" class="edit-icon"
+                                data-tooltip="Edit"><i class="fas fa-edit"></i></a>
+
+                            {% if not entry.is_posted_to_ledger and entry.stock_movement != 'transfer' and
+                            entry.inventory_source not in ['donation', 'adjustment'] %}
+                            <button href="#" class="ledger-icon"
+                                onclick="openPostToLedgerModal({{ entry.id }}, {{ (entry.quantity * entry.unit_price)|round(2) }}, '{{ entry.stock_movement }}')"
+                                data-tooltip="Post to Ledger">
+                                <i class="fas fa-book"></i>
+                            </button>
+                            {% endif %}
+
+                            <form method="POST"
+                                action="{{ url_for('delete_inventory_transaction', transaction_id=entry.id) }}"
+                                style="display:inline;"
+                                onsubmit="return confirm('Are you sure you want to delete this entry?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="entry_id" value="{{ entry.id }}">
+                                <button type="submit" class="delete-icon" data-tooltip="Delete">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th>Item Name</th>
+                    <th>Item Code</th>
+                    <th>Brand</th>
+                    <th>Attributes</th>
+                    <th>Variation</th>
+                    <th>Quantity</th>
+                    <th>UOM</th>
+                    <th>Currency</th>
+                    <th>Unit Price</th>
+                    <th>Category</th>
+                    <th>Subcategory</th>
+                    <th>Stock Movement</th>
+                    <th>From Location</th>
+                    <th>To Location</th>
+                    <th>Lot</th>
+                    <th>Project</th>
+                    <th>Supplier</th>
+                    <th>Transaction Date</th>
+                    <th>Date Added</th>
+                    <th>Status</th>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <th>Action</th>
+                    {% endif %}
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    <!-- Post to Ledger Modal -->
+    <div class="modal fade" id="postToLedgerModal" tabindex="-1" aria-labelledby="postToLedgerModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="postToLedgerModalLabel">Post to Ledger</h3>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="postToLedgerForm">
+                        <input type="hidden" id="ledgerEntryId" name="ledgerEntryId">
+                        <input type="hidden" id="stockMovementStatus" name="stockMovementStatus">
+
+                        <!-- stock movement "in" -->
+
+                        <div class="form-group mb-4" id="amountSection">
+                            <label for="totalAmount" class="form-label fw-bold">
+                                Amount Paid<span class="required">*</span>
+                            </label>
+                            <input type="number" id="ledgerTotalAmount" name="ledgerTotalAmount" class="form-control">
+                        </div>
+
+                        <!-- Inventory Allocation Section -->
+                        <div id="inventoryAllocationSection" style="display: block;">
+                            <h4 class="mb-3">Inventory Allocation<span class="input-helper" data-toggle="tooltip"
+                                    data-tooltip="Choose the inventory account for received items to track stock movements.">
+                                    <i class="fas fa-question-circle"></i>
+                                </span></h4>
+
+                            <div class="form-grid">
+                                <div class="form-group mb-4">
+                                    <label for="inventoryAccountCategory" class="form-label fw-bold">
+                                        Account Category <span class="required">*</span>
+                                    </label>
+                                    <select id="inventoryAccountCategory" name="inventoryAccountCategory"
+                                        class="form-select" onchange="loadInventorySubcategories()" required>
+                                        <option value="">Select Account Category</option>
+                                        <!-- Inventory categories will be populated here -->
+                                    </select>
+                                </div>
+
+                                <div class="form-group mb-4">
+                                    <label for="inventorySubCategory" class="form-label fw-bold">
+                                        Subcategory <span class="required">*</span>
+                                    </label>
+                                    <select id="inventorySubCategory" name="inventorySubCategory" class="form-select"
+                                        required>
+                                        <option value="">Select Subcategory</option>
+                                        <!-- Subcategories will be dynamically loaded based on the selected category -->
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Funding Account Allocation Section -->
+                        <div id="fundingAllocationSection" style="display: block;">
+                            <h4 class="mb-3">Funding Account Allocation<span class="input-helper" data-toggle="tooltip"
+                                    data-tooltip="Select the funding account for this transaction. If unpaid, a payable account may be needed.
+                                ">
+                                    <i class="fas fa-question-circle"></i>
+                                </span></h4>
+
+
+                            <div class="form-grid">
+                                <div class="form-group mb-4">
+                                    <label for="fundingAccountCategory" class="form-label fw-bold">
+                                        Account Category<span class="required">*</span>
+                                    </label>
+                                    <select id="fundingAccountCategory" name="fundingAccountCategory"
+                                        class="form-select" onchange="loadFundingSubcategories()" required>
+                                        <option value="">Select Account Category</option>
+                                        <!-- Funding categories will be populated here -->
+                                    </select>
+                                </div>
+
+                                <div class="form-group mb-4">
+                                    <label for="fundingSubCategory" class="form-label fw-bold">
+                                        Subcategory <span class="required">*</span>
+                                    </label>
+                                    <select id="fundingSubCategory" name="fundingSubCategory" class="form-select"
+                                        required>
+                                        <option value="">Select Subcategory</option>
+                                        <!-- Subcategories will be dynamically loaded based on the selected category -->
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payable Allocation Section (Conditional) -->
+                        <div id="payableAllocationSection" style="display: none;">
+                            <h4 class="mb-3">Payable Allocation<span class="input-helper" data-toggle="tooltip"
+                                    data-tooltip="Select the payable account to track any outstanding balance.">
+                                    <i class="fas fa-question-circle"></i>
+                                </span></h4>
+
+                            <div class="form-grid">
+                                <div class="form-group mb-4">
+                                    <label for="payableAccountCategory" class="form-label fw-bold">
+                                        Account Category (Payable) <span class="required">*</span>
+                                    </label>
+                                    <select id="payableAccountCategory" name="payableAccountCategory"
+                                        class="form-select" onchange="loadPayableSubcategories()">
+                                        <option value="">Select Account Category</option>
+                                        <!-- Payable categories will be populated here -->
+                                    </select>
+                                </div>
+
+                                <div class="form-group mb-4">
+                                    <label for="payableSubCategory" class="form-label fw-bold">
+                                        Subcategory <span class="required">*</span>
+                                    </label>
+                                    <select id="payableSubCategory" name="payableSubCategory" class="form-select">
+                                        <option value="">Select Subcategory</option>
+                                        <!-- Subcategories will be dynamically loaded based on the selected category -->
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Expense Account Allocation Section -->
+                        <div id="expenseAllocationSection" style="display: none;">
+                            <h4 class="mb-3">Expense Account Allocation<span class="input-helper" data-toggle="tooltip"
+                                    data-tooltip="Select the expense account to record the cost of the missing item.">
+                                    <i class="fas fa-question-circle"></i>
+                                </span></h4>
+                            <div class="form-group mb-4">
+                                <label for="expenseAccountCategory" class="form-label fw-bold">
+                                    Account Category <span class="required">*</span>
+                                </label>
+                                <select id="expenseAccountCategory" name="expenseAccountCategory" class="form-select"
+                                    onchange="loadExpenseSubcategories()">
+                                    <option value="">Select Account Category</option>
+                                    <!-- Expense categories will be populated here -->
+                                </select>
+                            </div>
+
+                            <div class="form-group mb-4">
+                                <label for="expenseSubCategory" class="form-label fw-bold">
+                                    Subcategory <span class="required">*</span>
+                                </label>
+                                <select id="expenseSubCategory" name="expenseSubCategory" class="form-select">
+                                    <option value="">Select Subcategory</option>
+                                    <!-- Subcategories will be dynamically loaded based on the selected category -->
+                                </select>
+                            </div>
+                        </div>
+
+
+                        <!-- Notes Section -->
+                        <div class="form-group mb-4">
+                            <label for="notes" class="form-label fw-bold">
+                                Additional Notes
+                            </label>
+                            <textarea id="notes" name="notes" class="form-control" rows="3"></textarea>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="button cta-button">Post to Ledger</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+</div>
+
+
+<script>
+    $(document).ready(function () {
+        var table = $('#inventory-table').DataTable({
+            "lengthMenu": [
+                [10, 25, 50, 100, -1],
+                [10, 25, 50, 100, 'All']
+            ],
+            "aaSorting": [],
+            "scrollX": true,
+            "autoWidth": true,
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                function formatNumber(num) {
+                    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+
+                var total_quantity = api
+                    .column(5, { page: 'current' })
+                    .data()
+                    .reduce(function (a, b) {
+                        return a + parseFloat(b) || 0;
+                    }, 0);
+
+                $(api.column(5).footer()).html(
+                    'Total: ' + formatNumber(total_quantity)
+                );
+            },
+            "initComplete": function () {
+                var api = this.api();
+
+                api.columns().every(function () {
+                    let column = this;
+                    let index = column.index();
+                    let title = $(column.footer()).text();
+
+                    if (index !== 20 && index !== 5) {
+                        let input = $('<input>').attr('placeholder', 'Search ' + title).addClass('form-control form-control-sm search-input');
+                        $(input).prepend('<i class="fas fa-search"></i>');
+                        $(column.footer()).empty().append(input);
+
+                        input.on('keyup change', function () {
+                            column.search($(this).val()).draw();
+                        });
+                    } else if (index === 5) {
+                        $(column.footer()).html('Total: 0');
+                    } else {
+                        $(column.footer()).empty();
+                    }
+                });
+
+                api.draw();
+                api.columns.adjust().draw();
+            }
+        });
+
+        var columnsToHide = [2, 9, 10, 14, 15, 16, 17];
+
+        // Hide columns initially
+        table.columns(columnsToHide).every(function () {
+            this.visible(false);
+        });
+
+        // Add hidden class to thead and tfoot for hidden columns
+        columnsToHide.forEach(function (columnIndex) {
+            $('#inventory-table thead th').eq(columnIndex).addClass('hidden');
+            $('#inventory-table tfoot th').eq(columnIndex).addClass('hidden');
+        });
+
+        document.getElementById('toggleColumnsButton').addEventListener('click', function () {
+            columnsToHide.forEach(function (columnIndex) {
+                var column = table.column(columnIndex);
+                column.visible(!column.visible());
+                $('#inventory-table thead th').eq(columnIndex).toggleClass('hidden');
+                $('#inventory-table tfoot th').eq(columnIndex).toggleClass('hidden');
+            });
+
+            if (table.column(columnsToHide[0]).visible()) {
+                this.innerHTML = '<i class="fas fa-eye-slash"></i>';
+            } else {
+                this.innerHTML = '<i class="fas fa-eye"></i> ';
+            }
+
+            table.columns.adjust().draw(false);
+        });
+
+        // Force redraw on window load
+        $(window).on('load', function () {
+            table.columns.adjust().draw();
+        });
+    });
+
+
+    // Toggle the filter form visibility
+    // Toggle the filter section visibility with animation
+    document.getElementById('toggleFilterForm').addEventListener('click', function () {
+        const filterSection = document.getElementById('filter-section');
+        filterSection.classList.toggle('visible');
+    });
+
+
+
+    function openPostToLedgerModal(entryId, totalPrice, stockMovementStatus) {
+        // Set entry ID in the modal (if needed)
+
+        document.getElementById('ledgerEntryId').value = entryId;
+        document.getElementById('stockMovementStatus').value = stockMovementStatus;
+
+        console.log(stockMovementStatus)
+
+        // Set the total price in the modal form and store it as a data attribute
+        const ledgerTotalAmountInput = document.getElementById('ledgerTotalAmount');
+        ledgerTotalAmountInput.value = totalPrice.toFixed(2);
+        ledgerTotalAmountInput.setAttribute('data-total', totalPrice.toFixed(2));
+
+        loadAssetExpenseAndLiabilityAllocation()
+
+
+        // Show the modal
+        $('#postToLedgerModal').modal('show');
+        // Code to open the modal
+
+        updateAllocationSections(); // Call the function here
+
+    }
+
+
+    // Load Subcategories for Inventory, Funding, and Payable
+    function loadInventorySubcategories() {
+        const inventoryCategoryId = document.getElementById('inventoryAccountCategory').value;
+        const inventorySubCategorySelect = document.getElementById('inventorySubCategory');
+        console.log('Loading inventory subcategories')
+
+        // Reset subcategory dropdown if no category is selected
+        if (!inventoryCategoryId) {
+            inventorySubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const inventorySubcategories = data.chart_of_accounts.filter(account =>
+                    account.category_id == inventoryCategoryId &&
+                    account.account_type === 'Asset' &&
+                    !account.is_cash &&
+                    !account.is_bank &&
+                    !account.is_payable &&
+                    !account.is_receivable
+                );
+
+                inventorySubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+                inventorySubcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    inventorySubCategorySelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading expense subcategories:', error));
+    }
+
+    function loadFundingSubcategories() {
+        const fundingCategoryId = document.getElementById('fundingAccountCategory').value;
+        const fundingSubCategorySelect = document.getElementById('fundingSubCategory');
+        console.log('Loading funding subcategories')
+
+        // Reset subcategory dropdown if no category is selected
+        if (!fundingCategoryId) {
+            fundingSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const fundingSubcategories = data.chart_of_accounts.filter(account =>
+                    account.category_id == fundingCategoryId &&
+                    account.account_type === 'Asset'
+                );
+
+                fundingSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+                fundingSubcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    fundingSubCategorySelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading subcategories:', error));
+    }
+
+    function loadPayableSubcategories() {
+        console.log('Loaing payable subcategories')
+
+        const payableCategoryId = document.getElementById('payableAccountCategory').value;
+        console.log(payableCategoryId)
+        console.log('Id is up above')
+        const payableSubCategorySelect = document.getElementById('payableSubCategory');
+
+        console.log('Sub is up above')
+
+        // Reset subcategory dropdown if no category is selected
+        if (!payableCategoryId) {
+            payableSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const payableSubcategories = data.chart_of_accounts.filter(account =>
+                    account.category_id == payableCategoryId && account.account_type === 'Liability'
+                );
+
+                payableSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+                payableSubcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    payableSubCategorySelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading subcategories:', error));
+    }
+
+
+
+    // Load expense categroies
+
+    function loadExpenseSubcategories() {
+        console.log('Loaing Expense subcategories')
+
+        const expenseCategoryId = document.getElementById('expenseAccountCategory').value;
+        console.log(expenseCategoryId)
+        console.log('Id is up above')
+        const expenseSubCategorySelect = document.getElementById('expenseSubCategory');
+
+        console.log('Sub is up above')
+
+        // Reset subcategory dropdown if no category is selected
+        if (!expenseCategoryId) {
+            expenseSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const expenseSubcategories = data.chart_of_accounts.filter(account =>
+                    account.category_id == expenseCategoryId && account.account_type === 'Expense'
+                );
+
+                expenseSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+                expenseSubcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    expenseSubCategorySelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading subcategories:', error));
+    }
+
+    /**
+     * Loads Debit (expense) account categories.
+     */
+    function loadAssetExpenseAndLiabilityAllocation() {
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Chart of Accounts:', data);
+
+                // Get the dropdown elements and modal
+                const assetDropdown = document.getElementById('inventoryAccountCategory');
+                const fundingDropdown = document.getElementById('fundingAccountCategory');
+                const liabilityDropdown = document.getElementById('payableAccountCategory');
+                const expenseDropdown = document.getElementById('expenseAccountCategory');
+                const modal = document.getElementById('postToLedgerModal');  // Assuming your modal has this ID
+
+                // ------------------------------
+                // Inventory Allocation (Debit) Section
+                // ------------------------------
+                // Filter Inventory accounts
+                const assetAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Asset'
+                    && !account.is_cash && !account.is_bank && !account.is_payable && !account.is_receivable
+                );
+                assetDropdown.innerHTML = '<option value="">Select Account Category</option>';
+                fundingDropdown.innerHTML = '<option value="">Select Account Category</option>';
+                const assetCategories = [...new Set(assetAccounts.map(account => account.category_id))]; // Unique expense category IDs
+
+                if (assetCategories.length === 0) {
+                    alert("No expense categories found. Please add a Chart of Accounts first.");
+                    $(modal).modal('hide');
+                    return;
+                }
+
+                // Populate Inventory Asset dropdown
+                assetCategories.forEach(categoryId => {
+                    const category = assetAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    assetDropdown.appendChild(option);
+
+                });
+
+
+                // ------------------------------
+                // Funding Allocation (Debit) Section
+                // ------------------------------
+                // Filter funding accounts
+                const fundingAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Asset' &&
+                    (account.is_cash || account.is_bank) && !account.is_payable && !account.is_receivable);
+                fundingDropdown.innerHTML = '<option value="">Select Account Category</option>';
+                const fundingCategories = [...new Set(fundingAccounts.map(account => account.category_id))]; // Unique funding category IDs
+                if (fundingCategories.length === 0) {
+                    alert("No funding categories found. Please add a Chart of Accounts first.");
+                    $(modal).modal('hide');
+                    return;
+                }
+
+                // Populate Funding  Asset dropdown
+                fundingCategories.forEach(categoryId => {
+                    const category = fundingAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    fundingDropdown.appendChild(option);
+                });
+
+
+                // ------------------------------
+                // Liability Allocation (Credit) Section
+                // ------------------------------
+                // Filter liability accounts
+                const liabilityAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Liability' &&
+                    account.is_payable && !account.is_receivable && !account.is_cash && !account.is_bank);
+                liabilityDropdown.innerHTML = '<option value="">Select Account Category</option>';
+                const liabilityCategories = [...new Set(liabilityAccounts.map(account => account.category_id))]; // Unique liability category IDs
+
+                if (liabilityCategories.length === 0) {
+                    alert("No liability categories found. Please add a Chart of Accounts first.");
+                    $(modal).modal('hide');
+                    return;
+                }
+
+                // Populate liability dropdown
+                liabilityCategories.forEach(categoryId => {
+                    const category = liabilityAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    liabilityDropdown.appendChild(option);
+                });
+
+                // ------------------------------
+                // Expense Allocation (Credit) Section
+                // ------------------------------
+                // Filter liability accounts
+                const expenseAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Expense');
+                expenseDropdown.innerHTML = '<option value="">Select Account Category</option>';
+                const expenseCategories = [...new Set(expenseAccounts.map(account => account.category_id))]; // Unique liability category IDs
+
+                if (expenseCategories.length === 0) {
+                    alert("No liability categories found. Please add a Chart of Accounts first.");
+                    $(modal).modal('hide');
+                    return;
+                }
+
+                // Populate liability dropdown
+                expenseCategories.forEach(categoryId => {
+                    const category = expenseAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    expenseDropdown.appendChild(option);
+                });
+
+            })
+            .catch(error => console.error('Error fetching chart of accounts:', error));
+
+
+    }
+
+
+    function updateAllocationSections() {
+        // Get the input and total amount values
+        const inputAmount = parseFloat(document.getElementById('ledgerTotalAmount').value) || 0;
+        const totalAmount = parseFloat(document.getElementById('ledgerTotalAmount').getAttribute('data-total')) || 0;
+
+        // Get the stock_movement value
+        const stockMovement = document.getElementById('stockMovementStatus').value;
+
+        // Get references to the sections and dropdowns
+        const payableSection = document.getElementById('payableAllocationSection');
+        const fundingSection = document.getElementById('fundingAllocationSection');
+        const expenseSection = document.getElementById('expenseAllocationSection');
+        const inventoryAllocationSection = document.getElementById('inventoryAllocationSection');
+        const amountSection = document.getElementById('amountSection');
+
+        // Reset all dropdown selections
+        document.getElementById('inventoryAccountCategory').selectedIndex = 0;
+        document.getElementById('inventorySubCategory').innerHTML = '<option value="">Select Subcategory</option>';
+        document.getElementById('fundingAccountCategory').selectedIndex = 0;
+        document.getElementById('fundingSubCategory').innerHTML = '<option value="">Select Subcategory</option>';
+        document.getElementById('payableAccountCategory').selectedIndex = 0;
+        document.getElementById('payableSubCategory').innerHTML = '<option value="">Select Subcategory</option>';
+        document.getElementById('expenseAccountCategory').selectedIndex = 0;
+        document.getElementById('expenseSubCategory').innerHTML = '<option value="">Select Subcategory</option>';
+
+        // Logic for stock_movement = "missing"
+        if (stockMovement === 'missing') {
+            // Hide Funding and Payable sections
+            fundingSection.style.display = 'none';
+            payableSection.style.display = 'none';
+            amountSection.style.display = 'none';
+
+            // Show Inventory Allocation Section
+            inventoryAllocationSection.style.display = 'block';
+
+            // Show Expense section
+            expenseSection.style.display = 'block';
+
+            // Set Expense section as required
+            document.getElementById('expenseAccountCategory').setAttribute('required', true);
+            document.getElementById('expenseSubCategory').setAttribute('required', true);
+
+            // Remove required attributes from Funding and Payable sections
+            document.getElementById('fundingAccountCategory').removeAttribute('required');
+            document.getElementById('fundingSubCategory').removeAttribute('required');
+            document.getElementById('payableAccountCategory').removeAttribute('required');
+            document.getElementById('payableSubCategory').removeAttribute('required');
+
+            // Make Total Amount readonly
+            document.getElementById('ledgerTotalAmount').readOnly = true;
+        } else {
+            // Ensure Expense section is hidden
+            expenseSection.style.display = 'none';
+
+            // Remove required attributes from Expense section
+            document.getElementById('expenseAccountCategory').removeAttribute('required');
+            document.getElementById('expenseSubCategory').removeAttribute('required');
+            document.getElementById('inventoryAccountCategory').removeAttribute('required');
+            document.getElementById('inventorySubCategory').removeAttribute('required');
+
+            // Original logic for Payable Allocation Section
+            if (inputAmount < totalAmount || inputAmount === 0) {
+                payableSection.style.display = 'block'; // Show Payable Allocation
+                document.getElementById('payableAccountCategory').setAttribute('required', true);
+                document.getElementById('payableSubCategory').setAttribute('required', true);
+            } else {
+                payableSection.style.display = 'none'; // Hide Payable Allocation
+                document.getElementById('payableAccountCategory').removeAttribute('required');
+                document.getElementById('payableSubCategory').removeAttribute('required');
+            }
+
+            // Original logic for Funding Account Allocation Section
+            if (inputAmount === 0) {
+                fundingSection.style.display = 'none'; // Hide Funding Allocation
+                document.getElementById('fundingAccountCategory').removeAttribute('required');
+                document.getElementById('fundingSubCategory').removeAttribute('required');
+            } else {
+                fundingSection.style.display = 'block'; // Show Funding Allocation
+                document.getElementById('fundingAccountCategory').setAttribute('required', true);
+                document.getElementById('fundingSubCategory').setAttribute('required', true);
+            }
+
+            // Ensure Total Amount is editable
+            document.getElementById('ledgerTotalAmount').readOnly = false;
+        }
+
+        // Ensure Inventory Allocation Section is always required and visible
+        document.getElementById('inventoryAccountCategory').setAttribute('required', true);
+        document.getElementById('inventorySubCategory').setAttribute('required', true);
+    }
+
+    // Event Listener for Update allocation sections
+    document.getElementById('ledgerTotalAmount').addEventListener('input', updateAllocationSections);
+
+
+
+    // Form to handling posting to ledger
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('postToLedgerForm');
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            // Collect form data
+            const formData = new FormData(form);
+            const ledgerData = Object.fromEntries(formData.entries());
+
+            // Include the original total amount
+            const originalTotalAmount = document.getElementById('ledgerTotalAmount').getAttribute('data-total');
+            ledgerData.originalTotalAmount = originalTotalAmount;
+
+            // Send data to the backend
+            fetch('/post_inventory_to_ledger', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'  // Ensure CSRF token is included for security
+                },
+                body: JSON.stringify(ledgerData)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(data.message, "success");
+                        $('#postToLedgerModal').modal('hide');
+                        location.reload();
+                    } else {
+                        showNotification(data.message || "Unknown error", "error");
+                        enableAllSubmitButtons();
+                    }
+                })
+                .catch(error => {
+                    console.error("Error posting ledger:", error);
+                    showNotification("An error occurred while posting to ledger. Please try again.", "error");
+                    enableAllSubmitButtons();
+                });
+        });
+    });
+
+</script>
+
+{% endblock %}

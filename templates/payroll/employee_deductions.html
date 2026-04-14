@@ -1,0 +1,300 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+
+    <div class="header-section">
+        <h1>Employee Deductions ({{ (company.currency | selectattr("id", "equalto", request.args.get('currency') | int)
+            |
+            first).user_currency if request.args.get('currency') else (company.currency[0].user_currency) }})</h1>
+
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li class="shortcut-item">
+                        <a href="{{ url_for('payroll.generate_pay_run') }}">
+                            <i class="fas fa-plus-circle"></i> Create Pay Run
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    <!-- Payroll group -->
+                    <li class="shortcut-item">
+                        <a href="{{ url_for('payroll.get_pay_runs') }}">
+                            <i class="fas fa-list"></i> View Payroll Runs
+                        </a>
+                    </li>
+
+                    <!-- Employees group -->
+                    <li class="shortcut-item">
+                        <a href="{{ url_for('payroll.add_employee') }}">
+                            <i class="fas fa-users"></i> View Employees
+                        </a>
+                    </li>
+
+                    <!-- Deductions -->
+                    <li class="shortcut-item">
+                        <a href="{{ url_for('payroll.get_employee_deductions') }}">
+                            <i class="fas fa-minus-circle"></i> Employee Deductions
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+
+
+        <div class="header-buttons">
+
+
+            <button class="filter-button" type="filter-button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+
+
+
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+
+
+        </div>
+
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{ url_for('payroll.generate_pay_run') }}">Create
+                        Pay Run</a></li>
+                {% endif %}
+
+                <!-- New Dropdown Group -->
+                <li class="shortcut-item">
+                    <a href="{{ url_for('payroll.get_pay_runs') }}"> View Payroll
+                        Runs</a>
+                </li>
+
+                <li class="shortcut-item">
+                    <a href="{{ url_for('payroll.add_employee') }}">View Employees</a>
+                </li>
+
+
+
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+        <form method="GET" action="{{ url_for('payroll.get_employee_deductions') }}" class="date-filter-form"
+            id="filter-form">
+
+            <!-- Currency Filter -->
+            <div class="filter-group">
+                <label for="currency" class="filter-label">Currency</label>
+                <select id="currency" name="currency" class="form-select">
+                    {% for currency in company.currency %}
+                    <option value="{{ currency.id }}" {% if request.args.get('currency')==currency.id|string or
+                        currency.currency_index==1 %} selected {% endif %}>
+                        {{ currency.user_currency }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Filter By (e.g., Date Generated) -->
+            <div class="filter-group">
+                <label for="filter_by" class="filter-label">Filter By</label>
+                <select id="filter_by" name="filter_by" class="form-select">
+                    <option value="date_generated" {% if request.args.get('filter_by')=='date_generated' %}selected{%
+                        endif %}>Date Generated</option>
+                    <option value="start_end_date" {% if request.args.get('filter_by')=='start_end_date' %}selected{%
+                        endif %}>Start & End Date</option>
+                </select>
+            </div>
+
+            <!-- Date Filters -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control"
+                    value="{{ request.args.get('start_date', '') }}">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control"
+                    value="{{ request.args.get('end_date', '') }}">
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="filter-actions">
+                <!-- Apply Filter Button -->
+                <button type="submit" class="filter-section-button filter">
+                    Apply Filter
+                </button>
+
+                <!-- Reset Button -->
+                <form action="{{ url_for('payroll.get_employee_deductions') }}" method="get" style="display:inline;">
+                    <button type="submit" class="filter-section-button reset">
+                        Reset
+                    </button>
+                </form>
+            </div>
+
+        </form>
+    </div>
+
+    <table id="deduction-list" class="stripe">
+        <thead>
+            <tr>
+                <th>Pay Run Name</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Total Deduction Amount</th>
+                <th>Total Paid Amount</th>
+                <th>Total Balance</th>
+                <th>Employee Count</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="deduction-list-body">
+            {% for deduction in deductions %}
+            <tr>
+                <td>{{ deduction.PayrollPeriod.payroll_period_name }}</td>
+                <td>{{ deduction.PayrollPeriod.start_date }}</td>
+                <td>{{ deduction.PayrollPeriod.end_date }}</td>
+                <td>{{ "{:,.2f}".format(deduction.total_deduction_amount) }}</td>
+                <td>{{ "{:,.2f}".format(deduction.total_paid_amount) }}</td>
+                <td>{{ "{:,.2f}".format(deduction.total_balance) }}</td>
+                <td>{{ deduction.employee_count }}</td>
+                <td>
+                    <div class="action-icons">
+                        <a data-tooltip="View">
+                            <!-- Action Buttons -->
+                            <i class="fas fa-eye view-icon" onclick="viewDeduction('{{ deduction.PayrollPeriod.id }}')"
+                                title="View"></i></a>
+                        {% if role == 'Admin' or role == 'Contributor' %}
+
+
+                        {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <th><input type="text" placeholder="Search Pay Run Name" class="column-search"></th>
+                <th><input type="text" placeholder="Search Start Date" class="column-search"></th>
+                <th><input type="text" placeholder="Search End Date" class="column-search"></th>
+                <th><input type="text" placeholder="Search Total Deduction Amount" class="column-search"></th>
+                <th><input type="text" placeholder="Search Total Paid Amount" class="column-search"></th>
+                <th><input type="text" placeholder="Search Total Balance" class="column-search"></th>
+                <th></th> <!-- No search for Employee Count column -->
+                <th></th> <!-- No search for Actions column -->
+            </tr>
+        </tfoot>
+    </table>
+
+    {% if company.has_multiple_currencies %}
+    <div class="text-muted" role="alert">
+        <i class="fas fa-info-circle me-2"></i>
+        Amounts are displayed in <strong>
+            {% for currency in company.currency %}
+            {% if currency.currency_index == 1 %}
+            {{ currency.user_currency }}
+            {% endif %}
+            {% endfor %}
+        </strong> by default.
+        Use the currency filter above to view deductions in other available currencies.
+    </div>
+    {% endif %}
+
+</div>
+
+
+<script>
+    $(document).ready(function () {
+        var table = $('#deduction-list').DataTable({
+            "lengthMenu": [
+                [10, 25, 50, 100, -1],
+                [10, 25, 50, 100, 'All']
+            ],
+            "order": [[0, "desc"]], // Sort descending by first column
+            "initComplete": function () {
+                var api = this.api();
+
+                // Bind footer search inputs
+                api.columns().every(function () {
+                    var column = this;
+                    var index = column.index();
+
+                    // Skip Employee Count (6) and Actions (7)
+                    if (![6, 7].includes(index)) {
+                        $('input', column.footer()).on('keyup change clear', function () {
+                            if (column.search() !== this.value) {
+                                column.search(this.value).draw();
+                            }
+                        });
+                    } else {
+                        $(column.footer()).empty(); // Clear footer for excluded columns
+                    }
+                });
+            },
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                // Helper to convert strings to numbers
+                var intVal = function (i) {
+                    return typeof i === 'string' ?
+                        i.replace(/[\$,]/g, '') * 1 :
+                        typeof i === 'number' ? i : 0;
+                };
+
+                // Totals for columns
+                var totalDeduction = api.column(3, { page: 'current' }).data().reduce((a, b) => intVal(a) + intVal(b), 0);
+                var totalPaid = api.column(4, { page: 'current' }).data().reduce((a, b) => intVal(a) + intVal(b), 0);
+                var totalBalance = api.column(5, { page: 'current' }).data().reduce((a, b) => intVal(a) + intVal(b), 0);
+
+                // Update footer with formatted totals
+                $(api.column(3).footer()).html('Total: ' + totalDeduction.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                $(api.column(4).footer()).html('Total: ' + totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                $(api.column(5).footer()).html('Total: ' + totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            }
+        });
+
+        // Trigger initial draw to calculate totals
+        table.draw();
+    });
+
+    // Function to view and delete deductions
+    function viewDeduction(payrunId) {
+        // Navigate to the detailed view of the deduction
+        window.location.href = `/payroll/deduction_summary/${payrunId}`;
+    }
+
+    function deleteDeduction(payrunId) {
+        // Add your delete logic here
+        alert("Delete Deduction ID: " + payrunId);
+    }
+
+    // Toggle the filter section visibility with animation
+    document.getElementById('toggleFilterForm').addEventListener('click', function () {
+        const filterSection = document.getElementById('filter-section');
+        filterSection.classList.toggle('visible');
+    });
+</script>
+{% endblock %}

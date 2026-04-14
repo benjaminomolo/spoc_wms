@@ -1,0 +1,722 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <h1>Journal Adjustment</h1>
+
+
+    <!-- Journal Selection Section -->
+    <div class="form-group" style="margin-bottom: 20px;">
+        <label for="journal_select">Select Journal to Adjust <span class="required">*</span></label>
+        <select id="journal_select" class="form-control select2" style="width: 100%;" required>
+            <option value="" disabled selected>Search for a journal...</option>
+            {% for journal in journals %}
+            <option value="{{ journal[0] }}">{{ journal[0]}}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Journal Details Display Section -->
+    <div id="journal_details" style="display: none; margin-bottom: 30px;">
+        <h3>Journal Details</h3>
+        <div class="journal-summary"
+            style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <span><strong>Payment To/From:</strong> <span id="journal_payment"></span></span>
+                <span><strong>Payment Mode:</strong> <span id="journal_payment_mode"></span></span>
+                <span><strong>Project Name:</strong> <span id="journal_project"></span></span>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <strong>Description:</strong> <span id="journal_description"></span>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="thead-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Account Type</th>
+                        <th>Account Category</th>
+                        <th>Account Subcategory</th>
+                        <th>Debit</th>
+                        <th>Credit</th>
+                    </tr>
+                </thead>
+                <tbody id="journal_entries">
+                    <!-- Journal entries will be populated here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Adjustment Form -->
+    <form id="adjustmentForm" action="/submit_journal_adjustment" method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="adjustment_date">Adjustment Date <span class="required">*</span></label>
+            <input type="date" id="adjustment_date" name="adjustment_date" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+            <label for="adjustment_reason">Reason for Adjustment</label>
+            <textarea id="adjustment_reason" name="adjustment_reason" class="form-control" rows="3" required></textarea>
+        </div>
+
+        <h3>Adjustment Entries</h3>
+        <div class="form-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="text-nowrap">Account Type <span class="required">*</span></th>
+                        <th>Category <span class="required">*</span></th>
+                        <th>Subcategory <span class="required">*</span></th>
+                        <th>Debit Amount</th>
+                        <th>Credit Amount</th>
+                        <th>Description <span class="required">*</span></th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td data-label="Account Type">
+                            <select name="account_type" required>
+                                <option value="" disabled selected>Select Account Type</option>
+                                <option value="Expense">Expense</option>
+                                <option value="Income">Income</option>
+                                <option value="Liability">Liability</option>
+                                <option value="Asset">Asset</option>
+                                <option value="Equity">Equity</option>
+                            </select>
+                        </td>
+                        <td data-label="Category">
+                            <select id="category" onchange="updateSubcategories(this)" name="category" required>
+                                <option value="" disabled selected>Select Category</option>
+                                {% for category in transaction_categories %}
+                                <option value="{{ category.id }}">{{ category.category }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td data-label="Subcategory">
+                            <select id="subcategory" name="subcategory" required></select>
+                        </td>
+                        <td data-label="Debit">
+                            <input style="width: 90%;" type="text" name="debit_amount" placeholder="0.00"
+                                pattern="^\d*(\.\d{1,2})?$" autocomplete="off">
+                        </td>
+                        <td data-label="Credit">
+                            <input style="width: 90%;" type="text" name="credit_amount" placeholder="0.00"
+                                pattern="^\d*(\.\d{1,2})?$" autocomplete="off">
+                        </td>
+                        <td data-label="Description">
+                            <textarea name="description" class="auto-resize" maxlength="100" required
+                                oninput="this.value = this.value.slice(0, 50); this.style.height = ''; this.style.height = this.scrollHeight + 'px';"
+                                placeholder="Max 50 characters"></textarea>
+                        </td>
+                        <td data-label="Action">
+                            <button class="remove-button">-</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Form buttons -->
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button type="button" id="add-row" class="add-button">
+                <i class="fas fa-plus"></i> Add Row
+            </button>
+            <button type="submit" id="submit-adjustment" class="cta-button">Submit Adjustment</button>
+        </div>
+    </form>
+</div>
+
+<style>
+    /* Select2 styling */
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 36px;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+
+    /* Journal details styling */
+    .journal-summary {
+        border-left: 4px solid #00b5b8;
+    }
+
+    /* Table styling */
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    .table {
+        width: 100%;
+        margin-bottom: 1rem;
+        color: #212529;
+    }
+
+    .table th {
+        vertical-align: bottom;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .table td,
+    .table th {
+        padding: 0.75rem;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.075);
+    }
+
+    /* Mobile-specific styles */
+    @media (max-width: 768px) {
+        .journal-summary {
+            padding: 12px;
+        }
+
+        .journal-summary>div>span {
+            flex-direction: column;
+            gap: 5px;
+        }
+
+
+    }
+
+    /* Small mobile devices */
+    @media (max-width: 480px) {
+        .journal-summary {
+            padding: 10px;
+            font-size: 0.9rem;
+        }
+    }
+
+    /* Mobile responsiveness - stacked layout */
+    @media (max-width: 768px) {
+        .form-table {
+            overflow-x: visible;
+            /* Allow natural stacking */
+        }
+
+        .form-table table {
+            min-width: 100%;
+            display: block;
+        }
+
+        .form-table thead {
+            display: none;
+            /* Hide headers on mobile */
+        }
+
+        .form-table tbody {
+            display: block;
+        }
+
+        .form-table tr {
+            display: block;
+            margin-bottom: 1rem;
+            position: relative;
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+
+        .form-table td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100% !important;
+            text-align: right;
+            padding: 0.5rem;
+            box-sizing: border-box;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* Add labels using data-label attributes */
+        .form-table td[data-label]::before {
+            content: attr(data-label);
+            font-weight: bold;
+            margin-right: 1rem;
+            text-align: left;
+            flex: 0 0 30%;
+        }
+
+        /* Form elements full width */
+        .form-table select,
+        .form-table input,
+        .form-table textarea {
+            width: 100% !important;
+            max-width: 100%;
+            box-sizing: border-box;
+            height: 50px;
+        }
+
+        /* Special handling for amount input group */
+        .form-table .input-group {
+            display: flex;
+            width: 100%;
+            gap: 5px;
+
+        }
+
+        .form-table .input-group select {
+            flex: 0 0 30%;
+        }
+
+        .form-table .input-group input {
+            flex: 1;
+        }
+
+        /* Position remove button */
+        .form-table .remove-button {
+            margin-left: auto;
+        }
+    }
+
+    /* Small mobile adjustments */
+    @media (max-width: 480px) {
+        .form-table td {
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+        }
+
+        .form-table td[data-label]::before {
+            margin-bottom: 0.25rem;
+            flex: 0 0 100%;
+        }
+
+        .form-table .input-group {
+            flex-direction: column;
+        }
+
+        .form-table .input-group select,
+        .form-table .input-group input {
+            width: 100% !important;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize Select2
+        $('#journal_select').select2({
+            placeholder: "Search for a journal...",
+            allowClear: false
+        });
+
+        // Journal selection handler
+        $('#journal_select').on('change', function () {
+            const journalNumber = $(this).val();
+            if (journalNumber) {
+                // Show the journal details section
+                $('#journal_details').show();
+
+                // Fetch and display journal entries
+                fetchJournalEntries(journalNumber);
+            } else {
+                $('#journal_details').hide();
+            }
+        });
+
+        // Function to fetch journal entries
+        function fetchJournalEntries(journalNumber) {
+            fetch(`/api/journal_entries/${journalNumber}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Update journal summary
+                        $('#journal_payment').text(data.journal.payment_to_from || 'N/A');
+                        $('#journal_project').text(data.journal.project || 'N/A');
+                        $('#journal_payment_mode').text(data.journal.payment_mode || 'N/A');
+                        $('#journal_description').text(data.journal.description);
+
+                        // Populate entries table
+                        const entriesTable = $('#journal_entries');
+                        entriesTable.empty();
+
+                        data.entries.forEach(entry => {
+                            entriesTable.append(`
+                                <tr>
+                                    <td>${entry.date}</td>
+                                    <td>${entry.account_type}</td>
+                                    <td>${entry.category}</td>
+                                    <td>${entry.subcategory}</td>
+                                    <td>${entry.debit.toFixed(2)}</td>
+                                    <td>${entry.credit.toFixed(2)}</td>
+                                </tr>
+                            `);
+                        });
+                    } else {
+                        showNotification(data.message || 'Failed to load journal entries', 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching journal entries:', error);
+                    showNotification('Failed to load journal entries', 'danger');
+                });
+        }
+
+
+
+        function validateJournalAdjustment(cashAccountIds) {
+            let adjustmentDebits = 0;
+            let adjustmentCredits = 0;
+            let hasValidAdjustmentRows = false;
+
+            let cashDebitTotal = 0;
+            let cashCreditTotal = 0;
+            let cashAccountIdsUsed = new Set();
+            let cashAccountDirections = new Map();
+            let cashAccountNames = new Map();
+
+            const adjustmentRows = document.querySelectorAll('.form-table tbody tr');
+
+            // Step 1: Validate each adjustment entry
+            for (let index = 0; index < adjustmentRows.length; index++) {
+                const row = adjustmentRows[index];
+                const rowNum = index + 1;
+
+                const accountTypeSelect = row.querySelector('select[name="account_type"]');
+                const categorySelect = row.querySelector('select[name="category"]');
+                const subcategorySelect = row.querySelector('select[name="subcategory"]');
+                const descriptionTextarea = row.querySelector('textarea[name="description"]');
+                const debitInput = row.querySelector('input[name="debit_amount"]');
+                const creditInput = row.querySelector('input[name="credit_amount"]');
+
+                if (!accountTypeSelect || !accountTypeSelect.value) {
+                    showNotification(`Adjustment Row ${rowNum}: Account Type is required`, 'danger');
+                    return false;
+                }
+                if (!categorySelect || !categorySelect.value) {
+                    showNotification(`Adjustment Row ${rowNum}: Category is required`, 'danger');
+                    return false;
+                }
+                if (!subcategorySelect || !subcategorySelect.value) {
+                    showNotification(`Adjustment Row ${rowNum}: Subcategory is required`, 'danger');
+                    return false;
+                }
+                if (!descriptionTextarea || descriptionTextarea.value.trim() === '') {
+                    showNotification(`Adjustment Row ${rowNum}: Description is required`, 'danger');
+                    return false;
+                }
+
+                const debitValue = parseFloat(debitInput.value) || 0;
+                const creditValue = parseFloat(creditInput.value) || 0;
+
+                if (debitValue === 0 && creditValue === 0) {
+                    showNotification(`Adjustment Row ${rowNum}: Enter either Debit or Credit amount`, 'danger');
+                    return false;
+                }
+
+                if (debitValue > 0 && creditValue > 0) {
+                    showNotification(`Adjustment Row ${rowNum}: Cannot have both debit and credit`, 'danger');
+                    return false;
+                }
+
+                adjustmentDebits += debitValue;
+                adjustmentCredits += creditValue;
+                if (debitValue > 0 || creditValue > 0) hasValidAdjustmentRows = true;
+
+                const accountId = parseInt(subcategorySelect.value);
+                const accountName = subcategorySelect.selectedOptions[0].text;
+
+                if (!isNaN(accountId) && cashAccountIds.includes(accountId)) {
+                    cashAccountIdsUsed.add(accountId);
+                    cashAccountNames.set(accountId, accountName);
+
+                    const direction = debitValue > 0 ? 'dr' : 'cr';
+
+                    if (cashAccountDirections.has(accountId)) {
+                        if (cashAccountDirections.get(accountId) !== direction) {
+                            showNotification(
+                                `Cash/Bank account "${accountName}" has mixed Debit/Credit entries. All entries must be one direction.`,
+                                'danger'
+                            );
+                            return false;
+                        }
+                    } else {
+                        cashAccountDirections.set(accountId, direction);
+                    }
+
+                    cashDebitTotal += debitValue;
+                    cashCreditTotal += creditValue;
+                }
+            }
+
+            if (!hasValidAdjustmentRows) {
+                showNotification("Please enter at least one adjustment entry", "danger");
+                return false;
+            }
+
+            // Step 2: Original journal comparison
+            const journalSelect = document.getElementById('journal_select');
+            const selectedJournal = journalSelect ? journalSelect.value : null;
+            let originalDebits = 0;
+            let originalCredits = 0;
+
+            if (selectedJournal) {
+                const originalEntries = document.querySelectorAll('#journal_entries tr');
+                originalEntries.forEach(entry => {
+                    const debitText = entry.cells[4].textContent;
+                    const creditText = entry.cells[5].textContent;
+                    originalDebits += parseFloat(debitText) || 0;
+                    originalCredits += parseFloat(creditText) || 0;
+                });
+            }
+
+            const combinedDebits = originalDebits + adjustmentDebits;
+            const combinedCredits = originalCredits + adjustmentCredits;
+
+            if (Math.abs(combinedDebits - combinedCredits) > 0.01) {
+                showNotification(
+                    `Combined Debits (${combinedDebits.toFixed(2)}) must equal Credits (${combinedCredits.toFixed(2)}). ` +
+                    `Original: ${originalDebits.toFixed(2)} DR / ${originalCredits.toFixed(2)} CR. ` +
+                    `Adjustment: ${adjustmentDebits.toFixed(2)} DR / ${adjustmentCredits.toFixed(2)} CR.`,
+                    'danger'
+                );
+                return false;
+            }
+
+            // Step 3: Cash-specific validations (same side mix prevention)
+            if (cashAccountIdsUsed.size > 0) {
+                const hasCashDebit = cashDebitTotal > 0;
+                const hasCashCredit = cashCreditTotal > 0;
+                const nonCashDebit = adjustmentDebits - cashDebitTotal;
+                const nonCashCredit = adjustmentCredits - cashCreditTotal;
+
+                if ((hasCashDebit && nonCashDebit > 0) || (hasCashCredit && nonCashCredit > 0)) {
+                    const side = hasCashDebit ? 'Debit' : 'Credit';
+
+                    // Highlight involved accounts
+                    const cashSide = Array.from(cashAccountNames.entries())
+                        .filter(([id]) => cashAccountDirections.get(id) === (side === 'Debit' ? 'dr' : 'cr'))
+                        .map(([, name]) => name);
+
+                    const nonCashAccounts = [];
+                    for (const row of adjustmentRows) {
+                        const subcategorySelect = row.querySelector('select[name="subcategory"]');
+                        const debitValue = parseFloat(row.querySelector('input[name="debit_amount"]').value) || 0;
+                        const creditValue = parseFloat(row.querySelector('input[name="credit_amount"]').value) || 0;
+                        const accountId = parseInt(subcategorySelect.value);
+                        const accountName = subcategorySelect.selectedOptions[0].text;
+                        const isCash = cashAccountIds.includes(accountId);
+                        const isOnSide = (side === 'Debit' && debitValue > 0) || (side === 'Credit' && creditValue > 0);
+                        if (!isCash && isOnSide) {
+                            nonCashAccounts.push(accountName);
+                        }
+                    }
+
+                    showNotification(
+                        `Invalid adjustment: Cannot mix cash and non-cash accounts on the same ${side} side.\n` +
+                        `Cash accounts: ${cashSide.join(', ') || 'None'}\n` +
+                        `Non-cash accounts: ${nonCashAccounts.join(', ') || 'None'}`,
+                        'danger'
+                    );
+                    return false;
+                }
+
+                // Optional: warn about multiple cash accounts
+                if (cashAccountIdsUsed.size > 1) {
+                    showNotification(
+                        "Warning: You are adjusting more than one cash/bank account. Please confirm this is intended.",
+                        "warning"
+                    );
+                }
+            }
+
+            return true;
+        }
+
+
+        // Set today's date as default for adjustment
+        const today = new Date().toISOString().split('T')[0];
+        $('#adjustment_date').val(today);
+
+        // Add row functionality
+        const formTableBody = document.querySelector('.form-table tbody');
+        document.getElementById('add-row').addEventListener('click', function () {
+            const newRow = `
+                <tr>
+                    <td data-label="Account Type">
+                        <select name="account_type" required>
+                            <option value="" disabled selected>Select Account Type</option>
+                            <option value="Expense">Expense</option>
+                            <option value="Income">Income</option>
+                            <option value="Liability">Liability</option>
+                            <option value="Asset">Asset</option>
+                            <option value="Equity">Equity</option>
+                        </select>
+                    </td>
+                    <td data-label="Category">
+                        <select id="category" onchange="updateSubcategories(this)" name="category" required>
+                            <option value="" disabled selected>Select Category</option>
+                            {% for category in transaction_categories %}
+                            <option value="{{ category.id }}">{{ category.category }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td data-label="Subcategory">
+                        <select id="subcategory" name="subcategory" required></select>
+                    </td>
+                    <td data-label="Debit">
+                        <input style="width: 90%;" type="text" name="debit_amount" placeholder="0.00"
+                            pattern="^\d*(\.\d{1,2})?$" autocomplete="off">
+                    </td>
+                    <td data-label="Credit">
+                        <input style="width: 90%;" type="text" name="credit_amount" placeholder="0.00"
+                            pattern="^\d*(\.\d{1,2})?$" autocomplete="off">
+                    </td>
+                    <td data-label="Description">
+                        <textarea name="description" class="auto-resize" maxlength="100" required
+                            oninput="this.value = this.value.slice(0, 50); this.style.height = ''; this.style.height = this.scrollHeight + 'px';"
+                            placeholder="Max 50 characters"></textarea>
+                    </td>
+                    <td data-label="Action">
+                        <button class="remove-button">-</button>
+                    </td>
+                </tr>
+            `;
+            formTableBody.insertAdjacentHTML('beforeend', newRow);
+        });
+
+        // Remove row functionality
+        formTableBody.addEventListener('click', function (event) {
+            if (event.target.classList.contains('remove-button')) {
+                event.target.closest('tr').remove();
+            }
+        });
+
+        // Form submission handler
+        document.getElementById('submit-adjustment').addEventListener('click', function (e) {
+            e.preventDefault();
+
+            // Use your existing validation logic
+            const cashAccountIds = {{ cash_account_ids | tojson
+
+        }};
+    if (!validateJournalAdjustment(cashAccountIds)) {
+
+        return;
+    }
+
+    // Submit the form
+    const formData = new FormData(document.getElementById('adjustmentForm'));
+    const submitBtn = this;
+    const original_journal_number = document.getElementById('journal_select').value;
+    // Add the journal number to the form data
+    formData.append('original_journal_number', original_journal_number);
+
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+
+    fetch('/submit_journal_adjustment', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+        },
+        body: formData
+
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showNotification(data.message, 'success');
+                // Reroute to view transaction page
+                window.location.href = `/all_transactions`;
+
+                $('#adjustment_date').val(today);
+            } else {
+                showNotification(data.message, 'danger');
+            }
+
+            enableAllSubmitButtons();
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while submitting the adjustment.', 'danger');
+            enableAllSubmitButtons();
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit';
+        });
+            });
+
+    // Category and subcategory handling functions
+    function updateCategories(selectElement) {
+        const accountType = selectElement.value;
+        const categorySelect = selectElement.closest('tr').querySelector('#category');
+
+        if (!accountType) {
+            categorySelect.innerHTML = '<option value="" disabled selected>Select Category</option>';
+            const subcategorySelect = selectElement.closest('tr').querySelector('#subcategory');
+            subcategorySelect.innerHTML = '<option value="" disabled selected>Select Subcategory</option>';
+            return;
+        }
+
+        fetch(`/get_categories/${accountType}`)
+            .then(response => response.json())
+            .then(categories => {
+                categorySelect.innerHTML = '<option value="" disabled selected>Select Category</option>';
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.id;
+                    option.textContent = category.category_name;
+                    categorySelect.appendChild(option);
+                });
+
+                // Clear subcategories
+                const subcategorySelect = selectElement.closest('tr').querySelector('#subcategory');
+                subcategorySelect.innerHTML = '<option value="" disabled selected>Select Subcategory</option>';
+            })
+            .catch(error => console.error('Error fetching categories:', error));
+    }
+
+    function updateSubcategories(selectElement) {
+        const categoryId = selectElement.value;
+        const subcategorySelect = selectElement.closest('tr').querySelector('#subcategory');
+        subcategorySelect.innerHTML = '<option value="" disabled selected>Select Subcategory</option>';
+
+        if (categoryId) {
+            fetch(`/subcategories/${categoryId}`)
+                .then(response => response.json())
+                .then(subcategories => {
+                    subcategories.forEach(subcategory => {
+                        const option = document.createElement('option');
+                        option.value = subcategory.id;
+                        option.textContent = subcategory.name;
+                        subcategorySelect.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error fetching subcategories:', error));
+        }
+    }
+
+    // Event listeners for category updates
+    formTableBody.addEventListener('change', function (event) {
+        if (event.target.name === 'account_type') {
+            updateCategories(event.target);
+        }
+        if (event.target.id === 'category') {
+            updateSubcategories(event.target);
+        }
+    });
+    });
+</script>
+
+{% endblock %}

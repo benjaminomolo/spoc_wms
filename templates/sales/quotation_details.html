@@ -1,0 +1,672 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .quotation-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+    }
+
+    .company-logo img {
+        max-width: 150px;
+        height: auto;
+    }
+
+    .company-logo h2 {
+        font-size: 24px;
+        color: #2c3e50;
+        margin-top: 10px;
+    }
+
+    .quotation-meta h1 {
+        font-size: 28px;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    .quotation-meta p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .status {
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        color: #fff;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    .status.draft {
+        background: #f0ad4e;
+    }
+
+    .status.sent {
+        background: #5bc0de;
+    }
+
+    .status.accepted {
+        background: #5cb85c;
+    }
+
+    .status.rejected {
+        background: #d9534f;
+    }
+
+    .status.expired {
+        background: #777;
+    }
+
+    .quotation-customer {
+        margin-bottom: 20px;
+    }
+
+    .quotation-customer h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin: 0 0 10px;
+    }
+
+    .quotation-customer p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f9f9f9;
+        font-weight: bold;
+        color: #333;
+        font-weight: 600;
+    }
+
+    td {
+        color: #222;
+
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    .numeric {
+        text-align: right;
+        color: #222;
+    }
+
+    .grande {
+        font-weight: 600;
+        font-size: 1.2rem;
+    }
+
+    .quotation-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+
+
+    textarea {
+        width: 200px;
+        padding: 10px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+        resize: vertical;
+    }
+
+    textarea:focus {
+        outline: none;
+        border-color: #0275d8;
+    }
+
+    select {
+        padding: 2px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+    }
+
+    table {
+        border: none;
+    }
+
+    table tr:hover {
+        background-color: white;
+        /* Hover effect for rows */
+    }
+
+    /* Remove borders and background for all table cells */
+    table td,
+    table th {
+        border: none !important;
+        background-color: transparent !important;
+    }
+
+    table th {
+        border: 1px solid #ddd !important;
+        background: #f9f9f9 !important
+    }
+
+    /* Add borders only to the last two columns */
+    table td:nth-last-child(1),
+    table td:nth-last-child(2),
+    table th:nth-last-child(1),
+    table th:nth-last-child(2) {
+        border: 1px solid #ddd !important;
+        /* Add border to the last two columns */
+    }
+
+    /* Add borders to all rows in the table body */
+    table tbody tr td {
+        border: 1px solid #ddd !important;
+
+
+    }
+
+    tr:nth-child(even) {
+        background: white;
+    }
+
+
+
+    /* Align totals section to the right */
+    .totals-row td {
+        text-align: right;
+    }
+
+    /* Increase font weight for totals rows */
+    .totals-row td {
+        font-weight: 600;
+        /* Semi-bold */
+    }
+
+    /* Change background color of the last two columns in totals-row */
+    .totals-row td:nth-last-child(1) {
+        background-color: #f9f9f9 !important;
+        /* Light gray background */
+    }
+
+    /* Change background color of the last two columns in totals-row */
+    .totals-row td:nth-last-child(2) {
+        border: none !important;
+        /* Light gray background */
+    }
+
+    /* Grand Total specific styling */
+    .grande {
+        font-weight: 700;
+        /* Bold */
+        font-size: 1.1rem;
+    }
+</style>
+
+<div class="content-container">
+    <div class="quotation-header">
+        <div class="company-logo">
+            <!-- Back Icon -->
+            <div style="margin-bottom: 1rem;">
+                <a href="javascript:history.back()" class="back-link" style="text-decoration: none; color: inherit;">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+            </div>
+            {% if company.logo %}
+            <img src="{{ url_for('serve_logo', filename=company.logo) }}" alt="Company Logo">
+            {% endif %}
+            <h2>{{ company.name }}</h2>
+        </div>
+        <div class="quotation-meta">
+            <h1>Quotation #{{ quotation.quotation_number }}</h1>
+            <p><strong>Date:</strong> {{ quotation.quotation_date }}</p>
+            <p><strong>Expiry Date:</strong> {{ quotation.expiry_date or "N/A" }}</p>
+            <p><strong>Reference:</strong> {{ quotation.quotation_reference }}</p>
+            <p><strong>Currency:</strong> {{ quotation.currency }}</p>
+            {% if quotation.sales_order %}
+            {% for sales_order in quotation.sales_order %}
+            {% if sales_order.id and sales_order.sales_order_number %}
+            <p>
+                <strong>Sales Order:</strong>
+                <a href="/sales/sales_order/{{ sales_order.id }}">
+                    {{ sales_order.sales_order_number }}
+                </a>
+            </p>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+
+
+            {% if quotation.delivery_notes %}
+            {% for delivery_note in quotation.delivery_notes %}
+            {% if delivery_note.id and delivery_note.delivery_note_number %}
+            <p>
+                <strong>Delivery Note:</strong>
+                <a href="/sales/delivery_note/{{ delivery_note.id }}">
+                    {{ delivery_note.delivery_note_number }}
+                </a>
+            </p>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+
+
+            <span class="status {{ quotation.status.value|lower }}">{{ quotation.status.value }}</span>
+        </div>
+    </div>
+
+    <div class="quotation-customer">
+        <h3>Customer Details:</h3>
+        <p><strong>{{ quotation.customer.name }}</strong></p>
+        <p>{{ quotation.customer.address or "" }}</p>
+        <p>{{ quotation.customer.city_country or "" }}</p>
+        <p><strong>Contact:</strong> {{ quotation.customer.contact or "N/A" }}</p>
+    </div>
+
+    <div class="quotation-items">
+
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Discount</th>
+                        <th>Tax</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in quotation.quotation_items %}
+                    <tr>
+                        <td>{{ item.item_name }}</td>
+                        <td>{{ item.description or "-" }}</td>
+                        <td>{{ item.quantity }} {{ item.uom }}</td>
+                        <td class="numeric">{{ "{:,.2f}".format(item.unit_price) }}</td>
+                        <td class="numeric">
+                            {% if item.discount_amount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(item.discount_amount) }} ({{ item.discount_rate }}%)
+                            {% endif %}
+                        </td>
+                        <td class="numeric">
+                            {% if item.tax_amount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(item.tax_amount) }} ({{ item.tax_rate }}%)
+                            {% endif %}
+                        </td>
+                        <td class="numeric">{{ "{:,.2f}".format(item.total_price) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <!-- Subtotal -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Subtotal</td>
+                        <td class="numeric">{{ "{:,.2f}".format(quotation.subtotal) }}</td>
+                    </tr>
+                    <!-- Discount -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Discount</td>
+                        <td class="numeric">
+                            {% if quotation.quotation_discount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(quotation.quotation_discount) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Tax -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Tax</td>
+                        <td class="numeric">
+                            {% if quotation.quotation_tax_rate == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(quotation.quotation_tax_rate) }}%
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Shipping Cost -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Shipping Cost</td>
+                        <td class="numeric">
+                            {% if quotation.shipping_cost == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(quotation.shipping_cost) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Handling Cost -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Handling Cost</td>
+                        <td class="numeric">
+                            {% if quotation.handling_cost == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(quotation.handling_cost) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Grand Total -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric grande">Grand Total</td>
+                        <td class="numeric grande">{{ "{:,.2f}".format(quotation.total_amount) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="terms-and-conditions">
+            <h3>Terms and Conditions</h3>
+            <p class="preserve-newlines">{{ quotation.terms_and_conditions or "N/A" }}</p>
+
+        </div>
+
+        <!-- Internal Notes (Visible only if status is draft) -->
+        {% if quotation.status.name == 'draft' %}
+        <div class="quotation-notes internal-notes">
+            <h3>Internal Notes</h3>
+            <div id="notes-list">
+                {% for note in quotation.quotation_notes %}
+                {% if note.type == 'internal' %}
+                <div class="note">
+                    <p>{{ note.content }}</p>
+                    <small>
+                        By <strong>{{ note.created_by }}</strong> on {{ note.created_at }}
+                        {% if note.recipient %}
+                        (Assigned to <strong>{{ note.recipient }}</strong>)
+                        {% else %}
+                        (Assigned to all)
+                        {% endif %}
+                    </small>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <form id="add-note-form">
+                <textarea name="note_content" placeholder="Add a new internal note..." required></textarea>
+                <input type="hidden" name="quotation_id" value="{{ quotation.id }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="quotation_number" value="{{ quotation.quotation_number }}">
+
+                <label for="recipient">Assign to:</label>
+                <select name="recipient" id="recipient">
+                    <option value="">All</option>
+                    {% for user in quotation.users %}
+                    <option value="{{ user.id }}">{{ user.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit" class="button add-button">Add Note</button>
+            </form>
+        </div>
+        {% endif %}
+
+
+
+        <!-- Quotation Actions -->
+        <div class="quotation-actions transaction-actions">
+            {% if quotation.status.name == 'draft' %}
+            <button class="button cta-button" id="approve-quotation-button">
+                <i class="fas fa-check-circle"></i> Approve Quotation
+            </button>
+            <button class="button add-button" onclick="window.location.href='/sales/edit_quotation/{{ quotation.id }}'">
+                <i class="fas fa-edit"></i> Edit Quotation
+            </button>
+
+            {% endif %}
+
+
+
+
+            {% if quotation.status.name == 'approved' %}
+            <form action="/sales/convert_to_sales_order" method="POST" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="quotation_id" value="{{ quotation.id }}">
+                <button type="submit" class="button cta-button">
+                    <i class="fas fa-exchange-alt"></i> Convert to Sales Order
+                </button>
+            </form>
+            {% endif %}
+
+
+            <!-- Download Button (Visible when status is not draft) -->
+            {% if quotation.status.name != 'draft' %}
+            <button class="button download-button info"
+                onclick="window.location.href='/download_quotation/{{ quotation.id }}'">
+                <i class="fas fa-download"></i> Download Quotation
+            </button>
+            {% endif %}
+
+
+            {% if quotation.status.name == 'draft' or quotation.status.name == 'approved' %}
+            <button class="button remove-button" id="cancel-quotation-button">
+                <i class="fas fa-times-circle"></i> Cancel Quotation
+            </button>
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    const cancelBtn = document.getElementById('cancel-quotation-button');
+                    if (cancelBtn) {
+                        cancelBtn.addEventListener('click', function (e) {
+                            if (!confirm('Are you sure you want to cancel this quotation? This action cannot be undone.')) {
+                                e.stopImmediatePropagation();
+                                e.preventDefault();
+                                return false;
+                            }
+                        }, true);
+                    }
+                });
+            </script>
+            {% endif %}
+
+
+            <button class="button closed" onclick="window.location.href='/sales/quotations'"><i
+                    class="fas fa-undo-alt"></i> Return to
+                Quotations</button>
+        </div>
+    </div>
+
+
+</div>
+
+
+
+
+<script>
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log("Quotation page loaded successfully");
+
+        console.log("Quotation page loaded successfulleeeey");
+
+
+        // Adding internal note
+        document.getElementById('add-note-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const noteContent = formData.get('note_content');
+            const quotationId = formData.get('quotation_id');
+            const recipient = formData.get('recipient');
+            const quotation_number = formData.get('quotation_number');
+
+            fetch('/add_quotation_note', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken  // Include the CSRF token in the headers
+                },
+                body: JSON.stringify({
+                    note_content: noteContent,
+                    quotation_id: quotationId,
+                    recipient: recipient,
+                    quotation_number: quotation_number
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "danger") {
+                        showNotification(data.message, "error");
+                    } else {
+                        const notesList = document.getElementById('notes-list');
+                        const newNote = document.createElement('div');
+                        newNote.classList.add('note');
+                        newNote.innerHTML = `
+                    <p>${data.note_content}</p>
+                    <small>By ${data.created_by} on ${data.created_at}</small>
+                `;
+                        notesList.appendChild(newNote);
+                        form.querySelector('textarea').value = '';
+
+                        showNotification(data.message, "success");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification("An error occurred while adding the note.", "error"); // Fixed this line
+                });
+        });
+
+        console.log("Quotation page loaded successfull444444444444444444444y");
+
+        // JavaScript for approving and canceling quotations
+        document.getElementById('approve-quotation-button').addEventListener('click', function () {
+            const quotationId = "{{ quotation.id }}";
+
+            fetch('/approve_quotation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    quotation_id: quotationId
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        showNotification(data.message, "success");
+
+                        location.reload(); // Reload the page to reflect changes
+                    } else {
+                        showNotification(data.message, "error");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification("An error occurred while approving the quotation.", "error");
+                });
+        });
+
+
+
+        // JavaScript for converting to sales order
+        document.getElementById('convert-to-sales-order-button').addEventListener('click', function () {
+            console.log("Convert to Sales Order button clicked");
+
+            const quotationId = "{{ quotation.id }}";
+
+            console.log("Quotation ID:", quotationId);
+            console.log("CSRF Token:", csrfToken);
+
+            fetch('/sales/convert_to_sales_order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    quotation_id: quotationId
+                })
+            })
+                .then(response => {
+                    console.log("Response received:", response);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Response data:", data);
+                    if (data.status === "success") {
+                        showNotification(data.message, "success");
+                        window.location.href = `/sales/sales_order/${data.sales_order_id}`; // Redirect to the new sales order
+                    } else {
+                        showNotification(data.message, "error");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification("An error occurred while converting the quotation.", "error");
+                });
+        });
+    });
+
+    document.getElementById('cancel-quotation-button').addEventListener('click', function () {
+        console.log("Cancel Quotation button clicked");
+        const quotationId = "{{ quotation.id }}";
+
+        fetch('/cancel_quotation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                quotation_id: quotationId
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    showNotification(data.message, "success");
+                    document.querySelector('.status').classList.remove('draft', 'accepted', 'sent', 'expired');
+                    document.querySelector('.status').classList.add('rejected');
+                    document.querySelector('.status').textContent = 'Rejected';
+                    location.reload(); // Reload the page to reflect changes
+                } else {
+                    showNotification(data.message, "error");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification("An error occurred while canceling the quotation.", "error");
+            });
+    });
+
+
+
+
+</script>
+
+{% endblock %}

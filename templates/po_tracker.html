@@ -1,0 +1,1075 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .header h1 {
+        margin: 0;
+        color: var(--primary-color, #333);
+        flex: 1;
+    }
+
+    .header .date-po {
+        text-align: right;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+    }
+
+    .header .date-po div {
+        margin-bottom: 3px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .header .date-po label {
+        width: 120px;
+        text-align: right;
+        margin-right: 10px;
+        display: inline-block;
+        vertical-align: top;
+    }
+
+    .header .date-po input[type="date"],
+    .header .date-po input[type="text"],
+    .header .date-po input[type="number"] {
+        width: 200px;
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        vertical-align: top;
+    }
+
+    /* Media query for screens smaller than 768px */
+    @media (max-width: 768px) {
+        .header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+        }
+
+        .header .date-po {
+            text-align: left;
+            align-items: flex-start;
+        }
+
+        .header .date-po label {
+            width: auto;
+            margin-right: 0;
+        }
+
+        .header .date-po input[type="date"],
+        .header .date-po input[type="text"],
+        .header .date-po input[type="number"] {
+            width: 100%;
+            margin-top: 5px;
+        }
+    }
+
+    /* Media query for screens smaller than 480px */
+    @media (max-width: 480px) {
+        .header h1 {
+            font-size: 1.5em;
+        }
+
+        .header .date-po input[type="date"],
+        .header .date-po input[type="text"],
+        .header .date-po input[type="number"] {
+            width: 100%;
+            margin-top: 5px;
+        }
+    }
+
+
+    .info-section {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    .info-section div {
+        flex-basis: 15%;
+        margin: 5px;
+
+    }
+
+    .info-section div p {
+        margin: 5px 0;
+    }
+
+    .info-section h6 {
+        font-weight: bold;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    .info-section div label {
+        font-weight: bold;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    .info-section div input[type="text"],
+    .info-section div input[type="tel"],
+    .info-section div input[type="email"],
+    .info-section div select {
+        width: 200px;
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+
+    /* Table */
+    /* General Table Styles */
+    /* Table Wrapper */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        /* Enables smooth scrolling on iOS */
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    table th,
+    table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+        font-size: 14px;
+    }
+
+    table th {
+        background-color: #333;
+        color: #fff;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 0.05em;
+    }
+
+    table td:last-child,
+    table th:last-child {
+        text-align: right;
+    }
+
+    table tbody tr:hover {
+        background-color: #f1f1f1;
+        cursor: pointer;
+    }
+
+    .product-row td {
+        vertical-align: middle;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+
+        table th,
+        table td {
+            padding: 8px 10px;
+            font-size: 12px;
+        }
+
+        table th {
+            font-size: 13px;
+        }
+    }
+
+
+    .workflow-container {
+        display: flex;
+        justify-content: space-between;
+        padding: 15px 0;
+        border-bottom: 1px solid #d1d1d6;
+        /* Subtle border color */
+        background-color: #f8f8f8;
+        /* Light background for contrast */
+        margin-bottom: 10px;
+    }
+
+    .workflow-step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .workflow-step:not(:last-child)::after {
+        content: '';
+        width: calc(100% - 40px);
+        /* Adjust for icon spacing */
+        height: 2px;
+        background-color: #d1d1d6;
+        position: absolute;
+        top: 45%;
+        left: 50%;
+        transform: translateX(50%);
+        z-index: 1;
+    }
+
+    .workflow-step.completed .step-icon {
+        color: #179f1e;
+        /* Apple's blue color */
+    }
+
+    .workflow-step.current .step-icon {
+        color: #ff9500;
+        animation: spin 1s infinite linear;
+    }
+
+    .workflow-step .step-icon {
+        font-size: 16px;
+        /* Slightly smaller icon size */
+        margin-bottom: 1px;
+        display: inline-block;
+        z-index: 2;
+        position: relative;
+        padding: 10px;
+        background-color: #ffffff;
+        border-radius: 50%;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .workflow-step .step-label {
+        font-weight: 500;
+        /* Lighter font weight for a sleek look */
+        color: #333333;
+        font-size: 14px;
+    }
+
+    .workflow-step.completed.no-after::after {
+        display: none;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+
+    .button-group {
+        display: none;
+        /* Hide by default */
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+        border-radius: 2px 50%;
+    }
+
+    .bttn {
+        flex: 1;
+        padding: 8px 14px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.25s ease, transform 0.2s ease;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .bttn i {
+        margin-right: 6px;
+        font-size: 14px;
+    }
+
+    .bttn-primary {
+        background-color: #007aff;
+        color: white;
+    }
+
+    .bttn-secondary {
+        background-color: #f8f8f8;
+        color: #333;
+        border: 1px solid #ccc;
+    }
+
+    .bttn-danger {
+        background-color: #ff3b30;
+        color: white;
+    }
+
+    .bttn-service {
+        background-color: #ff9500;
+        color: white;
+    }
+
+
+    .bttn:active {
+        transform: translateY(0);
+    }
+
+    @media (max-width: 768px) {
+        .button-group {
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .bttn {
+            width: 100%;
+            padding: 10px;
+        }
+    }
+
+
+
+
+    @media (max-width: 768px) {
+
+        .workflow-container,
+        .button-group {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .workflow-step,
+        .bttn {
+            margin: 10px 0;
+            width: 100%;
+            text-align: center;
+        }
+
+        .workflow-step:not(:last-child)::after {
+            display: none;
+        }
+    }
+
+
+
+
+
+
+    /* Modal styling */
+    /* Modal styling */
+    .update-received-quantities {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: #fff;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        width: 80%;
+        max-width: 600px;
+        max-height: 80vh;
+        /* Set a maximum height to prevent overflow */
+        overflow-y: auto;
+        /* Enable vertical scrolling */
+    }
+
+    .update-received-quantities h2 {
+        margin-top: 0;
+        text-align: center;
+    }
+
+    /* Close button */
+    .close-button {
+        background: none;
+        border: none;
+        font-size: 16px;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        cursor: pointer;
+    }
+
+    /* Overlay to darken background */
+    #overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        display: none;
+    }
+
+    /* Modal form inputs */
+    .update-received-quantities form div {
+        margin-bottom: 15px;
+    }
+
+    .update-received-quantities label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+
+    .update-received-quantities input[type="number"] {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+
+    /* Modal form submit button */
+    .update-received-quantities button[type="submit"] {
+        display: block;
+        width: 100%;
+        padding: 10px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+
+    .update-received-quantities button[type="submit"]:hover {
+        background-color: #0056b3;
+    }
+
+    @media (max-width: 768px) {
+
+        /* Modal styling */
+        .update-received-quantities {
+            width: 90%;
+            padding: 15px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 95%;
+
+            max-height: 80vh;
+            /* Set a maximum height to prevent overflow */
+            overflow-y: auto;
+            /* Enable vertical scrolling */
+        }
+
+        .update-received-quantities h2 {
+            font-size: 18px;
+        }
+
+        /* Close button */
+        .close-button {
+            font-size: 14px;
+            top: 8px;
+            right: 8px;
+        }
+
+        /* Modal form inputs */
+        .update-received-quantities input[type="number"] {
+            padding: 6px;
+            font-size: 14px;
+        }
+
+        /* Modal form submit button */
+        .update-received-quantities button[type="submit"] {
+            padding: 8px;
+            font-size: 14px;
+        }
+    }
+</style>
+
+
+<div class="container">
+    <main>
+        <div class="container-fluid px-4">
+
+            <!-- Work Flow Section -->
+            <div class="workflow-container">
+                <div class="workflow-step completed" data-step="1">
+                    <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+                    <div class="step-label">Approved</div>
+                </div>
+                <div class="workflow-step current" data-step="2">
+                    <div class="step-icon"><i class="fas fa-spinner"></i></div>
+                    <div class="step-label">In Progress</div>
+                </div>
+                <div class="workflow-step" data-step="3">
+                    <div class="step-icon"><i class="fas fa-box"></i></div>
+                    <div class="step-label">Partially Received</div>
+                </div>
+                <div class="workflow-step" data-step="4">
+                    <div class="step-icon"><i class="fas fa-check"></i></div>
+                    <div class="step-label">Received</div>
+                </div>
+                <div class="workflow-step" data-step="5">
+                    <div class="step-icon"><i class="fas fa-lock"></i></div>
+                    <div class="step-label">Closed</div>
+                </div>
+            </div>
+
+            <!-- Actions Button -->
+            <button type="button" class="bttn bttn-secondary" onclick="toggleButtonGroups()">
+                <i class="fas fa-bars"></i> Actions
+            </button>
+
+            <!-- Action Buttons -->
+            <div class="button-group primary-actions">
+                <!-- Item Handling -->
+                {% if purchase_order.order_status.name == 'progress' %}
+                <button type="button" class="bttn bttn-primary" onclick="showFullReceivedForm()">
+                    <i class="fas fa-box-open bttn-received"></i> Receive Items
+                </button>
+                {% endif %}
+                {% if purchase_order.order_status.name == 'progress' or purchase_order.order_status.name ==
+                'partially_received' %}
+                <button type="button" class="bttn bttn-primary bttn-partially-received"
+                    onclick="showPartialReceivedForm()">
+                    <i class="fas fa-box"></i> Partially Receive Items
+                </button>
+                {% endif %}
+
+
+
+                <!-- Service Handling -->
+                <div id="service-handling">
+                    <!-- Button initially hidden -->
+                    {% if purchase_order.order_status.name != 'closed' or purchase_order.order_status.name != 'canceled'
+                    %}
+                    <button id="service-completion-btn" type="button" class="bttn bttn-service"
+                        onclick="showServiceCompletionForm()" style="display: none;">
+                        <i class="fas fa-concierge-bell"></i> Confirm Service Completion
+                    </button>
+                    {% endif %}
+
+                    {% for item in purchase_order.items %}
+                    {% if item.item_type == 'service' %}
+                    <div class="service-item" data-quantity-not-received="{{ item.quantity_not_received|float }}">
+                        <!-- Other item details here -->
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+
+
+                <!-- Add Notes -->
+                <button type="button" class="bttn bttn-secondary" onclick="showAddNotesForm()">
+                    <i class="fas fa-sticky-note"></i> Add Notes
+                </button>
+            </div>
+
+            <!-- Secondary Actions -->
+            <div class="button-group secondary-actions">
+                {% if purchase_order.order_status.name != 'canceled' %}
+                <form action="{{ url_for('download_purchase_order', order_id=purchase_order.id) }}" method="get">
+                    <button type="submit" class="bttn bttn-secondary bttn-download" id="download-pdf">
+                        <i class="fas fa-download"></i> Download PO
+                    </button>
+                </form>
+                {% endif %}
+
+
+                <button type="button" class="bttn bttn-secondary" onclick="viewHistory()">
+                    <i class="fas fa-history"></i> View History
+                </button>
+                {% if not (purchase_order.order_status.name == 'canceled' or purchase_order.order_status.name ==
+                'closed') %}
+                <button type="button" class="bttn bttn-primary" onclick="submitForm('payment')">
+                    <i class="fas fa-money-check-alt"></i> Create Payment Request
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- Tertiary Actions -->
+            <div class="button-group tertiary-actions">
+                <button type="button" class="bttn bttn-secondary" onclick="submitForm('reorder')">
+                    <i class="fas fa-sync-alt"></i> Reorder
+                </button>
+                {% if purchase_order.order_status.name == 'received' %}
+                <button type="button" class="bttn bttn-close" onclick="submitForm('close')">Close</button>
+                {% endif %}
+                {% if purchase_order.order_status.name not in ['closed', 'canceled', 'received'] %}
+                <button type="button" class="bttn bttn-danger" onclick="submitForm('cancel')">
+                    <i class="fas fa-times-circle"></i> Cancel Order
+                </button>
+                {% endif %}
+            </div>
+
+
+
+
+
+            <!-- Flash Messages Section -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                <div class="alert alert-{{ 
+        'success' if category == 'success' 
+        else 'info' if category == 'info' 
+        else 'warning' if category == 'warning' 
+        else 'danger' if category == 'error' 
+        else category 
+    }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+
+
+            <div class="header">
+                <div class="company-info">
+                    {% if company.name %}
+                    <h2>{{ company.name }}</h2>
+                    {% endif %}
+
+                    {% if company.address %}
+                    <p>{{ company.address }}</p>
+                    {% endif %}
+
+                    {% if company.phone %}
+                    <p>Phone: {{ company.phone }}</p>
+                    {% endif %}
+
+                    {% if company.email %}
+                    <p>Email: {{ company.email }}</p>
+                    {% endif %}
+
+                    {% if company.website %}
+                    <p>Website: {{ company.website }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="date-po">
+                    <h1 class="mt-4">Purchase Order</h1>
+                    <div><label for="po_date">DATE:</label> <input type="date" id="po_date" name="po_date"
+                            value="{{purchase_order.po_date}}"></div>
+                    <div><label for="po_number">PO #:</label> <input type="text" id="po_number" name="po_number"
+                            value="{{ purchase_order.po_number }}" readonly></div>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <div>
+                    <h6>VENDOR:</h6>
+                    {% if purchase_order.vendor.vendor_name %}
+                    <p>{{ purchase_order.vendor.vendor_name }}</p>
+                    {% endif %}
+
+                    {% if purchase_order.vendor.designation %}
+                    <p>{{ purchase_order.vendor.designation }}</p>
+                    {% endif %}
+
+                    {% if purchase_order.vendor.tel_contact %}
+                    <p>Phone: {{ purchase_order.vendor.tel_contact }}</p>
+                    {% endif %}
+
+                    {% if purchase_order.vendor.email %}
+                    <p>Email: {{ purchase_order.vendor.email }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <h6>SHIP TO:</h6>
+                    {% if purchase_order.ship_to %}
+                    <p>{{ purchase_order.ship_to }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <h6>PAYMENT TERMS:</h6>
+                    {% if purchase_order.payment_terms %}
+                    <p>{{ purchase_order.payment_terms}}</p>
+                    {% else %}
+                    <p>N/A</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <h6>DELIVERY DATE:</h6>
+                    {% if purchase_order.delivery_date %}
+                    <p>{{ purchase_order.delivery_date }}</p>
+                    {% else %}
+                    <p>N/A</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="product-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>ITEM TYPE</th>
+                            <th>ITEM</th>
+                            <th>DESCRIPTION</th>
+                            <th>QTY ORDERED</th>
+                            <th>UOM</th>
+                            <th>QTY RECEIVED</th>
+                            <th>QTY NOT RECEIVED</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in purchase_order.items %}
+                        <tr class="product-row">
+                            <td>{{ item.po_line_number }}</td>
+                            <td>{{ item.item_type }}</td>
+                            <td>{{ item.item }}</td>
+                            <td>{{ item.item_description }}</td>
+                            <td>{{ item.quantity_ordered }}</td>
+                            <td>{{ item.uom }}</td>
+                            <td>{{ item.received_qty }}</td>
+                            <td>{{ item.quantity_not_received }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+
+
+
+
+
+
+            <!-- Partial Received Quantities Form (hidden initially) -->
+            <div id="partial-received-form" class="update-received-quantities" style="display: none;">
+                <h2>Update Partially Received Quantities</h2>
+                <button type="button" class="close-button" onclick="closeForm('partial-received-form')">Close</button>
+                <form id="partial-received-quantities-form"
+                    action="{{ url_for('po_tracker', po_id=purchase_order.id) }}" method="POST">
+                    {% for item in purchase_order.items %}
+                    {% if item.item_type != "service" %}
+                    <div>
+                        <label for="item_{{ item.id }}">{{ item.item }} : {{ item.item_description }} <br>Qty not
+                            received: {{ item.quantity_not_received}} {{item.uom}}(s) </label>
+                        <input type="number" name="partial_received_qty_{{ item.id }}" value="{{ item.received_qty }}"
+                            max="{{ item.quantity_not_received }}" required>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    <div>
+                        <label for="partial_received_comment">Comments</label>
+                        <textarea id="partial_received_comment" name="partial_received_comment" rows="3"
+                            placeholder="Enter comments here..."></textarea>
+                    </div>
+                    <button type="submit" name="action" value="update_partial_received" class="bttn">Update Partially
+                        Received Quantities</button>
+                </form>
+            </div>
+
+            <!-- Full Received Quantities Form (hidden initially) -->
+            <div id="full-received-form" class="update-received-quantities" style="display: none;">
+                <h2>Update Fully Received Quantities</h2>
+                <button type="button" class="close-button" onclick="closeForm('full-received-form')">Close</button>
+                <form id="full-received-quantities-form" action="{{ url_for('po_tracker', po_id=purchase_order.id) }}"
+                    method="POST">
+                    {% for item in purchase_order.items %}
+                    {% if item.item_type != "service" %}
+                    <div>
+                        <label for="item_{{ item.id }}">{{ item.item }} : {{ item.item_description }}</label>
+                        <input type="number" name="full_received_qty_{{ item.id }}" value="{{ item.quantity_ordered }}"
+                            readonly>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    <div>
+                        <label for="full_received_comment">Comments</label>
+                        <textarea id="full_received_comment" name="full_received_comment" rows="3"
+                            placeholder="Enter comments here..."></textarea>
+                    </div>
+                    <button type="submit" name="action" value="update_full_received" class="bttn">Update Fully Received
+                        Quantities</button>
+                </form>
+            </div>
+
+            <!-- Service Completion Form (hidden initially) -->
+            <div id="service-completion-form" class="update-received-quantities" style="display: none;">
+                <h2>Update Service Completion</h2>
+                <button type="button" class="close-button" onclick="closeForm('service-completion-form')">Close</button>
+                <form id="service-completion-form" action="{{ url_for('po_tracker', po_id=purchase_order.id) }}"
+                    method="POST">
+                    {% for item in purchase_order.items %}
+                    {% if item.item_type == "service" %}
+                    <div>
+                        <label for="service_{{ item.id }}">{{ item.item }} : {{ item.item_description }}</label>
+                        <input type="checkbox" name="service_completed_{{ item.id }}"
+                            id="service_completed_{{ item.id }}" required>
+                        <label for="service_completed_{{ item.id }}">Mark as Completed</label>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    <div>
+                        <label for="service_completion_comment">Comments</label>
+                        <textarea id="service_completion_comment" name="service_completion_comment" rows="3"
+                            placeholder="Enter comments here..."></textarea>
+                    </div>
+                    <button type="submit" name="action" value="update_service_completion" class="bttn">Update Service
+                        Completion</button>
+                </form>
+            </div>
+
+            <!-- Purchase Order History Modal (hidden initially) -->
+            <div id="purchase-order-history-modal" class="update-received-quantities" style="display: none;">
+                <h2>Purchase Order: {{purchase_order.po_number}} History</h2>
+                <button type="button" class="close-button"
+                    onclick="closeForm('purchase-order-history-modal')">Close</button>
+                <table id="purchase-order-history-table">
+                    <thead>
+                        <tr>
+                            <th>Date Changed</th>
+                            <th>Order Status</th>
+                            <th>Comment</th>
+
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for history in purchase_order.po_history %}
+                        <tr>
+                            <td>{{ history.date_changed.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>{{ history.order_status.value }}</td>
+                            <td>{{ history.comment or '' }}</td>
+
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Add Notes Form Modal (hidden initially) -->
+            <div id="add-notes-form" class="update-received-quantities" style="display: none;">
+                <h2>Add Notes</h2>
+                <button type="button" class="close-button" onclick="closeForm('add-notes-form')">Close</button>
+                <form action="{{ url_for('po_tracker', po_id=purchase_order.id) }}" method="POST">
+                    <div>
+                        <label for="po_notes">Notes/Comments</label>
+                        <textarea id="po_notes" name="po_notes" rows="4" placeholder="Enter notes or comments here..."
+                            required></textarea>
+                    </div>
+                    <button type="submit" name="action" value="add_notes" class="bttn">Submit Notes</button>
+                </form>
+            </div>
+
+            <!-- Overlay -->
+            <div id="overlay" onclick="closeForms()"></div>
+
+            <!-- Hidden form for submission -->
+            <form id="hiddenForm" method="POST" action="{{ url_for('po_tracker', po_id=purchase_order.id) }}"
+                style="display: none;">
+                <input type="hidden" name="action" id="hiddenActionInput" value="">
+                <!-- You can add other hidden inputs here if needed -->
+            </form>
+
+        </div>
+    </main>
+</div>
+
+<script>
+
+    // Variables and constants
+    var orderStatus = "{{ purchase_order.order_status.name }}";
+    var validStatuses = ['approved', 'progress', 'partially_received', 'received', 'canceled', 'closed'];
+    var statusToStep = {
+        'approved': 1,
+        'progress': 2,
+        'partially_received': 3,
+        'received': 4,
+        'canceled': 5,
+        'closed': 5
+    };
+
+    const approveButton = $('.bttn-approve');
+    const downloadButton = $('.bttn-download');
+    const cancelButton = $('.bttn-cancel');
+    const partiallyReceivedButton = $('.bttn-partially-received');
+    const receivedButton = $('.bttn-received');
+    const closeButton = $('.bttn-close');
+    const commentField = document.getElementById("payment_terms");
+    const inputs = $('#po-content').find('input, select, textarea, button, checkbox, radio'); // Adjust selectors as needed
+
+
+
+
+    // *****************************************Functions
+
+
+    // Script for handing partial and fully received submissions and service completion Forms and purchase order history table
+    function showPartialReceivedForm() {
+        document.getElementById('partial-received-form').style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+    }
+
+    function showFullReceivedForm() {
+        document.getElementById('full-received-form').style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+    }
+
+    function showServiceCompletionForm() {
+        document.getElementById('service-completion-form').style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+    }
+    function viewHistory() {
+        document.getElementById('purchase-order-history-modal').style.display = 'block'; // Show the modal container
+        document.getElementById('overlay').style.display = 'block'; // Show the overlay if you have one
+    }
+
+    function showAddNotesForm() {
+        document.getElementById('add-notes-form').style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+    }
+    function hideReceivedForms() {
+        document.getElementById('partial-received-form').style.display = 'none';
+        document.getElementById('full-received-form').style.display = 'none';
+        document.getElementById('service-completion-form').style.display = 'none';
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('purchase-order-history-modal').style.display = 'none';
+        document.getElementById('add-notes-form').style.display = 'none';
+    }
+
+    function showForm(formId) {
+        document.getElementById('overlay').style.display = 'block';
+        document.getElementById(formId).style.display = 'block';
+    }
+
+    function closeForm(formId) {
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById(formId).style.display = 'none';
+    }
+
+    function closeForms() {
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('partial-received-form').style.display = 'none';
+        document.getElementById('full-received-form').style.display = 'none';
+        document.getElementById('service-completion-form').style.display = 'none';
+        document.getElementById('purchase-order-history-modal').style.display = 'none';
+        document.getElementById('add-notes-form').style.display = 'none';
+    }
+
+
+    function submitForm(action) {
+        // Get the hidden form and input element
+        const form = document.getElementById('hiddenForm');
+        const input = document.getElementById('hiddenActionInput');
+
+        // Set the value of the hidden input
+        input.value = action;
+
+        // Debugging statement
+        console.log('Submitting form with action:', action);
+
+        // Submit the form
+        form.submit();
+    }
+
+
+
+
+
+    // tOGGLE action buttons
+    function toggleButtonGroups() {
+        const primaryActions = document.querySelector('.primary-actions');
+        const secondaryActions = document.querySelector('.secondary-actions');
+        const tertiaryActions = document.querySelector('.tertiary-actions');
+
+        primaryActions.style.display = (primaryActions.style.display === 'none' || primaryActions.style.display === '') ? 'flex' : 'none';
+        secondaryActions.style.display = (secondaryActions.style.display === 'none' || secondaryActions.style.display === '') ? 'flex' : 'none';
+        tertiaryActions.style.display = (tertiaryActions.style.display === 'none' || tertiaryActions.style.display === '') ? 'flex' : 'none';
+    }
+
+
+    // Event listeners
+    $(document).ready(function () {
+
+
+
+        // Check if the order_status value is in the validStatuses array
+        // Check if the order_status value is in the validStatuses array
+        if (validStatuses.includes(orderStatus)) {
+            document.querySelector('.workflow-container').style.display = 'flex';
+
+            // Get the current step number
+            var currentStep = statusToStep[orderStatus];
+
+            // Highlight the current step and mark completed steps
+            var steps = document.querySelectorAll('.workflow-step');
+            steps.forEach(function (step) {
+                var stepNumber = parseInt(step.getAttribute('data-step'));
+
+                if (stepNumber < currentStep) {
+                    step.classList.add('completed');
+                    step.classList.remove('current');
+                    step.classList.add('no-after');  // Add this class to hide the ::after pseudo-element
+                } else if (stepNumber === currentStep) {
+                    step.classList.add('current');
+                    step.classList.remove('no-after');  // Remove the class for the current step
+                } else {
+                    step.classList.remove('completed');
+                    step.classList.remove('current');
+                    step.classList.remove('no-after');  // Ensure the class is removed for future steps
+                }
+            });
+        }
+        // Get the order status from a hidden element or attribute
+
+        var showButton = false;
+        // Get all service items
+        var serviceItems = document.querySelectorAll('.service-item');
+
+
+        // Check if any service item has quantity_not_received > 0 and order status is not 'closed' or 'canceled'
+        serviceItems.forEach(function (item) {
+            var quantityNotReceived = parseFloat(item.getAttribute('data-quantity-not-received'));
+            if (quantityNotReceived > 0 && orderStatus !== 'closed' && orderStatus !== 'canceled') {
+                showButton = true;
+            }
+        });
+
+        // Check if the order status is 'canceled' or 'closed'
+        if (orderStatus === 'canceled' || orderStatus === 'closed') {
+            showButton = false;
+        }
+
+        // Show or hide the button based on the condition
+        var button = document.getElementById('service-completion-btn');
+        if (showButton) {
+            button.style.display = 'block';
+        } else {
+            button.style.display = 'none';
+        }
+
+
+
+
+    });
+
+
+    document.getElementById('overlay').addEventListener('click', hideReceivedForms);
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === "Escape") {
+            hideReceivedForms();
+        }
+    });
+
+</script>
+
+
+{% endblock %}

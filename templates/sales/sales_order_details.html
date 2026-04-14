@@ -1,0 +1,653 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .sales_order-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+    }
+
+    .company-logo img {
+        max-width: 150px;
+        height: auto;
+    }
+
+    .company-logo h2 {
+        font-size: 24px;
+        color: #2c3e50;
+        margin-top: 10px;
+    }
+
+    .sales_order-meta h1 {
+        font-size: 28px;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    .sales_order-meta p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .status {
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        color: #fff;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    .status.draft {
+        background: #f0ad4e;
+    }
+
+    .status.sent {
+        background: #5bc0de;
+    }
+
+    .status.accepted {
+        background: #5cb85c;
+    }
+
+    .status.rejected {
+        background: #d9534f;
+    }
+
+    .status.canceled {
+        background: #d9534f;
+    }
+
+    .status.expired {
+        background: #777;
+    }
+
+    .status.invoiced {
+        background: #777;
+    }
+
+    .sales_order-customer {
+        margin-bottom: 20px;
+    }
+
+    .sales_order-customer h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin: 0 0 10px;
+    }
+
+    .sales_order-customer p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .terms-and-conditions {
+        margin-top: 20px;
+    }
+
+    .terms-and-conditions h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin-bottom: 10px;
+    }
+
+    .terms-and-conditions p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f9f9f9;
+        font-weight: bold;
+        color: #333;
+        font-weight: 600;
+    }
+
+    td {
+        color: #222;
+
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    .numeric {
+        text-align: right;
+        color: #222;
+    }
+
+    .grande {
+        font-weight: 600;
+        font-size: 1.2rem;
+    }
+
+    .sales_order-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+
+
+    textarea {
+        width: 200px;
+        padding: 10px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+        resize: vertical;
+    }
+
+    textarea:focus {
+        outline: none;
+        border-color: #0275d8;
+    }
+
+    select {
+        padding: 2px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+    }
+
+    table {
+        border: none;
+    }
+
+    table tr:hover {
+        background-color: white;
+        /* Hover effect for rows */
+    }
+
+    /* Remove borders and background for all table cells */
+    table td,
+    table th {
+        border: none !important;
+        background-color: transparent !important;
+    }
+
+    table th {
+        border: 1px solid #ddd !important;
+        background: #f9f9f9 !important
+    }
+
+    /* Add borders only to the last two columns */
+    table td:nth-last-child(1),
+    table td:nth-last-child(2),
+    table th:nth-last-child(1),
+    table th:nth-last-child(2) {
+        border: 1px solid #ddd !important;
+        /* Add border to the last two columns */
+    }
+
+    /* Add borders to all rows in the table body */
+    table tbody tr td {
+        border: 1px solid #ddd !important;
+    }
+
+    tr:nth-child(even) {
+        background: white;
+    }
+
+
+
+    /* Align totals section to the right */
+    .totals-row td {
+        text-align: right;
+    }
+
+    /* Increase font weight for totals rows */
+    .totals-row td {
+        font-weight: 600;
+        /* Semi-bold */
+    }
+
+    /* Change background color of the last two columns in totals-row */
+    .totals-row td:nth-last-child(1) {
+        background-color: #f9f9f9 !important;
+        /* Light gray background */
+    }
+
+    /* Change background color of the last two columns in totals-row */
+    .totals-row td:nth-last-child(2) {
+        border: none !important;
+        /* Light gray background */
+    }
+
+    /* Grand Total specific styling */
+    .grande {
+        font-weight: 700;
+        /* Bold */
+        font-size: 1.1rem;
+    }
+</style>
+
+<div class="content-container">
+
+    <div class="sales_order-header">
+        <div class="company-logo">
+            <!-- Back Button at the Top -->
+            <div class="back-button-container" style="margin-bottom: 5px;">
+                <a href="javascript:void(0);" class="back-button" onclick="window.history.back();">
+                    <i class="fas fa-chevron-left"></i> Back
+                </a>
+            </div>
+            {% if company.logo %}
+            <img src="{{ url_for('serve_logo', filename=company.logo) }}" alt="Company Logo">
+            {% endif %}
+            <h2>{{ company.name }}</h2>
+        </div>
+
+        <div class="sales_order-meta">
+            <h1>Sales Order #{{ sales_order.sales_order_number }}</h1>
+            <p><strong>Reference:</strong> {{ sales_order.sales_order_reference }}</p>
+            <p><strong>Date:</strong> {{ sales_order.sales_order_date }}</p>
+            <p><strong>Expiry Date:</strong> {{ sales_order.expiry_date or "N/A" }}</p>
+            <p><strong>Currency:</strong> {{ sales_order.currency }}</p>
+
+            {% if sales_order.quotation %}
+            {% for quotation in sales_order.quotation %}
+            {% if quotation.id and quotation.quotation_number %}
+            <p>
+                <strong>Quotation:</strong>
+                <a href="/sales/quotation/{{ quotation.id }}">
+                    {{ quotation.quotation_number }}
+                </a>
+            </p>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+
+            {% if sales_order.delivery_notes %}
+            {% for delivery_note in sales_order.delivery_notes %}
+            {% if delivery_note.id and delivery_note.delivery_note_number %}
+            <p>
+                <strong>Delivery Note:</strong>
+                <a href="/sales/delivery_note/{{ delivery_note.id }}">
+                    {{ delivery_note.delivery_note_number }}
+                </a>
+            </p>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+
+            {% if sales_order.sales_invoices %}
+            {% for invoice in sales_order.sales_invoices %}
+            {% if invoice.id and invoice.invoice_number %}
+            <p>
+                <strong>Invoice:</strong>
+                <a href="/sales/invoice/{{ invoice.id }}">
+                    {{ invoice.invoice_number }}
+                </a>
+            </p>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+
+
+            <span class="status {{ sales_order.status.value|lower }}">{{ sales_order.status.value }}</span>
+        </div>
+    </div>
+
+    <div class="sales_order-customer">
+        <h3>Customer Details:</h3>
+        <p><strong>{{ sales_order.customer.name }}</strong></p>
+        <p>{{ sales_order.customer.address or "" }}</p>
+        <p>{{ sales_order.customer.city_country or "" }}</p>
+        <p><strong>Contact:</strong> {{ sales_order.customer.contact or "N/A" }}</p>
+    </div>
+
+    <div class="sales_order-items">
+
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Discount</th>
+                        <th>Tax</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in sales_order.sales_order_items %}
+                    <tr>
+                        <td>{{ item.item_name }}</td>
+                        <td>{{ item.description or "-" }}</td>
+                        <td>{{ item.quantity }} {{ item.uom }}</td>
+                        <td class="numeric">{{ "{:,.2f}".format(item.unit_price) }}</td>
+                        <td class="numeric">
+                            {% if item.discount_amount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(item.discount_amount) }} ({{ item.discount_rate }}%)
+                            {% endif %}
+                        </td>
+                        <td class="numeric">
+                            {% if item.tax_amount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(item.tax_amount) }} ({{ item.tax_rate }}%)
+                            {% endif %}
+                        </td>
+                        <td class="numeric">{{ "{:,.2f}".format(item.total_price) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <!-- Subtotal -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Subtotal</td>
+                        <td class="numeric">{{ "{:,.2f}".format(sales_order.subtotal) }}</td>
+                    </tr>
+                    <!-- Discount -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Discount</td>
+                        <td class="numeric">
+                            {% if sales_order.sales_order_discount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(sales_order.sales_order_discount) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Tax -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Tax(%)</td>
+                        <td class="numeric">
+                            {% if sales_order.sales_order_tax_rate == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(sales_order.sales_order_tax_rate) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Shipping Cost -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Shipping Cost</td>
+                        <td class="numeric">
+                            {% if sales_order.shipping_cost == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(sales_order.shipping_cost) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Handling Cost -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Handling Cost</td>
+                        <td class="numeric">
+                            {% if sales_order.handling_cost == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(sales_order.handling_cost) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Grand Total -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric grande">Grand Total</td>
+                        <td class="numeric grande">{{ "{:,.2f}".format(sales_order.total_amount) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+
+        <div class="terms-and-conditions">
+            <h3>Terms and Conditions</h3>
+            <p class="preserve-newlines">{{ sales_order.terms_and_conditions or "N/A" }}</p>
+        </div>
+
+        <!-- Internal Notes (Visible only if status is draft) -->
+        {% if sales_order.status.name == 'draft' %}
+        <div class="internal-notes">
+            <h3>Internal Notes</h3>
+            <div id="notes-list">
+                {% for note in sales_order.sales_order_notes %}
+                {% if note.type == 'internal' %}
+                <div class="note">
+                    <p>{{ note.content }}</p>
+                    <small>By {{ note.created_by }} on {{ note.created_at }}</small>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <form id="add-note-form">
+                <textarea name="note_content" placeholder="Add a new internal note..." required></textarea>
+                <input type="hidden" name="sales_order_id" value="{{ sales_order.id }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="sales_order_number" value="{{ sales_order.sales_order_number }}">
+
+                <label for="recipient">Assign to:</label>
+                <select name="recipient" id="recipient">
+                    <option value="">All</option>
+                    {% for user in sales_order.users %}
+                    <option value="{{ user.id }}">{{ user.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit" class="button add-button">Add Note</button>
+            </form>
+        </div>
+        {% endif %}
+
+
+
+        <!-- sales_order Actions -->
+        <div class="sales_order-actions">
+            {% if sales_order.status.name == 'draft' %}
+            <button class="button cta-button" id="approve-sales_order-button"> <i class="fas fa-check-circle"></i>
+                Approve Sales Order</button>
+            <button class="button add-button"
+                onclick="window.location.href='/sales/edit_sales_order/{{ sales_order.id }}'"> <i
+                    class="fas fa-edit"></i> Edit Sales Order</button>
+            {% elif sales_order.status.name == 'rejected' %}
+            <button class="button add-button"
+                onclick="window.location.href='/sales/edit_sales_order/{{ sales_order.id }}'">Edit Sales Order</button>
+            {% elif sales_order.status.name != 'draft' and sales_order.status.name != 'canceled' and
+            sales_order.status.name != 'rejected' %}
+            <form action="/sales/generate_delivery_note" method="POST" style="display: inline;">
+
+
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="sales_order_id" value="{{ sales_order.id }}">
+                <button type="submit" class="button cta-button">
+                    <i class="fas fa-truck"></i> Generate Delivery Note
+                </button>
+            </form>
+
+            <form action="/sales/generate_invoice" method="POST" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="sales_order_id" value="{{ sales_order.id }}">
+                <button type="submit" class="button success" id="generate-sales-order-invoice">
+                    <i class="fas fa-file-invoice"></i> Generate Invoice
+                </button>
+            </form>
+
+
+            {% endif %}
+
+
+            <!-- Download Button (Visible when status is not draft) -->
+
+            <button class="button download-button info"
+                onclick="window.location.href='/download_sales_order/{{ sales_order.id }}'">
+                <i class="fas fa-download"></i> Download Sales Order
+            </button>
+
+            {% if sales_order.status.name in ['draft', 'approved'] %}
+            <form action="/cancel_sales_order" method="POST" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="sales_order_id" value="{{ sales_order.id }}">
+                <button type="submit" class="button remove-button">
+                    <i class="fas fa-times-circle"></i> Cancel Sales Order
+                </button>
+            </form>
+            {% endif %}
+
+
+
+
+
+            <button class="button closed" onclick="window.location.href='/sales/sales_orders'"><i
+                    class="fas fa-undo-alt"></i> Return to
+                Sales Orders</button>
+        </div>
+    </div>
+
+
+</div>
+
+
+
+
+<script>
+    // Adding internal note
+    document.getElementById('add-note-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const form = event.target;
+        const formData = new FormData(form);
+        const noteContent = formData.get('note_content');
+        const sales_orderId = formData.get('sales_order_id');
+        const recipient = formData.get('recipient');
+        const sales_order_number = formData.get('sales_order_number');
+
+
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value; // Fetch CSRF token
+
+        fetch('/add_sales_order_note', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken  // Include the CSRF token in the headers
+            },
+            body: JSON.stringify({
+                note_content: noteContent,
+                sales_order_id: sales_orderId,
+                recipient: recipient,
+                sales_order_number: sales_order_number
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "danger") {
+                    showNotification(data.message, "error");
+                } else {
+                    const notesList = document.getElementById('notes-list');
+                    const newNote = document.createElement('div');
+                    newNote.classList.add('note');
+                    newNote.innerHTML = `
+                    <p>${data.note_content}</p>
+                    <small>By ${data.created_by} on ${data.created_at}</small>
+                `;
+                    notesList.appendChild(newNote);
+                    form.querySelector('textarea').value = '';
+
+                    showNotification(data.message, "success");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification("An error occurred while adding the note.", "error"); // Fixed this line
+            });
+    });
+
+
+    // JavaScript for approving and canceling sales_orders
+    document.getElementById('approve-sales_order-button').addEventListener('click', function () {
+        const sales_orderId = "{{ sales_order.id }}";
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+        fetch('/approve_sales_order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                sales_order_id: sales_orderId
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    showNotification(data.message, "success");
+
+                    location.reload(); // Reload the page to reflect changes
+                } else {
+                    showNotification(data.message, "error");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification("An error occurred while approving the sales_order.", "error");
+            });
+    });
+
+    document.getElementById('cancel-sales_order-button').addEventListener('click', function () {
+        const sales_orderId = "{{ sales_order.id }}";
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+        fetch('/cancel_sales_order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                sales_order_id: sales_orderId
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    showNotification(data.message, "success");
+                    document.querySelector('.status').classList.remove('draft', 'accepted', 'sent', 'expired');
+                    document.querySelector('.status').classList.add('rejected');
+                    document.querySelector('.status').textContent = 'Rejected';
+                    location.reload(); // Reload the page to reflect changes
+                } else {
+                    showNotification(data.message, "error");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification("An error occurred while canceling the sales_order.", "error");
+            });
+    });
+
+</script>
+
+{% endblock %}

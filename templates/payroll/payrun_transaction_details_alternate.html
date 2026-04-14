@@ -1,0 +1,528 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <!-- Header with back button and title -->
+    <div class="payroll-header">
+        <a href="javascript:history.back()" class="back-button">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+        <h1 class="page-title">Employee Payslip</h1>
+        <div class="print-actions">
+            <button class="print-button" onclick="printPayslip()">
+                <i class="fas fa-print"></i> Print Payslip
+            </button>
+        </div>
+    </div>
+
+    <!-- Employee and Payroll Summary -->
+    <section class="employee-summary card">
+        <div class="employee-info">
+            <div class="employee-avatar">
+                <i class="fas fa-user-circle"></i>
+            </div>
+            <div class="employee-details">
+                <h2>{{ payroll_transaction.first_name }}
+                    {% if payroll_transaction.middle_name %}
+                    {{ payroll_transaction.middle_name }}
+                    {% endif %}
+                    {{ payroll_transaction.last_name }}
+                </h2>
+                <p class="text-muted">Employee ID: {{ payroll_transaction.employee_id or 'N/A' }}</p>
+            </div>
+        </div>
+
+        <div class="payroll-period">
+            <h3>Payroll Period</h3>
+            <p>{{ payroll_transaction.start_date }} - {{ payroll_transaction.end_date }}</p>
+        </div>
+    </section>
+
+    <!-- Salary Summary -->
+    <section class="salary-summary card">
+        <div class="summary-grid">
+            <div class="summary-item">
+                <span class="summary-label">Gross Salary</span>
+                <span class="summary-value">{{ "{:,.2f}".format(payroll_transaction.gross_salary or 0) }} {{
+                    payroll_transaction.user_currency }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Total Benefits</span>
+                <span class="summary-value">{{ "{:,.2f}".format(totals.total_benefits or 0) }} {{
+                    payroll_transaction.user_currency }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Total Deductions</span>
+                <span class="summary-value">{{ "{:,.2f}".format(totals.total_deductions or 0) }} {{
+                    payroll_transaction.user_currency }}</span>
+            </div>
+
+            <div class="summary-item">
+                <span class="summary-label">Total Advance Deductions</span>
+                <span class="summary-value">{{ "{:,.2f}".format(totals.total_advance_deductions or 0) }} {{
+                    payroll_transaction.user_currency }}</span>
+            </div>
+
+            <div class="summary-item">
+                <span class="summary-label">Net Salary</span>
+                <span class="summary-value">{{ "{:,.2f}".format(totals.net_salary or 0) }} {{
+                    payroll_transaction.user_currency }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Amount Paid</span>
+                <span class="summary-value">{{ "{:,.2f}".format(totals.paid_amount or 0) }} {{
+                    payroll_transaction.user_currency }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Balance Due</span>
+                <span class="summary-value">{{ "{:,.2f}".format(totals.balance_due or 0) }} {{
+                    payroll_transaction.user_currency }}</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Detailed Breakdown -->
+    <div class="detailed-breakdown">
+        <!-- Benefits Section -->
+        <section class="breakdown-section card">
+            <h3 class="section-title">
+                <i class="fas fa-plus-circle"></i> Benefits
+                <span class="badge bg-info">{{ benefits|length }}</span>
+            </h3>
+            <div class="table-responsive">
+                <table class="breakdown-table">
+                    <thead>
+                        <tr>
+                            <th>Benefit Type</th>
+                            <th>Description</th>
+                            <th class="text-right">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for benefit, benefit_type in benefits %}
+                        <tr>
+                            <td>{{ benefit_type.name }}</td>
+                            <td>{{ benefit_type.description if benefit_type.description else '-' }}</td>
+                            <td class="text-right">{{ "{:,.2f}".format(benefit.amount or 0) }} {{
+                                payroll_transaction.user_currency }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-row">
+                            <td colspan="2">Total Benefits</td>
+                            <td class="text-right">{{ "{:,.2f}".format(totals.total_benefits or 0) }} {{
+                                payroll_transaction.user_currency }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </section>
+
+        <!-- Deductions Section -->
+        <section class="breakdown-section card">
+            <h3 class="section-title">
+                <i class="fas fa-minus-circle"></i> Deductions
+                <span class="badge bg-info">{{ deductions|length }}</span>
+            </h3>
+            <div class="table-responsive">
+                <table class="breakdown-table">
+                    <thead>
+                        <tr>
+                            <th>Deduction Type</th>
+                            <th>Description</th>
+                            <th class="text-right">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for deduction, deduction_type in deductions %}
+                        <tr>
+                            <td>{{ deduction_type.name }}</td>
+                            <td>{{ deduction_type.description if deduction_type.description else '-' }}</td>
+                            <td class="text-right">{{ "{:,.2f}".format(deduction.amount or 0) }} {{
+                                payroll_transaction.user_currency }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-row">
+                            <td colspan="2">Total Deductions</td>
+                            <td class="text-right">{{ "{:,.2f}".format(totals.total_deductions or 0) }} {{
+                                payroll_transaction.user_currency }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- Payment History -->
+    <section class="payment-history card">
+        <h3 class="section-title">
+            <i class="fas fa-history"></i> Payment History
+        </h3>
+        {% if payroll_payments.payroll_payments %}
+        <div class="table-responsive">
+            <table class="history-table breakdown-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                        <th>Funding Account</th>
+                        <th>Reference</th>
+                        <th>Ledger Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payroll_payments.payroll_payments %}
+                    <tr>
+                        <td>{{ payment.payment_date }}</td>
+                        <td>{{ "{:,.2f}".format(payment.amount) }} {{ payroll_transaction.user_currency }}</td>
+                        <td>{{ payment.payment_modes.payment_mode if payment.payment_method else '-' }}</td>
+                        <td>{{ payment.funding_account.sub_category}} - {{ payment.funding_account.sub_category_id}}
+                        </td>
+                        <td>{{ payment.reference if payment.reference else '-' }}</td>
+                        <td>
+                            <span
+                                class="status {% if payment.is_posted_to_ledger %}success{% else %}pending{% endif %}">
+                                {% if payment.is_posted_to_ledger %}
+                                Posted
+                                {% else %}
+                                Pending
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+
+
+                            <div class="action-icons">
+                                <a href="#" class="edit-transaction edit-icon" data-tooltip="Edit Transaction">
+                                    <i class="fas fa-edit text-primary"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-money-bill-wave"></i>
+            <p>No payment history found</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+<script>
+    function printPayslip() {
+        const printContents = `
+            <html>
+                <head>
+                    <title>Payslip - {{ payroll_transaction.first_name }} {{ payroll_transaction.last_name }}</title>
+                    <style>
+                        body { font-family: Arial; margin: 20px; }
+                        .print-header { text-align: center; margin-bottom: 20px; }
+                        .employee-info { margin-bottom: 15px; }
+                        .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                        .summary-table th, .summary-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+                        .total-row { font-weight: bold; }
+                        .breakdown-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                        .breakdown-table th { background-color: #f2f2f2; }
+                        @page { size: auto; margin: 5mm; }
+                    </style>
+                </head>
+                <body>
+                    <div class="print-header">
+                        <h2>PAYSLIP</h2>
+                        <p>{{ payroll_transaction.start_date }} - {{ payroll_transaction.end_date }}</p>
+                    </div>
+                    
+                    <div class="employee-info">
+                        <h3>{{ payroll_transaction.first_name }} {{ payroll_transaction.last_name }}</h3>
+                        <p>Employee ID: {{ payroll_transaction.employee_id or 'N/A' }}</p>
+                    </div>
+                    
+                    <table class="summary-table">
+                        <tr>
+                            <th>Description</th>
+                            <th>Amount ({{ payroll_transaction.user_currency }})</th>
+                        </tr>
+                        <tr>
+                            <td>Gross Salary</td>
+                            <td>{{ "{:,.2f}".format(payroll_transaction.gross_salary or 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Benefits</td>
+                            <td>{{ "{:,.2f}".format(totals.total_benefits or 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Deductions</td>
+                            <td>{{ "{:,.2f}".format(totals.total_deductions or 0) }}</td>
+                        </tr>
+                        {% if totals.total_advance_deductions > 0 %}
+                        <tr>
+                            <td>Total Advance Deductions</td>
+                            <td>{{ "{:,.2f}".format(totals.total_advance_deductions or 0) }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr class="total-row">
+                            <td>Net Salary</td>
+                            <td>{{ "{:,.2f}".format(totals.net_salary or 0) }}</td>
+                        </tr>
+                    </table>
+                    
+                    <h4>Benefits Breakdown</h4>
+                    <table class="breakdown-table">
+                        {% for benefit, benefit_type in benefits %}
+                        <tr>
+                            <td>{{ benefit_type.name }}</td>
+                            <td>{{ "{:,.2f}".format(benefit.amount or 0) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                    
+                    <h4>Deductions Breakdown</h4>
+                    <table class="breakdown-table">
+                        {% for deduction, deduction_type in deductions %}
+                        <tr>
+                            <td>{{ deduction_type.name }}</td>
+                            <td>{{ "{:,.2f}".format(deduction.amount or 0) }}</td>
+                        </tr>
+                        {% endfor %}
+
+                        {% if totals.total_advance_deductions > 0 %}
+                        <tr>
+                            <td>Advance Deduction</td>
+                            <td>{{ "{:,.2f}".format(totals.total_advance_deductions or 0) }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                    
+                    
+                    <div class="print-footer">
+                        <p>Generated on: {{ now }}</p>
+                    </div>
+                </body>
+            </html>
+        `;
+
+        const win = window.open('', '', 'width=800,height=600');
+        win.document.write(printContents);
+        win.document.close();
+        win.focus();
+        setTimeout(() => { win.print(); }, 500);
+    }
+</script>
+
+<style>
+    .payroll-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .back-button {
+        display: flex;
+        align-items: center;
+        color: var(--primary-color);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .back-button i {
+        margin-right: 8px;
+    }
+
+    .print-button {
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+    }
+
+    .print-button i {
+        margin-right: 8px;
+    }
+
+    .card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .employee-summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .employee-info {
+        display: flex;
+        align-items: center;
+    }
+
+    .employee-avatar {
+        width: 50px;
+        height: 50px;
+        background: #f1f1f1;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+        color: var(--text-muted);
+        font-size: 24px;
+    }
+
+    .employee-details h2 {
+        margin: 0;
+        color: var(--secondary-color);
+    }
+
+    .text-muted {
+        color: var(--text-muted);
+        margin: 5px 0 0;
+    }
+
+    .payroll-period h3 {
+        margin: 0 0 5px;
+        font-size: 16px;
+        color: var(--text-muted);
+    }
+
+    .payroll-period p {
+        margin: 0;
+        font-weight: 500;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+    }
+
+    .summary-item {
+        padding: 10px;
+        border-radius: 6px;
+        background: #f9f9f9;
+        height: 50px;
+    }
+
+    .summary-label {
+        display: block;
+        font-size: 14px;
+        color: var(--text-muted);
+        margin-bottom: 5px;
+    }
+
+    .summary-value {
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+
+    .detailed-breakdown {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+        .detailed-breakdown {
+            grid-template-columns: 1fr;
+        }
+
+        .summary-item {
+            height: auto;
+            margin-left: -10px;
+        }
+    }
+
+    .section-title {
+        display: flex;
+        align-items: center;
+        color: var(--closed-color);
+        margin-top: 0;
+        margin-bottom: 15px;
+        font-size: 18px;
+    }
+
+    .section-title i {
+        margin-right: 10px;
+    }
+
+
+
+    .breakdown-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .breakdown-table th {
+        background: var(--light-bg);
+        padding: 12px 16px;
+
+        font-weight: 600;
+        color: var(--closed-color);
+        text-align: left;
+    }
+
+    .breakdown-table td {
+        padding: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .breakdown-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .text-right {
+        text-align: right;
+    }
+
+    .total-row {
+        font-weight: 600;
+        background: #f9f9f9;
+    }
+
+    .total-row td {
+        padding-top: 12px;
+        padding-bottom: 12px;
+    }
+
+
+
+
+
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+
+        #payslip-section,
+        #payslip-section * {
+            visibility: visible;
+        }
+
+        #payslip-section {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}

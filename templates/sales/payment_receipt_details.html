@@ -1,0 +1,355 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .payment-receipt-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+    }
+
+    .company-logo img {
+        max-width: 150px;
+        height: auto;
+    }
+
+    .company-logo h2 {
+        font-size: 24px;
+        color: #2c3e50;
+        margin-top: 10px;
+    }
+
+    .payment-receipt-meta h1 {
+        font-size: 28px;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    .payment-receipt-meta p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .status {
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        color: #fff;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    .status.draft {
+        background: #f0ad4e;
+    }
+
+    .status.paid {
+        background: #5cb85c;
+    }
+
+    .status.cancelled {
+        background: #d9534f;
+    }
+
+    .status.refunded {
+        background: #777;
+    }
+
+    .status.failed {
+        background: #d9534f;
+    }
+
+    .payment-receipt-customer {
+        margin-bottom: 20px;
+    }
+
+    .payment-receipt-customer h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin: 0 0 10px;
+    }
+
+    .payment-receipt-customer p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .terms-and-conditions {
+        margin-top: 20px;
+    }
+
+    .terms-and-conditions h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin-bottom: 10px;
+    }
+
+    .terms-and-conditions p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f9f9f9;
+        font-weight: bold;
+        color: #333;
+        font-weight: 600;
+    }
+
+    td {
+        color: #222;
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    .numeric {
+        text-align: right;
+        color: #222;
+    }
+
+    .grande {
+        font-weight: 600;
+        font-size: 1.2rem;
+    }
+
+    .payment-receipt-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+    textarea {
+        width: 200px;
+        padding: 10px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+        resize: vertical;
+    }
+
+    textarea:focus {
+        outline: none;
+        border-color: #0275d8;
+    }
+
+    select {
+        padding: 2px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+    }
+
+    table {
+        border: none;
+    }
+
+    table tr:hover {
+        background-color: white;
+    }
+
+    table td,
+    table th {
+        border: none !important;
+        background-color: transparent !important;
+    }
+
+    table th {
+        border: 1px solid #ddd !important;
+        background: #f9f9f9 !important;
+    }
+
+    table td:nth-last-child(1),
+    table td:nth-last-child(2),
+    table th:nth-last-child(1),
+    table th:nth-last-child(2) {
+        border: 1px solid #ddd !important;
+    }
+
+    table tbody tr td {
+        border: 1px solid #ddd !important;
+    }
+
+    tr:nth-child(even) {
+        background: white;
+    }
+
+    .totals-row td {
+        text-align: right;
+    }
+
+    .totals-row td {
+        font-weight: 600;
+    }
+
+    .totals-row td:nth-last-child(1) {
+        background-color: #f9f9f9 !important;
+    }
+
+    .totals-row td:nth-last-child(2) {
+        border: none !important;
+    }
+
+    .grande {
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+</style>
+
+<div class="content-container">
+    <div class="payment-receipt-header">
+        <div class="company-logo">
+            <img src="{{ url_for('serve_logo', filename=company.logo) }}" alt="Company Logo">
+            <h2>{{ company.name }}</h2>
+        </div>
+        <div class="payment-receipt-meta">
+            <h1>Payment Receipt #{{ receipt.receipt_number }}</h1>
+            <p><strong>Date:</strong> {{ receipt.payment_date }}</p>
+            <p><strong>Currency:</strong> {{ receipt.currency }}</p>
+            <p><strong>Reference Number:</strong> {{ receipt.reference_number or "N/A" }}</p>
+            {% if receipt.sales_order %}
+            <p>
+                <strong>Sales Order:</strong>
+                {% for sales_order in receipt.sales_order %}
+                <a href="/sales/sales_order/{{ sales_order.id }}">
+                    {{ sales_order.sales_order_number }}
+                </a>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+            </p>
+            {% endif %}
+
+            {% if receipt.quotation %}
+            <p>
+                <strong>Quotation:</strong>
+                {% for quotation in receipt.quotation %}
+                <a href="/sales/quotation/{{ quotation.id }}">
+                    {{ quotation.quotation_number }}
+                </a>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+            </p>
+
+            {% if receipt.invoice %}
+            <p>
+                <strong>Invoice:</strong>
+                {% for invoice in receipt.invoice %}
+                <a href="/sales/invoice/{{ invoice.id }}">
+                    {{ invoice.invoice_number }}
+                </a>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+            </p>
+            {% endif %}
+            {% endif %}
+            <span class="status {{ receipt.status }}">{{ receipt.status }}</span>
+        </div>
+    </div>
+
+    <div class="payment-receipt-customer">
+        <h3>Customer Details:</h3>
+        <p><strong>{{ receipt.customer.name }}</strong></p>
+        <p>{{ receipt.customer.address or "" }}</p>
+        <p>{{ receipt.customer.city_country or "" }}</p>
+        <p><strong>Contact:</strong> {{ receipt.customer.contact or "N/A" }}</p>
+    </div>
+
+    <div class="payment-receipt-items">
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Description</th>
+                        <th>Amount Received</th>
+                        <th>Balance Due</th>
+                        <th>Payment Mode</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Payment</td>
+                        <td>{{ receipt.description or "-" }}</td>
+                        <td class="numeric">{{ "{:,.2f}".format(receipt.amount_received) }}</td>
+                        <td class="numeric">{{ "{:,.2f}".format(receipt.balance_due or 0) }}</td>
+                        <td>{{ receipt.payment_mode or "-" }}</td>
+                        <td><span class="status {{ receipt.status }}">{{ receipt.status }}</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if receipt.notes %}
+    <div class="terms-and-conditions">
+        <h3>Notes:</h3>
+        <p style="white-space: pre-line;">{{ receipt.notes }}</p>
+    </div>
+    {% endif %}
+
+
+    <div class="payment-receipt-received-by terms-and-conditions">
+        <h3>Received By:</h3>
+        <p><strong>{{ receipt.received_by_name or "N/A" }}</strong></p>
+    </div>
+    <div class="payment-receipt-issued-by terms-and-conditions">
+        <h3>Issued By:</h3>
+        <p><strong>{{ receipt.issued_by_name or "N/A" }}</strong></p>
+    </div>
+    <div class="payment-receipt-actions">
+        {% if receipt.status == 'draft' %}
+        <!-- Approve Payment Receipt Button (Visible only for draft status) -->
+        <form method="post" action="/approve_payment_receipt/{{ receipt.id }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="button cta-button" type="submit">
+                <i class="fas fa-check"></i> Approve Payment Receipt
+            </button>
+        </form>
+        {% endif %}
+
+        {% if receipt.status == 'draft' or receipt.status == 'paid' %}
+        <!-- Cancel Payment Receipt Button (Visible for both draft and paid statuses) -->
+        <form method="post" action="/cancel_payment_receipt/{{ receipt.id }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="button cancel-button danger" type="submit">
+                <i class="fas fa-times"></i> Cancel Payment Receipt
+            </button>
+        </form>
+        {% endif %}
+
+
+
+
+
+        {% if receipt.status == 'draft' %}
+        <button class="button add-button"
+            onclick="window.location.href='/sales//edit_payment_receipt/{{ receipt.id }}'">
+            <i class="fas fa-edit"></i> Edit Payment Receipt
+        </button>
+        {% endif %}
+
+        <button class="button download-button info"
+            onclick="window.location.href='/download_payment_receipt/{{ receipt.id }}'">
+            <i class="fas fa-download"></i> Download Receipt
+        </button>
+        <button class="button closed" onclick="window.location.href='/sales/payment_receipts'">
+            <i class="fas fa-undo-alt"></i> Return to Payment Receipts
+        </button>
+    </div>
+</div>
+{% endblock %}

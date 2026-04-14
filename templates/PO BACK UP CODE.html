@@ -1,0 +1,409 @@
+
+<script>
+// Get the order_status value from the template context
+    var orderStatus = "{{ purchase_order.order_status.name }}";
+
+    // List of statuses where the nav should be visible
+    var validStatuses = ['approved', 'progress', 'partially_received', 'received', 'canceled'];
+
+    // Map the statuses to step numbers
+    var statusToStep = {
+        'approved': 1,
+        'progress': 2,
+        'partially_received': 3,
+        'received': 4,
+        'canceled': 5
+    };
+
+    // Check if the order_status value is in the validStatuses array
+    if (validStatuses.includes(orderStatus)) {
+        document.querySelector('.workflow-container').style.display = 'flex';
+
+        // Get the current step number
+        var currentStep = statusToStep[orderStatus];
+
+        // Highlight the current step and mark completed steps
+        var steps = document.querySelectorAll('.workflow-step');
+        steps.forEach(function (step) {
+            var stepNumber = parseInt(step.getAttribute('data-step'));
+            if (stepNumber < currentStep) {
+                step.classList.add('completed');
+            } else if (stepNumber === currentStep) {
+                step.classList.add('current');
+            }
+        });
+    }
+
+
+
+    $(document).ready(function () {
+        document.getElementById('add-row').addEventListener('click', () => {
+            const table = document.getElementById('product-table').getElementsByTagName('tbody')[0];
+            const newRow = table.insertRow();
+            newRow.classList.add('product-row');
+            const rowIndex = table.rows.length;
+            newRow.innerHTML = `
+            <td class="row-number">${rowIndex}</td>
+            <td>
+                    <input type="text" name="item[]" list="item-list" onchange="updateItemDetails(this)" />
+
+                    <datalist id="item-list">
+                        {% for item in items %}
+                            <option value="{{ item.item_name }}"
+                                    data-description="{{ item.description }}"
+                                    data-uom="{{ item.uom }}"
+                                    data-unit_price="{{ item.unit_price }}">
+                                {{ item.item_name }}
+                            </option>
+                        {% endfor %}
+                    </datalist>
+                </td>
+            <td><input type="text" name="description[]" id="description-1"  /></td>
+                <td><input type="number" min="0" name="qty[]" class="qty" /></td>
+              <td>
+                    <select name="uom[]" class="uom-dropdown">
+                        <option value=""></option>
+                        <option value="kg">Kilogram(s)</option>
+                        <option value="g">Gram(s)</option>
+                        <option value="mg">Milligram(s)</option>
+                        <option value="t">Ton(s)</option>
+                        <option value="oz">Ounce(s)</option>
+                        <option value="lb">Pound(s)</option>
+                        <option value="l">Liter(s)</option>
+                        <option value="ml">Milliliter(s)</option>
+                        <option value="m">Meter(s)</option>
+                        <option value="cm">Centimeter(s)</option>
+                        <option value="mm">Millimeter(s)</option>
+                        <option value="in">Inch(es)</option>
+                        <option value="ft">Foot(Feet)</option>
+                        <option value="yd">Yard(s)</option>
+                        <option value="mi">Mile(s)</option>
+                        <option value="pc">Piece(s)</option>
+                        <option value="box">Box(es)</option>
+                        <option value="pkt">Packet(s)</option>
+                        <option value="unit">Unit(s)</option>
+                        <option value="h">Hour(s)</option>
+                        <option value="min">Minute(s)</option>
+                        <option value="s">Second(s)</option>
+                        <option value="d">Day(s)</option>
+                        <option value="wk">Week(s)</option>
+                        <option value="mo">Month(s)</option>
+                        <option value="yr">Year(s)</option>
+
+
+                    </select>
+                </td>
+            
+                <td><input type="number" min="0" name="unit_price[]" id="unit_price" class="unit-price" /></td>
+            <td><input type="number" name="total[]" class="total" readonly /></td>
+            <td class=><button type="button" id="btn-remove-row" class="hide-element btn-remove-row">Remove</button></td>
+        `;
+            updateRowNumbers();
+        });
+
+
+        document.getElementById('product-table').addEventListener('click', (event) => {
+            if (event.target.classList.contains('btn-remove-row')) {
+                event.target.closest('tr').remove();
+                updateRowNumbers();
+                calculateTotal();
+            }
+        });
+
+        // Remove Row
+        $('#product-table').on('click', '.btn-remove-row', function () {
+            table.row($(this).closest('tr')).remove().draw();
+            updateRowNumbers();
+            calculateTotal();
+        });
+
+        function updateRowNumbers() {
+            table.rows().every(function (index) {
+                const row = this.node();
+                $(row).find('.row-number').text(index + 1);
+            });
+        }
+
+        function updateItemDetails(itemInput) {
+            const itemName = itemInput.value;
+            const row = itemInput.closest('tr');
+            const descriptionInput = row.querySelector('input[name="description[]"]');
+            const uomSelect = row.querySelector('select[name="uom[]"]');
+            const unitPriceInput = row.querySelector('input[name="unit_price[]"]');
+
+            const option = Array.from(document.querySelectorAll('#item-list option'))
+                .find(option => option.value === itemName);
+
+            if (option) {
+                descriptionInput.value = option.dataset.description || '';
+                unitPriceInput.value = option.dataset.unit_price || '';
+
+                // Find the matching UOM and set it in the select element
+                const uom = option.dataset.uom || '';
+                uomSelect.value = uom;
+            } else {
+                descriptionInput.value = '';
+                uomSelect.value = '';
+                unitPriceInput.value = '';
+            }
+        }
+
+
+        function calculateTotal() {
+            const rows = document.querySelectorAll('.product-row');
+            let subtotal = 0;
+
+            rows.forEach((row) => {
+                const qty = parseFloat(row.querySelector('.qty').value) || 0;
+                const unitPrice = parseFloat(row.querySelector('.unit-price').value) || 0;
+                const total = row.querySelector('.total');
+
+                total.value = (qty * unitPrice).toFixed(2);
+                subtotal += parseFloat(total.value) || 0;
+            });
+
+            document.getElementById('subtotal').value = subtotal.toFixed(2);
+
+            const tax = parseFloat(document.getElementById('tax').value) || 0;
+            const shipping = parseFloat(document.getElementById('shipping').value) || 0;
+            const other = parseFloat(document.getElementById('other').value) || 0;
+
+            const total = document.getElementById('total');
+            total.value = (subtotal + tax + shipping + other).toFixed(2);
+        }
+
+
+
+        
+    });
+// Recalculate totals on input change
+$('#po-content').on('input', '.qty, .unit-price', calculateTotal);
+        $('#tax, #shipping, #other').on('input', calculateTotal);
+
+        inputs.each(function () {
+        $(this).data('default-value', $(this).val());
+    
+    });
+
+    function submitForm(actionValue) {
+        const form = document.getElementById('po-content');
+        const actionInput = form.querySelector('#action');
+        actionInput.value = actionValue;
+        form.submit();
+    }
+
+    const approveButton = $('.btn-approve');
+    const downloadButton = $('.btn-download');
+    const updateButton = $('.btn-update');
+    const cancelButton = $('.btn-cancel');
+    const partiallyReceivedButton = $('.btn-partially-received');
+    const receivedButton = $('.btn-received');
+    const closeButton = $('.btn-close');
+    const commentField = document.getElementById("payment_terms");
+    const inputs = $('#po-content').find('input, select, textarea, button, checkbox, radio'); // Adjust selectors as needed
+
+    function updateUIBasedOnStatus() {
+        const status = '{{ purchase_order.order_status.name }}'; // Ensure this is properly rendered in your template
+
+        if (status === 'pending') {
+            // Show all buttons if status is 'pending'
+            approveButton.show();
+            downloadButton.show();
+            updateButton.hide(); // Initially hide update button
+            cancelButton.show();
+            partiallyReceivedButton.hide();
+            receivedButton.hide();
+
+            // Enable all inputs
+            inputs.prop('disabled', false);
+            commentField.disabled = false;
+
+        } else if (status === 'progress') {
+            // Show specific buttons if status is 'progress'
+            approveButton.hide();
+            downloadButton.hide();
+            updateButton.hide();
+            cancelButton.show();
+            partiallyReceivedButton.show();
+            receivedButton.show();
+
+            // Disable all inputs
+            inputs.prop('disabled', true);
+            commentField.disabled = false;
+
+        } else if (status === 'partially_received') {
+            // Show specific buttons if status is 'partially received'
+            approveButton.hide();
+            downloadButton.hide();
+            updateButton.hide();
+            cancelButton.show();
+            partiallyReceivedButton.show();
+            receivedButton.show();
+
+            // Disable all inputs
+            inputs.prop('disabled', true);
+            commentField.disabled = false;
+
+        } else if (status === 'received') {
+            // Show specific buttons if status is 'received'
+            approveButton.hide();
+            downloadButton.hide();
+            updateButton.hide();
+            cancelButton.show();
+            partiallyReceivedButton.hide();
+            receivedButton.hide();
+
+            // Disable all inputs
+            inputs.prop('disabled', true);
+
+        } else {
+            // Handle other statuses
+            approveButton.hide();
+            downloadButton.hide();
+            updateButton.hide();
+            cancelButton.hide();
+            closeButton.hide();
+
+            // Disable all inputs
+            inputs.prop('disabled', true);
+        }
+    }
+
+
+
+    // Initial UI setup
+    updateUIBasedOnStatus();
+
+
+
+
+    function handleInputChange() {
+        const status = '{{ purchase_order.order_status.name }}'; // Ensure this is properly rendered in your template
+
+        if (status === 'pending') {
+            // Show the update button if any input is changed
+            const hasChanged = inputs.toArray().some(input => $(input).val() !== $(input).data('default-value'));
+            if (hasChanged) {
+                updateButton.show();
+                approveButton.hide()
+                downloadButton.hide();
+                cancelButton.hide();
+            } else {
+                updateButton.hide();
+            }
+        }
+    }
+
+    // Function to update visibility of rows, buttons, and action column based on order status
+    function updateVisibility(orderStatus) {
+        const dataRows = document.querySelectorAll('.data-row');
+        const addRowButton = document.getElementById('add-row');
+        const removeButtons = document.querySelectorAll('.btn-remove-row');
+        const actionColumns = document.querySelectorAll('th.action-column, td.action-column');
+
+        if (orderStatus === 'pending') {
+            // Show data rows if status is 'pending'
+            dataRows.forEach(row => row.style.display = '');
+
+            // Show add-row button if status is 'pending'
+            addRowButton.classList.remove('hide-element');
+            addRowButton.classList.add('show-element');
+
+            // Show remove buttons
+            removeButtons.forEach(btn => {
+                btn.classList.remove('hide-element');
+                btn.classList.add('show-element');
+            });
+
+            // Show action column
+            actionColumns.forEach(col => col.style.display = '');
+        } else {
+            // Hide data rows for other statuses
+            dataRows.forEach(row => row.style.display = 'none');
+
+            // Hide add-row button for other statuses
+            addRowButton.classList.add('hide-element');
+            addRowButton.classList.remove('show-element');
+
+            // Hide remove buttons
+            removeButtons.forEach(btn => {
+                btn.classList.add('hide-element');
+                btn.classList.remove('show-element');
+            });
+
+            // Hide action column
+            actionColumns.forEach(col => col.style.display = 'none');
+        }
+    }
+
+
+    // Example usage
+    const currentStatus = '{{ purchase_order.order_status.name }}'
+    updateVisibility(currentStatus);
+
+
+
+
+
+
+
+    // // Event listener for input changes
+    // $('#po-content').on('change input', 'input, select, textarea', function () {
+    //     handleInputChange(); // Check if the update button needs to be shown
+    //     calculateTotal();   // Ensure totals are recalculated
+    // });
+
+    // // Recalculate totals on input change
+    // $('#po-content').on('input', '.qty, .unit-price', calculateTotal);
+    // $('#po-content').on('input', '#tax, #shipping, #other', calculateTotal);
+
+    // Set default values for inputs to detect changes
+    // inputs.each(function () {
+    //     $(this).data('default-value', $(this).val());
+    // });
+
+    // Initial state in case inputs have values changed when the page loads
+    handleInputChange();
+
+
+    // Script for handing partial and fully received submissions
+    function showPartialReceivedForm() {
+        document.getElementById('partial-received-form').style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+    }
+
+    function showFullReceivedForm() {
+        document.getElementById('full-received-form').style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+    }
+
+    function hideReceivedForms() {
+        document.getElementById('partial-received-form').style.display = 'none';
+        document.getElementById('full-received-form').style.display = 'none';
+        document.getElementById('overlay').style.display = 'none';
+    }
+
+    function showForm(formId) {
+        document.getElementById('overlay').style.display = 'block';
+        document.getElementById(formId).style.display = 'block';
+    }
+
+    function closeForm(formId) {
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById(formId).style.display = 'none';
+    }
+
+    function closeForms() {
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('partial-received-form').style.display = 'none';
+        document.getElementById('full-received-form').style.display = 'none';
+    }
+
+    document.getElementById('overlay').addEventListener('click', hideReceivedForms);
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === "Escape") {
+            hideReceivedForms();
+        }
+    });
+</script>

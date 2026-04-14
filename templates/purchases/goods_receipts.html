@@ -1,0 +1,821 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div class="header-section">
+        <h1>Goods Receipt Management</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li><a href="{{ url_for('purchases.add_purchase_transaction') }}">Quick Purchase</a></li>
+                    <li><a href="{{ url_for('purchases.purchase_order_management') }}">Purchase Orders</a></li>
+                    {% endif %}
+                    <li><a href="{{ url_for('view_purchase_transactions') }}">Purchase Transactions</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Header buttons and controls -->
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+            <!-- Multi-select button -->
+            <button class="btn button-outline" type="button" id="toggleMultiSelect">
+                <i class="fas fa-check-square"></i> Select
+            </button>
+
+            <!-- Hide button (initially hidden) -->
+            <button class="btn button-outline" type="button" id="hideMultiSelect" style="display: none;">
+                <i class="fas fa-eye-slash"></i> Hide
+            </button>
+
+            <!-- Bulk action buttons (hidden by default) -->
+            <div class="bulk-actions" id="bulkActions" style="gap: 10px; display: none;">
+                <div style="gap: 10px;">
+                    <button class="button-outline" type="button" id="bulkPostToLedger">
+                        <i class="fas fa-book"></i> Post to Ledger
+                    </button>
+
+                </div>
+
+
+
+                <div>
+                    <button class="button-outline" type="button" id="bulkDelete">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{ url_for('purchases.add_purchase_order') }}">Create New PO</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('purchases.add_purchase_transaction') }}">Quick
+                        Purchase</a></li>
+                {% endif %}
+                <li class="shortcut-item"><a href="{{ url_for('purchases.purchase_order_management') }}">Purchase
+                        Orders</a></li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+        <form method="GET" action="{{ url_for('purchases.goods_receipt_management') }}" class="date-filter-form"
+            id="filter-form">
+            <!-- Filter Type Dropdown -->
+            <div class="filter-group">
+                <label for="filter_type" class="filter-label">Filter By</label>
+                <select id="filter_type" name="filter_type" class="form-select">
+                    <option value="receipt_date" {% if request.args.get('filter_type')=='receipt_date' %}selected{%
+                        endif %}>
+                        Receipt Date
+                    </option>
+                    <option value="created_date" {% if request.args.get('filter_type')=='created_date' %}selected{%
+                        endif %}>
+                        Created Date
+                    </option>
+                </select>
+            </div>
+
+            <!-- Start Date Input -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control"
+                    value="{{ request.args.get('start_date', '') }}">
+            </div>
+
+            <!-- End Date Input -->
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control"
+                    value="{{ request.args.get('end_date', '') }}">
+            </div>
+
+            <!-- Status Filter Dropdown -->
+            <div class="filter-group">
+                <label for="status" class="filter-label">Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">All</option>
+                    <option value="posted" {% if request.args.get('status')=='posted' %}selected{% endif %}>Posted to
+                        Ledger</option>
+                    <option value="unposted" {% if request.args.get('status')=='unposted' %}selected{% endif %}>Unposted
+                        to Ledger</option>
+                    <option value="inventory_posted" {% if request.args.get('status')=='inventory_posted' %}selected{%
+                        endif %}>Inventory Posted</option>
+                    <option value="inventory_unposted" {% if request.args.get('status')=='inventory_unposted'
+                        %}selected{% endif %}>Inventory Unposted</option>
+                </select>
+            </div>
+
+            <!-- Source Type Filter -->
+            <div class="filter-group">
+                <label for="source_type" class="filter-label">Source Type</label>
+                <select id="source_type" name="source_type" class="form-select">
+                    <option value="">All</option>
+                    <option value="purchase_order" {% if request.args.get('source_type')=='purchase_order' %}selected{%
+                        endif %}>Purchase Order</option>
+                    <option value="direct_purchase" {% if request.args.get('source_type')=='direct_purchase'
+                        %}selected{% endif %}>Direct Purchase</option>
+                </select>
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="filter-actions">
+                <button type="button" class="filter-section-button filter" id="applyFilter">Apply Filter</button>
+                <button type="button" class="filter-section-button reset" id="resetFilters">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Summary Section -->
+    <div class="summary-container">
+        <!-- Total Goods Receipts -->
+        <div class="summary-item">
+            <i class="fas fa-truck-loading"></i>
+            <h2>Total Goods Receipts</h2>
+            <h1>{{ total_goods_receipts }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar info" style="width: 100%;">100%</div>
+            </div>
+        </div>
+
+        <!-- PO Receipts -->
+        <div class="summary-item">
+            <i class="fas fa-file-purchase"></i>
+            <h2>PO Receipts</h2>
+            <h1>{{ po_receipts }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar primary"
+                    style="width: {% if total_goods_receipts > 0 %}{{ (po_receipts / total_goods_receipts * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_goods_receipts > 0 %}
+                    {{ (po_receipts / total_goods_receipts * 100) | round(2) }}%
+                    {% else %}
+                    0.0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Direct Purchase Receipts -->
+        <div class="summary-item">
+            <i class="fas fa-shopping-cart"></i>
+            <h2>Direct Purchase Receipts</h2>
+            <h1>{{ direct_purchase_receipts }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar success"
+                    style="width: {% if total_goods_receipts > 0 %}{{ (direct_purchase_receipts / total_goods_receipts * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_goods_receipts > 0 %}
+                    {{ (direct_purchase_receipts / total_goods_receipts * 100) | round(2) }}%
+                    {% else %}
+                    0.0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Posted to Ledger -->
+        <div class="summary-item">
+            <i class="fas fa-book"></i>
+            <h2>Posted to Ledger</h2>
+            <h1>{{ posted_to_ledger }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar approved"
+                    style="width: {% if total_goods_receipts > 0 %}{{ (posted_to_ledger / total_goods_receipts * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_goods_receipts > 0 %}
+                    {{ (posted_to_ledger / total_goods_receipts * 100) | round(2) }}%
+                    {% else %}
+                    0.0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Posted -->
+        <div class="summary-item">
+            <i class="fas fa-boxes"></i>
+            <h2>Inventory Posted</h2>
+            <h1>{{ inventory_posted }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar received"
+                    style="width: {% if total_goods_receipts > 0 %}{{ (inventory_posted / total_goods_receipts * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_goods_receipts > 0 %}
+                    {{ (inventory_posted / total_goods_receipts * 100) | round(2) }}%
+                    {% else %}
+                    0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Goods Receipt List Table -->
+    <div class="table-container table-responsive">
+        <div id="loadingSpinner" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+        <table class="goods-receipt-list-table" id="goodsReceiptTable">
+            <thead>
+                <tr>
+                    <th id="selectAllHeader" style="display: none; width: 40px;">
+                        <input type="checkbox" id="selectAll">
+                    </th>
+                    <th>Receipt Number</th>
+                    <th>Source Type</th>
+                    <th>Source Reference</th>
+                    <th>Vendor</th>
+                    <th>Receipt Date</th>
+                    <th>Received By</th>
+                    <th>Quantity Received</th>
+                    <th>Complete Receipt</th>
+                    <th>Ledger Status</th>
+                    <th>Inventory Posted</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for goods_receipt in goods_receipts %}
+                <tr class="status-{% if goods_receipt.is_posted_to_ledger %}posted{% else %}unposted{% endif %}"
+                    data-gr-id="{{ goods_receipt.id }}"
+                    data-has-inventory="{% if goods_receipt.has_inventory_items %}true{% else %}false{% endif %}">
+
+
+                    <td>
+                        <input type="checkbox" class="gr-checkbox" data-gr-id="{{ goods_receipt.id }}">
+                    </td>
+
+                    <td style="width:200px;">{{ goods_receipt.receipt_number }}
+                        {% if not goods_receipt.all_items_posted %}
+                        <span class="badge bg-warning">
+                            Unposted Items
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge 
+                            {% if goods_receipt.source_type == 'purchase_order' %} bg-primary
+                            {% else %} bg-success
+                            {% endif %}">
+                            {{ goods_receipt.source_type | title }}
+                        </span>
+                    </td>
+                    <td>{{ goods_receipt.source_reference }}</td>
+                    <td>{{ goods_receipt.vendor_name }}</td>
+                    <td>{{ goods_receipt.receipt_date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ goods_receipt.received_by }}</td>
+                    <td>{{ "{:,.2f}".format(goods_receipt.quantity_received) if goods_receipt.quantity_received else
+                        "0.00" }}</td>
+                    <td>
+                        <span
+                            class="badge {% if goods_receipt.is_complete_receipt %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ 'Yes' if goods_receipt.is_complete_receipt else 'No' }}
+                        </span>
+                    </td>
+                    <td>
+                        <span
+                            class="badge {% if goods_receipt.is_posted_to_ledger %}bg-success{% else %}bg-warning{% endif %}">
+                            {{ 'Posted' if goods_receipt.is_posted_to_ledger else 'Not Posted' }}
+                        </span>
+                    </td>
+                    <td>
+                        <span
+                            class="badge {% if goods_receipt.inventory_posted %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ 'Yes' if goods_receipt.inventory_posted else 'No' }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="custom-tooltip-container">
+                            {% if goods_receipt.source_type == 'purchase_order' and goods_receipt.purchase_order_id %}
+                            <a href="{{ url_for('purchases.purchase_order_details', purchase_order_id=goods_receipt.purchase_order_id) }}"
+                                class="view-icon">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <span class="custom-tooltip">View Purchase Order</span>
+                            {% elif goods_receipt.source_type == 'direct_purchase' and goods_receipt.direct_purchase_id
+                            %}
+                            <a href="{{ url_for('purchases.direct_purchase_details', direct_purchase_id=goods_receipt.direct_purchase_id) }}"
+                                class="view-icon">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <span class="custom-tooltip">View Direct Purchase</span>
+                            {% else %}
+                            <a href="{{ url_for('purchases.goods_receipt_details', goods_receipt_id=goods_receipt.id) }}"
+                                class="view-icon">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <span class="custom-tooltip">View Receipt Details</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th style="display: none;"></th>
+                    <th><input type="text" placeholder="Search Receipt Number" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Source Type" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Source Reference" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Vendor" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Receipt Date" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Received By" class="column-search"></th>
+                    <th>Total: <span id="totalQuantity">0.00</span></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        let isMultiSelectMode = false;
+        let selectedGRs = new Set();
+
+        const toggleMultiSelectBtn = document.getElementById('toggleMultiSelect');
+        const hideMultiSelectBtn = document.getElementById('hideMultiSelect');
+        const bulkActionsDiv = document.getElementById('bulkActions');
+        const bulkPostToLedgerBtn = document.getElementById('bulkPostToLedger');
+        const bulkDeleteBtn = document.getElementById('bulkDelete');
+        const selectAllHeader = document.getElementById('selectAllHeader');
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const filterButton = document.getElementById('toggleFilterForm');
+        const dashboardShortcuts = document.querySelector('.dashboard-shortcuts');
+
+        /**
+         * Validate if selected GRs can be posted to ledger
+         * Only unposted GRs can be posted
+         */
+        /**
+  * Validate if selected GRs can be posted to ledger
+  * Only unposted GRs can be posted
+  */
+        function validateBulkPostToLedgerSelection(grIds) {
+            let valid = true;
+            let invalidGRs = [];
+
+            grIds.forEach(id => {
+                const row = document.querySelector(`tr[data-gr-id="${id}"]`);
+                if (row) {
+                    // Use column 10 (index 9) for Ledger Status
+                    const ledgerPostedCell = row.querySelector('td:nth-child(9)');
+                    if (ledgerPostedCell && ledgerPostedCell.textContent.includes('Posted')) {
+                        valid = false;
+                        invalidGRs.push(id);
+                    }
+                }
+            });
+
+            return { valid, invalidGRs };
+        }
+
+        /**
+         * Validate if selected GRs can be deleted
+         * Only unposted GRs can be deleted
+         */
+        function validateBulkDeleteSelection(grIds) {
+            // No validation needed - all receipts can be deleted
+            return { valid: true, invalidGRs: [] };
+        }
+
+        function updateMultiSelectUI() {
+            if (isMultiSelectMode) {
+                // Hide other buttons and elements
+                filterButton.style.display = 'none';
+                if (dashboardShortcuts) dashboardShortcuts.style.display = 'none';
+
+                // Show multi-select elements
+                toggleMultiSelectBtn.style.display = 'none';
+                hideMultiSelectBtn.style.display = '';
+
+                // Show checkbox column via DataTables API
+                table.column(0).visible(true);
+
+                // Hide action icons
+                document.querySelectorAll('.action-icons-clean').forEach(el => {
+                    el.style.display = 'none';
+                });
+
+                // Show select all header checkbox
+                selectAllHeader.style.display = '';
+            } else {
+                // Show other buttons and elements
+                filterButton.style.display = '';
+                if (dashboardShortcuts) dashboardShortcuts.style.display = '';
+
+                // Hide multi-select elements
+                toggleMultiSelectBtn.style.display = '';
+                hideMultiSelectBtn.style.display = 'none';
+
+                // Hide checkbox column via DataTables API
+                table.column(0).visible(false);
+
+                // Show action icons
+                document.querySelectorAll('.action-icons-clean').forEach(el => {
+                    el.style.display = 'flex';
+                });
+
+                // Hide checkboxes in existing rows
+                document.querySelectorAll('.gr-checkbox').forEach(cb => {
+                    cb.style.display = 'none';
+                    cb.checked = false; // Uncheck all when hiding
+                });
+
+                // Hide select all header checkbox
+                selectAllHeader.style.display = 'none';
+
+                // Clear selected GRs
+                selectedGRs.clear();
+                selectAllCheckbox.checked = false;
+            }
+
+            // Show/hide bulk actions based on selections
+            updateBulkActionButtons();
+        }
+
+        function updateBulkActionButtons() {
+            const hasSelections = selectedGRs.size > 0;
+
+            // Always show bulk actions in multi-select mode, but disable if no selections
+            if (isMultiSelectMode) {
+                bulkActionsDiv.style.display = 'flex';
+            } else {
+                bulkActionsDiv.style.display = 'none';
+            }
+
+            bulkPostToLedgerBtn.disabled = !hasSelections;
+            bulkDeleteBtn.disabled = !hasSelections;
+
+            if (hasSelections) {
+                bulkPostToLedgerBtn.textContent = `Post to Ledger (${selectedGRs.size})`;
+                bulkDeleteBtn.textContent = `Delete (${selectedGRs.size})`;
+            } else {
+                bulkPostToLedgerBtn.textContent = 'Post to Ledger';
+                bulkDeleteBtn.textContent = 'Delete';
+            }
+        }
+
+        // API functions for bulk operations
+        function postGRsToLedger(grIds) {
+            const numericGRIds = grIds.map(id => parseInt(id));
+
+            fetch('/purchases/bulk_post_goods_receipts_to_ledger', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    gr_ids: numericGRIds
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification(data.message, 'success');
+                        selectedGRs.clear();
+                        isMultiSelectMode = false;
+                        updateMultiSelectUI();
+                        location.reload();
+                    } else {
+                        showNotification(data.message || 'Error posting goods receipts to ledger', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error posting goods receipts to ledger:', err);
+                    showNotification('Error posting goods receipts to ledger', 'error');
+                });
+        }
+
+        function deleteGRs(grIds) {
+            const numericGRIds = grIds.map(id => parseInt(id));
+
+            Swal.fire({
+                title: 'Delete Goods Receipts?',
+                text: `Are you sure you want to permanently delete ${grIds.length} goods receipts? This action cannot be undone.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, delete permanently!',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    cancelButton: 'custom-swal-cancel-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch('/purchases/bulk_delete_goods_receipts', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            gr_ids: numericGRIds
+                        })
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                showNotification(data.message, 'success');
+                                selectedGRs.clear();
+                                isMultiSelectMode = false;
+                                updateMultiSelectUI();
+                                location.reload();
+                            } else {
+                                showNotification(data.message || 'Error deleting goods receipts', 'error');
+                            }
+                        })
+                        .catch(err => {
+                            console.error('Error deleting goods receipts:', err);
+                            showNotification('Error deleting goods receipts', 'error');
+                        });
+                }
+            });
+        }
+
+        // Toggle multi-select mode
+        toggleMultiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = !isMultiSelectMode;
+            updateMultiSelectUI();
+        });
+
+        // Hide multi-select mode
+        hideMultiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = false;
+            selectedGRs.clear();
+            selectAllCheckbox.checked = false;
+            document.querySelectorAll('.gr-checkbox').forEach(cb => {
+                cb.checked = false;
+            });
+            updateMultiSelectUI();
+        });
+
+        // Select all checkbox
+        // Select all checkbox
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.gr-checkbox');
+
+            checkboxes.forEach(checkbox => {
+                const grId = checkbox.getAttribute('data-gr-id');
+                if (e.target.checked) {
+                    checkbox.checked = true;
+                    selectedGRs.add(grId);
+                } else {
+                    checkbox.checked = false;
+                    selectedGRs.delete(grId);
+                }
+            });
+
+            updateBulkActionButtons();
+        });
+
+        // Bulk action handlers
+        bulkPostToLedgerBtn.addEventListener('click', () => {
+            if (selectedGRs.size === 0) return;
+
+            const grIds = Array.from(selectedGRs);
+            const validation = validateBulkPostToLedgerSelection(grIds);
+
+            if (!validation.valid) {
+                Swal.fire({
+                    title: 'Invalid Selection',
+                    text: 'Only goods receipts that are not posted to ledger can be posted.',
+                    icon: 'error',
+                    confirmButtonText: 'OK',
+                    customClass: {
+                        popup: 'custom-swal-popup',
+                        title: 'custom-swal-title',
+                        content: 'custom-swal-content',
+                        confirmButton: 'custom-swal-confirm-btn',
+                        cancelButton: 'custom-swal-cancel-btn',
+                        icon: 'custom-swal-icon'
+                    }
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: 'Post to Ledger?',
+                text: `Are you sure you want to post ${selectedGRs.size} goods receipts to ledger?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, post them!',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    cancelButton: 'custom-swal-cancel-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    postGRsToLedger(grIds);
+                }
+            });
+        });
+
+        bulkDeleteBtn.addEventListener('click', () => {
+            if (selectedGRs.size === 0) return;
+
+            const grIds = Array.from(selectedGRs);
+
+            // Check if any selected receipts are posted to ledger (for warning message only)
+            let hasPostedReceipts = false;
+            grIds.forEach(id => {
+                const row = document.querySelector(`tr[data-gr-id="${id}"]`);
+                if (row) {
+                    const ledgerPostedCell = row.querySelector('td:nth-child(10)'); // Ledger Posted column
+                    if (ledgerPostedCell && ledgerPostedCell.textContent.includes('Posted')) {
+                        hasPostedReceipts = true;
+                    }
+                }
+            });
+
+            let warningText = `Are you sure you want to permanently delete ${grIds.length} goods receipt${grIds.length > 1 ? 's' : ''}? This action cannot be undone.`;
+
+            if (hasPostedReceipts) {
+                warningText = `Are you sure you want to permanently delete ${grIds.length} goods receipt${grIds.length > 1 ? 's' : ''}? This action cannot be undone.
+        
+        <div style="color: #e74c3c; font-size: 0.9em; margin-top: 10px;">
+            WARNING: Some selected receipts have been posted to ledger. Deleting them will reverse all ledger entries and inventory adjustments.
+        </div>`;
+            }
+
+            Swal.fire({
+                title: `Delete Goods Receipt${grIds.length > 1 ? 's' : ''}?`,
+                html: warningText, // Changed from 'text' to 'html'
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: `Yes, delete ${grIds.length > 1 ? 'them' : 'it'}!`,
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    cancelButton: 'custom-swal-cancel-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    deleteGRs(grIds);
+                }
+            });
+        });
+
+        // Add event listeners to checkboxes
+        // Add event listeners to checkboxes
+        document.addEventListener('change', function (e) {
+            if (e.target.classList.contains('gr-checkbox')) {
+                const grId = e.target.getAttribute('data-gr-id');
+
+                if (e.target.checked) {
+                    selectedGRs.add(grId);
+                } else {
+                    selectedGRs.delete(grId);
+                    selectAllCheckbox.checked = false;
+                }
+
+                updateBulkActionButtons();
+            }
+        });
+        // Initialize DataTables
+        // Initialize DataTables
+        var table = $('#goodsReceiptTable').DataTable({
+            "paging": true,
+            "ordering": true,
+            "info": true,
+            "searching": true,
+            "order": [[5, "desc"]],
+            "columnDefs": [
+                { "orderable": false, "targets": [0, 11] },
+                { "visible": false, "targets": [0] }
+            ],
+            "initComplete": function () {
+                $('#loadingSpinner').hide();
+            },
+            "drawCallback": function () {
+                // Re-attach event listeners after DataTables redraws
+                document.querySelectorAll('.gr-checkbox').forEach(checkbox => {
+                    checkbox.addEventListener('change', function (e) {
+                        const grId = this.getAttribute('data-gr-id');
+
+                        if (this.checked) {
+                            selectedGRs.add(grId);
+                        } else {
+                            selectedGRs.delete(grId);
+                            selectAllCheckbox.checked = false;
+                        }
+
+                        updateBulkActionButtons();
+                    });
+                });
+            },
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                function formatNumber(num) {
+                    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+
+                var intVal = function (i) {
+                    return typeof i === 'string' ? i.replace(/[^0-9.-]+/g, '') * 1 : typeof i === 'number' ? i : 0;
+                };
+
+                // Total Quantity (column 7)
+                var totalQuantity = api.column(7, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                $('#totalQuantity').text(formatNumber(totalQuantity));
+            }
+        });
+        // Apply search for each column
+        $('#goodsReceiptTable tfoot th').each(function (index) {
+            if (index > 0 && index < 11) { // Exclude checkbox and actions columns
+                $('input', this).on('keyup change clear', function () {
+                    if (table.column(index).search() !== this.value) {
+                        table.column(index).search(this.value).draw();
+                    }
+                });
+            }
+        });
+
+        // Apply filter button
+        document.getElementById('applyFilter').addEventListener('click', function () {
+            // Get all form values
+            const filterType = document.getElementById('filter_type').value;
+            const startDate = document.getElementById('start_date').value;
+            const endDate = document.getElementById('end_date').value;
+            const status = document.getElementById('status').value;
+            const sourceType = document.getElementById('source_type').value;
+
+            // Build URL with query parameters
+            const url = new URL(window.location.href);
+            const params = new URLSearchParams();
+
+            if (filterType) params.append('filter_type', filterType);
+            if (startDate) params.append('start_date', startDate);
+            if (endDate) params.append('end_date', endDate);
+            if (status) params.append('status', status);
+            if (sourceType) params.append('source_type', sourceType);
+
+            // Update URL and redirect
+            url.search = params.toString();
+            window.location.href = url.toString();
+        });
+
+        // Reset filters button
+        document.getElementById('resetFilters').addEventListener('click', function () {
+            // Clear all form fields
+            document.getElementById('filter_type').value = 'receipt_date';
+            document.getElementById('start_date').value = '';
+            document.getElementById('end_date').value = '';
+            document.getElementById('status').value = '';
+            document.getElementById('source_type').value = '';
+
+            // Remove query parameters and redirect
+            const url = new URL(window.location.href);
+            url.search = '';
+            window.location.href = url.toString();
+        });
+
+        // Toggle the filter section visibility with animation
+        document.getElementById('toggleFilterForm').addEventListener('click', function () {
+            const filterSection = document.getElementById('filter-section');
+            filterSection.classList.toggle('visible');
+        });
+    });
+</script>
+{% endblock %}

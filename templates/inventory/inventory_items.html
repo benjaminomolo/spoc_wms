@@ -1,0 +1,1094 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Inventory Items</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Supervisor' or role == 'Viewer' %}
+                    <li><a href="{{ url_for('inventory.add_new_inventory_item') }}">Add Item</a></li>
+                    {% endif %}
+
+                    {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
+                    <li><a href="{{ url_for('inventory.inventory_entry') }}">Add Inventory Entry</a></li>
+                    {% endif %}
+
+                    <li><a href="{{ url_for('inventory.stock_list_grid') }}">Stock Grid</a></li>
+                    <li><a href="{{ url_for('inventory.stock_list_list') }}">Stock List</a></li>
+                    <li><a href="{{ url_for('inventory.stock_movement_history') }}">Stock Movement History</a></li>
+
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li><a href="{{ url_for('inventory.manage_categories_subcategories') }}">Manage Categories</a></li>
+                    <li><a href="{{ url_for('inventory.manage_brands') }}">Manage Brands</a></li>
+                    <li><a href="{{ url_for('inventory.manage_uoms') }}">Manage UOMs</a></li>
+                    {% endif %}
+
+                    {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
+                    <li><a href="{{ url_for('inventory.manage_attributes_variations') }}">Manage Variations</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+
+
+        <!-- Header buttons and controls -->
+        <div class="header-buttons">
+
+
+
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+            <!-- Status filter toggle -->
+            <div class="form-check form-switch ms-3">
+                <input class="form-check-input" type="checkbox" id="showDiscontinued" checked>
+                <label class="form-check-label" for="showDiscontinued">Show Active Only</label>
+            </div>
+
+        </div>
+
+        <!-- Navigation Shortcuts -->
+        <nav aria-label="inventory-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" onclick="toggleDropdown(event)">
+                        <span>Manage </span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('inventory.manage_categories_subcategories') }}">Categories</a>
+                            <a href="{{ url_for('inventory.manage_brands') }}">Brands</a>
+                            <a href="{{ url_for('inventory.manage_uoms') }}">UOM</a>
+                            <a href="{{ url_for('inventory.manage_attributes_variations') }}">Attributes</a>
+                            <a href="{{ url_for('inventory.manage_attributes_variations') }}">Variations</a>
+                        </div>
+
+                    </div>
+                </li>
+                {% endif %}
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{ url_for('inventory.add_new_inventory_item') }}">Add Item</a></li>
+                {% endif %}
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section" id="filter-section">
+        <form class="date-filter-form" id="filter-form">
+            <!-- Category Filter -->
+            <div class="filter-group">
+                <label for="category" class="filter-label">Category</label>
+                <select id="category" name="category" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.category_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Subcategory Filter -->
+            <div class="filter-group">
+                <label for="subcategory" class="filter-label">Subcategory</label>
+                <select id="subcategory" name="subcategory" class="form-select">
+                    <option value="">All Subcategories</option>
+                    {% for subcategory in subcategories %}
+                    <option value="{{ subcategory.id }}">{{ subcategory.subcategory_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Brand Filter -->
+            <div class="filter-group">
+                <label for="brand" class="filter-label">Brand</label>
+                <select id="brand" name="brand" class="form-select">
+                    <option value="">All Brands</option>
+                    {% for brand in brands %}
+                    <option value="{{ brand.id }}">{{ brand.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Status Filter -->
+            <div class="filter-group">
+                <label for="status" class="filter-label">Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="active">Active</option>
+                    <option value="discontinued">Discontinued</option>
+                    <option value="all">All</option>
+                </select>
+            </div>
+
+            <!-- Items Per Page -->
+            <div class="filter-group">
+                <label for="per_page" class="filter-label">Items Per Page</label>
+                <select id="per_page" name="per_page" class="form-select">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
+
+            <div class="filter-group search-description-input">
+                <label for="description_search" class="filter-label">Search in Name, Code & Description</label>
+                <input type="text" id="description_search" name="description_search" class="form-control"
+                    placeholder="🔍 Search item name, code or description..." value="">
+            </div>
+
+
+            <!-- Sort By -->
+            <div class="filter-group">
+                <label for="sort_by" class="filter-label">Sort By</label>
+                <select id="sort_by" name="sort_by" class="form-select">
+                    <option value="item_name">Item Name</option>
+                    <option value="item_code">Item Code</option>
+                    <option value="category">Category</option>
+                    <option value="total_quantity">Quantity</option>
+                    <option value="status">Status</option>
+                </select>
+            </div>
+
+            <!-- Sort Order -->
+            <div class="filter-group">
+                <label for="sort_order" class="filter-label">Sort Order</label>
+                <select id="sort_order" name="sort_order" class="form-select">
+                    <option value="asc">Ascending (A-Z)</option>
+                    <option value="desc">Descending (Z-A)</option>
+                </select>
+            </div>
+
+
+
+
+
+            <div class="filter-actions">
+                <button type="button" class="filter-section-button filter" id="applyFilter">Apply Filter</button>
+                <button type="button" class="filter-section-button reset" id="resetFilters">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Inventory Items Table -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" id="inventoryItemsTable">
+            <thead class="table-light">
+                <tr>
+                    <th>Item Name</th>
+                    <th>Item Code</th>
+                    <th>Category</th>
+                    <th>Subcategory</th>
+                    <th>Brand</th>
+                    <th class="text-center">Quantity</th>
+                    <th>UOM</th>
+                    <th class="text-center">Variations</th>
+                    <th class="text-center">Status</th>
+                    <th class="text-center">Accounting</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="inventoryItemsBody">
+                <!-- Content loaded via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <nav>
+        <ul class="pagination" id="pagination"></ul>
+        <div id="paginationInfo" class="mt-2"></div>
+    </nav>
+</div>
+
+<!-- Item Details Modal -->
+<!-- Accounting Information Modal -->
+<div class="modal fade" id="itemDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title" id="itemDetailsModalTitle">
+                    <i class="fas fa-coins me-2"></i>Accounting Information
+                </h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close"> <i
+                        class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" id="itemDetailsModalBody">
+                <!-- Content loaded via JavaScript -->
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="button remove-button" data-bs-dismiss="modal">
+                    Close
+                </button>
+                <button type="button" class="button cta-button" id="editAccountingBtn">
+                    <i class="fas fa-edit me-1"></i>Edit Accounting
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .accounting-card {
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1rem;
+        background: var(--white);
+        border: 1px solid var(--border-color);
+    }
+
+    .accounting-card .card-header h6 {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--highlight-color) 100%);
+        color: var(--white);
+        border-radius: 8px 8px 0 0;
+        padding: 0.875rem 1rem;
+        font-weight: 600;
+        font-size: var(--font-size-normal);
+        margin-bottom: -10px;
+    }
+
+    .account-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .info-item {
+        padding: 1rem;
+        background: var(--white);
+        border-radius: 8px;
+        border-left: 2px solid var(--primary-color);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .info-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .info-item h6 {
+        font-size: var(--font-size-small);
+        color: var(--text-lighter);
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .info-item p {
+        margin: 0;
+        font-weight: 500;
+        color: var(--text-color);
+        font-size: var(--font-size-normal);
+    }
+
+    .account-badge {
+        font-size: var(--font-size-small);
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+
+    .financial-metrics {
+        background: linear-gradient(135deg, var(--white) 0%, var(--body-bg-color) 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border: 1px solid var(--border-color);
+    }
+
+    .metric-item {
+        text-align: center;
+        padding: 1rem;
+        border-right: 1px solid var(--border-color);
+    }
+
+    .metric-item:last-child {
+        border-right: none;
+    }
+
+    .metric-value {
+
+        font-weight: 500;
+        color: var(--primary-color);
+        font-size: var(--font-size-large);
+    }
+
+    .metric-label {
+        font-size: var(--font-size-small);
+        color: var(--text-lighter);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+    }
+
+
+
+
+
+
+
+    /* Modal specific styles */
+    .modal-accounting-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-accounting-header {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--highlight-color) 100%);
+        color: var(--white);
+        border-radius: 12px 12px 0 0;
+        padding: 1.25rem 1.5rem;
+        border: none;
+    }
+
+    .modal-accounting-title {
+        font-weight: 600;
+        font-size: var(--font-size-xlarge);
+    }
+
+    .modal-accounting-body {
+        padding: 1.5rem;
+        background: var(--white);
+    }
+
+    .modal-accounting-footer {
+        background: var(--body-bg-color);
+        border-top: 1px solid var(--border-color);
+        border-radius: 0 0 12px 12px;
+        padding: 1rem 1.5rem;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .account-info-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .financial-metrics .row {
+            flex-direction: column;
+        }
+
+        .metric-item {
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem;
+        }
+
+        .metric-item:last-child {
+            border-bottom: none;
+        }
+    }
+
+    /* Animation for modal appearance */
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .modal-accounting-content {
+        animation: modalSlideIn 0.3s ease-out;
+    }
+</style>
+
+
+
+<script>
+
+    const baseCurrency = "{{ company.base_currency.user_currency }}";
+    document.addEventListener('DOMContentLoaded', function () {
+        let currentPage = 1;
+        let perPage = 20;
+        let statusFilter = 'active';
+        let categoryId = '';
+        let subcategoryId = '';
+        let brandId = '';
+        let description_search = '';
+        let sortBy = 'item_name';     // ADD THIS
+        let sortOrder = 'asc';
+        let currentPagination = {};
+
+
+        const inventoryItemsBody = document.getElementById('inventoryItemsBody');
+        const paginationElement = document.getElementById('pagination');
+        const paginationInfoElement = document.getElementById('paginationInfo');
+        const applyFilterBtn = document.getElementById('applyFilter');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+        const showDiscontinuedToggle = document.getElementById('showDiscontinued');
+
+        // Load inventory items
+        function loadInventoryItems() {
+            setLoadingState(true);
+
+            const columnCount = 11; // Number of columns in the table
+            inventoryItemsBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center py-3">Loading inventory items...</td></tr>`;
+
+            const params = new URLSearchParams({
+                page: currentPage,
+                per_page: perPage,
+                status: statusFilter,
+                category_id: categoryId,
+                subcategory_id: subcategoryId,
+                brand_id: brandId,
+                description_search: description_search,
+                sort_by: sortBy,        // ADD THIS
+                sort_order: sortOrder
+            });
+
+            fetch(`/inventory/api/inventory_items?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderInventoryItems(data.items);
+                        renderPagination(data.pagination);
+                    } else {
+                        inventoryItemsBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center text-danger py-3">${data.message}</td></tr>`;
+                    }
+                    setLoadingState(false);
+                })
+                .catch(err => {
+                    inventoryItemsBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center text-danger py-3">Error loading inventory items</td></tr>`;
+                    console.error(err);
+                    setLoadingState(false);
+                });
+        }
+
+        // Render inventory items
+        // Render inventory items
+        function renderInventoryItems(items) {
+            if (items.length === 0) {
+                inventoryItemsBody.innerHTML = `<tr><td colspan="11" class="text-center py-3">No inventory items found</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            items.forEach(item => {
+                const statusClass = item.status === 'active' ? 'bg-success' : 'bg-secondary';
+                const statusText = item.status === 'active' ? 'Active' : 'Discontinued';
+
+                // Determine quantity class based on value
+                const quantity = item.total_quantity || 0;
+                const quantityClass = quantity > 0 ? 'positive-color' :
+                    quantity < 0 ? 'negative-color' : 'zero-color';
+
+                html += `
+        <tr>
+            <td>
+                <div class="d-flex align-items-center">
+                    ${item.image_filename ?
+                        `<img src="{{ url_for('serve_inventory_file', filename='') }}${item.image_filename}" 
+                              alt="${item.item_name}" class="item-thumbnail me-2">` :
+                        `<div class="item-thumbnail-placeholder me-2"><i class="fas fa-box"></i></div>`
+                    }
+                    <span>${item.item_name}</span>
+                </div>
+            </td>
+            <td>${item.item_code || '-'}</td>
+            <td>${item.category?.name || '-'}</td>
+            <td>${item.subcategory?.name || '-'}</td>
+            <td>${item.brand?.name || '-'}</td>
+           <td class="text-center">
+                <span  class=" ${quantityClass}">${quantity}</span>
+            </td>
+            <td>${item.uom?.abbreviation || item.uom?.name || '-'}</td>
+            <td class="text-center">
+                <span class="badge bg-info">${item.attributes_variations_count}</span>
+            </td>
+
+            <td class="text-center">
+                <span class="badge ${statusClass}">${statusText}</span>
+            </td>
+            <td class="text-center">
+
+                   <div class="custom-tooltip-container">
+                          <button class="button-outline" onclick="showAccountingInfo(${item.id})">
+                    <i class="fas fa-coins"></i>
+                </button>
+                        <div class="custom-tooltip">View Accounting Details</div>
+                    </div>
+
+             
+            </td>
+
+            
+            <td class="text-center">
+                <div class="action-icons-clean">
+                    <!-- View -->
+                    <div class="custom-tooltip-container">
+                        <a href="/inventory/inventory_item/${item.id}">
+                            <i class="fa fa-eye view-icon"></i>
+                        </a>
+                        <div class="custom-tooltip">View Details</div>
+                    </div>
+
+                    <!-- Discontinue -->
+                    ${item.status === 'active' ? `
+                    <div class="custom-tooltip-container">
+                        <a href="#" onclick="discontinueItem(${item.id})">
+                            <i class="fas fa-ban delete-icon"></i>
+                        </a>
+                        <div class="custom-tooltip left">Discontinue</div>
+                    </div>
+                    ` : `
+                    <!-- Reactivate -->
+                    <div class="custom-tooltip-container">
+                        <a href="#" onclick="reactivateItem(${item.id})">
+                            <i class="fas fa-check-circle edit-icon"></i>
+                        </a>
+                        <div class="custom-tooltip left">Reactivate</div>
+                    </div>
+                    `}
+
+
+                    ${(item.status === 'discontinued' && (item.total_quantity || 0) === 0) ? `
+                    <div class="custom-tooltip-container">
+                        <a href="#" onclick="deleteItem(${item.id})">
+                            <i class="fas fa-trash-alt delete-icon"></i>
+                        </a>
+                        <div class="custom-tooltip left">Delete Permanently</div>
+                    </div>
+                    ` : ''}
+
+                </div>
+            </td>
+        </tr>
+        `;
+            });
+
+            inventoryItemsBody.innerHTML = html;
+        }
+
+        // Pagination functions (similar to your existing implementation)
+        function renderPagination(pagination) {
+            const { page, per_page, total_pages, total_items, has_next, has_prev } = pagination;
+            paginationInfoElement.textContent = `Showing ${(page - 1) * per_page + 1} to ${Math.min(page * per_page, total_items)} of ${total_items} items`;
+
+            let html = '';
+
+            // Previous button
+            if (has_prev) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page - 1}">‹ Previous</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">‹ Previous</a></li>`;
+            }
+
+            // Page numbers
+            const maxVisiblePages = 7;
+            let startPage = Math.max(1, page - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(total_pages, startPage + maxVisiblePages - 1);
+
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<li class="page-item ${i === page ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+            }
+
+            // Next button
+            if (has_next) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page + 1}">Next ›</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">Next ›</a></li>`;
+            }
+
+            paginationElement.innerHTML = html;
+
+            // Add event listeners
+            document.querySelectorAll('.page-link[data-page]').forEach(el => {
+                el.addEventListener('click', e => {
+                    e.preventDefault();
+                    currentPage = parseInt(el.getAttribute('data-page'));
+                    loadInventoryItems();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            });
+        }
+
+
+        function setLoadingState(loading) {
+            const applyBtn = document.getElementById("applyFilter");
+            const resetBtn = document.getElementById("resetFilters");
+
+            if (loading) {
+                applyBtn.disabled = true;
+                resetBtn.disabled = true;
+                applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            } else {
+                applyBtn.disabled = false;
+                resetBtn.disabled = false;
+                applyBtn.innerHTML = "Apply Filter";
+            }
+        }
+
+        // Event listeners
+        applyFilterBtn.addEventListener('click', () => {
+            currentPage = 1;
+            categoryId = document.getElementById('category').value;
+            subcategoryId = document.getElementById('subcategory').value;
+            brandId = document.getElementById('brand').value;
+            description_search = document.getElementById('description_search').value.trim(); // Fix variable name
+            statusFilter = document.getElementById('status').value;
+            perPage = parseInt(document.getElementById('per_page').value);
+            sortBy = document.getElementById('sort_by').value;        // ADD THIS
+            sortOrder = document.getElementById('sort_order').value;
+
+            loadInventoryItems();
+        });
+
+        resetFiltersBtn.addEventListener('click', () => {
+            document.getElementById('filter-form').reset();
+            currentPage = 1;
+            categoryId = '';
+            subcategoryId = '';
+            brandId = '';
+            statusFilter = 'active';
+            perPage = '20';
+            description_search = '';
+            sortBy = 'item_name';        // ADD THIS
+            sortOrder = 'asc';
+            loadInventoryItems();
+        });
+
+        showDiscontinuedToggle.addEventListener('change', () => {
+            statusFilter = showDiscontinuedToggle.checked ? 'active' : 'all';
+            currentPage = 1;
+            loadInventoryItems();
+        });
+
+        document.getElementById('toggleFilterForm').addEventListener('click', () => {
+            document.getElementById('filter-section').classList.toggle('visible');
+        });
+
+
+        // Initialize
+        loadInventoryItems();
+    });
+
+
+
+    // Move this function outside the DOMContentLoaded event
+    function deleteItem(itemId) {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "This will permanently delete the item! This action cannot be undone.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, delete it!',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch("{{ url_for('inventory.delete_item') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ item_id: itemId }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('Item deleted successfully', 'success');
+                            location.reload();
+                        } else {
+                            showNotification(data.error || 'Error deleting item', 'error');
+                        }
+                    })
+                    .catch(err => {
+                        showNotification('Error deleting item', 'error');
+                    });
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // ... your existing DOMContentLoaded code ...
+
+        // Remove the deleteItem function from inside here
+    });
+
+
+    // Global functions for item actions
+    function discontinueItem(itemId) {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, discontinue it!',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch("{{ url_for('inventory.discontinue_item') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ item_id: itemId }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Response data:', data);  // Debugging line
+                        if (data.success) {
+                            showNotification('Item discontinued successfully', 'success');
+                            location.reload();
+                        } else {
+                            showNotification(data.error || 'Error discontinuing item', 'error');
+                        }
+                    })
+                    .catch(err => {
+                        showNotification('Error discontinuing item', 'error');
+                    });
+            }
+        });
+    }
+
+
+
+
+    function reactivateItem(itemId) {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "This will reactivate the item.",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, reactivate it!',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch("{{ url_for('inventory.reactivate_item') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ item_id: itemId }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('Item reactivated successfully', 'success');
+                            location.reload();
+                        } else {
+                            showNotification(data.message || 'Error reactivating item', 'error');
+                        }
+                    })
+                    .catch(err => {
+                        showNotification('Error reactivating item', 'error');
+                    });
+            }
+        });
+    }
+
+    function showAccountingInfo(itemId) {
+        fetch(`/inventory/api/inventory_items/${itemId}?include_prices=true`)
+
+
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const item = data.item;
+                    const modalBody = document.getElementById('itemDetailsModalBody');
+                    const modalTitle = document.getElementById('itemDetailsModalTitle');
+
+                    modalTitle.innerHTML = `<i class="fas fa-coins me-2"></i>Accounting - ${item.item_name}`;
+                    console.log('data is ', data)
+                    // Format currency function
+                    const formatCurrency = (amount) => {
+                        if (amount === null || amount === undefined) return 'N/A';
+                        return new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: item.financial_metrics.currency?.code || 'USD',
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 6
+                        }).format(amount);
+                    };
+
+                    modalBody.innerHTML = `
+                <div class="row">
+                    <!-- Item Header -->
+                    <div class="col-12 mb-4">
+                        <div class="d-flex align-items-center">
+                            ${item.image_filename ?
+                            `<img src="{{ url_for('serve_inventory_file', filename='') }}${item.image_filename}" 
+                                      alt="${item.item_name}" class="rounded me-3" style="width: 60px; height: 60px; object-fit: cover;">` :
+                            `<div class="bg-light rounded d-flex align-items-center justify-content-center me-3" 
+                                      style="width: 60px; height: 60px;">
+                                    <i class="fas fa-box text-muted fs-4"></i>
+                                 </div>`
+                        }
+                            <div class="flex-grow-1">
+                                <h4 class="mb-1">${item.item_name}</h4>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <span class="badge bg-primary">${item.item_code || 'No code'}</span>
+                                    <span class="badge bg-secondary">Category: ${item.category?.name || 'No category'}</span>
+                                    <span class="badge bg-info">${item.attributes_variations_count || 0} variations</span>
+                                    <span class="badge ${item.status === 'active' ? 'bg-success' : 'bg-secondary'}">
+                                        ${item.status === 'active' ? 'Active' : 'Discontinued'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Metrics -->
+                <div class="financial-metrics">
+                    <div class="row text-center">
+                        <div class="col-3 metric-item">
+                            <div class="metric-value">${item.financial_metrics.total_quantity || 0}</div>
+                            <div class="metric-label">Total Stock</div>
+                        </div>
+                        <div class="col-3 metric-item hidden">
+                            <div class="metric-value">${item.financial_metrics.average_cost}</div>
+                            <div class="metric-label">Avg. Cost (${baseCurrency})</div>
+                        </div>
+                        <div class="col-3 metric-item">
+                            <div class="metric-value">${item.financial_metrics.last_purchase_price}</div>
+                            <div class="metric-label">Last Purchase Unit Cost (${baseCurrency})</div>
+                        </div>
+                        <div class="col-3 metric-item">
+                            <div class="metric-value">${item.financial_metrics.total_value}</div>
+                            <div class="metric-label">Computed Value (${baseCurrency})</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Accounting Accounts Grid -->
+                <div class="account-info-grid">
+                    <!-- COGS Account -->
+                    <div class="info-item">
+                        <h6><i class="fas fa-money-bill-wave me-1"></i>COGS Account</h6>
+                        <p class="mb-1">${item.accounting?.cogs_account?.name || 'Not set'}</p>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <span class="badge bg-secondary">${item.accounting?.cogs_account?.code || 'N/A'}</span>
+                            <span class="badge bg-danger">Expense</span>
+                        </div>
+                    </div>
+
+                    <!-- Asset Account -->
+                    <div class="info-item">
+                        <h6><i class="fas fa-warehouse me-1"></i>Asset Account</h6>
+                        <p class="mb-1">${item.accounting?.asset_account?.name || 'Not set'}</p>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <span class="badge bg-secondary">${item.accounting?.asset_account?.code || 'N/A'}</span>
+                            <span class="badge bg-info">Asset</span>
+                        </div>
+                    </div>
+
+                    <!-- Sales Account -->
+                    <div class="info-item">
+                        <h6><i class="fas fa-chart-line me-1"></i>Sales Account</h6>
+                        <p class="mb-1">${item.accounting?.sales_account?.name || 'Not set'}</p>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <span class="badge bg-secondary">${item.accounting?.sales_account?.code || 'N/A'}</span>
+                            <span class="badge bg-success">Revenue</span>
+                        </div>
+                    </div>
+
+                    <!-- UOM Information -->
+                    <div class="info-item">
+                        <h6><i class="fas fa-weight me-1"></i>Unit of Measurement</h6>
+                        <p class="mb-1">${item.uom?.name || 'Not set'}</p>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <span class="badge bg-secondary">${item.uom?.abbreviation || 'N/A'}</span>
+                            <span class="badge bg-primary">Measurement</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stock by Location -->
+                   <!-- Variation Details Table -->
+${item.attributes_variations && item.attributes_variations.length > 0 ? `
+<div class="card accounting-card mt-3">
+    <div class="card-header">
+        <h6 class="mb-0"><i class="fas fa-cubes me-1"></i>Variation Details</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>Attribute</th>
+                        <th>Variation</th>
+                        <th class="text-end">Quantity</th>
+                        <th class="text-end">Avg. Cost (${baseCurrency})</th>
+                        <th class="text-end">Value</th>
+                        <th>Selling Prices</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${item.attributes_variations.map(variation => `
+                        <tr>
+                            <td>${variation.attribute?.name || 'N/A'}</td>
+                            <td>${variation.variation?.name || 'N/A'}</td>
+                            <td class="text-end">${variation.quantity || 0}</td>
+                            <td class="text-end">${variation.average_cost}</td>
+                            <td class="text-end fw-bold">${variation.total_value}</td>
+                            <td>
+                                ${variation.selling_prices && variation.selling_prices.length > 0 ? `
+                                    <div class="d-flex flex-wrap gap-1">
+                                        ${variation.selling_prices.map(price => `
+                                            <span class="badge bg-info text-dark p-1">
+                                                ${formatCurrency(price.selling_price)} 
+                                                <small>(${price.customer_group_name || 'All Customers'})</small>
+                                                ${price.min_quantity ? '- Min: ' + price.min_quantity : ''}
+                                                ${price.max_quantity ? ', Max: ' + price.max_quantity : ''}
+                                            </span>
+                                        `).join('')}
+                                    </div>
+                                ` : '<span class="text-muted">N/A</span>'}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+` : ''}
+
+                <!-- Additional Information -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="card accounting-card">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="fas fa-info-circle me-1"></i>Additional Info</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-2">
+                                    <small class="text-muted">Category:</small>
+                                    <p class="mb-0">${item.category?.name || '-'}</p>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Subcategory:</small>
+                                    <p class="mb-0">${item.subcategory?.name || '-'}</p>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Brand:</small>
+                                    <p class="mb-0">${item.brand?.name || '-'}</p>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Reorder Level:</small>
+                                    <p class="mb-0">${item.reorder_level || 'Not set'}</p>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Status:</small>
+                                    <p class="mb-0">
+                                        <span class="badge ${item.status === 'active' ? 'bg-success' : 'bg-secondary'}">
+                                            ${item.status === 'active' ? 'Active' : 'Discontinued'}
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card accounting-card">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="fas fa-cubes me-1"></i>Inventory Details</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-2">
+                                    <small class="text-muted">Variations:</small>
+                                    <p class="mb-0">
+                                        <span class="badge bg-info">${item.attributes_variations_count || 0} variations</span>
+                                    </p>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Item Code:</small>
+                                    <p class="mb-0">${item.item_code || 'Not set'}</p>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Created:</small>
+                                    <p class="mb-0">${item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Last Updated:</small>
+                                    <p class="mb-0">${item.updated_at ? new Date(item.updated_at).toLocaleDateString() : 'N/A'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Currency Information -->
+                <div class="text-center mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-exchange-alt me-1"></i>
+                        All values in ${item.financial_metrics.currency?.code || 'USD'}
+                    </small>
+                </div>
+                `;
+
+                    // Add event listener for edit button
+                    document.getElementById('editAccountingBtn').onclick = function () {
+                        window.location.href = `/inventory/inventory_item/${itemId}#accounting`;
+                    };
+
+                    new bootstrap.Modal(document.getElementById('itemDetailsModal')).show();
+                } else {
+                    showNotification('Error loading accounting information', 'error');
+                }
+            })
+            .catch(err => {
+                showNotification('Error loading accounting information', 'error');
+                console.error('Error:', err);
+            });
+    }
+
+
+
+</script>
+
+
+
+{% endblock %}

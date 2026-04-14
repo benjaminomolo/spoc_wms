@@ -1,0 +1,2061 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .invoice-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+    }
+
+    .company-logo img {
+        max-width: 150px;
+        height: auto;
+    }
+
+    .company-logo h2 {
+        font-size: 24px;
+        color: #2c3e50;
+        margin-top: 10px;
+    }
+
+    .invoice-meta h1 {
+        font-size: 28px;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    .invoice-meta p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .status {
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        color: #fff;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    .status.draft {
+        background: #f0ad4e;
+    }
+
+    .status.unpaid {
+        background: #00b5b8;
+    }
+
+    .status.partially_paid {
+        background: #5cb85c;
+    }
+
+    .status.paid {
+        background: #5cb85c;
+    }
+
+    .status.canceled {
+        background: #d9534f;
+    }
+
+    .status.full {
+        background: #5cb85c;
+        /* Green for full payments */
+    }
+
+    .status.partial {
+        background: #f0ad4e;
+        /* Orange for partial payments */
+    }
+
+    .status.refund {
+        background: #d9534f;
+        /* Red for refunds */
+    }
+
+
+    .invoice-customer {
+        margin-bottom: 20px;
+    }
+
+    .invoice-customer h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin: 0 0 10px;
+    }
+
+    .invoice-customer p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .terms-and-conditions {
+        margin-top: 20px;
+    }
+
+    .terms-and-conditions h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin-bottom: 10px;
+    }
+
+    .terms-and-conditions p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f9f9f9;
+        font-weight: bold;
+        color: #333;
+        font-weight: 600;
+    }
+
+    td {
+        color: #222;
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    .numeric {
+        text-align: right;
+        color: #222;
+    }
+
+    .grande {
+        font-weight: 600;
+        font-size: 1.2rem;
+    }
+
+    .invoice-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+    textarea {
+        width: 200px;
+        padding: 10px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+        resize: vertical;
+    }
+
+    textarea:focus {
+        outline: none;
+        border-color: #0275d8;
+    }
+
+    select {
+        padding: 2px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+    }
+
+    table {
+        border: none;
+    }
+
+    table tr:hover {
+        background-color: white;
+    }
+
+    table td,
+    table th {
+        border: none !important;
+        background-color: transparent !important;
+    }
+
+    table th {
+        border: 1px solid #ddd !important;
+        background: #f9f9f9 !important;
+    }
+
+    table td:nth-last-child(1),
+    table td:nth-last-child(2),
+    table th:nth-last-child(1),
+    table th:nth-last-child(2) {
+        border: 1px solid #ddd !important;
+    }
+
+    table tbody tr td {
+        border: 1px solid #ddd !important;
+    }
+
+    tr:nth-child(even) {
+        background: white;
+    }
+
+    .totals-row td {
+        text-align: right;
+    }
+
+    .totals-row td {
+        font-weight: 600;
+    }
+
+    .totals-row td:nth-last-child(1) {
+        background-color: #f9f9f9 !important;
+    }
+
+    .totals-row td:nth-last-child(2) {
+        border: none !important;
+    }
+
+    .grande {
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+
+    /* Add new styles for account sections */
+    .account-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-left: 2px solid #007bff;
+    }
+</style>
+
+<div class="content-container">
+    <div class="invoice-header">
+
+
+
+
+        <div class="company-logo">
+
+            <!-- Back Button inside company-logo like the working example -->
+            <div class="back-button-container" style="margin-bottom: 5px;">
+                <a href="javascript:void(0);" class="back-button" onclick="window.history.back();">
+                    <i class="fas fa-chevron-left"></i> Back
+                </a>
+            </div>
+
+            {% if company.logo %}
+            <img src="{{ url_for('serve_logo', filename=company.logo) }}" alt="Company Logo">
+            {% else %}
+            <p></p>
+            {% endif %}
+            <h2>{{ company.name }}</h2>
+        </div>
+        <div class="invoice-meta">
+            <h1>Invoice #{{ invoice.invoice_number }}</h1>
+
+            <p><strong>Date:</strong> {{ invoice.invoice_date }}</p>
+            <p><strong>Due Date:</strong> {{ invoice.due_date or "N/A" }}</p>
+            <p><strong>Currency:</strong> {{ invoice.currency }}</p>
+
+            {% if invoice.sales_order %}
+            {% for sales_order in invoice.sales_order %}
+            {% if sales_order.id and sales_order.sales_order_number %}
+            <p>
+                <strong>Sales Order:</strong>
+                <a href="/sales/sales_order/{{ sales_order.id }}">
+                    {{ sales_order.sales_order_number }}
+                </a>
+            </p>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+
+
+
+            {% if invoice.quotation %}
+            {% for quotation in invoice.quotation %}
+            {% if quotation.id and quotation.quotation_number %}
+            <p>
+                <strong>Quotation:</strong>
+                <a href="/sales/quotation/{{ quotation.id }}">
+                    {{ quotation.quotation_number }}
+                </a>
+            </p>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+
+            {% if invoice.delivery_notes %}
+            {% for delivery_note in invoice.delivery_notes %}
+            {% if delivery_note.id and delivery_note.delivery_note_number %}
+            <p>
+                <strong>Delivery Note:</strong>
+                <a href="/sales/delivery_note/{{ delivery_note.id }}">
+                    {{ delivery_note.delivery_note_number }}
+                </a>
+            </p>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+
+
+            {% for txn in invoice.sales_transactions %}
+
+
+            {% if txn.payment_receipts %}
+            {% for receipt in txn.payment_receipts %}
+            <p>
+                <strong>Receipt No:/Ref:</strong>
+                <a href="/sales/payment_receipt/{{ receipt.id }}">
+                    {{ receipt.payment_receipt_number }} {{'/' if receipt.reference_number else ""}} {{
+                    receipt.reference_number if receipt.reference_number else ""
+                    }}
+                </a>
+            </p>
+
+            {% endfor %}
+
+            {% endif %}
+            {% endfor %}
+
+
+
+
+
+
+            <span class="status {{ invoice.status.value|lower }}">{{ invoice.status.value }}</span>
+        </div>
+    </div>
+
+    <div class="invoice-customer">
+        <h3>Customer Details:</h3>
+        <p><strong>{{ invoice.customer.name }}</strong></p>
+        <p>{{ invoice.customer.address or "" }}</p>
+        <p>{{ invoice.customer.city_country or "" }}</p>
+        <p><strong>Contact:</strong> {{ invoice.customer.contact or "N/A" }}</p>
+    </div>
+
+    <div class="invoice-items">
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Discount</th>
+                        <th>Tax</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in invoice.invoice_items %}
+                    <tr>
+                        <td>{{ item.item_name }}</td>
+                        <td>{{ item.description or "-" }}</td>
+                        <td>{{ item.quantity }} {{ item.uom }}</td>
+                        <td class="numeric">{{ "{:,.2f}".format(item.unit_price) }}</td>
+                        <td class="numeric">
+                            {% if item.discount_amount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(item.discount_amount) }} ({{ item.discount_rate }}%)
+                            {% endif %}
+                        </td>
+                        <td class="numeric">
+                            {% if item.tax_amount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(item.tax_amount) }} ({{ item.tax_rate }}%)
+                            {% endif %}
+                        </td>
+                        <td class="numeric">{{ "{:,.2f}".format(item.total_price) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <!-- Subtotal -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Subtotal</td>
+                        <td class="numeric">{{ "{:,.2f}".format(invoice.subtotal) }}</td>
+                    </tr>
+                    <!-- Discount -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Discount</td>
+                        <td class="numeric">
+                            {% if invoice.calculated_discount_amount is none or invoice.calculated_discount_amount == 0
+                            %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(invoice.calculated_discount_amount or 0) }}
+                            {% endif %}
+                        </td>
+
+                    </tr>
+                    <!-- Tax -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Tax</td>
+                        <td class="numeric">
+                            {% if invoice.invoice_tax_rate == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(invoice.invoice_tax_rate) }}%
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Shipping Cost -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Shipping Cost</td>
+                        <td class="numeric">
+                            {% if invoice.shipping_cost == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(invoice.shipping_cost) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Handling Cost -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Handling Cost</td>
+                        <td class="numeric">
+                            {% if invoice.handling_cost == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(invoice.handling_cost) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Grand Total -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric grande">Grand Total</td>
+                        <td class="numeric grande">{{ "{:,.2f}".format(invoice.total_amount) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="terms-and-conditions">
+            <h3>Payment Terms</h3>
+            <p class="preserve-newlines">{{ invoice.terms_and_conditions or "N/A" }}</p>
+        </div>
+
+
+
+
+
+        <!-- Payments History Section -->
+        <div class="payments-history terms-and-conditions">
+            <h3>Payments History</h3>
+
+            <p><strong>Total Paid:</strong> {{ "{:,.2f}".format(invoice.total_paid or 0) }}</p>
+            <p><strong>Remaining Balance:</strong> {{ "{:,.2f}".format(invoice.remaining_balance or 0) }}</p>
+
+            {% if invoice.sales_transactions %}
+            <div class="table-responsive">
+                <table>
+                    <thead>
+
+                        <tr>
+                            <th>Payment Date</th>
+                            <th>Amount Paid</th>
+                            <th>Payment Mode</th>
+                            <th>Allocated Base Amount</th>
+                            <th>Allocated Tax Amount</th>
+                            <th>Payment Status</th>
+                            <th>Reference Number</th>
+
+                            <th>Actions</th>
+                        </tr>
+
+                    </thead>
+                    <tbody>
+                        {% for transaction in invoice.sales_transactions %}
+                        <tr>
+                            <td>{{ transaction.payment_date }}</td>
+                            <td class="numeric">
+                                {% if transaction.amount_paid is not none %}
+                                {{ "{:,.2f}".format(transaction.amount_paid) }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>{{ transaction.payment_mode or "-" }}</td>
+                            <td class="numeric">
+                                {% if transaction.allocated_base_amount is not none %}
+                                {{ "{:,.2f}".format(transaction.allocated_base_amount) }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td class="numeric">
+                                {% if transaction.allocated_tax_amount is not none %}
+                                {{ "{:,.2f}".format(transaction.allocated_tax_amount) }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if transaction.payment_status.value|lower == 'paid' %} bg-success
+                                    {% elif transaction.payment_status.value|lower == 'refunded' %} bg-primary
+                                    {% elif transaction.payment_status.value|lower == 'cancelled' %} bg-danger
+                                    {% elif transaction.payment_status.value|lower == 'partial' %} bg-primary
+                                    {% elif transaction.payment_status.value|lower == 'pending' %} bg-info
+                                    {% elif transaction.payment_status.value|lower == 'unpaid' %} bg-secondary
+                                    {% else %} unknown
+                                    {% endif %}">
+
+                                    {{ transaction.payment_status.value }}
+                                </span>
+                            </td>
+
+                            <td>{{ transaction.reference_number or "-" }}</td>
+
+
+                            <td>
+                                <div class="action-icons-clean" style="display: flex; gap: 8px;">
+                                    <!-- Generate Receipt button -->
+                                    {% if transaction.payment_status.name != 'cancelled' %}
+                                    <form action="/sales/generate_payment_receipt" method="POST"
+                                        style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="transaction_id"
+                                            value="{{ transaction.sales_txn_id }}">
+                                        <input type="hidden" name="transaction_type" value="invoice">
+                                        {% if invoice.quotation %}
+                                        {% for quotation in invoice.quotation %}
+                                        <input type="hidden" name="quotation_id" value="{{ quotation.id }}">
+                                        {% endfor %}
+                                        {% endif %}
+                                        {% if invoice.sales_order %}
+                                        {% for sales_order in invoice.sales_order %}
+                                        <input type="hidden" name="sales_order_id" value="{{ sales_order.id }}">
+                                        {% endfor %}
+                                        {% endif %}
+                                        <div class="custom-tooltip-container">
+                                            <button type="submit" class="ledger-icon">
+                                                <i class="fas fa-receipt"></i>
+                                            </button>
+                                            <span class="custom-tooltip left">Generate Receipt</span>
+                                        </div>
+                                    </form>
+                                    {% else %}
+                                    <div class="custom-tooltip-container">
+                                        <button type="button" class="ledger-icon" disabled
+                                            style="opacity: 0.5; cursor: not-allowed;">
+                                            <i class="fas fa-receipt"></i>
+                                        </button>
+                                        <span class="custom-tooltip left">Receipt not available for cancelled
+                                            transactions</span>
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- View Payment Details button - Always visible, even for cancelled -->
+                                    <div class="custom-tooltip-container">
+                                        <a href="{{ url_for('sales.sales_transaction_details', transaction_id=transaction.sales_txn_id) }}"
+                                            class="ledger-icon" style="text-decoration: none;">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <span class="custom-tooltip left">View Payment Details</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+
+                </table>
+            </div>
+            {% else %}
+            <p>No payments have been recorded for this invoice.</p>
+            {% endif %}
+        </div>
+
+        <!-- Internal Notes (Visible only if status is draft) -->
+
+        <div class="invoice-notes internal-notes">
+            <h3>Internal Notes</h3>
+            <div id="notes-list">
+                {% for note in invoice.invoice_notes %}
+                {% if note.type == 'internal' %}
+                <div class="note">
+                    <p>{{ note.content }}</p>
+                    <small>
+                        By <strong>{{ note.created_by }}</strong> on {{ note.created_at }}
+                        {% if note.recipient %}
+                        (Assigned to <strong>{{ note.recipient }}</strong>)
+                        {% else %}
+                        (Assigned to all)
+                        {% endif %}
+                    </small>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <form id="add-note-form">
+                <textarea name="note_content" placeholder="Add a new internal note..." required></textarea>
+                <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="invoice_number" value="{{ invoice.invoice_number }}">
+
+                <label for="recipient">Assign to:</label>
+                <select name="recipient" id="recipient">
+                    <option value="">All</option>
+                    {% for user in invoice.users %}
+                    <option value="{{ user.id }}">{{ user.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit" class="button add-button">Add Note</button>
+            </form>
+        </div>
+
+        <!-- Audit -->
+        <div class="audit-info">
+            <span><strong>Created:</strong> <span class="audit-created-at"
+                    data-utc="{{ invoice.created_at.strftime('%Y-%m-%d %H:%M:%S') }}"></span> by {{ invoice.created_by
+                if invoice.created_by else 'Unknown' }}</span>
+            {% if invoice.updated_user %}
+            | <span><strong>Updated:</strong> <span class="audit-updated-at"
+                    data-utc="{{ invoice.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}"></span> by {{
+                invoice.updated_user.name }}</span>
+            {% endif %}
+        </div>
+
+
+        <!-- Invoice Actions -->
+        <div class="invoice-actions transaction-actions">
+
+            <!-- Approve and Edit Invoice buttons when status is 'draft' -->
+            {% if invoice.status.name == 'draft' %}
+            <button class="button cta-button" id="approve-invoice-button">
+                <i class="fas fa-check-circle"></i> Approve Invoice
+            </button>
+            <button class="button add-button"
+                onclick="window.location.href='/sales/edit_sales_invoice/{{ invoice.id }}'">
+                <i class="fas fa-edit"></i> Edit Invoice
+            </button>
+
+            <!-- Edit Invoice button when status is 'unpaid' -->
+            {% elif invoice.status.name == 'unpaid' %}
+            <button class="button add-button"
+                onclick="window.location.href='/sales/edit_sales_invoice/{{ invoice.id }}'">
+                <i class="fas fa-edit"></i> Edit Invoice
+            </button>
+            {% endif %}
+            <!-- Record Payment when status is 'unpaid' or 'partially_paid' (but not 'draft') -->
+            {% if invoice.status.name == 'unpaid' or invoice.status.name == 'partially_paid' %}
+            <button class="button cta-button" id="record-payment" onclick="openInvoicePaymentModal()">
+                <i class="fas fa-file-invoice"></i> Record Payment
+            </button>
+            {% endif %}
+
+            <!-- Download Invoice button is always visible -->
+            <button class="button download-button info"
+                onclick="window.location.href='/download_sales_invoice/{{ invoice.id }}'">
+                <i class="fas fa-download"></i> Download Invoice
+            </button>
+
+            <!-- Cancel Invoice button for 'draft' or 'unpaid' status -->
+            <!-- Cancel Invoice button for 'draft' or 'unpaid' status -->
+            {% if invoice.status.name == 'draft' or invoice.status.name == 'unpaid' and invoice.status.name !=
+            'cancelled' %}
+            <button class="button remove-button" id="cancel-invoice-button">
+                <i class="fas fa-times-circle"></i> Cancel Invoice
+            </button>
+            {% endif %}
+
+            <!-- Return to Invoices button -->
+            <button class="button closed" onclick="window.location.href='/sales/invoices'">
+                <i class="fas fa-undo-alt"></i> Return to Invoices
+            </button>
+
+        </div>
+
+
+
+
+    </div>
+
+    <!-- Record Payment Modal -->
+    <!-- Record Payment Modal -->
+    <div class="modal fade" id="invoicePaymentModal" tabindex="-1" aria-labelledby="invoicePaymentModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="invoicePaymentModalLabel">Record Invoice Payment</h5>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="paymentForm" action="/sales/api/record_payment" method="POST" autocomplete="off">
+                        <input type="hidden" id="invoiceId" name="invoiceId" value="{{invoice.id}}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" id="hiddenTaxAccountId" name="tax_account_id"
+                            value="{{ invoice.tax_accounts[0].tax_account_id if invoice.tax_accounts else '' }}">
+                        <input type="hidden" id="paymentType" name="paymentType" value="cash">
+                        <input type="hidden" id="creditSettlementAccount" name="creditSettlementAccount" value="">
+
+                        <!-- Add this hidden field for customer ID -->
+                        <input type="hidden" id="customer_id" name="customer_id" value="{{ invoice.customer_id }}">
+
+                        <!-- Add this hidden field for invoice currency -->
+                        <input type="hidden" id="invoice_currency_id" name="invoice_currency_id"
+                            value="{{ invoice.currency_id }}">
+
+                        <!-- Hidden field for remaining balance -->
+                        <input type="hidden" id="remainingBalance" value="{{ invoice.remaining_balance or 0 }}">
+
+                        <!-- Payment Type Selection -->
+                        <div class=" " style="margin-top: -10px;">
+                            <h4 class="mb-3">Payment Type
+                                <span class="input-helper" data-toggle="tooltip"
+                                    data-tooltip="Select whether this is a cash payment or credit application">
+                                    <i class="fas fa-question-circle"></i>
+                                </span>
+                            </h4>
+
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" id="paymentTypeCash"
+                                    name="paymentTypeRadio" value="cash" checked>
+                                <label class="form-check-label" for="paymentTypeCash">
+                                    <i class="fas fa-money-bill-wave"></i> Cash/Bank Payment
+                                </label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" id="paymentTypeCredit"
+                                    name="paymentTypeRadio" value="credit">
+                                <label class="form-check-label" for="paymentTypeCredit">
+                                    <i class="fas fa-credit-card"></i> Apply Customer Credit
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Amount Field -->
+                        <div class="form-grid">
+
+                            <!-- Currency Selection for Payment -->
+                            <div class="form-group">
+                                <label for="payment_currency" class="form-label fw-bold">Payment Currency <span
+                                        class="required">*</span></label>
+                                <select id="payment_currency" name="payment_currency" class="form-select select2"
+                                    required>
+                                    <option value="{{ invoice.currency_id }}" selected>{{ invoice.currency }} (Invoice
+                                        Currency)</option>
+                                    {% for currency in currencies %}
+                                    {% if currency.id != invoice.currency_id %}
+                                    <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                                    {% endif %}
+                                    {% endfor %}
+                                </select>
+                                <small class="form-text text-muted">Select the currency this payment was received
+                                    in</small>
+                            </div>
+                            <!-- Payment Date Field -->
+                            <div class="form-group">
+                                <label for="paymentDate" class="form-label fw-bold">Payment Date <span
+                                        class="required">*</span></label>
+                                <input type="date" id="paymentDate" name="paymentDate" class="form-control" required>
+                            </div>
+                        </div>
+
+
+                        <div class="form-grid">
+
+
+                            <div class="form-group" style="margin-top: -15px;">
+                                <label for="amount" class="form-label fw-bold">Payment Amount <span
+                                        class="required">*</span></label>
+                                <input type="text" id="amount" name="amount" class="form-control"
+                                    value="{{invoice.remaining_balance}}" required>
+                                <small class="form-text text-muted" id="balanceInfo">
+                                    Remaining balance: {{ "{:,.2f}".format(invoice.remaining_balance or 0) }}
+                                </small>
+                                <div id="overpaymentWarning" class="text-warning text-muted" style="display: none;">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    This payment exceeds the remaining balance. Overpayment will be handled based on
+                                    your selection below.
+                                </div>
+                            </div>
+
+                            <!-- Reference Field -->
+                            <div class="form-group mb-4" style="margin-top: -15px;">
+                                <label for="reference" class="form-label fw-bold">Reference</label>
+                                <input type="text" id="reference" name="reference" class="form-control">
+                                <small class="form-text text-muted">Enter transaction reference (e.g., cheque number,
+                                    credit memo).</small>
+                            </div>
+                        </div>
+
+                        <!-- Cash Payment Account (shown by default) -->
+                        <div id="cashPaymentSection" style="margin-top: -15px;">
+
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="fundingAccount" class="form-label fw-bold">Deposit to
+                                        <span class="required">*</span>
+                                    </label>
+                                    <select name="fundingAccount" id="fundingAccount" class="form-control" required>
+                                        <option value="">Select cash/bank account...</option>
+                                        <!-- Cash/Bank accounts loaded dynamically -->
+                                    </select>
+                                </div>
+
+                                <!-- Payment Method Section (only for cash payments) -->
+                                <div class="form-group mb-4">
+                                    <label for="paymentMethod" class="form-label fw-bold">Payment Method</label>
+                                    <select id="paymentMethod" name="paymentMethod" class="form-select">
+                                        <option value="">Select Payment Method</option>
+                                        {% for mode in payment_modes %}
+                                        <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                            </div>
+                        </div>
+
+
+                        <!-- Credit Application Account (hidden by default) -->
+                        <!-- Credit Application Section (shown when credit payment selected) -->
+                        <div id="creditApplicationSection" style="display: none;">
+                            <div class="account-section" style="background-color: #f0f7ff; border-left-color: #17a2b8;">
+                                <h4 class="mb-3">Available Customer Credits
+                                    <span class="input-helper" data-toggle="tooltip"
+                                        data-tooltip="Select credits to apply to this invoice">
+                                        <i class="fas fa-question-circle"></i>
+                                    </span>
+                                </h4>
+
+                                <!-- Credits will be loaded dynamically here -->
+                                <div id="creditsList" style="max-height: 300px; overflow-y: auto;">
+                                    <div class="text-center py-3">
+                                        <i class="fas fa-spinner fa-spin"></i> Loading available credits...
+                                    </div>
+                                </div>
+
+                                <!-- Selected Credits Summary -->
+                                <div id="selectedCreditsSummary" class="mt-3" style="display: none;">
+                                    <hr>
+                                    <div class="d-flex justify-content-between">
+                                        <strong>Total Credits Applied:</strong>
+                                        <span id="totalCreditsApplied">0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between text-muted">
+                                        <small>Remaining to pay:</small>
+                                        <small id="remainingToPay">{{ invoice.remaining_balance }}</small>
+                                    </div>
+                                </div>
+
+                                <!-- Hidden field to store selected credit IDs and amounts -->
+                                <input type="hidden" id="selectedCreditsData" name="selectedCredits" value="">
+                            </div>
+                        </div>
+
+                        <!-- Overpayment Handling Section (only for cash payments) -->
+                        <!-- Overpayment Handling Section (only for cash payments) -->
+                        <div id="overpaymentSection" style="display: none;" class="account-section">
+                            <h4 class="mb-3 mt-4">Overpayment Handling
+                                <span class="input-helper" data-toggle="tooltip"
+                                    data-tooltip="Choose how to handle the overpayment amount.">
+                                    <i class="fas fa-question-circle"></i>
+                                </span>
+                            </h4>
+
+                            <div class="alert alert-info text-muted">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>Overpayment Details:</strong>
+                                <div id="overpaymentDetails">
+                                    Payment amount: <span class="overpayment-detail"
+                                        id="paymentAmountDisplay">0.00</span><br>
+                                    Remaining balance: <span class="overpayment-detail"
+                                        id="remainingBalanceDisplay">0.00</span><br>
+                                    Overpayment amount: <span class="overpayment-amount"
+                                        id="overpaymentAmountDisplay">0.00</span>
+                                </div>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" id="recordOverpayment"
+                                    name="overpaymentHandling" value="credit" checked>
+                                <label class="form-check-label" for="recordOverpayment">
+                                    <i class="fas fa-file-invoice-dollar"></i> Keep as Customer Credit
+                                </label>
+                                <small class="form-text text-muted d-block">
+                                    The overpayment amount will be recorded as a customer credit.
+                                    You can later apply it to other invoices or refund it.
+                                </small>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" id="writeOffOverpayment"
+                                    name="overpaymentHandling" value="write_off">
+                                <label class="form-check-label text-danger" for="writeOffOverpayment">
+                                    <i class="fas fa-exclamation-triangle"></i> Write off as Income
+                                </label>
+                                <small class="form-text text-muted d-block">
+                                    The overpayment amount will be recorded as miscellaneous income.
+                                    This cannot be refunded or applied to other invoices later.
+                                </small>
+                            </div>
+                        </div>
+
+
+                        <!-- Exchange Rate Fields (Only show for foreign currency) -->
+                        <!-- Exchange Rate Section (managed by ExchangeRateManager) -->
+                        {% if company.has_multiple_currencies %}
+                        <div id="exchangeRateSection" style="margin-top: 15px; margin-bottom: 15px;">
+                            <!-- Invoice Exchange Rate Info -->
+                            <div style="margin-bottom: 8px; color: #666; font-size: 0.9rem;">
+                                <i class="fas fa-info-circle" style="color: #17a2b8;"></i>
+                                Invoice rate at {{ invoice.invoice_date }}:
+                                <strong>1 {{ invoice.currency }} =
+                                    {% if invoice.exchange_rate %}
+                                    {{ "{:,.10f}".format(invoice.exchange_rate.rate) }}
+                                    {% else %}
+                                    1.0000
+                                    {% endif %}
+                                    {{ base_currency.user_currency }}
+                                </strong>
+                            </div>
+
+                            <!-- Exchange Rate Container (managed by ExchangeRateManager) -->
+                            <div id="exchange_rate_container" class="exchange-rate-container" style="display: none;">
+                                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                                    <span style="font-weight: 500;">Exchange Rate</span>
+                                    <span id="from_currency_display">1</span>
+                                    <span>=</span>
+                                    <input type="text" id="exchange_rate" name="exchange_rate" placeholder="Enter rate"
+                                        value="{% if invoice.exchange_rate %}{{ invoice.exchange_rate.rate }}{% else %}1.0000{% endif %}"
+                                        style="padding: 6px 10px; width: 150px; border-radius: 4px; border: 1px solid #ccc;">
+                                    <span id="to_currency_display">{{ base_currency.user_currency }}</span>
+                                </div>
+                                <div id="converted_amount_display" class="converted-amount" style="display: none;">
+                                    Amount in {{ base_currency.user_currency }}: <strong><span
+                                            id="convertedAmountValue">0.00</span></strong>
+                                </div>
+                            </div>
+
+                            <!-- Hidden field for base currency ID -->
+                            <input type="hidden" id="base_currency_id" name="base_currency_id"
+                                value="{{ base_currency.id }}">
+
+                            <!-- Realized Gain/Loss Preview -->
+                            <div id="gainLossPreview" class="alert"
+                                style="display: none; margin-top: 10px; padding: 8px 12px;">
+                                <strong id="gainLossLabel">Realized Gain/Loss:</strong>
+                                <span id="gainLossAmount">0.00</span>
+                                <small class="d-block text-muted" id="gainLossExplanation"></small>
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- Hidden field for base currency (still needed for consistency) -->
+                        <input type="hidden" id="base_currency_id" name="base_currency_id"
+                            value="{{ base_currency.id }}">
+                        {% endif %}
+
+                        <!-- Submit Button -->
+                        <div>
+                            <button type="submit" class="button cta-button">Submit Payment</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+
+
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+
+        // Adding internal note
+        document.getElementById('add-note-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            console.log('Adding internal note...');
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const noteContent = formData.get('note_content');
+            const invoiceId = formData.get('invoice_id');
+            const recipient = formData.get('recipient');
+            const invoiceNumber = formData.get('invoice_number');
+
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+            fetch('/add_invoice_note', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    note_content: noteContent,
+                    invoice_id: invoiceId,
+                    recipient: recipient,
+                    invoice_number: invoiceNumber
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "danger") {
+                        showNotification(data.message, "error");
+                    } else {
+                        const notesList = document.getElementById('notes-list');
+                        const newNote = document.createElement('div');
+                        newNote.classList.add('note');
+                        newNote.innerHTML = `
+            <p>${data.note_content}</p>
+            <small>By ${data.created_by} on ${data.created_at}</small>
+        `;
+                        notesList.appendChild(newNote);
+                        form.querySelector('textarea').value = '';
+
+                        showNotification(data.message, "success");
+                        enableAllSubmitButtons();  // Enable all submit buttons
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification("An error occurred while adding the note.", "error");
+                    enableAllSubmitButtons();  // Enable all submit buttons
+                });
+        });
+
+    });
+
+
+    document.addEventListener("click", function (e) {
+        if (e.target && e.target.id === "approve-invoice-button") {
+            const invoiceId = "{{ invoice.id }}";
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+            fetch("/sales/approve_sales_invoice", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken
+                },
+                body: JSON.stringify({ invoice_id: invoiceId })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        showNotification(data.message, "success");
+                        location.reload();
+                    } else if (data.status === "error" && data.action_required === "update_invoice_details") {
+                        // Handle account configuration error
+                        showNotification(data.message, "error");
+
+                        // Show more detailed message or redirect to edit page
+                        Swal.fire({
+                            title: 'Account Configuration Required',
+                            html: `${data.details}<br><br>Please update the invoice details with the required account information.`,
+                            icon: 'warning',
+                            confirmButtonText: 'Edit Invoice',
+                            showCancelButton: true,
+                            cancelButtonText: 'Cancel',
+                            customClass: {
+                                popup: 'custom-swal-popup',
+                                title: 'custom-swal-title',
+                                content: 'custom-swal-content',
+                                confirmButton: 'custom-swal-confirm-btn',
+                                cancelButton: 'custom-swal-cancel-btn',
+                                icon: 'custom-swal-icon'
+                            },
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                // Redirect to edit invoice page
+                                window.location.href = `/sales/edit_sales_invoice/${invoiceId}`;
+                            }
+                        });
+
+                        enableAllSubmitButtons();
+                    } else {
+                        // Handle other errors
+                        showNotification(data.message, "error");
+                        enableAllSubmitButtons();
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    showNotification("An error occurred while approving the invoice.", "error");
+                    enableAllSubmitButtons();
+                });
+        }
+    });
+
+    // Function to set today's date in the payment date field
+    function setTodayDate() {
+        const dateInput = document.getElementById('paymentDate');
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+        dateInput.value = formattedDate; // Set the value to today's date
+    }
+
+    // Open Payment Modal function
+    function openInvoicePaymentModal() {
+        // Reset the form
+        $('#paymentForm')[0].reset();
+
+        // Set today's date in the payment date field
+        setTodayDate();
+
+
+        // Show the modal
+        $('#invoicePaymentModal').modal('show');
+    }
+
+    // Function to set today's date in the payment date field
+    function setTodayDate() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('paymentDate').value = today;
+    }
+
+
+
+
+
+    // Cancel Invoice with SweetAlert2
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const cancelBtn = document.getElementById("cancel-invoice-button");
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener("click", function () {
+                const invoiceId = "{{ invoice.id }}";
+                const invoiceNumber = "{{ invoice.invoice_number }}";
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+                Swal.fire({
+                    title: 'Cancel Invoice?',
+                    html: `Are you sure you want to cancel invoice <strong>${invoiceNumber}</strong>?<br><br>
+                   <span class="text-warning"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</span>`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, cancel invoice!',
+                    cancelButtonText: 'No, keep it',
+                    reverseButtons: true,
+                    customClass: {
+                        popup: 'custom-swal-popup',
+                        title: 'custom-swal-title',
+                        content: 'custom-swal-content',
+                        confirmButton: 'custom-swal-confirm-btn',
+                        cancelButton: 'custom-swal-cancel-btn',
+                        icon: 'custom-swal-icon'
+                    },
+                    showLoaderOnConfirm: true,
+
+                    preConfirm: () => {
+                        return fetch('/sales/cancel_sales_invoice', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken
+                            },
+                            body: JSON.stringify({ invoice_id: invoiceId })
+                        })
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error(response.statusText);
+                                }
+                                return response.json();
+                            })
+                            .catch(error => {
+                                Swal.showValidationMessage(`Request failed: ${error}`);
+                            });
+                    },
+                    allowOutsideClick: () => !Swal.isLoading()
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        if (result.value && result.value.status === "success") {
+                            showNotification(
+                                `Invoice <strong>${invoiceNumber}</strong> has been cancelled successfully.`,
+                                'success'
+                            );
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            const errorMessage = result.value && result.value.message
+                                ? result.value.message
+                                : "An error occurred while cancelling the invoice.";
+
+                            showNotification("error", errorMessage);
+                        }
+                    }
+                });
+            });
+        }
+    });
+
+    // Load funding accounts (cash and bank accounts)
+    // Load funding accounts (cash and bank accounts) with Select2
+    function loadFundingAccounts() {
+        const fundingDropdown = $('#fundingAccount');
+
+        if (!fundingDropdown.length) {
+            console.error("Funding account dropdown not found");
+            return;
+        }
+
+        // Show loading state
+        fundingDropdown.html('<option value="">Loading accounts...</option>');
+
+        fetch('/api/chart_of_accounts_grouped')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Clear old options
+                fundingDropdown.html('<option value="">Select an account...</option>');
+
+                // Sort categories alphabetically
+                const sortedCategories = data.chart_of_accounts_grouped.sort((a, b) =>
+                    a.category.localeCompare(b.category)
+                );
+
+                // Populate Asset Accounts (Cash and Bank accounts)
+                sortedCategories.forEach(cat => {
+                    const assetAccounts = cat.accounts
+                        .filter(acc => acc.account_type === 'Asset' &&
+                            (acc.sub_category.toLowerCase().includes('cash') ||
+                                acc.sub_category.toLowerCase().includes('bank')))
+                        .sort((a, b) => a.sub_category.localeCompare(b.sub_category));
+
+                    if (assetAccounts.length > 0) {
+                        const optGroup = document.createElement('optgroup');
+                        optGroup.label = `${cat.category} (${cat.category_code}) - Cash/Bank Accounts`;
+
+                        assetAccounts.forEach(acc => {
+                            const option = document.createElement('option');
+                            option.value = acc.sub_category_id;
+                            option.textContent = `${acc.sub_category}${acc.sub_category_code ? ` (${acc.sub_category_code})` : ''}`;
+                            option.title = `${acc.account_type} Account - For receiving payments`;
+                            optGroup.appendChild(option);
+                        });
+
+                        fundingDropdown.append(optGroup);
+                    }
+                });
+
+                // Initialize Select2
+                fundingDropdown.select2({
+                    dropdownParent: $('#invoicePaymentModal'),
+                    width: '100%'
+                });
+
+                console.log("Successfully loaded funding account options");
+            })
+            .catch(error => {
+                console.error('Error loading funding accounts:', error);
+                fundingDropdown.html('<option value="">Error loading accounts</option>');
+                showNotification("Failed to load account options. Please try again.", "error");
+            });
+    }
+
+
+    // Format account option for Select2
+    function formatAccountOption(account) {
+        if (!account.id) return account.text;
+
+        const $option = $(
+            '<span class="account-option">' + account.text +
+            '<br><small class="text-muted">' + (account.title || '') + '</small></span>'
+        );
+        return $option;
+    }
+
+    // Format account selection for Select2
+    function formatAccountSelection(account) {
+        if (!account.id) return account.text;
+        return account.text;
+    }
+
+
+
+    // Initialize when modal is shown
+    // Update modal initialization
+    $('#invoicePaymentModal').on('shown.bs.modal', function () {
+        // Load funding accounts for cash payments
+        loadFundingAccounts();
+
+        // Initialize Exchange Rate Manager
+        if (typeof ExchangeRateManager !== 'undefined') {
+            window.invoiceRateManager = ExchangeRateManager.init({
+                currencySelectId: 'payment_currency',
+                dateInputId: 'paymentDate',
+                exchangeRateInputId: 'exchange_rate',
+                containerId: 'exchange_rate_container',
+                fromDisplayId: 'from_currency_display',
+                toDisplayId: 'to_currency_display',
+                baseCurrencyId: 'base_currency_id',
+                appId: '{{ app_id }}',
+                apiEndpoint: '/multi_currency/api/get_exchange_rate',
+                csrfToken: '{{ csrf_token() }}',
+                callbacks: {
+                    onRateChange: function (rate) {
+                        console.log(`Rate changed to ${rate}`);
+                        if (document.getElementById('paymentTypeCash')?.checked) {
+                            checkOverpayment();
+                        }
+                    },
+                    onSuccess: function (rate, source) {
+                        console.log(`Rate ${rate} loaded from ${source}`);
+                        if (document.getElementById('paymentTypeCash')?.checked) {
+                            checkOverpayment();
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initial payment type setup
+        const paymentTypeCash = document.getElementById('paymentTypeCash');
+        if (paymentTypeCash && paymentTypeCash.checked) {
+            setTimeout(checkOverpayment, 100);
+        }
+    });
+
+
+    // Add event listeners for amount input changes
+    const amountInput = document.getElementById('amount');
+    if (amountInput) {
+        amountInput.addEventListener('input', checkOverpayment);
+        amountInput.addEventListener('change', checkOverpayment);
+        amountInput.addEventListener('keyup', checkOverpayment);
+        console.log("Overpayment detection listeners added");
+    } else {
+        console.error("Amount input field not found");
+    }
+
+
+
+
+
+    // Validate credit application amount against available credits
+    // Simple validation - just check if amount is positive
+    function validateCreditApplicationAmount() {
+        const paymentTypeCredit = document.getElementById('paymentTypeCredit');
+        const amountInput = document.getElementById('amount');
+        const amount = parseFloat(amountInput.value) || 0;
+
+        if (!paymentTypeCredit.checked) {
+            return Promise.resolve({ isValid: true });
+        }
+
+        // Only basic validation - no API calls
+        if (amount <= 0) {
+            return {
+                isValid: false,
+                message: 'Credit application amount must be greater than 0.'
+            };
+        }
+
+        return { isValid: true };
+    }
+
+
+    // Payment Type Toggle Logic - SIMPLIFIED VERSION
+    // Payment Type Toggle Logic - FIXED VERSION
+    document.addEventListener('DOMContentLoaded', function () {
+        // Get DOM elements
+        const paymentTypeCash = document.getElementById('paymentTypeCash');
+        const paymentTypeCredit = document.getElementById('paymentTypeCredit');
+        const paymentTypeHidden = document.getElementById('paymentType');
+        const cashPaymentSection = document.getElementById('cashPaymentSection');
+        const creditApplicationSection = document.getElementById('creditApplicationSection');
+        const overpaymentSection = document.getElementById('overpaymentSection');
+        const paymentMethodField = document.getElementById('paymentMethod').closest('.form-group');
+        const fundingAccount = document.getElementById('fundingAccount');
+
+        // Load system credit account function
+        function loadSystemCreditAccount() {
+            fetch('/sales/api/system_accounts?type=customer_credit')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.account_id) {
+                        document.getElementById('creditSettlementAccount').value = data.account_id;
+                        console.log('System credit account loaded:', data.account_id);
+                    } else {
+                        console.error('System credit account not found in response');
+                        showNotification('System credit account not configured. Please contact administrator.', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading system credit account:', error);
+                    showNotification('Error loading system account. Please try again.', 'error');
+                });
+        }
+
+        // Payment type change handler
+        // Payment type change handler
+        function handlePaymentTypeChange() {
+            console.log('Payment type changed!');
+            console.log('Cash checked:', paymentTypeCash.checked);
+            console.log('Credit checked:', paymentTypeCredit.checked);
+
+            const isCashPayment = paymentTypeCash.checked;
+            const paymentCurrencySelect = document.getElementById('payment_currency');
+            const exchangeRateInput = document.getElementById('exchange_rate');
+            const exchangeRateSection = document.getElementById('exchange_rate_container');
+
+            // Update hidden field
+            paymentTypeHidden.value = isCashPayment ? 'cash' : 'credit';
+
+            // Toggle sections
+            cashPaymentSection.style.display = isCashPayment ? 'block' : 'none';
+            creditApplicationSection.style.display = isCashPayment ? 'none' : 'block';
+
+            // Handle currency field readonly for credit payments
+            if (isCashPayment) {
+                // Cash payment - currency is editable
+                paymentCurrencySelect.disabled = false;
+                paymentCurrencySelect.style.backgroundColor = '';
+
+                // Exchange rate can be edited
+                if (exchangeRateInput) {
+                    exchangeRateInput.readOnly = false;
+                    exchangeRateInput.style.backgroundColor = '';
+                }
+
+                // Show exchange rate section (will be managed by ExchangeRateManager)
+                if (exchangeRateSection) {
+                    exchangeRateSection.style.display = 'block';
+                }
+
+                // Toggle required for exchange rate
+                const paymentCurrency = paymentCurrencySelect.value;
+                const invoiceCurrency = document.getElementById('invoice_currency_id').value;
+                if (exchangeRateInput && paymentCurrency && invoiceCurrency && paymentCurrency !== invoiceCurrency) {
+                    exchangeRateInput.required = true;
+                } else if (exchangeRateInput) {
+                    exchangeRateInput.required = false;
+                }
+            } else {
+                // Credit payment - currency is readonly (must match invoice currency)
+                paymentCurrencySelect.disabled = true;
+                paymentCurrencySelect.style.backgroundColor = '#f5f5f5';
+
+                // Force to invoice currency
+                const invoiceCurrencyId = document.getElementById('invoice_currency_id').value;
+                paymentCurrencySelect.value = invoiceCurrencyId;
+
+                // Exchange rate is not needed for credit payments (amounts already converted)
+                if (exchangeRateInput) {
+                    exchangeRateInput.readOnly = true;
+                    exchangeRateInput.style.backgroundColor = '#f5f5f5';
+                    exchangeRateInput.required = false;
+                }
+
+                // Hide exchange rate section for credit payments
+                if (exchangeRateSection) {
+                    exchangeRateSection.style.display = 'none';
+                }
+
+                // Hide overpayment section for credit payments
+                document.getElementById('overpaymentSection').style.display = 'none';
+            }
+
+            // Toggle required fields
+            fundingAccount.required = isCashPayment;
+            paymentMethodField.style.display = isCashPayment ? 'block' : 'none';
+
+            // Reset warnings
+            document.getElementById('overpaymentWarning').style.display = 'none';
+
+            if (!isCashPayment) {
+                // CREDIT PAYMENT SELECTED
+                console.log('Credit payment selected');
+
+                // Disable and clear amount field
+                const amountField = document.getElementById('amount');
+                amountField.value = '';
+                amountField.placeholder = 'Amount will be set by credits selected';
+                amountField.readOnly = true;
+                amountField.style.backgroundColor = '#f5f5f5';
+
+                // Check for customer
+                const customerIdElement = document.getElementById('customer_id');
+
+                if (!customerIdElement || !customerIdElement.value) {
+                    document.getElementById('creditsList').innerHTML =
+                        '<div class="alert alert-warning">Please select a customer first</div>';
+                } else {
+                    loadCustomerCredits();
+                }
+                loadSystemCreditAccount();
+
+            } else {
+                // CASH PAYMENT SELECTED
+                console.log('Cash payment selected');
+
+                // Re-enable amount field
+                const amountField = document.getElementById('amount');
+                const remainingBalance = document.getElementById('remainingBalance').value;
+                amountField.value = remainingBalance;
+                amountField.placeholder = '';
+                amountField.readOnly = false;
+                amountField.style.backgroundColor = '';
+
+                // Check for overpayment
+                checkOverpayment();
+
+                // Clear selected credits
+                selectedCredits = [];
+                document.getElementById('selectedCreditsSummary').style.display = 'none';
+                document.getElementById('selectedCreditsData').value = '';
+
+                // Reset all credit amount inputs to 0
+                document.querySelectorAll('.credit-amount-input').forEach(input => {
+                    input.value = 0;
+                });
+            }
+        }
+        // Attach event listeners
+        paymentTypeCash.addEventListener('change', handlePaymentTypeChange);
+        paymentTypeCredit.addEventListener('change', handlePaymentTypeChange);
+
+        // Also check overpayment when amount changes (for cash payments)
+        document.getElementById('amount').addEventListener('input', function () {
+            if (paymentTypeCash.checked) {
+                checkOverpayment();
+            }
+        });
+
+        // Initial setup
+        handlePaymentTypeChange();
+
+
+
+        // Add form submission handler here
+        document.getElementById('paymentForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            // Safely get all elements with null checks
+            const amountInput = document.getElementById('amount');
+            const remainingBalanceInput = document.getElementById('remainingBalance');
+            const paymentTypeCash = document.getElementById('paymentTypeCash');
+            const paymentCurrency = document.getElementById('payment_currency');
+            const invoiceCurrency = document.getElementById('invoice_currency_id');
+            const exchangeRateInput = document.getElementById('exchange_rate');
+            const form = this;
+
+            // Exit if critical elements are missing
+            if (!amountInput || !remainingBalanceInput || !paymentTypeCash || !paymentCurrency || !invoiceCurrency) {
+                console.error("Required form elements not found");
+                return;
+            }
+
+            const paymentAmountInPaymentCurrency = parseFloat(amountInput.value) || 0;
+            const remainingBalance = parseFloat(remainingBalanceInput.value) || 0;
+            const exchangeRate = exchangeRateInput ? parseFloat(exchangeRateInput.value) || 1 : 1;
+
+            // Calculate amount in invoice currency
+            let paymentAmountInInvoiceCurrency = paymentAmountInPaymentCurrency;
+            if (paymentCurrency.value && invoiceCurrency.value && paymentCurrency.value != invoiceCurrency.value) {
+                paymentAmountInInvoiceCurrency = paymentAmountInPaymentCurrency * exchangeRate;
+            }
+
+            // Get currency texts safely
+            let paymentCurrencyText = '{{ invoice.currency }}';
+            if (paymentCurrency.options && paymentCurrency.selectedIndex >= 0) {
+                const selectedOption = paymentCurrency.options[paymentCurrency.selectedIndex];
+                if (selectedOption) {
+                    paymentCurrencyText = selectedOption.text.split(' ')[0] || paymentCurrencyText;
+                }
+            }
+
+            let invoiceCurrencyText = '{{ invoice.currency }}';
+            if (invoiceCurrency.options && invoiceCurrency.selectedIndex >= 0) {
+                const selectedOption = invoiceCurrency.options[invoiceCurrency.selectedIndex];
+                if (selectedOption) {
+                    invoiceCurrencyText = selectedOption.text || invoiceCurrencyText;
+                }
+            }
+
+            // ✅ VALIDATION 1: Check if amount exceeds invoice balance (for credit payments)
+            if (paymentAmountInInvoiceCurrency > remainingBalance + 0.01 && !paymentTypeCash.checked) {
+                Swal.fire({
+                    title: 'Amount Exceeds Balance',
+                    html: `Credit application amount (${paymentAmountInPaymentCurrency.toFixed(2)} ${paymentCurrencyText} ≈ ${paymentAmountInInvoiceCurrency.toFixed(2)} ${invoiceCurrencyText}) exceeds invoice remaining balance (${remainingBalance.toFixed(2)} ${invoiceCurrencyText}).<br><br>
+                   Please enter an amount equal to or less than the remaining balance.`,
+                    icon: 'warning',
+                    confirmButtonColor: '#3085d6',
+                    customClass: {
+                        popup: 'custom-swal-popup',
+                        title: 'custom-swal-title',
+                        content: 'custom-swal-content'
+                    }
+                }).then(() => {
+                    enableAllSubmitButtons();
+                });
+                return;
+            }
+
+            // ✅ VALIDATION 2: Basic amount validation
+            if (paymentAmountInPaymentCurrency <= 0) {
+                Swal.fire({
+                    title: 'Invalid Amount',
+                    html: 'Payment amount must be greater than 0.',
+                    icon: 'warning',
+                    confirmButtonColor: '#3085d6'
+                }).then(() => {
+                    enableAllSubmitButtons();
+                });
+                return;
+            }
+
+            // If all validations pass, submit the form
+            form.submit();
+        });
+    });
+
+
+
+
+
+    // Debounce helper function
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+
+    // Update overpayment handling to only work for cash payments
+    // Update overpayment handling to work with currency conversion
+    function checkOverpayment() {
+        // Safely get DOM elements with null checks
+        const amountInput = document.getElementById('amount');
+        const remainingBalanceInput = document.getElementById('remainingBalance');
+        const overpaymentSection = document.getElementById('overpaymentSection');
+        const overpaymentWarning = document.getElementById('overpaymentWarning');
+        const paymentTypeCash = document.getElementById('paymentTypeCash');
+        const paymentCurrency = document.getElementById('payment_currency');
+        const exchangeRateInput = document.getElementById('exchange_rate');
+        const invoiceCurrency = document.getElementById('invoice_currency_id');
+
+        // Exit if any critical elements are missing
+        if (!amountInput || !remainingBalanceInput || !overpaymentSection ||
+            !overpaymentWarning || !paymentTypeCash || !paymentCurrency ||
+            !invoiceCurrency) {
+            console.log("Some elements not ready yet");
+            return;
+        }
+
+        const exchangeRate = exchangeRateInput ? parseFloat(exchangeRateInput.value) || 1 : 1;
+
+        // Safely get text from selects
+        let invoiceCurrencyText = '{{ invoice.currency }}';
+        if (invoiceCurrency.options && invoiceCurrency.selectedIndex >= 0) {
+            invoiceCurrencyText = invoiceCurrency.options[invoiceCurrency.selectedIndex]?.text || invoiceCurrencyText;
+        }
+
+        // Get invoice remaining balance in invoice currency
+        const invoiceRemainingBalance = parseFloat(remainingBalanceInput.value) || 0;
+
+        // Get payment amount in payment currency
+        const paymentAmountInPaymentCurrency = parseFloat(amountInput.value) || 0;
+
+        // Only check overpayment for cash payments
+        if (!paymentTypeCash.checked) {
+            overpaymentSection.style.display = 'none';
+            overpaymentWarning.style.display = 'none';
+            return;
+        }
+
+        // Safely get payment currency text
+        let paymentCurrencyText = invoiceCurrencyText;
+        if (paymentCurrency.options && paymentCurrency.selectedIndex >= 0) {
+            const selectedOption = paymentCurrency.options[paymentCurrency.selectedIndex];
+            if (selectedOption) {
+                paymentCurrencyText = selectedOption.text.split(' ')[0] || invoiceCurrencyText;
+            }
+        }
+
+        let paymentAmountInInvoiceCurrency = paymentAmountInPaymentCurrency;
+        let conversionInfo = '';
+
+        // If payment currency is different from invoice currency, convert
+        if (paymentCurrency.value && invoiceCurrency.value && paymentCurrency.value != invoiceCurrency.value) {
+            paymentAmountInInvoiceCurrency = paymentAmountInPaymentCurrency * exchangeRate;
+            conversionInfo = ` (${paymentAmountInPaymentCurrency.toFixed(2)} ${paymentCurrencyText} × ${exchangeRate})`;
+        }
+
+        // Safely update display elements
+        const paymentAmountDisplay = document.getElementById('paymentAmountDisplay');
+        const remainingBalanceDisplay = document.getElementById('remainingBalanceDisplay');
+        const overpaymentAmountDisplay = document.getElementById('overpaymentAmountDisplay');
+
+        if (paymentAmountDisplay) {
+            paymentAmountDisplay.innerHTML = `${paymentAmountInPaymentCurrency.toFixed(2)} ${paymentCurrencyText}`;
+        }
+        if (remainingBalanceDisplay) {
+            remainingBalanceDisplay.innerHTML = `${invoiceRemainingBalance.toFixed(2)} ${invoiceCurrencyText}`;
+        }
+
+        if (paymentAmountInInvoiceCurrency > invoiceRemainingBalance + 0.01) {
+            const overpaymentInInvoiceCurrency = paymentAmountInInvoiceCurrency - invoiceRemainingBalance;
+            const overpaymentInPaymentCurrency = (paymentCurrency.value && invoiceCurrency.value && paymentCurrency.value == invoiceCurrency.value) ?
+                overpaymentInInvoiceCurrency :
+                overpaymentInInvoiceCurrency / exchangeRate;
+
+            if (overpaymentAmountDisplay) {
+                overpaymentAmountDisplay.innerHTML =
+                    `${overpaymentInPaymentCurrency.toFixed(2)} ${paymentCurrencyText} (≈ ${overpaymentInInvoiceCurrency.toFixed(2)} ${invoiceCurrencyText})`;
+            }
+
+            // Show overpayment section and warning
+            overpaymentSection.style.display = 'block';
+            overpaymentWarning.style.display = 'block';
+            overpaymentWarning.innerHTML = `<i class="fas fa-exclamation-triangle"></i> 
+        This payment exceeds the remaining balance by ${overpaymentInPaymentCurrency.toFixed(2)} ${paymentCurrencyText} 
+        (≈ ${overpaymentInInvoiceCurrency.toFixed(2)} ${invoiceCurrencyText}). Overpayment will be handled based on your selection below.`;
+        } else {
+            // Hide overpayment section and warning
+            overpaymentSection.style.display = 'none';
+            overpaymentWarning.style.display = 'none';
+        }
+    }
+
+    // Calculate amount in invoice currency for validation
+    // Calculate amount in invoice currency for validation
+    function getAmountInInvoiceCurrency() {
+        const amountInput = document.getElementById('amount');
+        const paymentCurrency = document.getElementById('payment_currency');
+        const invoiceCurrency = document.getElementById('invoice_currency_id');
+        const exchangeRateInput = document.getElementById('exchange_rate');
+
+        if (!amountInput || !paymentCurrency || !invoiceCurrency) return 0;
+
+        const paymentAmount = parseFloat(amountInput.value) || 0;
+        const exchangeRate = exchangeRateInput ? parseFloat(exchangeRateInput.value) || 1 : 1;
+
+        if (paymentCurrency.value == invoiceCurrency.value) {
+            return paymentAmount;
+        } else {
+            return paymentAmount * exchangeRate;
+        }
+    }
+    function loadCustomerCredits() {
+        const customerId = document.getElementById('customer_id').value;
+        console.log('Customer ID:', customerId);
+
+        const currencyElement = document.getElementById('invoice_currency_id');
+        console.log('Currency element exists:', !!currencyElement);
+
+        if (!currencyElement) {
+            document.getElementById('creditsList').innerHTML =
+                '<div class="alert alert-warning">Currency element not found</div>';
+            return;
+        }
+
+        const invoiceCurrencyId = currencyElement.value;
+        console.log('Invoice Currency ID:', invoiceCurrencyId);
+
+        if (!invoiceCurrencyId) {
+            document.getElementById('creditsList').innerHTML =
+                '<div class="alert alert-warning">Currency not selected</div>';
+            return;
+        }
+
+        // Show loading
+        document.getElementById('creditsList').innerHTML =
+            '<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Loading credits...</div>';
+
+        fetch(`/sales/api/customer_credits?customer_id=${customerId}&invoice_currency_id=${invoiceCurrencyId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.credits.length > 0) {
+                    displayCredits(data.credits);
+                } else {
+                    document.getElementById('creditsList').innerHTML =
+                        '<div class="alert alert-info">No available credits for this customer</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading credits:', error);
+                document.getElementById('creditsList').innerHTML =
+                    '<div class="alert alert-danger">Error loading credits</div>';
+            });
+    }
+
+    // Display credits - using the already converted amounts from backend
+    // Display credits - using the already converted amounts from backend
+    // Display credits with amount inputs for partial application
+    function displayCredits(credits) {
+        let html = '<div class="list-group">';
+        const remainingBalance = parseFloat(document.getElementById('remainingBalance').value) || 0;
+
+        // Get invoice currency from the hidden field or from the invoice data
+        const invoiceCurrency = document.getElementById('invoice_currency_id').options ?
+            document.getElementById('invoice_currency_id').options[document.getElementById('invoice_currency_id').selectedIndex]?.text :
+            '{{ invoice.currency }}';
+
+        credits.forEach(credit => {
+            const convertedAmount = parseFloat(credit.converted_amount) || 0;
+
+            html += `
+        <div class="list-group-item">
+            <div class="row">
+                <div class="col-7">
+                    <strong>${credit.currency_code} ${credit.available_amount}</strong>
+                    <br><small class="text-muted">
+                        ≈ ${convertedAmount.toFixed(2)} in invoice currency
+                        ${credit.exchange_rate !== 1 ? `(at rate ${credit.exchange_rate})` : ''}
+                    </small>
+                    <br><small class="text-muted">Issued: ${credit.issued_date}</small>
+                </div>
+                <div class="col-5">
+                    <div class="input-group input-group-sm">
+                        <input type="number" 
+                               class="form-control credit-amount-input" 
+                               data-credit-id="${credit.id}"
+                               data-max-amount="${credit.available_amount}"
+                               data-max-converted="${convertedAmount.toFixed(2)}"
+                               placeholder="0.00"
+                               min="0"
+                               max="${convertedAmount.toFixed(2)}"
+                               step="0.01"
+                               value="0"
+                               onchange="updatePartialCredit(this)">
+                        <span class="input-group-text">{{ invoice.currency }}</span>
+                    </div>
+                    <small class="text-muted">Max: ${convertedAmount.toFixed(2)}</small>
+                </div>
+            </div>
+        </div>
+        `;
+        });
+
+        html += '</div>';
+        document.getElementById('creditsList').innerHTML = html;
+    }
+
+    // Track selected credits
+    // Track selected credits with partial amounts
+    let selectedCredits = [];
+
+    function updatePartialCredit(input) {
+        const creditId = input.dataset.creditId;
+        const maxConverted = parseFloat(input.dataset.maxConverted);
+        const maxAmount = parseFloat(input.dataset.maxAmount);
+        let appliedConverted = parseFloat(input.value) || 0;
+        const remainingBalance = parseFloat(document.getElementById('remainingBalance').value) || 0;
+
+        // Validate individual credit limit
+        if (appliedConverted > maxConverted) {
+            showNotification(`Amount exceeds available credit (${maxConverted.toFixed(2)})`, 'warning');
+            input.value = maxConverted;
+            appliedConverted = maxConverted;
+        }
+
+        if (appliedConverted < 0) {
+            input.value = 0;
+            appliedConverted = 0;
+        }
+
+        // Calculate total from ALL inputs (including this one)
+        let totalFromInputs = 0;
+        document.querySelectorAll('.credit-amount-input').forEach(inp => {
+            totalFromInputs += parseFloat(inp.value) || 0;
+        });
+
+        // If total exceeds balance, REDUCE this credit to fit, don't remove it
+        if (totalFromInputs > remainingBalance + 0.01) {
+            const excess = totalFromInputs - remainingBalance;
+            const newAmount = appliedConverted - excess;
+
+            if (newAmount > 0) {
+                // Reduce this credit to fit within balance
+                input.value = newAmount.toFixed(2);
+                appliedConverted = newAmount;
+
+                showNotification(`Credit reduced to ${newAmount.toFixed(2)} to fit invoice balance`, 'info');
+            } else {
+                // This credit would need to be negative to fit, so set to 0
+                input.value = 0;
+                appliedConverted = 0;
+                showNotification('Credit removed - would exceed invoice balance', 'info');
+            }
+
+            // Recalculate total after adjustment
+            totalFromInputs = 0;
+            document.querySelectorAll('.credit-amount-input').forEach(inp => {
+                totalFromInputs += parseFloat(inp.value) || 0;
+            });
+        }
+
+        // Calculate ratio to get original currency amount
+        const ratio = appliedConverted / maxConverted;
+        const appliedAmount = maxAmount * (isNaN(ratio) ? 0 : ratio);
+
+        // Add or update selected credit
+        const existingIndex = selectedCredits.findIndex(c => c.id === creditId);
+        if (existingIndex >= 0) {
+            if (appliedConverted > 0) {
+                selectedCredits[existingIndex].amount = appliedAmount;
+                selectedCredits[existingIndex].converted_amount = appliedConverted;
+            } else {
+                // Remove if amount is zero
+                selectedCredits.splice(existingIndex, 1);
+            }
+        } else if (appliedConverted > 0) {
+            selectedCredits.push({
+                id: creditId,
+                amount: appliedAmount,
+                converted_amount: appliedConverted
+            });
+        }
+
+        updateCreditSummary();
+    }
+
+
+
+    function updateCreditSummary() {
+        const summary = document.getElementById('selectedCreditsSummary');
+        const totalSpan = document.getElementById('totalCreditsApplied');
+        const remainingSpan = document.getElementById('remainingToPay');
+
+        if (selectedCredits.length > 0) {
+            // Calculate total in invoice currency
+            const totalApplied = selectedCredits.reduce((sum, credit) => sum + credit.converted_amount, 0);
+            const remainingBalance = parseFloat(document.getElementById('remainingBalance').value) || 0;
+            const remainingToPay = Math.max(0, remainingBalance - totalApplied);
+
+            totalSpan.textContent = totalApplied.toFixed(2);
+            remainingSpan.textContent = remainingToPay.toFixed(2);
+            summary.style.display = 'block';
+
+            // Store in hidden field with both amount and rate
+            document.getElementById('selectedCreditsData').value = JSON.stringify(
+                selectedCredits.map(c => ({
+                    id: c.id,
+                    amount: c.amount,
+                    converted_amount: c.converted_amount,
+                    exchange_rate: c.exchange_rate
+                }))
+            );
+
+            // Update amount field
+            document.getElementById('amount').value = totalApplied.toFixed(2);
+
+        } else {
+            summary.style.display = 'none';
+            document.getElementById('selectedCreditsData').value = '';
+            document.getElementById('amount').value = '';
+        }
+    }
+
+
+
+
+    // Reset payment modal when closed
+    // Reset payment modal when closed
+    // Reset payment modal when closed
+    $('#invoicePaymentModal').on('hidden.bs.modal', function () {
+        // Reset the form
+        $('#paymentForm')[0].reset();
+
+        // Reset to cash payment (default)
+        document.getElementById('paymentTypeCash').checked = true;
+
+        // Reset hidden fields
+        document.getElementById('paymentType').value = 'cash';
+        document.getElementById('creditSettlementAccount').value = '';
+        document.getElementById('selectedCreditsData').value = '';
+
+        // Re-enable currency field
+        const paymentCurrencySelect = document.getElementById('payment_currency');
+        paymentCurrencySelect.disabled = false;
+        paymentCurrencySelect.style.backgroundColor = '';
+
+        // Re-enable exchange rate
+        const exchangeRateInput = document.getElementById('exchange_rate');
+        if (exchangeRateInput) {
+            exchangeRateInput.readOnly = false;
+            exchangeRateInput.style.backgroundColor = '';
+        }
+
+        // Hide credit section and show cash section
+        document.getElementById('cashPaymentSection').style.display = 'block';
+        document.getElementById('creditApplicationSection').style.display = 'none';
+
+        // Hide overpayment section
+        document.getElementById('overpaymentSection').style.display = 'none';
+
+        // Reset radio buttons
+        document.getElementById('recordOverpayment').checked = true;
+
+        // Show exchange rate section
+        const exchangeRateSection = document.getElementById('exchange_rate_container');
+        if (exchangeRateSection) {
+            exchangeRateSection.style.display = 'block';
+        }
+
+        // Reset amount field
+        const amountField = document.getElementById('amount');
+        const remainingBalance = document.getElementById('remainingBalance').value;
+        amountField.value = remainingBalance;
+        amountField.placeholder = '';
+        amountField.readOnly = false;
+        amountField.style.backgroundColor = '';
+
+        // Clear selected credits
+        selectedCredits = [];
+        document.getElementById('selectedCreditsSummary').style.display = 'none';
+
+        // Reset warnings
+        document.getElementById('overpaymentWarning').style.display = 'none';
+
+        // Reset exchange rate gain/loss preview
+        document.getElementById('gainLossPreview').style.display = 'none';
+
+        console.log('Payment modal reset');
+    });
+</script>
+
+{% endblock %}

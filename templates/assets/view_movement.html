@@ -1,0 +1,200 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <!-- Minimal Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('assets.movement_history') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h1 class="h5 mb-0">
+                <span class="text-muted fw-normal">Movement</span>
+                <span class="fw-bold">{{ movement.reference or '#' + movement.id|string }}</span>
+            </h1>
+        </div>
+        <div class="d-flex gap-2">
+            {% if role in ['Admin', 'Supervisor', 'Contributor'] %}
+            <div class="custom-tooltip-container">
+                <a href="{{ url_for('assets.asset_edit', movement_id=movement.id) }}" class="edit-icon">
+                    <i class="fas fa-edit"></i>
+                </a>
+                <span class="custom-tooltip right">Edit Movement</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3 text-muted">Loading movement details...</p>
+    </div>
+
+    <!-- Movement Details -->
+    <div id="movementDetails" style="display: none;">
+        <!-- Status Bar -->
+        <div class="d-flex align-items-center gap-3 mb-4 pb-2 border-bottom">
+            <span class="badge bg-{{ 'success' if movement.status == 'completed' else 'warning' }} px-3 py-2">
+                {{ movement.status|upper }}
+            </span>
+            <span class="badge bg-secondary px-3 py-2">
+                {{ movement.movement_type|replace('_', ' ')|title }}
+            </span>
+            <span class="text-muted">
+                <i class="fas fa-calendar me-1"></i> <span id="transactionDate"></span>
+            </span>
+            <span class="text-muted ms-auto">
+                <i class="fas fa-cubes me-1"></i> <span id="lineItemsCount"></span> assets
+                <span class="mx-2">|</span>
+                <span id="totalValue"></span> <span id="currency"></span>
+            </span>
+        </div>
+
+        <!-- Assets Table - Clean and Simple -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 30px;">#</th>
+                                <th>Asset</th>
+                                <th>Serial</th>
+                                <th>Type</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Party</th>
+                                <th class="text-end" style="width: 100px;">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lineItemsBody">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Meta -->
+        <div class="text-end mt-3">
+            <small class="text-muted" id="createdAt"></small>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const movementId = "{{ movement.id }}";
+        const movementIdNum = parseInt(movementId) || 0;
+        const BASE_CURRENCY_CODE = "{{ base_currency.user_currency }}";
+
+        if (movementIdNum) loadMovementDetails(movementIdNum);
+        else showNotification('Invalid movement ID', 'error');
+
+        function loadMovementDetails(id) {
+            fetch(`/assets/api/movement/${id}/details`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayMovementDetails(data.movement);
+                    } else {
+                        showNotification(data.message || 'Failed to load movement details', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Failed to load movement details', 'error');
+                });
+        }
+
+        function displayMovementDetails(movement) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('movementDetails').style.display = 'block';
+
+            // Status bar - removed createdBy
+            document.getElementById('transactionDate').textContent = formatDate(movement.transaction_date);
+            document.getElementById('currency').textContent = movement.currency_code || BASE_CURRENCY_CODE;
+            document.getElementById('totalValue').textContent = formatNumber(movement.total_value);
+            document.getElementById('lineItemsCount').textContent = movement.line_items_count;
+            document.getElementById('createdAt').textContent = movement.created_at ? formatDateTime(movement.created_at) : '';
+
+            // Render table
+            renderTable(movement.line_items, movement.currency_code);
+        }
+
+        function renderTable(items, currencyCode) {
+            const tbody = document.getElementById('lineItemsBody');
+
+            if (!items || items.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No assets in this movement</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            items.forEach((item, index) => {
+                // Compact from/to
+                let fromParts = [];
+                if (item.from_location_name) fromParts.push(`📍 ${item.from_location_name}`);
+                if (item.from_department_name) fromParts.push(`🏢 ${item.from_department_name}`);
+
+                let toParts = [];
+                if (item.to_location_name) toParts.push(`📍 ${item.to_location_name}`);
+                if (item.to_department_name) toParts.push(`🏢 ${item.to_department_name}`);
+                if (item.assigned_to_name) toParts.push(`👤 ${item.assigned_to_name}`);
+
+                html += `
+            <tr>
+                <td class="fw-light text-muted">${index + 1}</td>
+                <td>
+                    <div class="d-flex flex-column">
+                        <span class="fw-medium">${item.asset_tag || '—'}</span>
+                        ${item.asset_status ? `<span class="badge bg-light text-dark mt-1" style="font-size: 0.65rem;">${item.asset_status}</span>` : ''}
+                    </div>
+                </td>
+                <td><span style="font-family: monospace; font-size: 0.8rem;">${item.serial_number || '—'}</span></td>
+                <td>
+                    ${item.asset_item_name || '—'}
+                    ${item.asset_item_code ? `<br><span class="text-muted" style="font-size: 0.7rem;">${item.asset_item_code}</span>` : ''}
+                </td>
+                <td><span style="font-size: 0.8rem;">${fromParts.join('<br>') || '—'}</span></td>
+                <td><span style="font-size: 0.8rem;">${toParts.join('<br>') || '—'}</span></td>
+                <td><span style="font-size: 0.8rem;">${item.party_name || '—'}</span></td>
+                <td class="text-end">
+                    <span class="fw-medium">${formatNumber(item.transaction_value)}</span>
+                    <br><span class="text-muted" style="font-size: 0.7rem;">${currencyCode || BASE_CURRENCY_CODE}</span>
+                </td>
+            </tr>
+            `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        // Utility functions
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function formatDateTime(dateTimeStr) {
+            if (!dateTimeStr) return '';
+            const date = new Date(dateTimeStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatNumber(value) {
+            if (value === undefined || value === null) return '0.00';
+            return parseFloat(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+
+
+    });
+</script>
+
+
+{% endblock %}

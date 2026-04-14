@@ -1,0 +1,28 @@
+{% extends "transaction_base_template.html" %}
+{% block content %}
+
+
+<div class="content-container" style="width: 60%; margin-left: 20%;">
+
+    <h2>Edit Payment Mode</h2>
+
+
+
+    <form id="paymentModeForm" action="/edit_payment_mode/{{ payment_mode.id }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label for="paymentMode">Payment Mode:</label>
+            <input type="text" id="paymentMode" name="paymentMode" value="{{ payment_mode.payment_mode }}" required>
+        </div>
+        <div>
+            <button class="button cta-button" type="submit">
+                Update
+            </button>
+        </div>
+    </form>
+
+
+</div>
+
+
+{% endblock %}

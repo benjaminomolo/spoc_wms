@@ -1,0 +1,222 @@
+/* Hidden by default */
+.mobile-shortcuts-sidebar {
+  position: fixed;
+  top: 60px;
+  right: -300px; /* hidden to the right */
+  width: 250px;
+  height: 100%;
+  background-color: var(--sidebar-bg-color);
+  color: var(--white);
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.2);
+  transition: right 0.3s ease;
+  z-index: 10000;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+/* Sidebar header */
+.mobile-shortcuts-sidebar .sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15); /* soft divider */
+}
+
+/* Active sidebar */
+.mobile-shortcuts-sidebar.active {
+  right: 0;
+}
+
+/* Shortcut list */
+.mobile-shortcuts-sidebar nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Each shortcut item */
+.mobile-shortcuts-sidebar nav ul li {
+  margin-bottom: 8px;
+}
+
+/* Shortcut links */
+.mobile-shortcuts-sidebar nav ul li a {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--white);
+  text-decoration: none;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05); /* soft background */
+  transition:
+    background 0.25s,
+    transform 0.2s;
+}
+
+/* Hover effect */
+.mobile-shortcuts-sidebar nav ul li a:hover {
+  background: var(--highlight-color);
+  color: #fff;
+  transform: translateX(3px); /* slight slide on hover */
+}
+
+.closeShortcutsBtn {
+  background: none;
+  border: none;
+  color: var(--white);
+  font-size: 24px;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  /* Stats Grid - Force 2x2 layout on mobile */
+  .stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+  }
+
+  .stat-card {
+    padding: 10px;
+    margin-bottom: 0;
+  }
+
+  .stat-value {
+    font-size: 1rem;
+  }
+
+  /* Ensure no leftover 4-column styling */
+  .stats-grid > * {
+    width: auto !important;
+    flex: none !important;
+  }
+
+  /* Receipt Header - Stack on mobile */
+  .receipt-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .receipt-badge {
+    text-align: left;
+    width: 100%;
+  }
+
+  .receipt-badge h1 {
+    font-size: 1.3rem;
+  }
+
+  /* Customer Strip - Stack on mobile */
+  .customer-strip {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+
+  .customer-name {
+    font-size: 1rem;
+  }
+
+  .customer-contact {
+    font-size: 0.85rem;
+  }
+
+  /* Exchange Banner - Stack on mobile */
+  .exchange-banner {
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+    padding: 8px 10px;
+  }
+
+  .exchange-banner span {
+    width: 100%;
+  }
+
+  .exchange-banner small {
+    margin-left: 0 !important;
+  }
+
+  /* Tables - Make horizontal scrollable */
+  .compact-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .compact-table th,
+  .compact-table td {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
+
+  /* Action Bar - Stack buttons */
+  .action-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .action-bar button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Section Headers - Compact */
+  .section-header {
+    margin: 15px 0 8px;
+  }
+
+  .section-header h3 {
+    font-size: 0.9rem;
+  }
+
+  /* Receipt Card - Less padding */
+  .receipt-card {
+    padding: 15px;
+  }
+
+  /* Company Info - Smaller */
+  .company-info h2 {
+    font-size: 1.2rem;
+  }
+
+  .company-logo {
+    width: 45px;
+    height: 45px;
+    display: none;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 480px) {
+  .stats-grid {
+    gap: 5px;
+    grid-template-columns: repeat(1, 1fr) !important;
+  }
+
+  .stat-card {
+    padding: 8px;
+  }
+
+  .stat-label {
+    font-size: 0.65rem;
+  }
+
+  .stat-value {
+    font-size: 0.9rem;
+  }
+
+  .stat-currency {
+    font-size: 0.7rem;
+  }
+
+  .receipt-card {
+    padding: 12px;
+  }
+}
+
+/* invoice details and related templates */

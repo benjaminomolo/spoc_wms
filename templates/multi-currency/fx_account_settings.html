@@ -1,0 +1,107 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div class="header-section">
+        <h1>Monetary Accounts</h1>
+        <p class="page-description" style="font-size: 12px;">
+            Assign accounts that are considered <strong>monetary</strong> to support accurate multi-currency revaluation
+            and reporting.
+            <br>
+            <span class="text-info">Monetary accounts include assets or liabilities that are held in cash or will be
+                settled in a fixed or determinable amount of money (e.g., bank accounts, receivables, payables).</span>
+        </p>
+    </div>
+
+    <div class="accounts-section">
+        <!-- Monetary Accounts List -->
+        <div class="account-list">
+            <h3><i class="fas fa-coins"></i> Monetary Accounts</h3>
+
+            {% if monetary_accounts %}
+            <ul>
+                {% for account in monetary_accounts %}
+                <li>
+                    {{ account.category }} > {{ account.sub_category }}
+                    <form method="POST" style="display: inline;">
+                        <input type="hidden" name="account_id" value="{{ account.id }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="remove">
+                        <button type="submit" class="button remove-button">
+                            <i class="fas fa-times"></i> Remove
+                        </button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="alert alert-info">No monetary accounts configured</div>
+            {% endif %}
+        </div>
+
+        <!-- Add Monetary Account -->
+        <div class="add-account">
+            <h3><i class="fas fa-plus-circle"></i> Add Monetary Account</h3>
+
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <select name="account_id" class="form-control" required>
+                        <option value="">Select an account...</option>
+                        {% for account in non_monetary_accounts %}
+                        <option value="{{ account.id }}">
+                            {{ account.category }} > {{ account.sub_category }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <input type="hidden" name="action" value="add">
+                <button type="submit" class="button cta-button">
+                    <i class="fas fa-check"></i> Mark as Monetary
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .accounts-section {
+        display: flex;
+        gap: 2rem;
+        margin-top: 1rem;
+    }
+
+    .account-list,
+    .add-account {
+        flex: 1;
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .account-list ul {
+        list-style: none;
+        padding: 0;
+    }
+
+    .account-list li {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .account-list li:last-child {
+        border-bottom: none;
+    }
+
+    @media (max-width: 768px) {
+        .accounts-section {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}

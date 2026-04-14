@@ -1,0 +1,1326 @@
+{% extends "transaction_base_template.html" %}
+
+
+
+{% block content %}
+<div class="erp-workflow-container">
+    <!-- Vertical Step Navigation -->
+    <div class="workflow-nav">
+        <div class="nav-header">
+            <h3><i class="fas fa-project-diagram"></i> Workflow Navigator</h3>
+            <div class="search-box">
+                <input type="text" placeholder="Search workflows..." id="workflowSearch">
+                <i class="fas fa-search"></i>
+            </div>
+        </div>
+
+        <div class="module-accordion">
+            <!-- Payroll Module -->
+            <div class="module-card">
+                <div class="module-title">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <h4>Payroll</h4>
+                    <i class="fas fa-chevron-down"></i>
+                    <span class="step-count">3</span>
+                </div>
+                <div class="workflow-steps">
+                    <a href="#payroll-create" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Create Pay Run</span>
+                    </a>
+                    <a href="#payroll-employee" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Add Employee</span>
+                    </a>
+                    <a href="#payroll-deductions" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Manage Deductions</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Inventory Module -->
+            <div class="module-card">
+                <div class="module-title">
+                    <i class="fas fa-boxes"></i>
+                    <h4>Inventory</h4>
+                    <i class="fas fa-chevron-down"></i>
+                    <span class="step-count">4</span>
+                </div>
+                <div class="workflow-steps">
+                    <a href="#inventory-receive" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Receive Stock</span>
+                    </a>
+                    <a href="#inventory-adjust" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Adjust Inventory</span>
+                    </a>
+                    <a href="#inventory-transfer" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Transfer Items</span>
+                    </a>
+                    <a href="#inventory-count" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Physical Count</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Sales Module -->
+            <div class="module-card">
+                <div class="module-title">
+                    <i class="fas fa-chart-line"></i>
+                    <h4>Sales</h4>
+                    <i class="fas fa-chevron-down"></i>
+                    <span class="step-count">5</span>
+                </div>
+                <div class="workflow-steps">
+                    <a href="#sales-quotation" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Create Quotation</span>
+                    </a>
+                    <a href="#sales-order" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Sales Order</span>
+                    </a>
+                    <a href="#sales-delivery" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Delivery Note</span>
+                    </a>
+                    <a href="#sales-invoice" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Sales Invoice</span>
+                    </a>
+                    <a href="#sales-return" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Sales Return</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Purchases Module -->
+            <div class="module-card">
+                <div class="module-title">
+                    <i class="fas fa-shopping-basket"></i>
+                    <h4>Purchases</h4>
+                    <i class="fas fa-chevron-down"></i>
+                    <span class="step-count">5</span>
+                </div>
+                <div class="workflow-steps">
+                    <a href="#purchase-requisition" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Purchase Requisition</span>
+                    </a>
+                    <a href="#purchase-order" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Purchase Order</span>
+                    </a>
+                    <a href="#purchase-receipt" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Goods Receipt</span>
+                    </a>
+                    <a href="#purchase-invoice" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Purchase Invoice</span>
+                    </a>
+                    <a href="#purchase-return" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Purchase Return</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- General Ledger Module -->
+            <div class="module-card">
+                <div class="module-title">
+                    <i class="fas fa-book"></i>
+                    <h4>General Ledger</h4>
+                    <i class="fas fa-chevron-down"></i>
+                    <span class="step-count">5</span>
+                </div>
+                <div class="workflow-steps">
+                    <a href="#gl-journal-entry" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Journal Entry</span>
+                    </a>
+                    <a href="#gl-account-reconciliation" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Account Reconciliation</span>
+                    </a>
+                    <a href="#gl-period-end" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Period End Closing</span>
+                    </a>
+                    <a href="#gl-financial-reports" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Financial Reports</span>
+                    </a>
+                    <a href="#gl-budgeting" class="step-link">
+                        <div class="step-bullet"></div>
+                        <span>Budgeting</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="workflow-content">
+        <!-- Payroll Workflows -->
+        <section id="payroll-create" class="workflow-section">
+            <!-- Payroll Create Pay Run content (same as before) -->
+        </section>
+
+        <section id="payroll-employee" class="workflow-section">
+            <div class="content-header">
+                <div class="header-main">
+                    <div class="progress-tracker">
+                        <span class="progress-step active">1</span>
+                        <span class="progress-connector"></span>
+                        <span class="progress-step">2</span>
+                        <span class="progress-connector"></span>
+                        <span class="progress-step">3</span>
+                    </div>
+                    <h1><i class="fas fa-user-tie"></i> Adding New Employees</h1>
+                    <p class="workflow-description">Complete guide to onboarding new employees into the payroll system
+                    </p>
+                </div>
+                <div class="header-actions">
+                    <button class="action-btn print-btn"><i class="fas fa-print"></i> Print Guide</button>
+                    <button class="action-btn video-btn"><i class="fas fa-play-circle"></i> Watch Tutorial</button>
+                </div>
+            </div>
+
+            <div class="workflow-body">
+                <div class="context-alert">
+                    <div class="alert-icon">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                    <div class="alert-content">
+                        <strong>System Note:</strong> All new employees must complete tax forms before being added to
+                        payroll.
+                    </div>
+                </div>
+
+                <div class="step-container">
+                    <div class="step active">
+                        <div class="step-header">
+                            <div class="step-number">1</div>
+                            <h3>Navigate to Payroll → Employees → Add New</h3>
+                        </div>
+                        <div class="step-body">
+                            <div class="step-media">
+                                <img src="{{ url_for('static', filename='img/payroll/employee-step1.png') }}"
+                                    alt="Add Employee screen" class="step-image">
+                                <div class="media-caption">Employee creation form</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-header">
+                            <div class="step-number">2</div>
+                            <h3>Complete Employee Details</h3>
+                        </div>
+                        <div class="step-body">
+                            <div class="step-grid">
+                                <div class="step-media">
+                                    <img src="{{ url_for('static', filename='img/payroll/employee-step2.png') }}"
+                                        alt="Employee details form" class="step-image">
+                                    <div class="media-caption">Employee information section</div>
+                                </div>
+                                <div class="step-aside">
+                                    <div class="tips-card">
+                                        <div class="card-header">
+                                            <i class="fas fa-lightbulb"></i>
+                                            <h4>Pro Tips</h4>
+                                        </div>
+                                        <ul class="tips-list">
+                                            <li>
+                                                <i class="fas fa-check"></i>
+                                                <div>
+                                                    <strong>Required fields</strong> are marked with a red asterisk
+                                                </div>
+                                            </li>
+                                            <li>
+                                                <i class="fas fa-check"></i>
+                                                <div>
+                                                    <strong>Upload documents</strong> for verification (ID,
+                                                    certificates)
+                                                </div>
+                                            </li>
+                                            <li>
+                                                <i class="fas fa-check"></i>
+                                                <div>
+                                                    <strong>Set default values</strong> for common employee types
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="warning-card">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <div>
+                                            <strong>Important:</strong> Ensure all tax information is accurate before
+                                            submission
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-header">
+                            <div class="step-number">3</div>
+                            <h3>Configure Payroll Settings</h3>
+                        </div>
+                        <div class="step-body">
+                            <div class="calculation-card">
+                                <div class="calc-row">
+                                    <span>Basic Salary</span>
+                                    <span>$3,000.00</span>
+                                </div>
+                                <div class="calc-row">
+                                    <span>+ Allowances</span>
+                                    <span>$500.00</span>
+                                </div>
+                                <div class="calc-row total">
+                                    <span>Gross Salary</span>
+                                    <span>$3,500.00</span>
+                                </div>
+                                <div class="calc-row">
+                                    <span>- Default Deductions</span>
+                                    <span>-$450.00</span>
+                                </div>
+                                <div class="calc-row total">
+                                    <span>Net Salary</span>
+                                    <span>$3,050.00</span>
+                                </div>
+                            </div>
+                            <div class="formula-card">
+                                <i class="fas fa-square-root-alt"></i>
+                                <div>
+                                    <strong>Formula:</strong> Net Salary = (Basic + Allowances) - Deductions
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="workflow-footer">
+                    <div class="next-steps">
+                        <h4>Continue Your Workflow</h4>
+                        <div class="next-links">
+                            <a href="#payroll-deductions" class="next-link">
+                                <i class="fas fa-hand-holding-usd"></i>
+                                <div>
+                                    <h5>Managing Deductions</h5>
+                                    <p>Learn how to set up and manage payroll deductions</p>
+                                </div>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                            <a href="#payroll-create" class="next-link">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                                <div>
+                                    <h5>Creating Pay Runs</h5>
+                                    <p>Process payroll for your employees</p>
+                                </div>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="feedback-section">
+                        <h4>Was this guide helpful?</h4>
+                        <div class="feedback-options">
+                            <button class="feedback-btn yes-btn">
+                                <i class="fas fa-thumbs-up"></i> Yes
+                            </button>
+                            <button class="feedback-btn no-btn">
+                                <i class="fas fa-thumbs-down"></i> No
+                            </button>
+                        </div>
+                        <div class="feedback-more">
+                            <a href="#"><i class="fas fa-comment-alt"></i> Provide additional feedback</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="payroll-deductions" class="workflow-section">
+            <!-- Payroll Manage Deductions content -->
+        </section>
+
+        <!-- Inventory Workflows -->
+        <section id="inventory-receive" class="workflow-section">
+            <div class="content-header">
+                <div class="header-main">
+                    <div class="progress-tracker">
+                        <span class="progress-step active">1</span>
+                        <span class="progress-connector"></span>
+                        <span class="progress-step">2</span>
+                        <span class="progress-connector"></span>
+                        <span class="progress-step">3</span>
+                    </div>
+                    <h1><i class="fas fa-dolly"></i> Receiving Stock</h1>
+                    <p class="workflow-description">Process for receiving inventory from suppliers</p>
+                </div>
+                <div class="header-actions">
+                    <button class="action-btn print-btn"><i class="fas fa-print"></i> Print Guide</button>
+                    <button class="action-btn video-btn"><i class="fas fa-play-circle"></i> Watch Tutorial</button>
+                </div>
+            </div>
+
+            <div class="workflow-body">
+                <div class="context-alert">
+                    <div class="alert-icon">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                    <div class="alert-content">
+                        <strong>System Note:</strong> Receiving stock will automatically update inventory levels and
+                        create
+                        accounting entries.
+                    </div>
+                </div>
+
+                <div class="step-container">
+                    <div class="step active">
+                        <div class="step-header">
+                            <div class="step-number">1</div>
+                            <h3>Navigate to Inventory → Receive Stock</h3>
+                        </div>
+                        <div class="step-body">
+                            <div class="step-media">
+                                <img src="{{ url_for('static', filename='img/inventory/receive-step1.png') }}"
+                                    alt="Receive Stock screen" class="step-image">
+                                <div class="media-caption">Stock receipt creation form</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-header">
+                            <div class="step-number">2</div>
+                            <h3>Select Purchase Order or Enter Items Manually</h3>
+                        </div>
+                        <div class="step-body">
+                            <div class="step-grid">
+                                <div class="step-media">
+                                    <img src="{{ url_for('static', filename='img/inventory/receive-step2.png') }}"
+                                        alt="PO selection" class="step-image">
+                                    <div class="media-caption">Purchase order selection interface</div>
+                                </div>
+                                <div class="step-aside">
+                                    <div class="tips-card">
+                                        <div class="card-header">
+                                            <i class="fas fa-lightbulb"></i>
+                                            <h4>Pro Tips</h4>
+                                        </div>
+                                        <ul class="tips-list">
+                                            <li>
+                                                <i class="fas fa-check"></i>
+                                                <div>
+                                                    <strong>Use barcode scanning</strong> for faster item entry
+                                                </div>
+                                            </li>
+                                            <li>
+                                                <i class="fas fa-check"></i>
+                                                <div>
+                                                    <strong>Partial receipts</strong> can be processed for large orders
+                                                </div>
+                                            </li>
+                                            <li>
+                                                <i class="fas fa-check"></i>
+                                                <div>
+                                                    <strong>Quality check</strong> should be completed before receiving
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="warning-card">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <div>
+                                            <strong>Important:</strong> Verify quantities match packing slip before
+                                            receiving
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-header">
+                            <div class="step-number">3</div>
+                            <h3>Review and Confirm Receipt</h3>
+                        </div>
+                        <div class="step-body">
+                            <div class="calculation-card">
+                                <div class="calc-row">
+                                    <span>Items Received</span>
+                                    <span>12</span>
+                                </div>
+                                <div class="calc-row">
+                                    <span>Total Quantity</span>
+                                    <span>245 units</span>
+                                </div>
+                                <div class="calc-row total">
+                                    <span>Total Value</span>
+                                    <span>$4,567.89</span>
+                                </div>
+                            </div>
+                            <div class="formula-card">
+                                <i class="fas fa-info-circle"></i>
+                                <div>
+                                    <strong>Note:</strong> Received items will be available for sale immediately
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="workflow-footer">
+                    <div class="next-steps">
+                        <h4>Continue Your Workflow</h4>
+                        <div class="next-links">
+                            <a href="#inventory-adjust" class="next-link">
+                                <i class="fas fa-sliders-h"></i>
+                                <div>
+                                    <h5>Adjusting Inventory</h5>
+                                    <p>Correct inventory discrepancies</p>
+                                </div>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                            <a href="#purchase-receipt" class="next-link">
+                                <i class="fas fa-clipboard-check"></i>
+                                <div>
+                                    <h5>Goods Receipt</h5>
+                                    <p>Process purchase order receipts</p>
+                                </div>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="feedback-section">
+                        <h4>Was this guide helpful?</h4>
+                        <div class="feedback-options">
+                            <button class="feedback-btn yes-btn">
+                                <i class="fas fa-thumbs-up"></i> Yes
+                            </button>
+                            <button class="feedback-btn no-btn">
+                                <i class="fas fa-thumbs-down"></i> No
+                            </button>
+                        </div>
+                        <div class="feedback-more">
+                            <a href="#"><i class="fas fa-comment-alt"></i> Provide additional feedback</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="inventory-adjust" class="workflow-section">
+            <!-- Inventory Adjust content -->
+        </section>
+
+        <section id="inventory-transfer" class="workflow-section">
+            <!-- Inventory Transfer content -->
+        </section>
+
+        <section id="inventory-count" class="workflow-section">
+            <!-- Inventory Physical Count content -->
+        </section>
+
+        <!-- Sales Workflows -->
+        <section id="sales-quotation" class="workflow-section">
+            <!-- Sales Create Quotation content -->
+        </section>
+
+        <section id="sales-order" class="workflow-section">
+            <!-- Sales Order content -->
+        </section>
+
+        <section id="sales-delivery" class="workflow-section">
+            <!-- Sales Delivery Note content -->
+        </section>
+
+        <section id="sales-invoice" class="workflow-section">
+            <!-- Sales Invoice content -->
+        </section>
+
+        <section id="sales-return" class="workflow-section">
+            <!-- Sales Return content -->
+        </section>
+
+        <!-- Purchases Workflows -->
+        <section id="purchase-requisition" class="workflow-section">
+            <!-- Purchase Requisition content -->
+        </section>
+
+        <section id="purchase-order" class="workflow-section">
+            <!-- Purchase Order content -->
+        </section>
+
+        <section id="purchase-receipt" class="workflow-section">
+            <!-- Purchase Goods Receipt content -->
+        </section>
+
+        <section id="purchase-invoice" class="workflow-section">
+            <!-- Purchase Invoice content -->
+        </section>
+
+        <section id="purchase-return" class="workflow-section">
+            <!-- Purchase Return content -->
+        </section>
+
+        <!-- General Ledger Workflows -->
+        <section id="gl-journal-entry" class="workflow-section">
+            <!-- GL Journal Entry content -->
+        </section>
+
+        <section id="gl-account-reconciliation" class="workflow-section">
+            <!-- GL Account Reconciliation content -->
+        </section>
+
+        <section id="gl-period-end" class="workflow-section">
+            <!-- GL Period End Closing content -->
+        </section>
+
+        <section id="gl-financial-reports" class="workflow-section">
+            <!-- GL Financial Reports content -->
+        </section>
+
+        <section id="gl-budgeting" class="workflow-section">
+            <!-- GL Budgeting content -->
+        </section>
+    </div>
+</div>
+
+<style>
+    :root {
+        /* Your color theme */
+        --primary-color: #003366;
+        --secondary-color: #00b5b8;
+        --highlight-color: #008c8a;
+        --success-color: #2e8b57;
+        --warning-color: #ff9900;
+        --danger-color: #cc3b3b;
+        --info-color: #2980b9;
+
+        /* Additional colors */
+        --light-bg: #f8f9fa;
+        --border-color: #e0e0e0;
+        --text-color: #333;
+        --text-light: #666;
+        --white: #ffffff;
+        --sidebar-width: 280px;
+    }
+
+    /* Base Styles */
+    .erp-workflow-container {
+        display: flex;
+        min-height: 100vh;
+        font-family: "Roboto", sans-serif;
+        background-color: var(--light-bg);
+    }
+
+    /* Workflow Navigation */
+    .workflow-nav {
+        width: var(--sidebar-width);
+        background-color: var(--white);
+        border-right: 1px solid var(--border-color);
+        padding: 20px;
+        overflow-y: auto;
+    }
+
+    .nav-header {
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .nav-header h3 {
+        color: var(--primary-color);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .search-box {
+        position: relative;
+    }
+
+    .search-box input {
+        width: 100%;
+        padding: 10px 15px 10px 35px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 14px;
+    }
+
+    .search-box i {
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        color: var(--text-light);
+    }
+
+    /* Module Accordion */
+    .module-accordion {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .module-card {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .module-title {
+        display: flex;
+        align-items: center;
+        padding: 12px 15px;
+        background-color: var(--white);
+        cursor: pointer;
+        position: relative;
+    }
+
+    .module-title:hover {
+        background-color: #f5f5f5;
+    }
+
+    .module-title i:first-child {
+        color: var(--secondary-color);
+        margin-right: 10px;
+        font-size: 18px;
+    }
+
+    .module-title h4 {
+        flex: 1;
+        margin: 0;
+        font-size: 15px;
+        color: var(--primary-color);
+        font-weight: 500;
+    }
+
+    .module-title .fa-chevron-down {
+        color: var(--text-light);
+        font-size: 12px;
+        transition: transform 0.2s;
+    }
+
+    .module-title.active .fa-chevron-down {
+        transform: rotate(180deg);
+    }
+
+    .step-count {
+        background-color: var(--secondary-color);
+        color: white;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 10px;
+        margin-left: 10px;
+    }
+
+    .workflow-steps {
+        display: none;
+        padding: 5px 0;
+        background-color: var(--light-bg);
+    }
+
+    .module-card.active .workflow-steps {
+        display: block;
+    }
+
+    .step-link {
+        display: flex;
+        align-items: center;
+        padding: 10px 15px 10px 40px;
+        text-decoration: none;
+        color: var(--text-color);
+        position: relative;
+        transition: all 0.2s;
+    }
+
+    .step-link:hover {
+        background-color: rgba(0, 181, 184, 0.1);
+    }
+
+    .step-link.active {
+        background-color: rgba(0, 181, 184, 0.1);
+        font-weight: 500;
+    }
+
+    .step-link.active .step-bullet {
+        background-color: var(--secondary-color);
+    }
+
+    .step-bullet {
+        position: absolute;
+        left: 20px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: var(--text-light);
+    }
+
+    /* Main Content */
+    .workflow-content {
+        flex: 1;
+        overflow-y: auto;
+        background-color: var(--white);
+    }
+
+    .content-header {
+        padding: 25px 30px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .header-main {
+        flex: 1;
+    }
+
+    .progress-tracker {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .progress-step {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background-color: var(--light-bg);
+        color: var(--text-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .progress-step.active {
+        background-color: var(--secondary-color);
+        color: white;
+    }
+
+    .progress-connector {
+        flex: 1;
+        height: 2px;
+        background-color: var(--border-color);
+        max-width: 60px;
+    }
+
+    .content-header h1 {
+        color: var(--primary-color);
+        margin: 0 0 10px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .content-header h1 i {
+        color: var(--secondary-color);
+    }
+
+    .workflow-description {
+        color: var(--text-light);
+        margin: 0;
+        font-size: 15px;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .action-btn {
+        padding: 8px 15px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background-color: var(--white);
+        color: var(--primary-color);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+        background-color: #f5f5f5;
+    }
+
+    .video-btn {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .video-btn:hover {
+        background-color: #002b57;
+    }
+
+    /* Workflow Body */
+    .workflow-body {
+        padding: 30px;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .context-alert {
+        display: flex;
+        padding: 15px;
+        border-radius: 6px;
+        background-color: rgba(0, 181, 184, 0.1);
+        border-left: 4px solid var(--secondary-color);
+        margin-bottom: 30px;
+        gap: 12px;
+    }
+
+    .alert-icon {
+        color: var(--secondary-color);
+        font-size: 18px;
+    }
+
+    .alert-content {
+        flex: 1;
+    }
+
+    .alert-content strong {
+        color: var(--primary-color);
+    }
+
+    /* Step Container */
+    .step-container {
+        display: flex;
+        flex-direction: column;
+        gap: 40px;
+    }
+
+    .step {
+        display: none;
+    }
+
+    .step.active {
+        display: block;
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .step-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .step-number {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background-color: var(--secondary-color);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+
+    .step-header h3 {
+        margin: 0;
+        color: var(--primary-color);
+        font-size: 20px;
+    }
+
+    .step-body {
+        padding-left: 47px;
+    }
+
+    .step-media {
+        margin-bottom: 20px;
+    }
+
+    .step-image {
+        width: 100%;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .media-caption {
+        font-size: 13px;
+        color: var(--text-light);
+        margin-top: 8px;
+    }
+
+    .step-grid {
+        display: flex;
+        gap: 30px;
+    }
+
+    .step-aside {
+        flex: 1;
+        min-width: 300px;
+    }
+
+    .tips-card {
+        background-color: var(--light-bg);
+        border-radius: 6px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-left: 4px solid var(--warning-color);
+    }
+
+    .card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .card-header i {
+        color: var(--warning-color);
+    }
+
+    .card-header h4 {
+        margin: 0;
+        color: var(--primary-color);
+    }
+
+    .tips-list {
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+    }
+
+    .tips-list li {
+        margin-bottom: 12px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .tips-list li i {
+        color: var(--success-color);
+        margin-top: 3px;
+    }
+
+    .warning-card {
+        display: flex;
+        gap: 10px;
+        padding: 15px;
+        background-color: rgba(255, 153, 0, 0.1);
+        border-radius: 6px;
+        border-left: 4px solid var(--warning-color);
+    }
+
+    .warning-card i {
+        color: var(--warning-color);
+    }
+
+    /* Calculation Card */
+    .calculation-card {
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 20px;
+        margin-bottom: 15px;
+        max-width: 400px;
+    }
+
+    .calc-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .calc-row.total {
+        font-weight: 600;
+        border-top: 2px solid var(--border-color);
+        margin-top: 5px;
+        color: var(--secondary-color);
+    }
+
+    .formula-card {
+        display: flex;
+        gap: 10px;
+        padding: 12px 15px;
+        background-color: rgba(0, 181, 184, 0.1);
+        border-radius: 6px;
+        border-left: 4px solid var(--secondary-color);
+        max-width: 400px;
+        align-items: center;
+    }
+
+    .formula-card i {
+        color: var(--secondary-color);
+    }
+
+    /* Footer */
+    .workflow-footer {
+        margin-top: 50px;
+        padding-top: 30px;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        gap: 30px;
+    }
+
+    .next-steps {
+        flex: 1;
+    }
+
+    .next-steps h4 {
+        color: var(--primary-color);
+        margin-bottom: 15px;
+    }
+
+    .next-links {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .next-link {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 15px;
+        background-color: var(--light-bg);
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--primary-color);
+        transition: all 0.2s;
+    }
+
+    .next-link:hover {
+        background-color: rgba(0, 181, 184, 0.1);
+    }
+
+    .next-link i:first-child {
+        color: var(--secondary-color);
+        font-size: 18px;
+    }
+
+    .next-link div {
+        flex: 1;
+    }
+
+    .next-link h5 {
+        margin: 0 0 5px;
+        font-size: 16px;
+    }
+
+    .next-link p {
+        margin: 0;
+        font-size: 14px;
+        color: var(--text-light);
+    }
+
+    .next-link .fa-arrow-right {
+        color: var(--text-light);
+    }
+
+    /* Feedback Section */
+    .feedback-section {
+        flex: 1;
+        max-width: 300px;
+    }
+
+    .feedback-section h4 {
+        color: var(--primary-color);
+        margin-bottom: 15px;
+    }
+
+    .feedback-options {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+
+    .feedback-btn {
+        padding: 10px 20px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+
+    .yes-btn {
+        background-color: rgba(46, 139, 87, 0.1);
+        color: var(--success-color);
+    }
+
+    .no-btn {
+        background-color: rgba(204, 59, 59, 0.1);
+        color: var(--danger-color);
+    }
+
+    .feedback-btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .feedback-more a {
+        color: var(--secondary-color);
+        text-decoration: none;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .feedback-more a:hover {
+        text-decoration: underline;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1200px) {
+        .step-grid {
+            flex-direction: column;
+        }
+
+        .step-aside {
+            min-width: auto;
+        }
+    }
+
+    @media (max-width: 992px) {
+        .erp-workflow-container {
+            flex-direction: column;
+        }
+
+        .workflow-nav {
+            width: 100%;
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .content-header {
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .header-actions {
+            align-self: flex-start;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .workflow-footer {
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .feedback-section {
+            max-width: none;
+        }
+
+        .workflow-body {
+            padding: 20px;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .header-actions {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .action-btn {
+            justify-content: center;
+        }
+
+        .step-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .step-body {
+            padding-left: 0;
+        }
+    }
+</style>
+
+<script>
+    $(document).ready(function () {
+        // Module accordion
+        $('.module-title').click(function () {
+            $(this).toggleClass('active').parent().toggleClass('active')
+                .find('.workflow-steps').slideToggle(200);
+        });
+
+        // Step navigation
+        $('.step-link').click(function (e) {
+            e.preventDefault();
+            $('.step-link').removeClass('active');
+            $(this).addClass('active');
+
+            const target = $(this).attr('href');
+            $('.step').removeClass('active');
+            $(target).find('.step').addClass('active');
+
+            // Update progress tracker
+            const stepIndex = $(target).find('.step').index() + 1;
+            $('.progress-step').removeClass('active');
+            $('.progress-step').slice(0, stepIndex).addClass('active');
+        });
+
+        // Initialize first step
+        $('.step-link:first').click();
+
+        // Search functionality
+        $('#workflowSearch').on('input', function () {
+            const term = $(this).val().toLowerCase();
+
+            if (term.length > 2) {
+                $('.step-link').each(function () {
+                    const text = $(this).text().toLowerCase();
+                    if (text.includes(term)) {
+                        $(this).show();
+                        $(this).closest('.module-card').addClass('active')
+                            .find('.workflow-steps').show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            } else {
+                $('.step-link').show();
+            }
+        });
+
+        // Feedback buttons
+        $('.feedback-btn').click(function () {
+            const isPositive = $(this).hasClass('yes-btn');
+            $(this).html(`<i class="fas ${isPositive ? 'fa-check' : 'fa-times'}"></i> ${isPositive ? 'Thanks!' : 'Noted!'}`);
+            $(this).prop('disabled', true);
+        });
+    });
+</script>
+{% endblock %}

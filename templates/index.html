@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Expense Report</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <style>
+    .subcategory-row {
+      display: none;
+    }
+    .category-row {
+      background-color: #f7f7f7;
+      border-bottom: 1px solid #ddd;
+    }
+    .subcategory-row {
+      background-color: #fff;
+      border-bottom: 1px solid #ddd;
+    }
+    .category-name {
+      font-weight: bold;
+      padding-left: 10px;
+    }
+    .subcategory-name {
+      font-style: italic;
+      padding-left: 40px; /* Increased margin for subcategories */
+    }
+    .subtotal-row {
+      font-weight: bold;
+      display: none;
+      padding-left: 30px; /* Increased margin for subtotals */
+    }
+    .total-row {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1 class="text-center">Expense Report</h1>
+  <div class="container">
+    <form action="" method="post" class="mb-3">
+      <label for="start_date">Start Date:</label>
+      <input type="date" id="start_date" name="start_date" required>
+      <label for="end_date">End Date:</label>
+      <input type="date" id="end_date" name="end_date" required>
+      <button type="submit">Filter</button>
+      <button type="button" onclick="location.reload()">Clear Filter</button>
+    </form>
+    <button id="toggle-all" class="btn btn-secondary mb-3">Show All Subcategories</button>
+    <button id="download-pdf" class="btn btn-success mb-3">Download PDF</button>
+    <table class="table table-bordered" id="expense-table">
+      <thead class="thead-dark">
+        <tr>
+          <th>Category/Subcategory</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody id="expense-table-body">
+        {% for category, data in category_totals.items() %}
+          <tr class="category-row" onclick="toggleSubcategories(this)">
+            <td class="category-name"><strong>{{ category }}</strong> <span class="view-subcategories">+</span></td>
+            <td class="category-amount">{{ "{:,.0f}".format(data.total) }}</td>
+          </tr>
+          {% for subcategory, total in data.subtotals.items() %}
+            <tr class="subcategory-row">
+              <td class="subcategory-name">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ subcategory }}</td>
+              <td class="subcategory-amount">{{ "{:,.0f}".format(total) }}</td>
+            </tr>
+          {% endfor %}
+          <tr class="subtotal-row">
+            <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Subtotal</td>
+            <td class="subtotal-amount">{{ "{:,.0f}".format(data.total) }}</td>
+          </tr>
+        {% endfor %}
+        <tr class="total-row overall-total-row">
+          <td><b>Total</b></td>
+          <td><b>{{ "{:,.0f}".format(total_expense) }}</b></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.0/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.17/jspdf.plugin.autotable.min.js"></script>
+  <script>
+    function toggleSubcategories(element) {
+      var subcategories = element.nextElementSibling;
+      var isVisible = subcategories.style.display === 'table-row';
+      var subtotalRow = element.nextElementSibling.nextElementSibling;
+
+      while (subcategories && subcategories.classList.contains('subcategory-row')) {
+        subcategories.style.display = isVisible ? 'none' : 'table-row';
+        subcategories = subcategories.nextElementSibling;
+      }
+
+      if (subtotalRow && subtotalRow.classList.contains('subtotal-row')) {
+        subtotalRow.style.display = isVisible ? 'none' : 'table-row';
+      }
+
+      var categoryAmountCell = element.querySelector('.category-amount');
+      if (categoryAmountCell) {
+        categoryAmountCell.style.display = isVisible ? 'table-cell' : 'none';
+      }
+
+      element.querySelector('.view-subcategories').textContent = isVisible ? '+' : '-';
+    }
+
+    document.getElementById('toggle-all').addEventListener('click', function() {
+      var subcategoryRows = document.querySelectorAll('.subcategory-row');
+      var categoryRows = document.querySelectorAll('.category-row');
+      var subtotalRows = document.querySelectorAll('.subtotal-row');
+      var totalRows = document.querySelectorAll('.total-row');
+      var showAll = this.textContent === 'Show All Subcategories';
+
+      subcategoryRows.forEach(function(row) {
+        row.style.display = showAll ? 'table-row' : 'none';
+      });
+
+      subtotalRows.forEach(function(row) {
+        row.style.display = showAll ? 'table-row' : 'none';
+      });
+
+      totalRows.forEach(function(row) {
+        if (!row.classList.contains('overall-total-row')) {
+          row.style.display = showAll ? 'table-row' : 'none';
+        }
+      });
+
+      categoryRows.forEach(function(row) {
+        var categoryAmountCell = row.querySelector('.category-amount');
+        if (categoryAmountCell) {
+          categoryAmountCell.style.display = showAll ? 'none' : 'table-cell';
+        }
+        row.querySelector('.view-subcategories').textContent = showAll ? '-' : '+';
+      });
+
+      this.textContent = showAll ? 'Hide All Subcategories' : 'Show All Subcategories';
+    });
+
+    document.getElementById('download-pdf').addEventListener('click', function() {
+      var { jsPDF } = window.jspdf;
+      var doc = new jsPDF();
+      var rows = [];
+      var headers = [['Category/Subcategory', 'Amount']];
+
+      // Collect data from the table
+      document.querySelectorAll('#expense-table tbody tr').forEach(function(row) {
+        var cells = row.querySelectorAll('td');
+        var rowData = [];
+        cells.forEach(function(cell) {
+          rowData.push(cell.textContent.trim());
+        });
+        // Adjust visibility for PDF: if subcategories are visible, hide category total amounts
+        if (row.style.display !== 'none') {
+          if (row.classList.contains('category-row')) {
+            var subcategoryVisible = row.nextElementSibling && row.nextElementSibling.style.display === 'table-row';
+            if (subcategoryVisible) {
+              rowData[1] = ''; // Hide category amount
+            }
+            rows.push(rowData);
+          } else {
+            // Add margin to subcategories and subtotals
+            if (row.classList.contains('subcategory-row')) {
+              rowData[0] = '      ' + rowData[0]; // Increase margin for subcategories
+            }
+            if (row.classList.contains('subtotal-row')) {
+              rowData[0] = '    ' + rowData[0]; // Increase margin for subtotals
+            }
+            rows.push(rowData);
+          }
+        }
+      });
+
+      // Add table to the PDF
+      doc.autoTable({
+        head: headers,
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: [0, 0, 0] },
+        styles: { cellPadding: 3, fontSize: 10 },
+        margin: { top: 10 }
+      });
+
+      doc.save('expense_report.pdf');
+    });
+  </script>
+</body>
+</html>

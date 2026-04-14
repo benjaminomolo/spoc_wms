@@ -1,0 +1,222 @@
+{% extends "transaction_base_template.html" %}
+{% block content %}
+
+<div class="content-container">
+
+    <h1>Edit Party</h1>
+    <h4>Update Vendor/Customer/Party Details</h4>
+
+
+    <form id="editVendorForm" action="/general_ledger/edit_vendor/{{ vendor.id }}" method="post">
+
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-grid">
+            <!-- Vendor Name -->
+            <div class="form-group">
+
+                <input type="text" id="vendorName" name="vendorName" value="{{ vendor.vendor_name }}" required>
+                <label for="vendorName"> Name: <span style="color: red;">*</span></label>
+            </div>
+
+            <!-- Vendor ID -->
+            <div class="form-group">
+
+                <input type="text" id="vendorId" name="vendorId" value="{{ vendor.vendor_id | default('', true) }}">
+                <label for="vendorId"> ID:</label>
+            </div>
+
+            <!-- Designation -->
+            <div class="form-group">
+
+                <input type="text" id="designation" name="designation"
+                    value="{{ vendor.designation | default('', true) }}">
+                <label for="designation">Designation:</label>
+            </div>
+
+            <!-- Tel Contact -->
+            <div class="form-group">
+
+                <input type="text" id="telContact" name="telContact"
+                    value="{{ vendor.tel_contact | default('', true) }}">
+                <label for="telContact">Tel Contact:</label>
+            </div>
+
+            <!-- Email Contact -->
+            <div class="form-group">
+
+                <input type="email" id="email" name="email" value="{{ vendor.email | default('', true) }}">
+                <label for="email">Email Contact:</label>
+            </div>
+
+            <!-- Address -->
+            <div class="form-group">
+
+                <input type="text" id="address" name="address" value="{{ vendor.address | default('', true) }}">
+                <label for="address">Address:</label>
+            </div>
+
+            <!-- Country -->
+            <div class="form-group">
+
+                <select id="country" name="country">
+                    <option value="{{ vendor.country | default('', true) }}"></option>
+                </select>
+                <label for="country">Country:</label>
+            </div>
+
+            <!-- City -->
+            <div class="form-group">
+
+                <input type="text" id="city" name="city" value="{{ vendor.city | default('', true) }}">
+                <label for="city">City:</label>
+            </div>
+
+            <!-- State/Province -->
+            <div class="form-group">
+
+                <input type="text" id="stateProvince" name="stateProvince"
+                    value="{{ vendor.state_province | default('', true) }}">
+                <label for="stateProvince">State/Province:</label>
+            </div>
+
+            <!-- Postal Code -->
+            <div class="form-group">
+
+                <input type="text" id="postalCode" name="postalCode"
+                    value="{{ vendor.postal_code | default('', true) }}">
+                <label for="postalCode">Postal Code:</label>
+            </div>
+
+            <!-- Website -->
+            <div class="form-group">
+
+                <input type="text" id="website" name="website" value="{{ vendor.website | default('', true) }}">
+                <label for="website">Website:</label>
+            </div>
+
+            <!-- Payment Terms -->
+            <div class="form-group">
+
+                <input type="text" id="paymentTerms" name="paymentTerms"
+                    value="{{ vendor.payment_terms | default('', true) }}">
+                <label for="paymentTerms">Payment Terms:</label>
+            </div>
+
+            <!-- Tax ID -->
+            <div class="form-group">
+
+                <input type="text" id="taxId" name="taxId" value="{{ vendor.tax_id | default('', true) }}">
+                <label for="taxId">Tax ID:</label>
+            </div>
+
+            <!-- Vendor Type -->
+            <div class="form-group">
+                <select id="vendorType" name="vendorType" class="form-control">
+                    <option value="vendor" {% if vendor.vendor_type=='vendor' %}selected{% endif %}>Vendor</option>
+                    <option value="customer" {% if vendor.vendor_type=='customer' %}selected{% endif %}>Customer
+                    </option>
+                    <option value="client" {% if vendor.vendor_type=='client' %}selected{% endif %}>Client</option>
+                    <option value="partner" {% if vendor.vendor_type=='partner' %}selected{% endif %}>Partner</option>
+                    <option value="other" {% if vendor.vendor_type=='other' %}selected{% endif %}>Other</option>
+                </select>
+                <label for="vendorType">Select Party Type:</label>
+            </div>
+
+
+            <!-- Primary Contact Person -->
+            <div class="form-group">
+
+                <input type="text" id="primaryContactPerson" name="primaryContactPerson"
+                    value="{{ vendor.primary_contact_person | default('', true) }}">
+                <label for="primaryContactPerson">Primary Contact Person:</label>
+            </div>
+
+            <!-- Secondary Contact Person -->
+            <div class="form-group">
+
+                <input type="text" id="secondaryContactPerson" name="secondaryContactPerson"
+                    value="{{ vendor.secondary_contact_person | default('', true) }}">
+                <label for="secondaryContactPerson">Secondary Contact Person:</label>
+            </div>
+
+            <!-- Is One-Time Vendor -->
+            <div class="form-group">
+
+                <input type="checkbox" id="isOneTime" name="isOneTime" {% if vendor.is_one_time %}checked{% endif %}>
+                <label for="isOneTime">Is One-Time:</label>
+            </div>
+
+        </div>
+
+        <div class="form-grid">
+
+            <!-- Certifications -->
+            <div class="form-group">
+
+                <textarea id="certifications"
+                    name="certifications">{{ vendor.certifications | default('', true) }}</textarea>
+                <label for="certifications">Certifications:</label>
+            </div>
+
+            <!-- Notes -->
+            <div class="form-group">
+
+                <textarea id="notes" name="notes">{{ vendor.notes | default('', true) }}</textarea>
+                <label for="notes">Notes:</label>
+            </div>
+        </div>
+
+
+
+        <!-- Submit Button -->
+        <button class="button cta-button" type="submit">Update</button>
+    </form>
+</div>
+</main>
+</div>
+
+
+<script>
+    // Fetch countries from the REST Countries API
+    document.addEventListener('DOMContentLoaded', function () {
+        const countrySelect = document.getElementById('country');
+        const vendorCountry = "{{ vendor.country }}"; // Get the vendor's current country
+
+        fetch('https://restcountries.com/v3.1/all')
+            .then(response => response.json())
+            .then(data => {
+                countrySelect.innerHTML = '<option value="">Select a country</option>'; // Clear loading message
+                data.forEach(country => {
+                    const option = document.createElement('option');
+                    option.value = country.name.common;
+                    option.textContent = country.name.common;
+
+                    // Select the vendor's current country
+                    if (country.name.common === vendorCountry) {
+                        option.selected = true;
+                    }
+
+                    countrySelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching countries:', error);
+                countrySelect.innerHTML = '<option value="">Failed to load countries</option>';
+            });
+    });
+
+
+    document.getElementById('editVendorForm').addEventListener('submit', function (event) {
+        const form = event.target;
+        const inputs = form.querySelectorAll('input, textarea, select');
+
+        inputs.forEach(input => {
+            if (input.value.trim() === '') {
+                input.value = null; // Convert empty strings to null
+            }
+        });
+    });
+
+</script>
+{% endblock %}

@@ -1,0 +1,380 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    /* Base styles */
+    .category-section {
+        margin-bottom: 30px;
+    }
+
+    .category-section h2 {
+        font-size: 1.25rem;
+        color: var(--primary-color);
+        margin-bottom: 15px;
+        border-bottom: 2px solid var(--highlight-color-darker);
+        padding-bottom: 5px;
+    }
+
+    .search-bar {
+        flex-grow: 1;
+        margin-left: 20px;
+        margin-right: 20px;
+    }
+
+    .search-bar input {
+        width: 85%;
+        padding: 10px;
+        border: 1px solid var(--placeholder-color);
+        border-radius: 5px;
+        font-size: var(--form-input-font-size);
+        color: var(--body-color);
+        background-color: var(--white);
+    }
+
+    .inventory-card-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .inventory-card {
+        background-color: var(--white);
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        width: calc(25% - 15px);
+        box-sizing: border-box;
+        text-align: center;
+        padding: 10px;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .inventory-card img {
+        max-width: 120px;
+        /* Reduced maximum width */
+        max-height: 120px;
+        /* Reduced maximum height */
+        width: auto;
+        height: auto;
+        border-bottom: 1px solid var(--secondary-color);
+        margin-bottom: 10px;
+        object-fit: contain;
+        /* Ensure images maintain aspect ratio */
+    }
+
+    .inventory-card h3 {
+        font-size: 1rem;
+        color: var(--primary-color);
+        margin: 5px 0;
+    }
+
+    .inventory-card p {
+        font-size: 0.875rem;
+        color: var(--body-color);
+    }
+
+    .inventory-card:hover {
+        transform: scale(1.02);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .item-image {
+        width: 100%;
+        height: 140px;
+        /* Reduced height */
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .inventory-card {
+            width: calc(50% - 15px);
+        }
+
+        .header-row h1 {
+            font-size: 1.5rem;
+        }
+
+        .category-section h2 {
+            font-size: 1.1rem;
+        }
+
+        .inventory-card img {
+            max-width: 100px;
+            max-height: 100px;
+        }
+
+        .item-image {
+            height: 120px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .inventory-card {
+            width: calc(100% - 15px);
+        }
+
+        .category-section h2 {
+            font-size: 1rem;
+        }
+
+        .inventory-card img {
+            max-width: 80px;
+            max-height: 80px;
+        }
+
+        .item-image {
+            height: 100px;
+        }
+    }
+
+    /* Placeholder for missing images */
+    .item-image-placeholder {
+        width: 120px;
+        height: 120px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: var(--body-bg-color);
+        color: #888;
+        font-size: 2rem;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        margin: 0 auto 10px auto;
+    }
+
+    @media (max-width: 768px) {
+        .item-image-placeholder {
+            width: 100px;
+            height: 100px;
+            font-size: 1.5rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .item-image-placeholder {
+            width: 80px;
+            height: 80px;
+            font-size: 1.2rem;
+        }
+    }
+</style>
+<title>Stock List</title>
+
+
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Inventory Stock Items</h1>
+
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search items...">
+        </div>
+
+        <div class="header-buttons">
+
+
+            <!-- Hide Zero Items Toggle -->
+            <div class="form-check form-switch ms-3">
+                <input class="form-check-input" type="checkbox" id="hideZeroItems" {% if hide_zero_items %}checked{%
+                    endif %}>
+                <label class="form-check-label" for="hideZeroItems">Hide Zero Items</label>
+            </div>
+
+            <div class="view-toggle-buttons">
+                <div class="custom-tooltip-container">
+                    <a href="{{ url_for('inventory.stock_list_grid') }}?hide_zero_items={{ 'true' if hide_zero_items else 'false' }}"
+                        class="view-button {% if request.endpoint == 'inventory.stock_list_grid' %}active{% endif %}">
+                        <i class="fas fa-th-large"></i>
+                    </a>
+                    <span class="custom-tooltip">Grid View</span>
+                </div>
+
+                <div class="custom-tooltip-container">
+                    <a href="{{ url_for('inventory.stock_list_list') }}?hide_zero_items={{ 'true' if hide_zero_items else 'false' }}"
+                        class="button view-button {% if request.endpoint == 'inventory.stock_list_list' %}active{% endif %}">
+                        <i class="fas fa-list"></i>
+                    </a>
+                    <span class="custom-tooltip">List View</span>
+                </div>
+
+
+            </div>
+
+            <div class="custom-tooltip-container">
+
+                <!-- Refresh Cache Button -->
+                <button class="refresh-btn" id="refreshCacheBtn">
+                    <span class="icon">🔄</span>
+                </button>
+                <span class="custom-tooltip left">Refresh Page</span>
+            </div>
+        </div>
+    </div>
+
+    {% if stock_by_category %}
+    {% for category, items in stock_by_category.items() %}
+    <div class="category-section">
+        <h2>{{ category }}</h2>
+        <div class="inventory-card-container">
+            {% if items %}
+            {% for item in items %}
+            <div class="inventory-card">
+                <div class="item-image">
+                    {% if item.image_filename %}
+                    <img src="{{ url_for('serve_inventory_file', filename=item.image_filename) }}"
+                        alt="{{ item.item_name }}">
+                    {% else %}
+                    <div class="item-image-placeholder">
+                        <i class="fas fa-box"></i>
+                    </div>
+                    {% endif %}
+                </div>
+                <h3>{{ item.item_name }}</h3>
+                <p>Quantity:
+                    <span
+                        class="badge bg-font-lg {% if item.quantity > 0 %}bg-success{% elif item.quantity < 0 %}bg-warning{% endif %}">
+                        {{ item.quantity }}
+                    </span>
+                </p>
+                <p>Subcategory: {{ item.subcategory_name }}</p>
+                <form action="{{ url_for('inventory.inventory_item_details', item_id=item.id) }}" method="get">
+                    <button type="submit" class="button-outline view-details-btn" data-skip-disable="true">
+                        View Details
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p>No items to display in this category.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p>No inventory items available.</p>
+    {% endif %}
+
+
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Refresh Cache Button functionality
+        const refreshCacheBtn = document.getElementById('refreshCacheBtn');
+        if (refreshCacheBtn) {
+            refreshCacheBtn.addEventListener('click', function () {
+
+                console.log('Refresh button clicked')
+                // Show loading state
+                const originalHtml = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                this.disabled = true;
+
+                // Get current hide_zero_items parameter
+                const urlParams = new URLSearchParams(window.location.search);
+                const hideZeroItems = urlParams.get('hide_zero_items') || 'false';
+
+                // Send POST request to clear cache
+                fetch('{{ url_for("inventory.refresh_stock_list_grid") }}?hide_zero_items=' + hideZeroItems, {
+                    method: 'POST',  // This should match the backend
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    }
+                })
+                    .then(response => {
+                        if (response.redirected) {
+                            window.location.href = response.url;
+                        } else {
+                            location.reload();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error refreshing cache:', error);
+                        // Reset button state
+                        this.innerHTML = originalHtml;
+                        this.disabled = false;
+                        alert('Error refreshing data. Please try again.');
+                    });
+            });
+        }
+
+        // Hide Zero Items toggle functionality
+        const hideZeroItemsToggle = document.getElementById('hideZeroItems');
+        if (hideZeroItemsToggle) {
+            hideZeroItemsToggle.addEventListener('change', function () {
+                const hideZeroItems = this.checked;
+                const url = new URL(window.location.href);
+                url.searchParams.set('hide_zero_items', hideZeroItems);
+                window.location.href = url.toString();
+            });
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function () {
+            const query = this.value.toLowerCase();
+            const cards = document.querySelectorAll('.inventory-card');
+            cards.forEach(card => {
+                const itemName = card.querySelector('h3').textContent.toLowerCase();
+                card.style.display = itemName.includes(query) ? '' : 'none';
+            });
+        });
+
+        // View details button handling
+        document.addEventListener('click', function (e) {
+            const viewDetailsBtn = e.target.closest('.view-details-btn');
+            if (viewDetailsBtn) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+
+                const form = viewDetailsBtn.closest('form');
+                if (!form) return;
+
+                const actionUrl = form.getAttribute('action');
+                if (!actionUrl) return;
+
+                const originalHtml = viewDetailsBtn.innerHTML;
+                viewDetailsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                viewDetailsBtn.disabled = true;
+
+                if (viewDetailsBtn.dataset.processing === 'true') return;
+                viewDetailsBtn.dataset.processing = 'true';
+
+                setTimeout(() => {
+                    viewDetailsBtn.innerHTML = originalHtml;
+                    viewDetailsBtn.disabled = false;
+                    delete viewDetailsBtn.dataset.processing;
+                    window.location.href = actionUrl;
+                }, 400);
+            }
+        });
+
+        document.addEventListener('submit', function (e) {
+            const form = e.target;
+            if (form && form.querySelector('.view-details-btn')) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                return false;
+            }
+        });
+    });
+
+    window.addEventListener('load', function () {
+        document.querySelectorAll('.view-details-btn').forEach(btn => {
+            btn.disabled = false;
+            btn.classList.remove('is-submitting');
+            if (btn.dataset.originalHtml) {
+                btn.innerHTML = btn.dataset.originalHtml;
+            }
+        });
+    });
+</script>
+{% endblock %}

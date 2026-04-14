@@ -1,0 +1,2615 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .pos-container {
+        display: grid;
+        grid-template-columns: 1fr 450px;
+        gap: 10px;
+        height: calc(100vh - 100px);
+    }
+
+    .products-section {
+        background: var(--card-bg);
+        border-radius: 8px;
+        padding: 20px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .filters-row {
+        display: flex;
+        flex-wrap: nowrap;
+        /* keep in one line */
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    /* Adjust widths and flex-shrink to fit */
+    .currency-section {
+        flex: 0 0 auto;
+        /* fixed width */
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        min-width: 120px;
+    }
+
+    .currency-select {
+        flex: 1 1 auto;
+        min-width: 60px;
+        padding: 6px 8px;
+        font-size: 0.9rem;
+    }
+
+    .filter-select,
+    .category-filter,
+    .search-input {
+        flex: 1 1 120px;
+        /* allow shrinking but minimum 120px */
+        min-width: 80px;
+        padding: 6px 8px;
+        font-size: 0.9rem;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+    }
+
+    /* Optional: reduce font size to fit more */
+    .filters-row select,
+    .filters-row input {
+        font-size: 0.85rem;
+    }
+
+    /* Responsive: stack on smaller screens */
+    @media (max-width: 768px) {
+        .filters-row {
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .currency-section,
+        .filter-select,
+        .category-filter,
+        .search-input {
+            flex: 1 1 100%;
+            min-width: auto;
+        }
+    }
+
+
+
+    .cart-section {
+        background: var(--card-bg);
+        border-radius: 8px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        font-size: 12px;
+        height: calc(100vh - 150px);
+        /* or a fixed height to fit your layout */
+        max-height: 100%;
+        border: 1px solid var(--border-color);
+    }
+
+    .cart-items {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        margin-bottom: 20px;
+        min-height: 0;
+        /* important for flexbox scrolling */
+    }
+
+
+    .search-header {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: center;
+    }
+
+
+
+
+    .products-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .product-card {
+        background: var(--body-bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 15px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .product-card:hover {
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .product-image {
+        width: 100%;
+        height: 120px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+        background: var(--card-bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .product-image img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: 6px;
+        display: block;
+    }
+
+
+
+
+    .product-image i {
+        font-size: 40px;
+        color: #6c757d;
+    }
+
+    .product-name {
+        font-weight: 600;
+        margin-bottom: 5px;
+        color: var(--text-color);
+    }
+
+    .product-price {
+        color: var(--primary-color);
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .product-stock {
+        color: #6c757d;
+        font-size: 12px;
+    }
+
+    .out-of-stock {
+        opacity: 0.6;
+        cursor: not-allowed;
+        font-size: 12px;
+    }
+
+    .cart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .cart-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+
+
+
+    .cart-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+
+    /* Cart Item Price Input */
+    .cart-item .unit-price-input {
+        width: 50px;
+        /* adjust as needed */
+        padding: 4px 6px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        text-align: right;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        font-size: 12px;
+    }
+
+    .cart-item .unit-price-input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+    }
+
+    /* Cart Discount Input */
+    .cart-summary .discount-input {
+        width: 100px;
+        padding: 4px 6px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        text-align: right;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .cart-summary .discount-input:focus {
+        border-color: #28a745;
+        box-shadow: 0 0 5px rgba(40, 167, 69, 0.3);
+    }
+
+    /* Optional: small styling for mobile responsiveness */
+    @media (max-width: 768px) {
+
+        .cart-item .unit-price-input,
+        .cart-summary .discount-input {
+            width: 70px;
+            font-size: 12px;
+        }
+    }
+
+    /* Align input within cart row */
+    .cart-item .item-total,
+    .cart-item .unit-price-input {
+        display: inline-block;
+        vertical-align: middle;
+    }
+
+
+
+    .item-info {
+        flex: 1;
+    }
+
+    .item-name {
+        font-weight: 500;
+        margin-bottom: 3px;
+    }
+
+    .item-price {
+        color: #6c757d;
+        font-size: 14px;
+    }
+
+    .item-quantity {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .quantity-btn {
+        width: 30px;
+        height: 30px;
+        border: 1px solid var(--border-color);
+        background: var(--body-bg-color);
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary-color);
+    }
+
+    .quantity-input {
+        width: 50px;
+        text-align: center;
+        padding: 5px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .item-total {
+        font-weight: 600;
+        color: var(--primary-color);
+        min-width: 80px;
+        text-align: right;
+    }
+
+    .remove-item {
+        color: #dc3545;
+        cursor: pointer;
+        padding: 5px;
+        margin-left: 10px;
+    }
+
+    .cart-summary {
+        border-top: 2px solid var(--border-color);
+        padding-top: 20px;
+    }
+
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    .summary-label {
+        color: #6c757d;
+    }
+
+    .summary-value {
+        font-weight: 500;
+    }
+
+    .total-row {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: var(--primary-color);
+        border-top: 1px solid var(--border-color);
+        padding-top: 10px;
+        margin-top: 10px;
+    }
+
+    .checkout-btn {
+        width: 100%;
+        padding: 15px;
+        background: var(--highlight-color);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 20px;
+        transition: background 0.2s;
+    }
+
+    .checkout-btn:hover {
+        background: #007e7a;
+    }
+
+    .checkout-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+    }
+
+    .empty-cart {
+        text-align: center;
+        color: #6c757d;
+        padding: 40px 0;
+    }
+
+    .empty-cart i {
+        font-size: 48px;
+        margin-bottom: 10px;
+        opacity: 0.5;
+    }
+
+    .customer-section {
+        margin-bottom: 20px;
+        padding: 10px;
+        background: var(--body-bg-color);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+
+    .customer-search {
+        width: 95%;
+        padding: 7px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        margin-bottom: 5px;
+        font-size: 12px;
+    }
+
+    .selected-customer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 5px;
+        background: var(--card-bg);
+        border-radius: 6px;
+        margin-top: 5px;
+    }
+
+    .remove-customer {
+        color: #dc3545;
+        cursor: pointer;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    @media (max-width: 1024px) {
+        .pos-container {
+            grid-template-columns: 1fr;
+            height: auto;
+        }
+
+        .products-grid {
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        }
+    }
+
+    .customer-results {
+        position: absolute;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        width: calc(100% - 30px);
+    }
+
+    .customer-result-item {
+        padding: 10px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+    }
+
+    .customer-result-item:hover {
+        background-color: #f5f5f5;
+    }
+
+    .customer-name {
+        font-weight: bold;
+    }
+
+    .customer-details {
+        font-size: 12px;
+        color: #666;
+    }
+
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+
+    .receipt {
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+    }
+
+    .receipt table {
+        width: 100%;
+    }
+
+    .receipt hr {
+        border-top: 1px dashed #000;
+        margin: 10px 0;
+    }
+
+    .image-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f5f5f5;
+        border-radius: 6px;
+    }
+
+    .image-placeholder i {
+        font-size: 40px;
+        color: #ccc;
+    }
+
+
+
+    /* Mobile Responsive Styles */
+
+    /* Mobile Responsive Styles */
+    /* Mobile Responsive Styles - Fixed Filters and Scrollable Products */
+    @media (max-width: 768px) {
+        .content-container {
+            padding: 0;
+            margin: 0;
+            width: 100%;
+            overflow-x: hidden;
+        }
+
+        .pos-container {
+            grid-template-columns: 1fr !important;
+            height: auto !important;
+            gap: 10px !important;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .products-section,
+        .cart-section {
+            height: auto !important;
+            max-height: none !important;
+            padding: 15px !important;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Fixed filter row layout */
+        .filters-row {
+            flex-direction: column !important;
+            gap: 8px !important;
+            width: 100%;
+            margin-bottom: 15px !important;
+        }
+
+        .currency-section,
+        .filter-select,
+        .category-filter,
+        .search-input {
+            width: 100% !important;
+            margin-bottom: 5px;
+            box-sizing: border-box;
+            max-width: 100%;
+            flex: 1 1 100% !important;
+            font-size: 12px;
+        }
+
+        /* Ensure all filter elements are properly sized */
+        .filters-row select,
+        .filters-row input {
+            width: 100% !important;
+            min-width: 100% !important;
+            max-width: 100% !important;
+            margin: 2px 0;
+            font-size: 12px;
+        }
+
+        /* Scrollable products grid */
+        .products-grid {
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+            gap: 10px !important;
+            margin-top: 10px;
+            width: 100%;
+            overflow-y: auto !important;
+            flex: 1;
+            max-height: 40vh;
+            /* Limit height and make scrollable */
+            min-height: 400px;
+            /* Minimum height */
+        }
+
+        .product-card {
+            padding: 10px !important;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .product-image {
+            height: 90px !important;
+            max-width: 100%;
+        }
+
+        .cart-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 10px;
+            width: 100%;
+        }
+
+        /* Increased cart items height for mobile */
+        .cart-items {
+            max-height: 50vh !important;
+            /* Increased height for mobile */
+            min-height: 200px;
+            overflow-y: auto;
+            width: 100%;
+        }
+
+        .cart-item {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 10px;
+            padding: 10px 5px !important;
+            width: 100%;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .item-quantity {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .item-total {
+            text-align: left !important;
+            min-width: auto !important;
+            margin-top: 5px;
+            width: 100%;
+        }
+
+        .remove-item {
+            position: absolute;
+            right: 5px;
+            top: 5px;
+        }
+
+        .customer-section {
+            position: relative;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .customer-results {
+            width: 100% !important;
+            left: 0 !important;
+            box-sizing: border-box;
+        }
+
+        .customer-search,
+        #processedBy {
+            width: 100% !important;
+            box-sizing: border-box;
+            max-width: 100%;
+        }
+
+        .payment-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .modal-dialog {
+            margin: 10px !important;
+            max-width: calc(100% - 20px) !important;
+            width: auto !important;
+        }
+
+        /* Ensure all inputs and selects don't overflow */
+        input,
+        select,
+        textarea {
+            max-width: 100% !important;
+            box-sizing: border-box;
+        }
+
+        /* Touch-friendly elements */
+        .quantity-btn,
+        .checkout-btn,
+        .product-card {
+            min-height: 44px;
+            /* Minimum touch target size */
+        }
+
+        input,
+        select {
+            font-size: 12px !important;
+            /* Prevents zoom on iOS */
+        }
+
+        /* Cart summary adjustments */
+        .cart-summary {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .summary-row {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .discount-input {
+            width: 80px !important;
+            max-width: 100%;
+        }
+    }
+
+    /* Very small devices */
+    @media (max-width: 480px) {
+        .products-grid {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+            max-height: 35vh;
+            /* Slightly smaller on very small screens */
+        }
+
+        .product-image {
+            height: 80px !important;
+        }
+
+        .product-name {
+            font-size: 14px;
+        }
+
+        .cart-title {
+            font-size: 1.2rem !important;
+        }
+
+        .summary-row {
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .checkout-btn {
+            padding: 12px !important;
+            font-size: 14px !important;
+        }
+
+        /* Further increase cart height on very small devices */
+        .cart-items {
+            max-height: 55vh !important;
+        }
+    }
+
+    /* Orientation-specific adjustments */
+    @media (max-width: 768px) and (orientation: landscape) {
+        .pos-container {
+            grid-template-columns: 1fr 1fr !important;
+            display: grid !important;
+        }
+
+        .products-grid {
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
+            max-height: 60vh;
+            /* More height in landscape */
+        }
+
+        /* Adjust cart height for landscape */
+        .cart-items {
+            max-height: 60vh !important;
+        }
+    }
+
+    /* Prevent horizontal scrolling on mobile */
+    @media (max-width: 768px) {
+
+        body,
+        html {
+            overflow-x: hidden;
+            width: 100%;
+            position: relative;
+            height: 100%;
+        }
+
+        * {
+            max-width: 100%;
+        }
+
+        /* Fix for cart item elements overflow */
+        .item-info {
+            width: 100%;
+        }
+
+        .item-price input {
+            width: 70px !important;
+            max-width: 100%;
+        }
+
+        .quantity-input {
+            width: 35px !important;
+            max-width: 100%;
+        }
+
+        /* Ensure proper scrolling containers */
+        .products-section {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+    }
+
+    /* Additional overflow protection */
+    @media (max-width: 768px) {
+        .product-card>* {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .item-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 95%;
+        }
+
+        /* Force filters to be single column */
+        .filters-row>* {
+            flex-basis: 100% !important;
+            max-width: 100% !important;
+            margin-bottom: 8px;
+        }
+    }
+
+    /* Enhanced scrolling for products on mobile */
+    @media (max-width: 768px) {
+        .products-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 40vh;
+        }
+
+        .products-grid {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            /* Smooth scrolling on iOS */
+            padding-bottom: 10px;
+        }
+    }
+
+    /* Fix for filter elements alignment */
+    @media (max-width: 768px) {
+
+        .currency-select,
+        .filter-select,
+        .category-filter,
+        .search-input {
+            height: 38px;
+            /* Consistent height */
+            display: block;
+            width: 100%;
+        }
+
+        .filters-row {
+            display: flex;
+            flex-direction: column;
+        }
+    }
+
+
+    .receipt {
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+    }
+
+    .receipt-header {
+        border-bottom: 2px solid #333;
+        padding-bottom: 10px;
+    }
+
+    .company-name {
+        font-weight: bold;
+        font-size: 18px;
+        margin: 5px 0;
+    }
+
+    .receipt-footer {
+        border-top: 1px dashed #ccc;
+        padding-top: 10px;
+        margin-top: 15px;
+    }
+</style>
+
+<div class="content-container">
+    <div class="pos-container">
+        <!-- Products Section -->
+        <div class="products-section">
+            <div class="filters-row">
+                <!-- Currency Selection -->
+
+                <select id="currencySelect" class="filter-select">
+                    {% for currency in currencies %}
+                    <option value="{{ currency.id }}" {% if currency.currency_index==1 %}selected{% endif %}>
+                        {{ currency.user_currency }}
+                    </option>
+                    {% endfor %}
+                </select>
+
+                <!-- Location Filter -->
+                <select id="locationFilter" class="filter-select">
+
+                    {% for location in locations %}
+                    <option value="{{ location.id }}" {% if location.id==default_location_id %}selected{% endif %}>
+                        {{ location.location }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <!-- Customer Group Filter -->
+                <select id="customerGroupFilter" class="filter-select">
+                    {% if customer_groups %}
+                    {% for group in customer_groups %}
+                    <option value="{{ group.id }}" {% if group.is_default %}selected{% endif %}>{{ group.name }}
+                    </option>
+                    {% endfor %}
+                    {% else %}
+                    <option value="" disabled selected>No customer groups available</option>
+                    <option value="setup_groups" class="setup-option">-- Setup Customer Groups --</option>
+                    {% endif %}
+                </select>
+                <!-- Product Search -->
+                <input type="text" id="productSearch" class="search-input filter-select"
+                    placeholder="Search products..." />
+                <!-- Category Filter -->
+                <select id="categoryFilter" class="category-filter filter-select">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.category_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!-- Products grid and other content below -->
+            <div class="products-grid" id="productsGrid">
+                <!-- Products will be loaded dynamically -->
+                <div class="text-center py-5">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading products...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cart Section -->
+        <div class="cart-section">
+            <div class="cart-header">
+                <div class="cart-title">Shopping Cart</div>
+                <button class="button-outline" onclick="clearCart()">
+                    <i class="fas fa-trash"></i> Clear
+                </button>
+            </div>
+
+            <!-- Customer Selection -->
+            <div class="customer-section">
+                <input type="text" id="customerSearch" class="customer-search" placeholder="Search customer..." />
+                <div id="customerResults" class="customer-results" style="display: none;"></div>
+                <div id="selectedCustomer" class="selected-customer" style="display: none;">
+                    <span id="customerName"></span>
+                    <span class="remove-customer" onclick="removeCustomer()">
+                        <i class="fas fa-times"></i>
+                    </span>
+                </div>
+            </div>
+
+            <div class="cart-items" id="cartItems">
+                <div class="empty-cart">
+                    <i class="fas fa-shopping-cart"></i>
+                    <p>Your cart is empty</p>
+                </div>
+            </div>
+
+            <div class="cart-summary">
+                <div class="summary-row">
+                    <span class="summary-label">Subtotal:</span>
+                    <span class="summary-value" id="subtotal">$0.00</span>
+                </div>
+
+                <div class="summary-row">
+                    <span class="summary-label">Discount (<span id="discountCurrencyCode">{{
+                            base_currency.user_currency }}</span>):</span>
+                    <input type="number" id="discountInput" class="summary-value-input discount-input" value="0"
+                        step="0.01" min="0">
+                </div>
+
+                <div class="summary-row">
+                    <span class="summary-label">Tax (<span id="taxRateLabel">{{ tax_rate }}</span>%):</span>
+                    <span class="summary-value" id="tax">$0.00</span>
+                </div>
+
+                <div class="summary-row total-row">
+                    <span class="summary-label">Total:</span>
+                    <span class="summary-value" id="total">$0.00</span>
+                </div>
+
+                <!-- Add this section after the Customer Selection section -->
+                <div class="processed-by-section">
+                    <!-- <label
+                        style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text-color);">Processed
+                        By</label> -->
+                    <input type="text" id="processedBy" class="customer-search"
+                        placeholder="(Optional) Processed by: Enter your name..." value="{{ current_user.username }}"
+                        style="width: 95%; border: 1px solid var(--border-color); margin-bottom:-5px; border-radius: 6px; font-size: 12px;">
+                </div>
+
+                <button id="checkoutBtn" class="checkout-btn" disabled onclick="processCheckout()">
+                    Process Payment
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <!-- Payment Modal -->
+    <div class="modal fade" id="paymentModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Process Payment</h5>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close"><i
+                            class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div class="payment-summary">
+                        <h6>Order Summary</h6>
+                        <div class="summary-row">
+                            <span>Total Amount:</span>
+                            <span id="paymentTotal">$0.00</span>
+                        </div>
+                    </div>
+
+                    <div class="payment-methods">
+                        <h6>Payment Method</h6>
+                        <div class="payment-options">
+                            <label class="payment-option">
+                                <input type="radio" name="paymentMethod" value="cash" checked>
+                                <span>Cash</span>
+                            </label>
+                            <label class="payment-option">
+                                <input type="radio" name="paymentMethod" value="card">
+                                <span>Credit Card</span>
+                            </label>
+                            <label class="payment-option">
+                                <input type="radio" name="paymentMethod" value="mobile">
+                                <span>Mobile Payment</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="payment-details" id="cashPayment">
+                        <div class="form-group">
+                            <label for="amountTendered">Amount Tendered</label>
+                            <input type="number" id="amountTendered" class="form-control" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="change">Change</label>
+                            <input type="text" id="change" class="form-control" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Remove card payment details since we're just sending the payment type -->
+                    <div class="payment-details" id="cardPayment" style="display: none;">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Credit Card payment will be processed externally.
+                        </div>
+                    </div>
+
+                    <div class="payment-details" id="mobilePayment" style="display: none;">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Mobile payment will be processed externally.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="remove-button" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="cta-button" onclick="completePayment()">Complete Payment</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Modal -->
+    <!-- Receipt Modal -->
+    <!-- Receipt Modal -->
+    <!-- Receipt Modal -->
+    <div class="modal fade" id="receiptModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="receiptModalTitle">Sale Complete</h5>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="receipt">
+                        <!-- Company Logo and Name -->
+                        <div class="receipt-header text-center mb-3">
+                            {% if company.logo %}
+                            <img src="{{ url_for('serve_logo', filename=company.logo) }}" alt="Company Logo"
+                                style="max-width: 100px; max-height: 60px; margin-bottom: 10px;">
+                            {% else %}
+                            <h4 class="company-name">{{ company.name }}</h4>
+                            {% endif %}
+                        </div>
+
+                        <hr style="margin: 10px 0;">
+
+                        <h6 class="text-center" id="receiptType">RECEIPT</h6>
+                        <p class="text-center">#<span id="receiptNumber"></span></p>
+                        <div id="receiptContent"></div>
+
+                        <!-- Footer -->
+                        <hr style="margin: 15px 0;">
+                        <div class="receipt-footer text-center" style="font-size: 11px; color: #666;">
+                            <p>Thank you for your business!</p>
+                            <p>Generated on: <span id="receiptDate"></span></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="add-button" onclick="printReceipt()">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                    <button type="button" class="cta-button" onclick="newSale()">New Sale</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+<script>
+    let cart = [];
+    let selectedCustomer = null;
+    let selectedCurrency = {{ base_currency.id }};
+    let filteredCurrency = "USD"
+    const taxRate = {{ tax_rate|default (0) }};
+    let customerDiscount = 0;
+    let baseCurrency = "{{base_currency.user_currency}}"
+    let currentLocationWorkflow = 'process_payment'; // Track current location's workflow
+
+    // In your script section, make sure base_currency_id is available
+    let baseCurrencyId = {{ base_currency.id }};
+    const defaultLocationId = {{ default_location_id|default (1) }};
+    let cartDiscount = 0; // global cart discount
+
+    // Add this global variable
+    let customerGroupTaxPercentage = 0;
+
+    const effectiveTaxRate = customerGroupTaxPercentage > 0 ? customerGroupTaxPercentage : taxRate;
+
+
+    // Initialize POS
+    // Initialize POS
+    document.addEventListener('DOMContentLoaded', function () {
+        initializePOS();
+        updateCurrencyCodes();
+        clearCart(false); // Clear cart without confirmation on page load
+
+        // Initialize modal event listeners
+        // Initialize modal event listeners - update this part
+        const receiptModalElement = document.getElementById('receiptModal');
+        if (receiptModalElement) {
+            receiptModalElement.addEventListener('hidden.bs.modal', function () {
+                // Only reset if it's a preview, not a completed receipt
+                const receiptNumberEl = document.getElementById('receiptNumber');
+                const currentReference = receiptNumberEl ? receiptNumberEl.textContent : '';
+
+                // If it's a preview reference (starts with PREVIEW-), reset the modal
+                if (currentReference.startsWith('PREVIEW-')) {
+                    resetReceiptModal();
+                }
+                // Don't reset if it's an actual completed receipt with a real reference
+            });
+        }
+    });
+
+    // Set the current date on the receipt
+    document.getElementById('receiptDate').textContent = new Date().toLocaleString();
+
+    function initializePOS() {
+
+        // Set default location
+        const locationFilter = document.getElementById('locationFilter');
+        if (locationFilter && defaultLocationId) {
+            locationFilter.value = defaultLocationId;
+        }
+
+        // Load products on page load
+        loadProducts();
+
+        // Set up event listeners
+        setupEventListeners();
+
+        // Load cart from localStorage if available
+        loadCart();
+    }
+
+
+    function setupEventListeners() {
+        // Filter changes
+        document.getElementById('currencySelect').addEventListener('change', loadProducts);
+
+        // Store previous location value and cart backup
+        let previousLocation = document.getElementById('locationFilter').value;
+        let cartBackup = null;
+
+        document.getElementById('locationFilter').addEventListener('change', function (e) {
+            const newLocation = this.value;
+
+            // Backup the current cart before showing the dialog
+            cartBackup = JSON.parse(JSON.stringify(cart));
+
+            Swal.fire({
+                title: 'Change Warehouse?',
+                text: 'Changing warehouse will clear your cart. Continue?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, change it!',
+                cancelButtonText: 'Cancel',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    cancelButton: 'custom-swal-cancel-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // User confirmed: clear cart and update previousLocation
+                    clearCart(false); // Pass false to skip the confirmation dialog
+                    previousLocation = newLocation;
+                    loadProducts();
+                } else {
+                    // User cancelled: revert dropdown to previous value AND restore cart
+                    this.value = previousLocation;
+
+                    // Restore the cart from backup
+                    if (cartBackup) {
+                        cart = cartBackup;
+                        saveCart();
+                        updateCartDisplay();
+                    }
+                }
+
+                // Clear the backup
+                cartBackup = null;
+            });
+        });
+
+        // Add event listener for customer group filter change
+        document.getElementById('customerGroupFilter').addEventListener('change', function () {
+            if (this.value === 'setup_groups') {
+                window.location.href = "{{ url_for('inventory.manage_customer_groups') }}";
+                setTimeout(() => {
+                    this.value = "";
+                }, 100);
+            } else {
+                // Load products with the new customer group (which will update the tax rate)
+
+
+                loadProducts();
+            }
+        });
+
+        document.getElementById('categoryFilter').addEventListener('change', loadProducts);
+        document.getElementById('productSearch').addEventListener('input', debounce(loadProducts, 300));
+
+        // Customer search
+        document.getElementById('customerSearch').addEventListener('input', debounce(searchCustomers, 300));
+
+        // Payment method change
+        document.querySelectorAll('input[name="paymentMethod"]').forEach(radio => {
+            radio.addEventListener('change', togglePaymentDetails);
+        });
+
+        // Amount tendered calculation
+        document.getElementById('amountTendered').addEventListener('input', calculateChange);
+
+        // Add modal hidden event listeners
+        const receiptModal = document.getElementById('receiptModal');
+        if (receiptModal) {
+            receiptModal.addEventListener('hidden.bs.modal', function () {
+                // Clear any preview content when modal is hidden
+                const receiptContent = document.getElementById('receiptContent');
+                if (receiptContent) {
+                    receiptContent.innerHTML = '';
+                }
+            });
+        }
+
+        // In your setupEventListeners function, update the payment modal event listener:
+        // In your setupEventListeners function, update the payment modal event listener:
+        const paymentModal = document.getElementById('paymentModal');
+        if (paymentModal) {
+            paymentModal.addEventListener('hidden.bs.modal', function () {
+                // Reset payment form when modal is hidden
+                document.getElementById('amountTendered').value = '';
+                document.getElementById('change').value = '';
+                document.querySelector('input[name="paymentMethod"][value="cash"]').checked = true;
+                togglePaymentDetails();
+
+                // Reset the complete payment button state
+                resetPaymentModalButton();
+            });
+        }
+    }
+
+
+    // Modify your loadProducts function to handle the tax percentage
+    async function loadProducts() {
+        const searchTerm = document.getElementById('productSearch').value;
+        const categoryId = document.getElementById('categoryFilter').value;
+        const locationId = document.getElementById('locationFilter').value;
+        const customerGroupId = document.getElementById('customerGroupFilter').value;
+        const currencyId = document.getElementById('currencySelect').value;
+
+        try {
+            const params = new URLSearchParams();
+            if (searchTerm) params.append('search', searchTerm);
+            if (categoryId) params.append('category_id', categoryId);
+            if (locationId) params.append('location_id', locationId);
+            if (customerGroupId) params.append('customer_group_id', customerGroupId);
+            if (currencyId) params.append('currency_id', currencyId);
+
+            const response = await fetch(`/inventory/pos/api/products?${params}`);
+            const data = await response.json();
+
+            if (data.success) {
+                // Update the selected currency
+                filteredCurrency = data.selected_currency;
+                updateCurrencyCodes(); // Add this line
+
+                // Update workflow type from location data
+                currentLocationWorkflow = data.location_workflow_type || 'process_payment';
+
+                // Update checkout button text based on workflow type
+                updateCheckoutButton();
+
+                // Update customer group tax percentage
+                customerGroupTaxPercentage = data.customer_group_tax_percentage || 0;
+
+                // Update tax rate label dynamically
+                const taxRateLabel = document.getElementById('taxRateLabel');
+                if (taxRateLabel) {
+                    taxRateLabel.textContent = customerGroupTaxPercentage > 0 ? customerGroupTaxPercentage.toFixed(2) : taxRate.toFixed(2);
+                }
+
+                // Update cart item prices to new currency
+                cart = cart.map(cartItem => {
+                    // Find the matching product in response
+                    const product = data.products.find(p => p.variation_id === cartItem.variationId);
+                    if (product) {
+                        return { ...cartItem, price: product.price };
+                    }
+                    return cartItem;
+                });
+
+                // Re-render products and cart
+                renderProducts(data.products);
+                updateCartDisplay(); // This will recalculate taxes with the new rate
+
+            } else {
+                showNotification(data.message || 'Error loading products', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading products:', error);
+            showNotification('Error loading products', 'error');
+        }
+    }
+
+
+    // Update checkout button based on workflow type
+    function updateCheckoutButton() {
+        const checkoutBtn = document.getElementById('checkoutBtn');
+        if (currentLocationWorkflow === 'order_slip') {
+            checkoutBtn.textContent = 'Generate Order Slip';
+        } else {
+            checkoutBtn.textContent = 'Process Payment';
+        }
+    }
+
+
+
+    // Add this function to update currency codes
+    function updateCurrencyCodes() {
+        // Update discount currency code
+        const discountCurrencyElement = document.getElementById('discountCurrencyCode');
+        if (discountCurrencyElement) {
+            discountCurrencyElement.textContent = filteredCurrency;
+        }
+
+        // You can also update other currency indicators if needed
+        const currencyIndicators = document.querySelectorAll('.currency-indicator');
+        currencyIndicators.forEach(indicator => {
+            indicator.textContent = filteredCurrency;
+        });
+    }
+
+
+    // Update your updateTotals function to use customer group tax percentage
+    function updateTotals() {
+        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+        // Use customer group tax percentage if available, otherwise use default tax rate
+        const effectiveTaxRate = customerGroupTaxPercentage > 0 ? customerGroupTaxPercentage : taxRate;
+
+        const tax = (subtotal - cartDiscount) * (effectiveTaxRate / 100);
+        const total = subtotal - cartDiscount + tax;
+
+        // Validate total is not negative
+        if (total < 0) {
+            showNotification('Total amount cannot be negative', 'error');
+            document.getElementById('checkoutBtn').disabled = true;
+        } else {
+            document.getElementById('checkoutBtn').disabled = cart.length === 0;
+        }
+
+
+        console.log('tOTAL IS ', total, tax)
+
+
+
+        document.getElementById('subtotal').innerText = formatCurrency(subtotal, filteredCurrency);
+        document.getElementById('tax').innerText = formatCurrency(tax, filteredCurrency);
+        document.getElementById('total').innerText = formatCurrency(total, filteredCurrency);
+        document.getElementById('paymentTotal').textContent = formatCurrency(total, filteredCurrency);
+
+    }
+
+
+
+    function renderProducts(products) {
+        const productsGrid = document.getElementById('productsGrid');
+
+        if (products.length === 0) {
+            productsGrid.innerHTML = '<div class="text-center py-5"><p>No products found</p></div>';
+            return;
+        }
+
+        productsGrid.innerHTML = products.map(product => `
+        <div class="product-card ${product.stock <= 0 ? 'out-of-stock' : ''}" 
+             onclick="${product.stock > 0 ? 'addToCart(' + JSON.stringify(product).replace(/"/g, '&quot;') + ')' : ''}">
+            <div class="product-image">
+                ${product.image ?
+                `<img src="/inventory/files/${product.image}" alt="${product.name}" onerror="this.style.display='none';">` :
+                '<i class="fas fa-box"></i>'
+            }
+            </div>
+            <div class="product-name">
+                ${product.name}${product.variation_name ? ' - ' + product.variation_name : ''}
+            </div>
+            <div class="product-price">${formatCurrency(product.price, product.user_currency)}</div>
+            ${product.uom ? `<div class="product-uom" style="font-size: 12px; color: #666; margin-bottom: 5px;">Unit: ${product.uom}</div>` : ''}
+            <div class="product-stock positive-color">Stock: ${product.stock}</div>
+            ${product.stock <= 0 ? '<div class="out-of-stock-text negative-color">Out of Stock</div>' : ''}
+        </div>
+    `).join('');
+    }
+
+    function addToCart(product) {
+        if (product.stock <= 0) {
+            showNotification('This item is out of stock', 'warning');
+            return;
+        }
+
+        // Check if item already in cart
+        const existingItem = cart.find(item => item.variationId === product.variation_id);
+
+        if (existingItem) {
+            // For decimal quantities, we need to check if adding 0.01 would exceed stock
+            if (parseFloat(existingItem.quantity) + 0.01 > product.stock) {
+                showNotification('Not enough stock available', 'warning');
+                return;
+            }
+            existingItem.quantity = parseFloat(existingItem.quantity) + 1;
+        } else {
+            cart.push({
+                itemId: product.item_id,
+                variationId: product.variation_id,
+                name: product.name,
+                price: product.price,
+                quantity: 1,  // Start with minimum quantity for decimal items
+                stock: product.stock,
+                uom: product.uom  // Add UOM to cart item
+            });
+        }
+
+        saveCart();
+        updateCartDisplay();
+        showNotification('Item added to cart', 'success');
+    }
+
+
+
+    function updateCartItem(variationId, change) {
+        const item = cart.find(item => item.variationId === variationId);
+        if (!item) return;
+
+        const newQuantity = parseFloat(item.quantity) + parseFloat(change); // Ensure both are parsed as floats
+
+        if (newQuantity <= 0) {
+            removeCartItem(variationId);
+        } else if (newQuantity > item.stock) {
+            showNotification('Not enough stock available', 'warning');
+        } else {
+            item.quantity = newQuantity;
+            saveCart();
+            updateCartDisplay();
+        }
+    }
+
+
+
+    function removeCartItem(variationId) {
+        cart = cart.filter(item => item.variationId !== variationId);
+        saveCart();
+        updateCartDisplay();
+        showNotification('Item removed from cart', 'info');
+    }
+
+
+
+    function clearCart(showConfirmation = true) {
+        if (cart.length === 0) return;
+
+        if (showConfirmation) {
+            Swal.fire({
+                title: 'Clear Cart?',
+                text: 'Are you sure you want to clear the cart?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, clear it!',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    cancelButton: 'custom-swal-cancel-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    performClearCart();
+                }
+            });
+        } else {
+            performClearCart();
+        }
+    }
+
+    function performClearCart() {
+        cart = [];
+        cartDiscount = 0; // Reset the global discount variable
+        saveCart();
+        updateCartDisplay();
+
+        // Clear the discount input field
+        const discountInput = document.getElementById('discountInput');
+
+        if (discountInput) {
+
+            console.log('Discount input is', discountInput)
+            discountInput.value = '0';
+        }
+
+        showNotification('Cart cleared', 'info');
+    }
+
+
+
+    function updateCartDisplay() {
+        const cartItems = document.getElementById('cartItems');
+        const checkoutBtn = document.getElementById('checkoutBtn');
+
+        if (cart.length === 0) {
+            cartItems.innerHTML = `
+            <div class="empty-cart">
+                <i class="fas fa-shopping-cart"></i>
+                <p>Your cart is empty</p>
+            </div>
+        `;
+            checkoutBtn.disabled = true;
+            updateTotals();
+            return;
+        }
+
+        checkoutBtn.disabled = false;
+
+        // Store current focus information before re-rendering
+        const activeElement = document.activeElement;
+        let focusedVariationId = null;
+        let cursorPosition = 0;
+
+        if (activeElement && activeElement.classList.contains('quantity-input')) {
+            focusedVariationId = parseInt(activeElement.dataset.variationId);
+            cursorPosition = activeElement.selectionStart;
+        }
+
+        cartItems.innerHTML = cart.map(item => `
+        <div class="cart-item">
+            <div class="item-info">
+                <div class="item-name">${item.name} @ ${item.uom}</div>
+                <div class="item-price">
+                    <input type="number" class="unit-price-input" 
+                        value="${item.price.toFixed(2)}" 
+                        min="0" step="0.01" 
+                        data-variation-id="${item.variationId}">
+                </div>
+            </div>
+            <div class="item-quantity">
+                <button class="quantity-btn" onclick="updateCartItem(${item.variationId}, -1)">-</button>
+                <input type="number" class="quantity-input" 
+                    value="${item.quantity.toFixed(2)}" 
+                    min="0.01" 
+                    step="0.01"
+                    max="${item.stock}" 
+                    data-variation-id="${item.variationId}"
+                    onchange="validateQuantity(this)">
+                <button class="quantity-btn" onclick="updateCartItem(${item.variationId}, 1)">+</button>
+                <span class="quantity-unit">${item.unit || 'units'}</span>
+            </div>
+            <div class="item-total" id="itemTotal-${item.variationId}">${formatCurrency(item.price * item.quantity, filteredCurrency)}</div>
+            <div class="remove-item" onclick="removeCartItem(${item.variationId})">
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+    `).join('');
+
+        updateTotals();
+        attachCartInputListeners();
+
+        // Restore focus if needed
+        if (focusedVariationId) {
+            const inputToFocus = document.querySelector(`.quantity-input[data-variation-id="${focusedVariationId}"]`);
+            if (inputToFocus) {
+                inputToFocus.focus();
+                inputToFocus.setSelectionRange(cursorPosition, cursorPosition);
+            }
+        }
+    }
+
+
+
+    function updateItemTotal(variationId) {
+        const item = cart.find(i => i.variationId === variationId);
+        if (item) {
+            const totalElem = document.getElementById(`itemTotal-${variationId}`);
+            totalElem.innerText = formatCurrency(item.price * item.quantity, filteredCurrency);
+        }
+    }
+
+
+
+
+    function validateQuantity(input) {
+        let value = parseFloat(input.value);
+
+        if (isNaN(value) || value < 0.01) {
+            input.value = "0.01";
+            value = 0.01;
+        }
+
+        // Ensure proper decimal formatting
+        input.value = value.toFixed(2);
+
+        // Update cart with validated quantity
+        const variationId = input.getAttribute('data-variation-id');
+        updateCartItemQuantity(variationId, value);
+    }
+
+
+
+
+    function attachCartInputListeners() {
+        // Unit price changes - use 'change' event instead of 'input' for better UX
+        document.querySelectorAll('.unit-price-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const variationId = parseInt(e.target.dataset.variationId);
+                const newPrice = parseFloat(e.target.value) || 0;
+                const item = cart.find(i => i.variationId === variationId);
+                if (item && newPrice >= 0) {
+                    item.price = newPrice;
+                    updateItemTotal(variationId);
+                    updateTotals();
+                    saveCart();
+                } else if (item) {
+                    // Reset to original value if invalid
+                    e.target.value = item.price.toFixed(2);
+                }
+            });
+        });
+
+        // Quantity changes - use 'change' event and debounce
+        document.querySelectorAll('.quantity-input').forEach(input => {
+            input.addEventListener('change', debounce((e) => {
+                const variationId = parseInt(e.target.dataset.variationId);
+                const newQuantity = parseFloat(e.target.value) || 0.01;  // Fixed: use parseFloat
+                updateCartItemQuantity(variationId, newQuantity);
+            }, 300));
+
+            // Also allow Enter key to trigger change
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.target.blur(); // This will trigger the change event
+                }
+            });
+        });
+    }
+
+
+    // Modified completePayment to include reference number
+    // Modified completePayment to handle all payment types simply
+    async function completePayment() {
+        const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+        const amountTendered = parseFloat(document.getElementById('amountTendered').value) || 0;
+        const changeAmount = parseFloat(document.getElementById('change').value) || 0;
+        const total = calculateTotal();
+        const locationId = document.getElementById('locationFilter').value;
+        const currencyId = document.getElementById('currencySelect').value;
+        const effectiveTaxRate = customerGroupTaxPercentage > 0 ? customerGroupTaxPercentage : taxRate;
+
+        // Only validate cash payment (amount tendered and change)
+        if (paymentMethod === 'cash') {
+            if (amountTendered < total) {
+                showNotification('Amount tendered is less than total', 'error');
+                return;
+            }
+            if (amountTendered <= 0) {
+                showNotification('Please enter amount tendered', 'error');
+                return;
+            }
+        }
+
+        // Get and disable the complete payment button
+        const completePaymentBtn = document.querySelector('#paymentModal .cta-button');
+        const originalBtnText = completePaymentBtn.innerHTML;
+
+        try {
+            // Disable button immediately
+            completePaymentBtn.disabled = true;
+            completePaymentBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+            // Get the next order reference number
+            const refResponse = await fetch('/inventory/pos/api/suggest_order_reference');
+            const refData = await refResponse.json();
+            const orderReference = refData.suggested_reference;
+
+            // For non-cash payments, amount paid equals total (no change calculation needed)
+            const amountPaid = paymentMethod === 'cash' ? total : total;
+
+            const checkoutData = {
+                customer_id: selectedCustomer ? selectedCustomer.id : null,
+                items: cart.map(item => ({
+                    item_id: item.itemId,
+                    variation_id: item.variationId,
+                    name: item.name,
+                    quantity: item.quantity,
+                    unit_price: item.price,
+                    location_id: locationId
+                })),
+                tax_rate: effectiveTaxRate,
+                discount_amount: cartDiscount,
+                discount_type: 'amount',
+                amount_paid: amountPaid,
+                amount_tendered: paymentMethod === 'cash' ? amountTendered : null,
+                change_amount: paymentMethod === 'cash' ? changeAmount : null,
+                payment_method: paymentMethod,
+                currency_id: currencyId,
+                base_currency_id: baseCurrencyId,
+                location_id: locationId,
+                workflow_type: 'process_payment',
+                order_reference: orderReference,
+                status: 'completed'
+            };
+
+            const response = await fetch('/inventory/pos/api/checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(checkoutData)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showNotification('Sale completed successfully!', 'success');
+
+                // Close payment modal first
+                const paymentModal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
+                if (paymentModal) {
+                    paymentModal.hide();
+                }
+
+                // Store cart data for receipt before clearing
+                const receiptCartData = [...cart]; // Copy cart data for receipt
+                const receiptCartDiscount = cartDiscount; // Store discount for receipt
+                const receiptSubtotal = calculateSubtotal(); // Store subtotal before clearing
+                const receiptTax = (receiptSubtotal - receiptCartDiscount) * (effectiveTaxRate / 100); // Store tax
+
+                // Clear cart and reload products
+                clearCart();
+                await loadProducts();
+
+                // Show receipt modal with the actual reference
+                setTimeout(() => {
+                    generateReceipt(
+                        data.order_reference || orderReference,
+                        data.total_amount,
+                        data.currency_code,
+                        'payment',
+                        receiptCartData, // Pass cart data for receipt
+                        receiptCartDiscount, // Pass discount for receipt
+                        receiptSubtotal, // Pass subtotal for receipt
+                        receiptTax // Pass tax for receipt
+                    );
+                    const receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
+                    receiptModal.show();
+                }, 500);
+
+            } else {
+                showNotification(data.message || 'Error processing checkout', 'error');
+                // Re-enable button on error
+                completePaymentBtn.disabled = false;
+                completePaymentBtn.innerHTML = originalBtnText;
+            }
+        } catch (error) {
+            console.error('Error during checkout:', error);
+            showNotification('Error processing checkout', 'error');
+            // Re-enable button on error
+            completePaymentBtn.disabled = false;
+            completePaymentBtn.innerHTML = originalBtnText;
+        }
+    }
+
+
+
+    // Function to reset receipt modal content
+    // Function to reset receipt modal content
+    function resetReceiptModal() {
+        // Don't reset the receipt number here as it should persist when showing completed receipts
+        const receiptContent = document.getElementById('receiptContent');
+        const receiptTypeEl = document.getElementById('receiptType');
+        const receiptModalTitle = document.getElementById('receiptModalTitle');
+
+        if (receiptContent) receiptContent.innerHTML = '';
+        if (receiptTypeEl) receiptTypeEl.textContent = 'RECEIPT';
+        if (receiptModalTitle) receiptModalTitle.textContent = 'Sale Complete';
+
+        // Reset to default buttons
+        updateReceiptModalButtons('default');
+    }
+
+
+    function calculateTotal() {
+        // Use customer group tax percentage if available, otherwise use default tax rate
+        const effectiveTaxRate = customerGroupTaxPercentage > 0 ? customerGroupTaxPercentage : taxRate;
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const discount = cartDiscount;
+        const tax = (subtotal - discount) * (effectiveTaxRate / 100);
+
+        console.log('Amounts are ', subtotal, discount, tax)
+        return subtotal - discount + tax;
+    }
+
+
+
+    function getPaymentMethodName() {
+        const method = document.querySelector('input[name="paymentMethod"]:checked').value;
+        const methods = {
+            'cash': 'Cash',
+            'card': 'Credit Card',
+            'mobile': 'Mobile Payment'
+        };
+        return methods[method];
+    }
+
+    function saveCart() {
+        localStorage.setItem('pos_cart', JSON.stringify(cart));
+    }
+
+
+    function loadCart() {
+        const savedCart = localStorage.getItem('pos_cart');
+        if (savedCart) {
+            cart = JSON.parse(savedCart);
+            updateCartDisplay();
+        }
+    }
+
+
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Add these utility functions
+    function updateCartItemQuantity(variationId, newQuantity) {
+        const quantity = parseFloat(newQuantity); // Already fixed
+        const item = cart.find(item => item.variationId === variationId);
+
+        if (item && !isNaN(quantity)) {
+            if (quantity <= 0) {
+                removeCartItem(variationId);
+            } else if (quantity > item.stock) {
+                showNotification('Not enough stock available', 'warning');
+                // Reset to max available stock
+                item.quantity = item.stock;
+                updateCartDisplay();
+            } else {
+                item.quantity = quantity;
+                saveCart();
+                updateCartDisplay();
+            }
+        }
+    }
+
+
+
+    async function searchCustomers() {
+        const searchTerm = document.getElementById('customerSearch').value;
+
+        if (searchTerm.length < 2) {
+            document.getElementById('customerResults').innerHTML = '';
+            document.getElementById('customerResults').style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/inventory/pos/api/customers/search?q=${encodeURIComponent(searchTerm)}`);
+            const data = await response.json();
+
+            if (data.success) {
+                displayCustomerResults(data.customers);
+            }
+        } catch (error) {
+            console.error('Error searching customers:', error);
+        }
+    }
+
+
+    function displayCustomerResults(customers) {
+        const resultsContainer = document.getElementById('customerResults');
+
+        if (customers.length === 0) {
+            resultsContainer.innerHTML = '<div class="customer-result-item">No customers found</div>';
+            resultsContainer.style.display = 'block';
+            return;
+        }
+
+        resultsContainer.innerHTML = customers.map(customer => `
+            <div class="customer-result-item" onclick="selectCustomer(${JSON.stringify(customer).replace(/"/g, '&quot;')})">
+                <div class="customer-name">${customer.name}</div>
+                <div class="customer-details">
+                    ${customer.email ? customer.email + ' • ' : ''}
+                    ${customer.phone || ''}
+                </div>
+            </div>
+        `).join('');
+
+        resultsContainer.style.display = 'block';
+    }
+
+
+    function selectCustomer(customer) {
+        selectedCustomer = customer;
+        customerDiscount = customer.default_discount_percentage || 0;
+
+        document.getElementById('customerName').textContent = customer.name;
+        document.getElementById('selectedCustomer').style.display = 'flex';
+        document.getElementById('customerResults').style.display = 'none';
+        document.getElementById('customerSearch').value = '';
+
+        updateTotals();
+        showNotification(`Customer selected: ${customer.name}`, 'success');
+    }
+
+    function removeCustomer() {
+        selectedCustomer = null;
+        customerDiscount = 0;
+        document.getElementById('selectedCustomer').style.display = 'none';
+        updateTotals();
+        showNotification('Customer removed', 'info');
+    }
+
+    function togglePaymentDetails() {
+        const method = document.querySelector('input[name="paymentMethod"]:checked').value;
+
+        // Hide all payment details first
+        document.getElementById('cashPayment').style.display = 'none';
+        document.getElementById('cardPayment').style.display = 'none';
+        document.getElementById('mobilePayment').style.display = 'none';
+
+        // Show only the selected payment method details
+        if (method === 'cash') {
+            document.getElementById('cashPayment').style.display = 'block';
+        } else if (method === 'card') {
+            document.getElementById('cardPayment').style.display = 'block';
+        } else if (method === 'mobile') {
+            document.getElementById('mobilePayment').style.display = 'block';
+        }
+    }
+
+    function calculateChange() {
+        const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+
+        // Only calculate change for cash payments
+        if (paymentMethod !== 'cash') {
+            const changeField = document.getElementById('change');
+            changeField.value = 'N/A';
+            changeField.style.color = '#6c757d';
+            return;
+        }
+
+        const amount = parseFloat(document.getElementById('amountTendered').value) || 0;
+        const total = calculateTotal();
+        const change = amount - total;
+
+        const changeField = document.getElementById('change');
+        if (change >= 0) {
+            changeField.value = formatCurrency(change, filteredCurrency);
+            changeField.style.color = 'green';
+        } else {
+            changeField.value = 'Insufficient amount';
+            changeField.style.color = 'red';
+        }
+    }
+
+    function setLoadingState(isLoading) {
+        const completePaymentBtn = document.querySelector('#paymentModal .cta-button');
+        const cancelBtn = document.querySelector('#paymentModal .remove-button');
+
+        if (completePaymentBtn) {
+            completePaymentBtn.disabled = isLoading;
+            if (isLoading) {
+                completePaymentBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            } else {
+                completePaymentBtn.innerHTML = 'Complete Payment';
+            }
+        }
+
+        if (cancelBtn) {
+            cancelBtn.disabled = isLoading;
+        }
+    }
+
+
+    function printReceipt() {
+        // Hide modal buttons before printing
+        const modalFooter = document.querySelector('#receiptModal .modal-footer');
+        if (modalFooter) {
+            modalFooter.style.display = 'none';
+        }
+
+        // Print the document
+        window.print();
+
+        // Show buttons again after printing (with a slight delay)
+        setTimeout(() => {
+            if (modalFooter) {
+                modalFooter.style.display = 'flex';
+            }
+        }, 100);
+    }
+
+
+
+    function newSale() {
+        const receiptModal = bootstrap.Modal.getInstance(document.getElementById('receiptModal'));
+        receiptModal.hide();
+
+        cart = [];
+        selectedCustomer = null;
+        customerDiscount = 0;
+        saveCart();
+        updateCartDisplay();
+
+        document.getElementById('selectedCustomer').style.display = 'none';
+        document.getElementById('customerSearch').value = '';
+    }
+
+    function showLoading(show) {
+        // Implement loading overlay
+        if (show) {
+            // Show loading spinner
+        } else {
+            // Hide loading spinner
+        }
+    }
+
+
+    // Also update the payment workflow to follow the same pattern
+    function processPayment() {
+        if (cart.length === 0) {
+            showNotification('Cart is empty', 'warning');
+            return;
+        }
+
+        // Generate preview receipt first
+        generateReceiptPreview('payment');
+
+        // Show receipt modal with confirmation options
+        const receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
+
+        // Update modal footer buttons for payment workflow with confirmation
+        updateReceiptModalButtons('payment_preview');
+
+        receiptModal.show();
+    }
+
+
+
+    // Modify processCheckout to handle different workflows
+    // Modify processCheckout to handle different workflows
+    function processCheckout() {
+        if (cart.length === 0) {
+            showNotification('Cart is empty', 'warning');
+            return;
+        }
+
+        if (!selectedCustomer) {
+            showNotification('No customer selected. Defaulted to "Walk-in customer"', 'info');
+        }
+
+        if (currentLocationWorkflow === 'order_slip') {
+            // Show receipt preview first, then process on confirmation
+            generateOrderSlip();
+        } else {
+            // Show receipt preview first, then process payment on confirmation
+            processPayment(); // This now shows the preview first
+        }
+    }
+
+    // Helper function to show payment modal
+    // Helper function to show payment modal
+    function showPaymentModal() {
+        // First, ensure any existing payment modal is properly disposed
+        const existingPaymentModal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
+        if (existingPaymentModal) {
+            existingPaymentModal.hide();
+        }
+
+        // Create a new modal instance
+        const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+
+        // Reset payment form
+        document.getElementById('amountTendered').value = '';
+        document.getElementById('change').value = '';
+        document.querySelector('input[name="paymentMethod"][value="cash"]').checked = true;
+        togglePaymentDetails();
+
+        // Update payment total display
+        const total = calculateTotal();
+        document.getElementById('paymentTotal').textContent = formatCurrency(total, filteredCurrency);
+
+        // Show the modal
+        paymentModal.show();
+    }
+
+
+    // New function for order slip workflow - Show receipt first, then process on confirmation
+    function generateOrderSlip() {
+        if (cart.length === 0) {
+            showNotification('Cart is empty', 'warning');
+            return;
+        }
+
+        // Generate preview receipt first
+        generateReceiptPreview('order_slip');
+
+        // Show receipt modal with confirmation options
+        const receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
+
+        // Update modal footer buttons for order slip workflow with confirmation
+        updateReceiptModalButtons('order_slip_preview');
+
+        receiptModal.show();
+    }
+
+
+
+    // Function to update receipt modal buttons based on workflow
+    // Function to update receipt modal buttons based on workflow
+    function updateReceiptModalButtons(workflowType) {
+        const modalFooter = document.querySelector('#receiptModal .modal-footer');
+
+        if (workflowType === 'order_slip_preview') {
+            // Preview mode - user hasn't confirmed yet
+            modalFooter.innerHTML = `
+            <button type="button" class="remove-button" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="cta-button" onclick="confirmOrderSlip()">
+                <i class="fas fa-check"></i> Confirm & Generate Order
+            </button>
+        `;
+        } else if (workflowType === 'payment_preview') {
+            // Payment preview mode - user hasn't confirmed yet
+            modalFooter.innerHTML = `
+            <button type="button" class="remove-button" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="cta-button" onclick="confirmPayment()">
+                <i class="fas fa-check"></i> Confirm & Process Payment
+            </button>
+        `;
+        } else if (workflowType === 'order_slip_completed') {
+            // Order completed - show print options
+            modalFooter.innerHTML = `
+            <button type="button" class="add-button" onclick="printReceipt()">
+                <i class="fas fa-print"></i> Print & Close
+            </button>
+            <button type="button" class="cta-button" onclick="printAndClearOrder()">
+                <i class="fas fa-print"></i> Print & Clear
+            </button>
+        `;
+        } else {
+            // Default buttons for completed payment workflow
+            modalFooter.innerHTML = `
+            <button type="button" class="add-button" onclick="printReceipt()">
+                <i class="fas fa-print"></i> Print
+            </button>
+            <button type="button" class="cta-button" onclick="newSale()">New Sale</button>
+        `;
+        }
+    }
+
+    // Function to confirm payment and show payment modal
+    function confirmPayment() {
+        // Close the receipt preview modal properly
+        const receiptModal = bootstrap.Modal.getInstance(document.getElementById('receiptModal'));
+        if (receiptModal) {
+            receiptModal.hide();
+            // Add a small delay to ensure the modal is fully hidden
+            setTimeout(() => {
+                // Show the payment modal
+                showPaymentModal();
+            }, 300);
+        } else {
+            // Fallback: just show payment modal
+            showPaymentModal();
+        }
+    }
+
+    // Function to generate preview receipt (without actual order creation)
+    // Function to generate preview receipt (without actual order creation)
+    function generateReceiptPreview(workflowType = 'order_slip') {
+        const receiptContent = document.getElementById('receiptContent');
+        const receiptNumberEl = document.getElementById('receiptNumber');
+        const receiptTypeEl = document.getElementById('receiptType');
+        const receiptModalTitle = document.getElementById('receiptModalTitle');
+        const processedBy = document.getElementById('processedBy').value || 'Staff';
+
+        // Generate a temporary reference for preview
+        const tempReference = 'PREVIEW-' + Date.now();
+        receiptNumberEl.textContent = tempReference;
+
+        const subtotal = calculateSubtotal();
+        const discount = cartDiscount;
+        const effectiveTaxRate = customerGroupTaxPercentage > 0 ? customerGroupTaxPercentage : taxRate;
+        const tax = (subtotal - discount) * (effectiveTaxRate / 100);
+        const total = subtotal - discount + tax;
+
+        // Set receipt type and title based on workflow
+        if (workflowType === 'order_slip') {
+            receiptTypeEl.textContent = 'ORDER SLIP PREVIEW';
+            receiptModalTitle.textContent = 'Confirm Order';
+        } else {
+            receiptTypeEl.textContent = 'RECEIPT PREVIEW';
+            receiptModalTitle.textContent = 'Confirm Payment';
+        }
+
+        receiptContent.innerHTML = `
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> This is a preview. ${workflowType === 'order_slip' ? 'Order will be generated after confirmation.' : 'Payment will be processed after confirmation.'}
+        </div>
+        <p>Date: ${new Date().toLocaleString()}</p>
+        <p>Reference: ${tempReference} (Preview)</p>
+        <p>Customer: ${selectedCustomer ? selectedCustomer.name : 'Walk-in Customer'}</p>
+         
+        <hr>
+        <table width="100%">
+            ${cart.map(item => `
+                <tr>
+                    <td>${item.name} x${item.quantity}</td>
+                    <td align="right">${formatCurrency(item.price * item.quantity, filteredCurrency)}</td>
+                </tr>
+            `).join('')}
+        </table>
+        <hr>
+        <table width="100%">
+            <tr>
+                <td>Subtotal:</td>
+                <td align="right">${formatCurrency(subtotal, filteredCurrency)}</td>
+            </tr>
+            ${discount > 0 ? `
+            <tr>
+                <td>Discount:</td>
+                <td align="right">-${formatCurrency(discount, filteredCurrency)}</td>
+            </tr>
+            ` : ''}
+            <tr>
+                <td>Tax (${effectiveTaxRate.toFixed(2)}%):</td>
+                <td align="right">${formatCurrency(tax, filteredCurrency)}</td>
+            </tr>
+            <tr>
+                <td><strong>Total:</strong></td>
+                <td align="right"><strong>${formatCurrency(total, filteredCurrency)}</strong></td>
+            </tr>
+        </table>
+        <hr>
+        <p>${workflowType === 'order_slip' ? 'Order Type: Order Slip' : 'Payment Type: Cash'}</p>
+        <p>Processed By: ${processedBy}</p>
+    `;
+    }
+
+    // Function to confirm and actually create the order slip
+    async function confirmOrderSlip() {
+        const locationId = document.getElementById('locationFilter').value;
+        const currencyId = document.getElementById('currencySelect').value;
+        const effectiveTaxRate = customerGroupTaxPercentage > 0 ? customerGroupTaxPercentage : taxRate;
+
+        // Get the confirm button and disable it immediately
+        const confirmBtn = document.querySelector('#receiptModal .cta-button');
+        const originalBtnText = confirmBtn.innerHTML;
+
+        try {
+            // Disable the button and show loading state
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+            // Get the next order reference number
+            const refResponse = await fetch('/inventory/pos/api/suggest_order_reference');
+            const refData = await refResponse.json();
+            const orderReference = refData.suggested_reference;
+
+            // Store cart data for receipt before processing
+            const receiptCartData = [...cart];
+            const receiptCartDiscount = cartDiscount;
+            const receiptSubtotal = calculateSubtotal();
+            const receiptTax = (receiptSubtotal - receiptCartDiscount) * (effectiveTaxRate / 100);
+
+            const orderData = {
+                customer_id: selectedCustomer ? selectedCustomer.id : null,
+                items: cart.map(item => ({
+                    item_id: item.itemId,
+                    variation_id: item.variationId,
+                    name: item.name,
+                    quantity: item.quantity,
+                    unit_price: item.price,
+                    location_id: locationId
+                })),
+                tax_rate: effectiveTaxRate,
+                discount_amount: cartDiscount,
+                discount_type: 'amount',
+                currency_id: currencyId,
+                base_currency_id: baseCurrencyId,
+                location_id: locationId,
+                workflow_type: 'order_slip',
+                order_reference: orderReference,
+                status: 'pending'
+            };
+
+            const response = await fetch('/inventory/pos/api/checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(orderData)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showNotification('Order slip generated successfully!', 'success');
+
+                // Update the receipt with actual data from backend
+                const actualReference = data.order_reference || orderReference;
+                console.log('Actual reference is', actualReference);
+
+                generateReceipt(
+                    actualReference,
+                    data.total_amount,
+                    data.currency_code,
+                    'order_slip',
+                    receiptCartData,
+                    receiptCartDiscount,
+                    receiptSubtotal,
+                    receiptTax
+                );
+
+                // Update buttons to show print options
+                updateReceiptModalButtons('order_slip_completed');
+
+                // Reload products to refresh stock numbers
+                await loadProducts();
+
+            } else {
+                showNotification(data.message || 'Error generating order slip', 'error');
+                // Re-enable button on error
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = originalBtnText;
+                // Close modal on error
+                const receiptModal = bootstrap.Modal.getInstance(document.getElementById('receiptModal'));
+                if (receiptModal) {
+                    receiptModal.hide();
+                }
+            }
+        } catch (error) {
+            console.error('Error generating order slip:', error);
+            showNotification('Error generating order slip', 'error');
+            // Re-enable button on error
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = originalBtnText;
+            // Close modal on error
+            const receiptModal = bootstrap.Modal.getInstance(document.getElementById('receiptModal'));
+            if (receiptModal) {
+                receiptModal.hide();
+            }
+        }
+        // Note: We don't re-enable the button here because it gets replaced when updateReceiptModalButtons is called
+    }
+
+    // Function to reset payment modal button state
+    function resetPaymentModalButton() {
+        const completePaymentBtn = document.querySelector('#paymentModal .cta-button');
+        if (completePaymentBtn) {
+            completePaymentBtn.disabled = false;
+            completePaymentBtn.innerHTML = 'Complete Payment';
+        }
+    }
+
+
+    // New function for printing and clearing order
+    // New function for printing and clearing order
+    function printAndClearOrder() {
+        // First print the receipt
+        printReceipt();
+
+        // Then clear the cart and close modal
+        setTimeout(() => {
+            clearCart();
+            const receiptModal = bootstrap.Modal.getInstance(document.getElementById('receiptModal'));
+            if (receiptModal) {
+                receiptModal.hide();
+            }
+            showNotification('Order cleared and ready for next customer', 'success');
+        }, 500); // Small delay to ensure print dialog is shown
+    }
+
+    // Modified newSale function to handle both workflows
+    function newSale() {
+        const receiptModal = bootstrap.Modal.getInstance(document.getElementById('receiptModal'));
+        if (receiptModal) {
+            receiptModal.hide();
+        }
+
+        clearCart();
+        showNotification('Ready for new sale', 'success');
+    }
+
+
+    // Add this function to calculate discount amount
+    function calculateDiscountAmount() {
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        return subtotal * (customerDiscount / 100);
+
+    }
+
+    // Add these calculation helpers
+    function calculateSubtotal() {
+        return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    }
+
+    function calculateTax() {
+        const subtotal = calculateSubtotal();
+        const discount = calculateDiscountAmount();
+        return (subtotal - discount) * (taxRate / 100);
+    }
+
+
+    function showLoading(show) {
+        const overlay = document.getElementById('loadingOverlay');
+        if (!overlay) {
+            const overlayEl = document.createElement('div');
+            overlayEl.id = 'loadingOverlay';
+            overlayEl.className = 'loading-overlay';
+            overlayEl.innerHTML = '<div class="spinner-border text-primary"></div>';
+            document.body.appendChild(overlayEl);
+        }
+
+        document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+    }
+
+
+    // Modified generateReceipt to handle both workflows and show reference number
+    // Modified generateReceipt to handle both workflows and show reference number
+    function generateReceipt(referenceNumber, totalAmount, currencyCode = filteredCurrency, workflowType = 'payment', receiptCartData = null, receiptDiscount = 0, receiptSubtotal = 0, receiptTax = 0) {
+        const receiptContent = document.getElementById('receiptContent');
+        const receiptNumberEl = document.getElementById('receiptNumber');
+        const receiptTypeEl = document.getElementById('receiptType');
+        const receiptModalTitle = document.getElementById('receiptModalTitle');
+        const processedBy = document.getElementById('processedBy').value || 'Staff';
+
+        // Ensure the reference number is properly set
+        if (receiptNumberEl) {
+            receiptNumberEl.textContent = referenceNumber;
+        }
+
+        // Use passed data for calculations, or fall back to current cart if not provided
+        const cartData = receiptCartData || cart;
+        const discount = receiptDiscount || cartDiscount;
+        const subtotal = receiptSubtotal || calculateSubtotal();
+        const tax = receiptTax || (subtotal - discount) * (effectiveTaxRate / 100);
+
+        // Set receipt type and title based on workflow
+        if (workflowType === 'order_slip') {
+            if (receiptTypeEl) receiptTypeEl.textContent = 'ORDER SLIP';
+            if (receiptModalTitle) receiptModalTitle.textContent = 'Order Generated';
+        } else {
+            if (receiptTypeEl) receiptTypeEl.textContent = 'RECEIPT';
+            if (receiptModalTitle) receiptModalTitle.textContent = 'Sale Complete';
+        }
+
+        if (receiptContent) {
+            receiptContent.innerHTML = `
+        <p>Date: ${new Date().toLocaleString()}</p>
+        <p>Reference: ${referenceNumber}</p>
+        <p>Customer: ${selectedCustomer ? selectedCustomer.name : 'Walk-in Customer'}</p>
+         
+        <hr>
+        <table width="100%">
+            ${cartData.map(item => `
+                <tr>
+                    <td>${item.name} x${item.quantity}</td>
+                    <td align="right">${formatCurrency(item.price * item.quantity, currencyCode)}</td>
+                </tr>
+            `).join('')}
+        </table>
+        <hr>
+        <table width="100%">
+            <tr>
+                <td>Subtotal:</td>
+                <td align="right">${formatCurrency(subtotal, currencyCode)}</td>
+            </tr>
+            ${discount > 0 ? `
+            <tr>
+                <td>Discount:</td>
+                <td align="right">-${formatCurrency(discount, currencyCode)}</td>
+            </tr>
+            ` : ''}
+            <tr>
+                <td>Tax (${effectiveTaxRate.toFixed(2)}%):</td>
+                <td align="right">${formatCurrency(tax, currencyCode)}</td>
+            </tr>
+            <tr>
+                <td><strong>Total:</strong></td>
+                <td align="right"><strong>${formatCurrency(totalAmount, currencyCode)}</strong></td>
+            </tr>
+        </table>
+        <hr>
+        ${workflowType === 'payment' ? `<p>Payment Method: ${getPaymentMethodName()}</p>` : '<p>Order Type: Order Slip</p>'}
+        <p>Processed By: ${processedBy}</p>
+        <p>${workflowType === 'order_slip' ? 'Thank you for your order!' : 'Thank you for your purchase!'}</p>
+        `;
+        }
+    }
+    // Add input event listener for better UX
+    document.getElementById('amountTendered').addEventListener('input', function () {
+        calculateChange();
+
+        const amount = parseFloat(this.value) || 0;
+        const total = calculateTotal();
+
+        if (amount > 0 && amount < total) {
+            this.style.borderColor = 'red';
+        } else {
+            this.style.borderColor = '';
+        }
+    });
+
+    document.getElementById('discountInput').addEventListener('input', (e) => {
+        cartDiscount = parseFloat(e.target.value) || 0;
+
+        console.log('Cart Discount is', cartDiscount)
+        updateTotals();
+    });
+
+
+
+</script>
+{% endblock %}

@@ -1,0 +1,3816 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .purchase_order-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+    }
+
+    .company-logo img {
+        max-width: 150px;
+        height: auto;
+    }
+
+    .company-logo h2 {
+        font-size: 24px;
+        color: #2c3e50;
+        margin-top: 10px;
+    }
+
+    .purchase_order-meta h1 {
+        font-size: 28px;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    .purchase_order-meta p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .status {
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        color: #fff;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    .status.draft {
+        background: #f0ad4e;
+    }
+
+    .status.unpaid {
+        background: #5bc0de;
+    }
+
+    .status.partially_paid {
+        background: #5cb85c;
+    }
+
+    .status.paid {
+        background: #2e8b57;
+    }
+
+    .status.rejected {
+        background: #d9534f;
+    }
+
+    .status.canceled {
+        background: #d9534f;
+    }
+
+    .status.expired {
+        background: #777;
+    }
+
+    .status.purchaseOrderd {
+        background: #777;
+    }
+
+    .purchase_order-vendor {
+        margin-bottom: 20px;
+    }
+
+    .purchase_order-vendor h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin: 0 0 10px;
+    }
+
+    .purchase_order-vendor p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .terms-and-conditions {
+        margin-top: 20px;
+    }
+
+    .terms-and-conditions h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin-bottom: 10px;
+    }
+
+    .terms-and-conditions p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f9f9f9;
+        font-weight: bold;
+        color: #333;
+        font-weight: 600;
+    }
+
+    td {
+        color: #222;
+
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    .numeric {
+        text-align: right;
+        color: #222;
+    }
+
+    .grande {
+        font-weight: 600;
+        font-size: 1.2rem;
+    }
+
+    .purchase_order-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+
+
+    textarea {
+        width: 200px;
+        padding: 10px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+        resize: vertical;
+    }
+
+    textarea:focus {
+        outline: none;
+        border-color: #0275d8;
+    }
+
+    select {
+        padding: 2px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+    }
+
+    table {
+        border: none;
+    }
+
+    table tr:hover {
+        background-color: white;
+        /* Hover effect for rows */
+    }
+
+    /* Remove borders and background for all table cells */
+    table td,
+    table th {
+        border: none !important;
+        background-color: transparent !important;
+    }
+
+
+    table th {
+        border: 1px solid #ddd !important;
+        background: #f9f9f9 !important
+    }
+
+    /* Add borders only to the last two columns */
+    table td:nth-last-child(1),
+    table td:nth-last-child(2),
+    table th:nth-last-child(1),
+    table th:nth-last-child(2) {
+        border: 1px solid #ddd !important;
+        /* Add border to the last two columns */
+    }
+
+    /* Add borders to all rows in the table body */
+    table tbody tr td {
+        border: 1px solid #ddd !important;
+
+
+    }
+
+    tr:nth-child(even) {
+        background: white;
+    }
+
+
+
+    /* Align totals section to the right */
+    .totals-row td {
+        text-align: right;
+    }
+
+    /* Increase font weight for totals rows */
+    .totals-row td {
+        font-weight: 600;
+        /* Semi-bold */
+    }
+
+    /* Change background color of the last two columns in totals-row */
+    .totals-row td:nth-last-child(1) {
+        background-color: #f9f9f9 !important;
+        /* Light gray background */
+    }
+
+    /* Change background color of the last two columns in totals-row */
+    .totals-row td:nth-last-child(2) {
+        border: none !important;
+        /* Light gray background */
+    }
+
+    /* Grand Total specific styling */
+    .grande {
+        font-weight: 700;
+        /* Bold */
+        font-size: 1.1rem;
+    }
+
+
+    /* Confirmation Modal */
+    .confirmationModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+    }
+
+    .confirmationModal p {
+        margin-bottom: 15px;
+    }
+
+    .confirmationModal button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        margin-right: 10px;
+    }
+
+    .confirmDelete {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .cancelDelete {
+        background-color: #6c757d;
+        color: white;
+    }
+</style>
+
+<div class="content-container">
+
+    <div class="purchase_order-header">
+
+        <div class="company-logo">
+
+
+            <!-- Back Button at the Top -->
+            <div class="back-button-container" style="margin-bottom: 5px;">
+                <a href="javascript:void(0);" class="back-button" onclick="window.history.back();">
+                    <i class="fas fa-chevron-left"></i> Back
+                </a>
+            </div>
+
+            {% if company.logo %}
+            <img src="{{ url_for('serve_logo', filename=company.logo) }}" alt="Company Logo">
+            {% endif %}
+            <h2>{{ company.name }}</h2>
+        </div>
+
+        <div class="purchase_order-meta">
+            <h1>Purchase Order #{{ purchase_order.purchase_order_number }}</h1>
+            <p><strong>Date:</strong> {{ purchase_order.purchase_order_date }}</p>
+            <p><strong>Delivery Date:</strong> {{ purchase_order.delivery_date or "N/A" }}</p>
+            <p><strong>Currency:</strong> {{ purchase_order.currency }}</p>
+
+
+            <span class="status {{ purchase_order.status.name|lower }}">{{ purchase_order.status.value }}</span>
+        </div>
+    </div>
+
+    <div class="purchase_order-vendor">
+        <h3>Vendor Details:</h3>
+        <p><strong>{{ purchase_order.vendor.name }}</strong></p>
+        <p>{{ purchase_order.vendor.address or "" }}</p>
+        <p>{{ purchase_order.vendor.city_country or "" }}</p>
+        <p><strong>Contact:</strong> {{ purchase_order.vendor.contact or "N/A" }}</p>
+    </div>
+
+    <div class="purchase_order-items">
+
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Discount</th>
+                        <th>Tax</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in purchase_order.purchase_order_items %}
+                    <tr>
+                        <td>{{ item.item_name }}</td>
+                        <td>{{ item.description or "-" }}</td>
+                        <td>{{ item.quantity }} {{ item.uom }}</td>
+                        <td class="numeric">{{ "{:,.2f}".format(item.unit_price) }}</td>
+                        <td class="numeric">
+                            {% if item.discount_amount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(item.discount_amount) }} ({{ item.discount_rate }}%)
+                            {% endif %}
+                        </td>
+                        <td class="numeric">
+                            {% if item.tax_amount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(item.tax_amount) }} ({{ item.tax_rate }}%)
+                            {% endif %}
+                        </td>
+                        <td class="numeric">{{ "{:,.2f}".format(item.total_price) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <!-- Subtotal -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Subtotal</td>
+                        <td class="numeric">{{ "{:,.2f}".format(purchase_order.subtotal) }}</td>
+                    </tr>
+                    <!-- Discount -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Discount</td>
+                        <td class="numeric">
+                            {% if purchase_order.purchase_order_discount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(purchase_order.purchase_order_discount) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Tax -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Tax(%)</td>
+                        <td class="numeric">
+                            {% if purchase_order.purchase_order_tax_rate == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(purchase_order.purchase_order_tax_rate) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Shipping Cost -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Shipping Cost</td>
+                        <td class="numeric">
+                            {% if purchase_order.shipping_cost == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(purchase_order.shipping_cost) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Handling Cost -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Handling Cost</td>
+                        <td class="numeric">
+                            {% if purchase_order.handling_cost == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(purchase_order.handling_cost) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Grand Total -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric grande">Grand Total</td>
+                        <td class="numeric grande">{{ "{:,.2f}".format(purchase_order.total_amount) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+    </div>
+
+
+    <div class="terms-and-conditions">
+        <h3>Terms and Conditions</h3>
+        <p class="preserve-newlines">{{ purchase_order.terms_and_conditions or "N/A" }}</p>
+    </div>
+
+
+    <!-- Add this hidden div somewhere in your template -->
+    <div id="po-data" data-remaining-balance="{{ purchase_order.remaining_balance or purchase_order.total_amount }}"
+        style="display: none;">
+    </div>
+
+    <!-- Payments History Section -->
+    <div class="payments-history terms-and-conditions">
+        <h3>Payments History</h3>
+
+        <p><strong>Total Paid:</strong> {{ "{:,.2f}".format(purchase_order.total_paid or 0) }}</p>
+        <p><strong>Remaining Balance:</strong> {{ "{:,.2f}".format(purchase_order.remaining_balance or 0) }}</p>
+
+        {% if purchase_order.purchase_order_transactions %}
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Payment Date</th>
+                        <th>Amount Paid</th>
+                        <th>Payment Type</th>
+                        <th>Paying Account</th>
+                        <th>Payment Mode</th>
+                        <th>Reference Number</th>
+                        <th>Payment Status</th>
+                        <th>Ledger Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in purchase_order.purchase_order_transactions %}
+                    {% set allocation = transaction.payment_allocations[0] if transaction.payment_allocations else None
+                    %}
+                    <tr>
+                        <td>{{ transaction.payment_date }}</td>
+                        <td class="numeric">
+                            {{ "{:,.2f}".format(transaction.amount_paid or 0) }}
+                        </td>
+
+                        <!-- Payment Type -->
+                        <td>
+                            <span class="badge 
+                        {% if allocation and allocation.payment_type == 'advance_payment' %} bg-info
+                        {% elif allocation and allocation.payment_type == 'regular_payment' %} bg-primary
+                        {% else %} bg-secondary
+                        {% endif %}">
+                                {% if allocation and allocation.payment_type %}
+                                {{ allocation.payment_type|replace('_', ' ')|title }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </span>
+                        </td>
+
+                        <!-- Paying Account -->
+                        <td>
+                            {% if allocation.paying_account_name %}
+                            {{ allocation.paying_account_name }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if allocation and allocation.payment_modes %}
+                            {{ allocation.payment_modes.payment_mode }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ transaction.reference_number or "-" }}</td>
+
+                        <!-- Payment Status -->
+                        <td>
+                            <span class="badge 
+                        {% if transaction.payment_status|lower == 'paid' %} bg-success
+                        {% elif transaction.payment_status|lower == 'refunded' %} bg-secondary
+                        {% elif transaction.payment_status|lower == 'cancelled' %} bg-danger
+                        {% elif transaction.payment_status|lower == 'partial' %} bg-info
+                        {% elif transaction.payment_status|lower == 'pending' %} bg-warning
+                        {% elif transaction.payment_status|lower == 'unpaid' %} bg-dark
+                        {% else %} bg-secondary
+                        {% endif %}">
+                                {{ transaction.payment_status }}
+                            </span>
+                        </td>
+
+                        <!-- Ledger Posting Status -->
+                        <td>
+                            {% if allocation and allocation.is_posted_to_ledger %}
+                            <span class="badge bg-success">Posted</span>
+                            {% else %}
+                            <div class="custom-tooltip-container">
+                                <i class="fas fa-info-circle"
+                                    style="color: #007bff; margin-left: 4px; cursor: pointer;"></i>
+                                <span class="custom-tooltip left">
+                                    To post this payment to the ledger, go to
+                                    <a href="/purchases/transactions"
+                                        style="color: #fff; text-decoration: underline;">Purchase Transactions</a>.
+                                </span>
+                            </div>
+                            <span class="badge bg-danger">Not Posted</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Action Buttons -->
+                        <td>
+                            <div class="action-icons-clean">
+                                <!-- Edit Payment -->
+                                <div class="custom-tooltip-container">
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#editPaymentModal"
+                                        onclick="setupEditPaymentModal('{{ transaction.id }}')">
+                                        <i class="fas fa-edit edit-icon"></i>
+                                    </a>
+                                    <span class="custom-tooltip left">Edit Payment</span>
+                                </div>
+
+                                <!-- Cancel Payment -->
+                                <!-- Cancel Payment -->
+                                {% if transaction.payment_status != 'cancelled' %}
+                                <div class="custom-tooltip-container">
+                                    <a href="#"
+                                        onclick="confirmCancelPayment('{{ transaction.id }}', {{ 'true' if allocation and allocation.is_posted_to_ledger else 'false' }})">
+                                        <i class="fas fa-times-circle delete-icon"></i>
+                                    </a>
+                                    <span class="custom-tooltip left">Cancel Payment</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No payments have been recorded for this purchase order.</p>
+        {% endif %}
+    </div>
+
+
+    <!-- Goods/Service Receipt Section -->
+    <!-- Goods/Service Receipt Section -->
+    <div class="goods-receipt terms-and-conditions">
+        <h3>Goods/Service Receipt</h3>
+
+        {% if purchase_order.goods_receipts %}
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Receipt #</th>
+                        <th>Receipt Date</th>
+                        <th>Received By</th>
+                        <th>Item</th>
+                        <th>Location</th>
+                        <th>Quantity Received</th>
+                        <th>Received Condition</th>
+                        <th>Notes</th>
+                        <th>Ledger Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for receipt in purchase_order.goods_receipts %}
+                    {% for receipt_item in receipt.receipt_items %}
+                    <tr>
+                        <td>{{ receipt.receipt_number }}</td>
+                        <td>{{ receipt.receipt_date }}</td>
+                        <td>{{ receipt.received_by }}</td>
+                        <td>{{ receipt_item.item_name }}</td>
+                        <td>
+                            {% set po_item = purchase_order.purchase_order_items|selectattr('id', 'equalto',
+                            receipt_item.purchase_order_item_id)|first %}
+                            {% if po_item and po_item.location %}
+                            {{ po_item.location }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ receipt_item.quantity_received }} {{ purchase_order.purchase_order_items|selectattr('id',
+                            'equalto', receipt_item.purchase_order_item_id)|map(attribute='uom')|first }}</td>
+                        <td>{{ receipt_item.received_condition or '-' }}</td>
+                        <td>{{ receipt_item.notes or '-' }}</td>
+                        <td>
+                            {% if receipt_item.is_posted_to_ledger %}
+                            <span class="badge bg-success">Posted</span>
+                            {% else %}
+                            <div class="custom-tooltip-container">
+                                <i class="fas fa-info-circle"
+                                    style="color: #007bff; margin-left: 4px; cursor: pointer;"></i>
+                                <span class="custom-tooltip left">
+                                    To post this receipt to the ledger, go to
+                                    <a href="/purchases/goods_receipts"
+                                        style="color: #fff; text-decoration: underline;">Goods Receipts</a>.
+                                </span>
+                            </div>
+                            <span class="badge bg-danger">Not Posted</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-icons-clean">
+                                <!-- Edit Receipt Button -->
+                                <div class="custom-tooltip-container">
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#editReceiptModal"
+                                        onclick="setupEditReceiptModal('{{ receipt.id }}', '{{ receipt_item.id }}')">
+                                        <i class="fas fa-edit edit-icon"></i>
+                                    </a>
+                                    <span class="custom-tooltip left">Edit Receipt</span>
+                                </div>
+
+                                <!-- Delete Receipt Button -->
+                                <!-- Delete Receipt Button -->
+                                <div class="custom-tooltip-container">
+                                    <a href="#" data-receipt-id="{{ receipt.id }}"
+                                        data-receipt-item-id="{{ receipt_item.id }}"
+                                        data-receipt-number="{{ receipt.receipt_number }}"
+                                        onclick="confirmDeleteReceipt(this)">
+                                        <i class="fas fa-trash delete-icon"></i>
+                                    </a>
+                                    <span class="custom-tooltip left">Delete Receipt</span>
+                                </div>
+
+                                <!-- Return Item Button (only for inventory items) -->
+                                {% if receipt_item.item_type == "inventory" %}
+                                <div class="custom-tooltip-container" style="display: none;">
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#returnItemModal"
+                                        onclick="setupReturnItemModal('{{ receipt.id }}', '{{ receipt_item.id }}', '{{ receipt_item.item_name }}')">
+                                        <i class="fas fa-undo-alt return-icon"></i>
+                                    </a>
+                                    <span class="custom-tooltip left">Return Item</span>
+                                </div>
+                                {% endif %}
+
+                                <!-- Cancel Receipt Button (hidden but available if needed) -->
+                                <div style="display: none;" class="custom-tooltip-container">
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#cancelReceiptModal"
+                                        onclick="setupCancelReceiptModal('{{ receipt.id }}', '{{ receipt_item.id }}')">
+                                        <i class="fas fa-times-circle delete-icon"></i>
+                                    </a>
+                                    <span class="custom-tooltip left">Cancel Receipt</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No goods/service receipts have been recorded for this purchase order.</p>
+        {% endif %}
+    </div>
+
+    <!-- Shipping and Handling Section -->
+    <div class="shipping-handling terms-and-conditions hidden">
+        <h3>Shipping & Handling</h3>
+
+        {% if purchase_order.shipping_cost or purchase_order.handling_cost %}
+        <div class="table-responsive">
+            <table class="shipping-handling-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Amount</th>
+                        <th>Ledger Status</th>
+
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if purchase_order.shipping_cost %}
+                    <tr>
+                        <td>Shipping</td>
+                        <td>{{ "{:,.2f}".format(purchase_order.shipping_cost) }}</td>
+                        <td>
+                            {% if purchase_order.shipping_handling_posted %}
+                            <span class="status approved">Posted</span>
+                            {% else %}
+                            <span class="status danger">Not Posted</span>
+                            {% endif %}
+                        </td>
+
+                    </tr>
+                    {% endif %}
+
+                    {% if purchase_order.handling_cost %}
+                    <tr>
+                        <td>Handling</td>
+                        <td>{{ "{:,.2f}".format(purchase_order.handling_cost) }}</td>
+                        <td>
+                            {% if purchase_order.shipping_handling_posted %}
+                            <span class="status approved">Posted</span>
+                            {% else %}
+                            <span class="status danger">Not Posted</span>
+                            {% endif %}
+                        </td>
+
+                    </tr>
+                    {% endif %}
+                </tbody>
+                {% if purchase_order.status.name not in ['draft', 'approved', 'canceled'] and
+                (purchase_order.shipping_cost or purchase_order.handling_cost) %}
+                <tfoot>
+                    <tr>
+                        <td><strong>Total</strong></td>
+                        <td><strong>{{ "{:,.2f}".format(purchase_order.shipping_cost + purchase_order.handling_cost)
+                                }}</strong></td>
+                        <td colspan="1">{% if not purchase_order.shipping_handling_posted %}
+                            <div class="action-icons">
+                                <a href="#" data-bs-toggle="modal" data-bs-target="#postShippingToLedgerModal"
+                                    data-tooltip="Post to Ledger" onclick="setupShippingAndHandlingLedgerModal(
+                                    '{{ purchase_order.id }}'
+                                )">
+                                    <i class="fas fa-book ledger-icon"></i>
+                                </a>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+        {% else %}
+        <p>No shipping or handling costs recorded for this purchase order.</p>
+        {% endif %}
+    </div>
+
+
+    <!-- New Purchase Returns Section -->
+    <div class="purchase-returns terms-and-conditions" style="display: none;">
+        <h3>Purchase Returns</h3>
+        {% if purchase_order.purchase_returns %}
+        <div class="table-responsive">
+            <table class="returns-table">
+                <thead>
+                    <tr>
+                        <th>Return #</th>
+                        <th>Date</th>
+                        <th>Item</th>
+                        <th>Quantity</th>
+                        <th>Amount</th>
+                        <th>Tax</th>
+                        <th>Total</th>
+                        <th>Reason</th>
+                        <th>Ledger Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for return in purchase_order.purchase_returns %}
+                    <tr>
+                        <td>{{ return.return_number }}</td>
+                        <td>{{ return.return_date }}</td>
+                        <td>
+
+                            {{ return.item_name }}
+
+                        </td>
+                        <td>{{ "{:,.2f}".format(return.quantity) }}</td>
+                        <td>{{ "{:,.2f}".format(return.amount) }}</td>
+                        <td>{{ "{:,.2f}".format(return.tax_amount) }}</td>
+                        <td>{{ "{:,.2f}".format(return.total_amount) }}</td>
+                        <td>{{ return.reason|truncate(30) }}</td>
+                        <td>
+                            {% if return.is_posted_to_ledger %}
+                            <span class="status approved">Posted</span>
+                            {% else %}
+                            <span class="status cancelled">Not Posted</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-icons">
+
+                                {% if return.status == 'draft' %}
+                                <form method="POST" action="{{ url_for('approve_purchase_return') }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="return_id" value="{{ return.id }}">
+                                    <button type="submit" class="btn btn-link p-0" data-tooltip="Approve Return"
+                                        onclick="return confirm('Are you sure you want to approve this return?')">
+                                        <i class="fas fa-check-circle view-icon"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+
+
+                                <!-- Cancel Return Button -->
+                                <a href="#" data-bs-toggle="modal" data-bs-target="#cancelReturnModal"
+                                    onclick="setupCancelReturnModal('{{ return.id }}')" data-tooltip="Cancel Return">
+                                    <i class="fas fa-times-circle delete-icon"></i>
+                                </a>
+
+                                <!-- Post to Ledger Button -->
+                                {% if return.status == 'approved' and not return.is_posted_to_ledger %}
+                                <a href="#" class="post-to-ledger-btn" data-return-id="{{ return.id }}"
+                                    data-return-number="{{ return.return_number }}"
+                                    data-original-amount="{{ return.total_amount|default(0) }}" data-bs-toggle="modal"
+                                    data-bs-target="#postPurchaseReturnModal" data-tooltip="Post to Ledger">
+                                    <i class="fas fa-book ledger-icon"></i>
+                                </a>
+                                {% endif %}
+
+
+
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4"><strong>Total Returns</strong></td>
+                        <td><strong>{{ "{:,.2f}".format(purchase_order.total_returned_amount) }}</strong></td>
+                        <td><strong>{{ "{:,.2f}".format(purchase_order.total_returned_tax) }}</strong></td>
+                        <td><strong>{{ "{:,.2f}".format(purchase_order.total_returned_amount +
+                                purchase_order.total_returned_tax) }}</strong></td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <p>No purchase returns recorded for this order.</p>
+        {% endif %}
+    </div>
+
+
+
+    <!-- Internal Notes (Visible only if status is draft) -->
+
+    <div class="internal-notes">
+        <h3>Internal Notes</h3>
+        <div id="notes-list">
+            {% for note in purchase_order.purchase_order_notes %}
+            {% if note.type == 'internal' %}
+            <div class="note">
+                <p>{{ note.content }}</p>
+                <small>
+                    By <strong>{{ note.created_by }}</strong> on {{ note.created_at }}
+                    {% if note.recipient %}
+                    (Assigned to <strong>{{ note.recipient }}</strong>)
+                    {% else %}
+                    (Assigned to all)
+                    {% endif %}
+                </small>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        <form id="add-note-form">
+            <textarea name="note_content" placeholder="Add a new internal note..." required></textarea>
+            <input type="hidden" name="purchase_order_id" value="{{ purchase_order.id }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="purchase_order_number" value="{{ purchase_order.purchase_order_number }}">
+
+            <label for="recipient">Assign to:</label>
+            <select name="recipient" id="recipient">
+                <option value="">All</option>
+                {% for user in purchase_order.users %}
+                <option value="{{ user.id }}">{{ user.name }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" data-skip-disable="true" class="button add-button">Add Note</button>
+        </form>
+    </div>
+
+
+
+
+    <!-- purchase_order Actions -->
+    <div class="purchase_order-actions transaction-actions">
+        {% if purchase_order.status.name == 'draft' %}
+        <button class="button cta-button" id="approve-purchase_order-button"> <i class="fas fa-check-circle"></i>
+            Approve Purchase Order</button>
+        <button class="button add-button"
+            onclick="window.location.href='/purchases/edit_purchase_order/{{ purchase_order.id }}'"> <i
+                class="fas fa-edit"></i> Edit Purchase Order</button>
+        {% elif purchase_order.status.name == 'rejected' %}
+        <button class="button add-button"
+            onclick="window.location.href='/purchase_order/edit_purchase_order/{{ purchase_order.id }}'">Edit
+            Purchase
+            Order</button>
+        {% elif purchase_order.status.name != 'draft' and purchase_order.status.name != 'canceled' and
+        purchase_order.status.name != 'rejected' %}
+
+
+        {% if purchase_order.status.name =='approved'%}
+        <!-- Form to send the purchase order to the customer -->
+        <form action="/purchases/send_to_customer/{{ purchase_order.id }}" method="POST" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="button cta-button">
+                <i class="fas fa-paper-plane"></i> Mark as Sent Vendor
+            </button>
+        </form>
+        {% endif %}
+
+
+
+        {% endif %}
+
+        <!-- Record Payment when status is 'unpaid' or 'partially_paid' (but not 'draft') -->
+        {% if purchase_order.status.name == 'unpaid' or purchase_order.status.name == 'partially_paid' %}
+        <button class="button success" id="record-payment" onclick="openPurchaseOrderPaymentModal()">
+            <i class="fas fa-file-invoice"></i> Record Payment
+        </button>
+        {% endif %}
+
+        <!-- Add Receipt Button (Visible when status is not draft) -->
+        {% set all_goods_receipts = purchase_order.goods_receipts or [] %}
+        {% set is_receipt_incomplete = all_goods_receipts | selectattr('is_complete_receipt', 'equalto', 0) | list %}
+
+        {% if purchase_order.status.name in ['unpaid', 'partially_paid', 'paid']
+        and (all_goods_receipts | length == 0 or is_receipt_incomplete | length > 0)
+        and not all_goods_received %}
+        <button class="button add-button" id="add-goods-receipt-button">
+            <i class="fas fa-plus-circle"></i> Record Goods/Service Receipt
+        </button>
+        {% endif %}
+
+
+
+        <!-- Download Button (Visible when status is not draft) -->
+
+        <button class="button download-button info"
+            onclick="window.location.href='/download_purchase_order/{{ purchase_order.id }}'">
+            <i class="fas fa-download"></i> Download Purchase Order
+        </button>
+
+        {# Cancel Purchase Order Button - Hidden for scaling purposes #}
+        {% if false %}
+        <form action="/cancel_purchase_order" method="POST" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="purchase_order_id" value="{{ purchase_order.id }}">
+            <button type="submit" class="button remove-button">
+                <i class="fas fa-times-circle"></i> Cancel Purchase Order
+            </button>
+        </form>
+        {% endif %}
+
+
+
+        <button class="button closed" onclick="window.location.href='/purchases/purchase_orders'"><i
+                class="fas fa-undo-alt"></i> Return to
+            Purchase Orders</button>
+    </div>
+</div>
+
+
+
+
+<!-- Record Payment Modal -->
+<!-- Record Payment Modal -->
+<div class="modal fade" id="purchaseOrderPaymentModal" tabindex="-1" aria-labelledby="purchaseOrderePaymentModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="purchaseOrderPaymentModalLabel">Record Purchase Order Payment</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="paymentForm" action="/purchases/api/record_purchase_payment" method="POST" autocomplete="off">
+                    <input type="hidden" id="purchaseOrderId" name="purchaseOrderId" value="{{purchase_order.id}}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="transaction_type" name="transaction_type" value="purchase_order">
+
+                    <!-- PO currency info for FX calculation -->
+                    <input type="hidden" id="po_currency_id" name="po_currency_id"
+                        value="{{ purchase_order.currency_id }}">
+                    <input type="hidden" id="po_exchange_rate" name="po_exchange_rate"
+                        value="{{ purchase_order.exchange_rate}}">
+
+                    <!-- Hidden active select for ExchangeRateManager -->
+                    <select id="payment_currency_active" name="payment_currency" style="display: none;">
+                        <option value="{{ purchase_order.currency_id }}" selected>{{ purchase_order.currency }}</option>
+                    </select>
+
+                    <div class="form-grid">
+                        <!-- Payment Date Field -->
+                        <div class="form-group">
+                            <label for="paymentDate" class="form-label fw-bold">Payment Date <span
+                                    class="required">*</span></label>
+                            <input type="date" id="paymentDate" name="paymentDate" class="form-control" required>
+                        </div>
+
+                        <!-- Payment Type Dropdown -->
+                        <div class="form-group">
+                            <label for="paymentType" class="form-label fw-bold">Payment Type <span
+                                    class="required">*</span></label>
+                            <select id="paymentType" name="paymentType" class="form-select" required>
+                                <option value="regular_payment" selected>Regular Payment</option>
+                                <option value="advance_payment">Prepaid Payment (Advance/Down Payment)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <!-- Payment Currency (Display only - disabled) -->
+                        <div class="form-group">
+                            <label for="payment_currency_display" class="form-label fw-bold">Payment Currency</label>
+                            <input type="text" id="payment_currency_display" class="form-control"
+                                value="{{ purchase_order.currency }}" disabled>
+                            <small class="form-text text-muted">Payments must be made in the purchase order
+                                currency</small>
+                        </div>
+
+                        <!-- Amount Field -->
+                        <div class="form-group">
+                            <label for="amount" class="form-label fw-bold">Payment Amount ({{ purchase_order.currency
+                                }}) <span class="required">*</span></label>
+                            <input type="text" id="amount" name="amount" class="form-control"
+                                value="{{purchase_order.remaining_balance}}" required oninput="validatePaymentAmount()">
+                            <small class="form-text text-muted">Remaining balance: {{
+                                "{:,.2f}".format(purchase_order.remaining_balance) }} {{ purchase_order.currency
+                                }}</small>
+                            <div id="paymentError" class="text-danger text-muted" style="display: none;">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Payment amount cannot exceed the remaining balance.
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- Funding Account Section -->
+                    <div id="fundingAccountSection">
+                        <h4 class="mb-3 mt-3" style="margin-top: 0px;">Funding Account (Cash/Bank Account)</h4>
+                        <div class="form-group mb-4" style="margin-top: -10px;">
+                            <select id="fundingAccount" name="fundingAccount" class="form-select2" required>
+                                <option value="">Select Cash/Bank Account</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Prepaid Account Section (Hidden by default) -->
+                    <div id="prepaidAccountSection" style="display: none;">
+                        <h4 class="mb-3">Prepaid Account</h4>
+                        <div class="form-group mb-4" style="margin-top: -10px;">
+                            <select id="prepaidAccount" name="prepaidAccount" class="form-select2">
+                                <option value="">Select Prepaid Account</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group mb-4">
+                            <label for="reference" class="form-label fw-bold">Reference</label>
+                            <input type="text" id="reference" name="reference" class="form-control">
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="paymentMethod" class="form-label fw-bold">Payment Method</label>
+                            <select id="paymentMethod" name="paymentMethod" class="form-select">
+                                <option value="">Select Payment Method</option>
+                                {% for mode in payment_modes %}
+                                <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Hidden field for base currency ID -->
+                    <input type="hidden" id="base_currency_id" name="base_currency_id"
+                        value="{{ base_currency.id if base_currency else '' }}">
+
+                    <!-- Exchange Rate Section -->
+                    <div id="exchange_rate_container" class="exchange-rate-container"
+                        style="display: none; padding: 12px; background-color: #f8f9fa; border-radius: 6px; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                            <span style="font-weight: 500;">Exchange Rate</span>
+                            <span id="from_currency_display">1 {{ purchase_order.currency }}</span>
+                            <span>=</span>
+                            <input type="number" id="exchange_rate" name="exchange_rate" step="0.0000000001"
+                                min="0.0000000001" placeholder="Enter rate"
+                                style="padding: 6px 10px; width: 150px; border-radius: 4px; border: 1px solid #ccc;">
+                            <span id="to_currency_display">{{ base_currency.user_currency }}</span>
+                        </div>
+                        <div id="converted_amount_display" class="converted-amount"
+                            style="margin-top: 8px; display: none;">
+                            Amount in {{ base_currency.user_currency }}: <strong><span
+                                    id="convertedAmountValue">0.00</span></strong>
+                        </div>
+                        <div id="fx_gain_loss_preview"
+                            style="margin-top: 10px; padding: 8px; border-radius: 4px; display: none;">
+                            <strong id="fx_gain_loss_label">FX Gain/Loss:</strong>
+                            <span id="fx_gain_loss_amount">0.00</span> {{ base_currency.user_currency }}
+                        </div>
+                        <small class="form-text text-muted" style="margin-top: 5px; display: block;">
+                            <i class="fas fa-info-circle"></i>
+                            PO created at rate: {{ purchase_order.exchange_rate}} {{ base_currency.user_currency }}
+                        </small>
+                    </div>
+
+
+                    <div>
+                        <button type="submit" class="button cta-button">Submit Payment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Add Goods/Service Receipt Modal -->
+<div class="modal fade" id="addGoodsReceiptModal" tabindex="-1" aria-labelledby="addGoodsReceiptModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addGoodsReceiptModalLabel">Add Goods/Service Receipt</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="goodsReceiptForm" action="/purchases/add_goods_receipt" method="POST">
+                    <input type="hidden" name="purchase_order_id" value="{{ purchase_order.id }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="receiptDate" class="form-label fw-bold">Receipt Date <span
+                                    class="required">*</span></label>
+                            <input type="date" id="receiptDate" name="receiptDate" class="form-control" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="receivedBy" class="form-label fw-bold">Received By <span
+                                    class="required">*</span></label>
+                            <input type="text" id="receivedBy" name="receivedBy" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <h4 class="mb-3">Items Received</h4>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Ordered Qty</th>
+                                    <th>Quantity Received</th>
+                                    <th>UOM</th>
+                                    <th>Condition</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in purchase_order.purchase_order_items %}
+                                <tr>
+                                    <td>{{ item.item_name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>
+                                        <input type="text" name="quantity_received_{{ item.id }}" class="form-control"
+                                            style="width: 90%;" value="{{ item.quantity }}" step="any">
+                                    </td>
+                                    <td>{{ item.uom }}</td>
+                                    <td>
+                                        <select name="condition_{{ item.id }}" class="form-select">
+                                            <option value="Good">Good</option>
+                                            <option value="Damaged">Damaged</option>
+                                            <option value="Partial">Partial</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" style="width: 90%;" name="notes_{{ item.id }}"
+                                            class="form-control">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="submit" class="button cta-button">Save Receipt</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Payment Modal -->
+<div class="modal fade" id="editPaymentModal" tabindex="-1" aria-labelledby="editPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editPaymentModalLabel">Edit Purchase Order Payment</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+
+                <form id="editPaymentForm" action="/purchases/api/update_purchase_payment" method="POST"
+                    autocomplete="off">
+                    <input type="hidden" id="editPurchaseOrderId" name="purchaseOrderId" value="{{purchase_order.id}}">
+                    <input type="hidden" id="editTransactionId" name="transactionId">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="editTransactionType" name="transaction_type" value="purchase_order">
+                    <input type="hidden" id="editTransactionStatus" name="transactionStatus" value="">
+                    <input type="hidden" id="editTransactionVersion" name="transaction_version" value="">
+
+                    <!-- ADD THESE HIDDEN FIELDS (same as record payment) -->
+                    <input type="hidden" id="editUpdateExistingJournals" name="update_existing_journals" value="false">
+
+                    <!-- PO currency info for FX calculation -->
+                    <input type="hidden" id="edit_po_currency_id" name="po_currency_id"
+                        value="{{ purchase_order.currency_id }}">
+                    <input type="hidden" id="edit_po_exchange_rate" name="po_exchange_rate"
+                        value="{{ purchase_order.exchange_rate }}">
+
+                    <!-- Hidden active select for ExchangeRateManager -->
+                    <select id="edit_payment_currency_active" name="payment_currency" style="display: none;">
+                        <option value="{{ purchase_order.currency_id }}" selected>{{ purchase_order.currency }}</option>
+                    </select>
+
+                    <!-- Hidden field for base currency ID -->
+                    <input type="hidden" id="edit_base_currency_id" name="base_currency_id"
+                        value="{{ base_currency.id if base_currency else '' }}">
+
+                    <div class="form-grid">
+                        <!-- Payment Date Field -->
+                        <div class="form-group">
+                            <label for="editPaymentDate" class="form-label fw-bold">Payment Date <span
+                                    class="required">*</span></label>
+                            <input type="date" id="editPaymentDate" name="paymentDate" class="form-control" required>
+                        </div>
+
+                        <!-- Payment Type Dropdown (changed from radio to dropdown to match record payment) -->
+                        <div class="form-group">
+                            <label for="editPaymentType" class="form-label fw-bold">Payment Type <span
+                                    class="required">*</span></label>
+                            <select id="editPaymentType" name="paymentType" class="form-select" required>
+                                <option value="regular_payment">Regular Payment</option>
+                                <option value="advance_payment">Prepaid Payment (Advance/Down Payment)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <!-- Payment Currency (Display only - disabled) -->
+                        <div class="form-group">
+                            <label for="edit_payment_currency_display" class="form-label fw-bold">Payment
+                                Currency</label>
+                            <input type="text" id="edit_payment_currency_display" class="form-control"
+                                value="{{ purchase_order.currency }}" disabled>
+                            <small class="form-text text-muted">Payments must be made in the purchase order
+                                currency</small>
+                        </div>
+
+                        <!-- Amount Field -->
+                        <div class="form-group">
+                            <label for="editAmount" class="form-label fw-bold">Payment Amount ({{
+                                purchase_order.currency }}) <span class="required">*</span></label>
+                            <input type="text" id="editAmount" name="amount" class="form-control" required
+                                oninput="validateEditPaymentAmount()">
+                            <div id="editPaymentError" class="text-danger text-muted" style="display: none;">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Payment amount cannot exceed the remaining balance.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Funding Account Section -->
+                    <div id="editFundingAccountSection">
+                        <h4 class="mb-3 mt-3" style="margin-top: 0px;">Funding Account (Cash/Bank Account)</h4>
+                        <div class="form-group mb-4" style="margin-top: -10px;">
+                            <select id="editFundingAccount" name="fundingAccount" class="form-select2" required>
+                                <option value="">Select Cash/Bank Account</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Prepaid Account Section (Hidden by default) -->
+                    <div id="editPrepaidAccountSection" style="display: none;">
+                        <h4 class="mb-3">Prepaid Account</h4>
+                        <div class="form-group mb-4" style="margin-top: -10px;">
+                            <select id="editPrepaidAccount" name="prepaidAccount" class="form-select2">
+                                <option value="">Select Prepaid Account</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group mb-4">
+                            <label for="editReference" class="form-label fw-bold">Reference</label>
+                            <input type="text" id="editReference" name="reference" class="form-control">
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="editPaymentMethod" class="form-label fw-bold">Payment Method</label>
+                            <select id="editPaymentMethod" name="paymentMethod" class="form-select">
+                                <option value="">Select Payment Method</option>
+                                {% for mode in payment_modes %}
+                                <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Exchange Rate Section (same as record payment) -->
+                    <div id="edit_exchange_rate_container" class="exchange-rate-container"
+                        style="display: none; padding: 12px; background-color: #f8f9fa; border-radius: 6px; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                            <span style="font-weight: 500;">Exchange Rate</span>
+                            <span id="edit_from_currency_display">1 {{ purchase_order.currency }}</span>
+                            <span>=</span>
+                            <input type="number" id="edit_exchange_rate" name="exchange_rate" step="0.0000000001"
+                                min="0.0000000001" placeholder="Enter rate"
+                                style="padding: 6px 10px; width: 150px; border-radius: 4px; border: 1px solid #ccc;">
+                            <span id="edit_to_currency_display">{{ base_currency.user_currency }}</span>
+                        </div>
+                        <div id="edit_converted_amount_display" class="converted-amount"
+                            style="margin-top: 8px; display: none;">
+                            Amount in {{ base_currency.user_currency }}: <strong><span
+                                    id="edit_convertedAmountValue">0.00</span></strong>
+                        </div>
+                        <div id="edit_fx_gain_loss_preview"
+                            style="margin-top: 10px; padding: 8px; border-radius: 4px; display: none;">
+                            <strong id="edit_fx_gain_loss_label">FX Gain/Loss:</strong>
+                            <span id="edit_fx_gain_loss_amount">0.00</span> {{ base_currency.user_currency }}
+                        </div>
+                        <small class="form-text text-muted" style="margin-top: 5px; display: block;">
+                            <i class="fas fa-info-circle"></i>
+                            PO created at rate: {{ purchase_order.exchange_rate}} {{ base_currency.user_currency }}
+                        </small>
+                    </div>
+
+                    <div>
+                        <button type="button" class="button cta-button" id="updatePaymentBtn">Update Payment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+<!-- Add this modal to your template -->
+
+
+<div class="modal fade" id="editReceiptModal" tabindex="-1" aria-labelledby="editReceiptModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editReceiptModalLabel">Edit Goods Receipt</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="editReceiptForm" method="POST">
+
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="editReceiptId" name="receipt_id">
+                    <input type="hidden" id="editReceiptItemId" name="receipt_item_id">
+                    <input type="hidden" id="editReceiptVersion" name="receipt_version" value="">
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="editReceiptNumber" class="form-label">Receipt Number</label>
+                            <input type="text" id="editReceiptNumber" name="receipt_number" class="form-control"
+                                readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="editReceiptDate" class="form-label">Receipt Date</label>
+                            <input type="date" id="editReceiptDate" name="receipt_date" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editReceivedBy" class="form-label">Received By</label>
+                        <input type="text" id="editReceivedBy" name="received_by" class="form-control" required>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="editItemName" class="form-label">Item Name</label>
+                            <input type="text" id="editItemName" class="form-control" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="editQuantityReceived" class="form-label">Quantity Received</label>
+                            <input type="text" id="editQuantityReceived" name="quantity_received" class="form-control"
+                                required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editReceivedCondition" class="form-label">Received Condition</label>
+                        <select required id="editReceivedCondition" name="received_condition" class="form-control">
+                            <option value="">Select Condition</option>
+                            <option value="Good">Good</option>
+                            <option value="Damaged">Damaged</option>
+                            <option value="Partial">Partial</option>
+
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editReceiptNotes" class="form-label">Notes</label>
+                        <textarea id="editReceiptNotes" name="notes" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button remove-button" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="button cta-button">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Cancel Receipt Confirmation Modal -->
+<div class="modal fade" id="cancelReceiptModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Receipt Cancellation</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="cancelReceiptForm" action="/api/cancel_receipt" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="cancelReceiptId" name="receipt_id" value="">
+                    <input type="hidden" id="cancelReceiptItemId" name="receipt_item_id" value="">
+
+                    <p id="cancelReceiptMessage">Are you sure you want to cancel this receipt item?</p>
+
+                    <div class="alert alert-warning" id="receiptLedgerWarning" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>This receipt was posted to ledger.</strong><br>
+                        After cancellation, you must manually create reversal entries in the journal.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button remove-button" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="button cta-button">Confirm Cancellation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Prepaid Confirmation Modal -->
+<div id="prepaidConfirmationModal" class="confirmationModal" style="display: none;">
+    <div id="ledgerPostedWarning" class="alert alert-warning mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <p class="mb-0 fw-bold">Please post the prepaid account before proceeding.</p>
+        </div>
+
+    </div>
+    <button id="closePrepaidModal" class="closeModal button remove-button">Close</button>
+
+</div>
+
+
+<!-- Return Item Modal -->
+<div class="modal fade" id="returnItemModal" tabindex="-1" aria-labelledby="returnItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="returnItemModalLabel">Return Inventory Item: <span
+                        id="returnItemName"></span></h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form method="POST" action="{{ url_for('create_purchase_return') }}" id="returnItemForm">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="returnReceiptItemId" name="receipt_item_id">
+                    <input type="hidden" id="returnReceiptId" name="receipt_id">
+
+
+                    <!-- Date Picker Field -->
+                    <div class="form-grid">
+                        <div class="form-group mb-3">
+                            <label for="returnDate" class="form-label">Return Date</label>
+                            <input type="date" class="form-control" id="returnDate" name="return_date" required>
+                        </div>
+
+
+
+
+
+                        <div class="form-group mb-3">
+                            <label for="returnQuantity" class="form-label">Quantity to Return</label>
+                            <input type="text" class="form-control" id="returnQuantity" name="quantity" required>
+                            <small class="text-muted">Max available: <span id="maxReturnQuantity">0</span></small>
+                        </div>
+
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="returnReason" class="form-label">Reason</label>
+                        <textarea class="form-control" id="returnReason" name="reason" required></textarea>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="button cta-button">Submit Return</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Post Purchase Return to Ledger Modal -->
+<div class="modal fade" id="postPurchaseReturnModal" tabindex="-1" aria-labelledby="postPurchaseReturnModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="postPurchaseReturnModalLabel">Post Purchase Return to Ledger</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form action="{{ url_for('post_purchase_return_to_ledger') }}" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="postPurchaseReturnId" name="purchase_return_id">
+                    <input type="hidden" id="originalPurchaseAmount" name="original_purchase_amount">
+                    <p>Posting purchase return <strong id="postPurchaseReturnNumber"></strong> to ledger.</p>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="returnPostingDate" class="form-label">Return Posting Date</label>
+                            <input type="date" class="form-control" id="returnPostingDate" name="return_posting_date"
+                                required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="returnAmount" class="form-label">Refund Amount Received</label>
+                            <input type="text" class="form-control" id="returnAmount" name="return_amount">
+                        </div>
+                    </div>
+
+                    <!-- Inventory Section (Always Visible) -->
+                    <div id="inventoryReturnSection" class="return-section">
+                        <h4 class="mb-3">Inventory Return Allocation (CR) <span class="required">*</span>
+                            <span class="input-helper" data-toggle="tooltip"
+                                data-tooltip="Select inventory accounts for recording returned items">
+                                <i class="fas fa-question-circle"></i>
+                            </span>
+                        </h4>
+                        <div class="form-grid">
+                            <div class="form-group mb-4">
+                                <label for="inventoryReturnAccountCategory" class="form-label fw-bold">Inventory Return
+                                    Account Category</label>
+                                <select id="inventoryReturnAccountCategory" name="inventory_return_account_category"
+                                    class="form-select" onchange="filterInventoryReturnAccounts()" required>
+                                    <option value="">Select Inventory Return Category</option>
+                                    {% for category in inventory_categories %}
+                                    <option value="{{ category.id }}">{{ category.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="form-group mb-4">
+                                <label for="inventoryReturnAccount" class="form-label fw-bold">Inventory Return
+                                    Account</label>
+                                <select id="inventoryReturnAccount" name="inventory_return_account" class="form-select"
+                                    required>
+                                    <option value="">Select Inventory Return Account</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cash Refund Section -->
+                    <div id="refundAccountSection" class="return-section" style="display: none;">
+                        <h4 class="mb-3">Cash Refund Allocation (DR)
+                            <span class="input-helper" data-toggle="tooltip"
+                                data-tooltip="Select the account that received the cash refund">
+                                <i class="fas fa-question-circle"></i>
+                            </span>
+                        </h4>
+                        <div class="form-grid">
+                            <div class="form-group mb-4">
+                                <label for="refundAccountCategory" class="form-label fw-bold">Refund Account
+                                    Category</label>
+                                <select id="refundAccountCategory" name="refund_account_category" class="form-select"
+                                    onchange="filterRefundAccounts()">
+                                    <option value="">Select Refund Account Category</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group mb-4">
+                                <label for="refundAccount" class="form-label fw-bold">Refund Account</label>
+                                <select id="refundAccount" name="refund_account" class="form-select">
+                                    <option value="">Select Refund Account</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- Partial Refund Options Section -->
+                    <div id="partialRefundOptionsSection" class="return-section" style="display: none;">
+                        <h4 class="mb-3">Allocate Remaining Balance</h4>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="no_refund_option"
+                                id="optionCreditSupplier" value="credit_supplier" checked>
+                            <label class="form-check-label" for="optionCreditSupplier">
+                                Debit Supplier Account (Balance: <span id="balanceAmount"></span>)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="no_refund_option" id="optionWriteOff"
+                                value="write_off">
+                            <label class="form-check-label" for="optionWriteOff">
+                                Write Off Balance as Loss (<span id="balanceAmountWriteOff"></span>)
+                            </label>
+                        </div>
+                    </div>
+
+
+                    <!-- Supplier Credit Section -->
+                    <div id="supplierCreditSection" class="return-section" style="display: none;">
+                        <h4 class="mb-3">Supplier Debit Allocation (DR)<span class="required">*</span>
+                            <span class="input-helper" data-toggle="tooltip"
+                                data-tooltip="Select accounts for recording credit to supplier account">
+                                <i class="fas fa-question-circle"></i>
+                            </span>
+                        </h4>
+                        <div class="form-grid">
+                            <div class="form-group mb-4">
+                                <label for="supplierCreditAccountCategory" class="form-label fw-bold">Supplier Account
+                                    Category</label>
+                                <select id="supplierCreditAccountCategory" name="supplier_credit_account_category"
+                                    class="form-select" onchange="filterSupplierCreditAccounts()">
+                                    <option value="">Select Supplier Account Category</option>
+                                    {% for category in payable_categories %}
+                                    <option value="{{ category.id }}">{{ category.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="form-group mb-4">
+                                <label for="supplierCreditAccount" class="form-label fw-bold">Supplier Account</label>
+                                <select id="supplierCreditAccount" name="supplier_credit_account" class="form-select">
+                                    <option value="">Select Supplier Account</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Write-Off Section -->
+                    <div id="writeOffSection" class="return-section" style="display: none;">
+                        <h4 class="mb-3">Loss Allocation (DR)
+                            <span class="input-helper" data-toggle="tooltip"
+                                data-tooltip="Select accounts for recording losses when no refund is received">
+                                <i class="fas fa-question-circle"></i>
+                            </span>
+                        </h4>
+                        <div class="form-grid">
+                            <div class="form-group mb-4">
+                                <label for="lossAccountCategory" class="form-label fw-bold">Loss Account
+                                    Category</label>
+                                <select id="lossAccountCategory" name="loss_account_category" class="form-select"
+                                    onchange="filterLossAccounts()">
+                                    <option value="">Select Loss Account Category</option>
+                                    {% for category in expense_categories %}
+                                    <option value="{{ category.id }}">{{ category.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="form-group mb-4">
+                                <label for="lossAccount" class="form-label fw-bold">Loss Account</label>
+                                <select id="lossAccount" name="loss_account" class="form-select">
+                                    <option value="">Select Loss Account</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group mb-4">
+                                <label for="writeOffReason" class="form-label fw-bold">Write-Off Reason</label>
+                                <textarea class="form-control" id="writeOffReason" name="write_off_reason"
+                                    rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary button remove-button"
+                        data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary button cta-button">Post Return to Ledger</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+
+    // Open Payment Modal function
+    // Replace the radio button toggle function with dropdown change handler
+    function handlePaymentTypeChange() {
+        const isPrepaid = document.getElementById('paymentType').value === 'advance_payment';
+        const prepaidSection = document.getElementById('prepaidAccountSection');
+        const prepaidAccountSelect = document.getElementById('prepaidAccount');
+
+        if (prepaidSection) {
+            if (isPrepaid) {
+                prepaidSection.style.display = 'block';
+                if (prepaidAccountSelect) {
+                    prepaidAccountSelect.required = true;
+                    loadPrepaidAccounts();
+                }
+            } else {
+                prepaidSection.style.display = 'none';
+                if (prepaidAccountSelect) {
+                    prepaidAccountSelect.required = false;
+                }
+            }
+        }
+    }
+
+    // Function to check overpayment for purchase order payments
+    function checkOverpayment() {
+        const amountInput = document.getElementById('amount');
+        const overpaymentSection = document.getElementById('overpaymentSection');
+        const overpaymentWarning = document.getElementById('overpaymentWarning');
+        const paymentCurrency = document.getElementById('payment_currency');
+        const exchangeRateInput = document.getElementById('exchange_rate');
+
+        if (!amountInput || !overpaymentSection || !overpaymentWarning || !paymentCurrency) return;
+
+        const paymentAmount = parseFloat(amountInput.value) || 0;
+        const exchangeRate = exchangeRateInput ? parseFloat(exchangeRateInput.value) || 1 : 1;
+
+        // Get PO remaining balance (already in PO currency)
+        const remainingBalance = parseFloat(document.getElementById('po-data').getAttribute('data-remaining-balance')) || 0;
+        const poCurrencyCode = '{{ purchase_order.currency }}';
+
+        // Get selected payment currency text
+        let paymentCurrencyText = poCurrencyCode;
+        if (paymentCurrency.options && paymentCurrency.selectedIndex >= 0) {
+            const selectedOption = paymentCurrency.options[paymentCurrency.selectedIndex];
+            if (selectedOption) {
+                paymentCurrencyText = selectedOption.text;
+            }
+        }
+
+        // Check if payment currency is different from PO currency
+        const isDifferentCurrency = paymentCurrency.value != '{{ purchase_order.currency_id }}';
+
+        // Convert payment to PO currency
+        let paymentAmountInPoCurrency = paymentAmount;
+        if (isDifferentCurrency) {
+            // For purchase orders: if paying in a different currency, divide by exchange rate
+            // Example: 1500 UGX ÷ 3500 = 0.43 USD
+            paymentAmountInPoCurrency = paymentAmount / exchangeRate;
+        }
+
+        // Update display
+        document.getElementById('paymentAmountDisplay').innerHTML = `${paymentAmount.toFixed(2)} ${paymentCurrencyText}`;
+        document.getElementById('remainingBalanceDisplay').innerHTML = `${remainingBalance.toFixed(2)} ${poCurrencyCode}`;
+
+        // Compare
+        if (paymentAmountInPoCurrency > remainingBalance + 0.01) {
+            const overpaymentInPoCurrency = paymentAmountInPoCurrency - remainingBalance;
+
+            // Convert overpayment back to payment currency for display
+            let overpaymentInPaymentCurrency = overpaymentInPoCurrency;
+            if (isDifferentCurrency) {
+                overpaymentInPaymentCurrency = overpaymentInPoCurrency * exchangeRate;
+            }
+
+            document.getElementById('overpaymentAmountDisplay').innerHTML =
+                `${overpaymentInPaymentCurrency.toFixed(2)} ${paymentCurrencyText} (≈ ${overpaymentInPoCurrency.toFixed(2)} ${poCurrencyCode})`;
+
+            overpaymentSection.style.display = 'block';
+            overpaymentWarning.style.display = 'block';
+        } else {
+            overpaymentSection.style.display = 'none';
+            overpaymentWarning.style.display = 'none';
+        }
+    }
+    // Add event listeners for overpayment check
+    document.addEventListener('DOMContentLoaded', function () {
+        const amountInput = document.getElementById('amount');
+        const paymentCurrency = document.getElementById('payment_currency');
+        const exchangeRateInput = document.getElementById('exchange_rate');
+        const paymentType = document.getElementById('paymentType');
+
+        if (amountInput) {
+            amountInput.addEventListener('input', checkOverpayment);
+        }
+        if (paymentCurrency) {
+            paymentCurrency.addEventListener('change', checkOverpayment);
+        }
+        if (exchangeRateInput) {
+            exchangeRateInput.addEventListener('input', checkOverpayment);
+        }
+        if (paymentType) {
+            paymentType.addEventListener('change', function () {
+                checkOverpayment();
+                handlePaymentTypeChange();
+            });
+        }
+    });
+
+
+    // Add event listener when opening modal
+    function openPurchaseOrderPaymentModal() {
+        try {
+            $('#paymentForm')[0].reset();
+            setTodayDate();
+            loadFundingAccounts();
+            document.getElementById('paymentType').value = 'regular_payment';
+            handlePaymentTypeChange();
+
+            // Initialize Exchange Rate Manager with the hidden active select
+            if (typeof ExchangeRateManager !== 'undefined') {
+                window.paymentRateManager = ExchangeRateManager.init({
+                    currencySelectId: 'payment_currency_active',  // Hidden select for manager
+                    dateInputId: 'paymentDate',
+                    exchangeRateInputId: 'exchange_rate',
+                    containerId: 'exchange_rate_container',
+                    fromDisplayId: 'from_currency_display',
+                    toDisplayId: 'to_currency_display',
+                    baseCurrencyId: 'base_currency_id',
+                    appId: '{{ app_id }}',
+                    apiEndpoint: '/multi_currency/api/get_exchange_rate',
+                    csrfToken: csrfToken,
+                    callbacks: {
+                        onRateChange: function (rate) {
+                            updateConvertedAmount();
+                            calculateFXGainLoss();
+                        },
+                        onSuccess: function (rate, source) {
+                            console.log(`Rate ${rate} loaded from ${source}`);
+                            updateConvertedAmount();
+                            calculateFXGainLoss();
+                        },
+                        onVisibilityChange: function (isVisible) {
+                            if (!isVisible) {
+                                $('#exchange_rate').val('');
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Add amount input listener for FX calculation
+            const amountInput = document.getElementById('amount');
+            if (amountInput) {
+                amountInput.addEventListener('input', function () {
+                    updateConvertedAmount();
+                    calculateFXGainLoss();
+                });
+            }
+
+            // Initial calculations
+            updateConvertedAmount();
+            calculateFXGainLoss();
+
+            $('#purchaseOrderPaymentModal').modal('show');
+
+            // After all dropdowns are populated
+            refreshSelect2('#purchaseOrderPaymentModal');
+        } catch (error) {
+            console.error('Error opening payment modal:', error);
+            showNotification('Error opening payment form', 'error');
+        }
+    }
+
+    function updateConvertedAmount() {
+        const paymentAmount = parseFloat(document.getElementById('amount').value) || 0;
+        const exchangeRate = parseFloat(document.getElementById('exchange_rate').value) || 1;
+        const convertedAmount = paymentAmount * exchangeRate;
+        baseCurrencyCode = '{{ base_currency_code }}';
+
+        console.log(`Updating converted amount: Payment Amount=${paymentAmount}, Exchange Rate=${exchangeRate}, Converted Amount=${convertedAmount}, Base Currency=${baseCurrencyCode}`);
+
+        const convertedSpan = document.getElementById('convertedAmountValue');
+        const convertedDisplay = document.getElementById('converted_amount_display');
+
+        if (convertedSpan && convertedDisplay) {
+            convertedSpan.textContent = formatCurrency(convertedAmount, baseCurrencyCode, true);
+            convertedDisplay.style.display = 'block';
+        }
+    }
+
+
+
+    // Update converted amount for edit modal
+    function updateEditConvertedAmount() {
+        const paymentAmount = parseFloat(document.getElementById('editAmount').value) || 0;
+        const exchangeRate = parseFloat(document.getElementById('edit_exchange_rate').value) || 1;
+        const convertedAmount = paymentAmount * exchangeRate;
+        const baseCurrencyCode = document.getElementById('edit_base_currency_id').options?.[document.getElementById('edit_base_currency_id').selectedIndex]?.text || '{{ base_currency.user_currency }}';
+
+        const convertedSpan = document.getElementById('edit_convertedAmountValue');
+        const convertedDisplay = document.getElementById('edit_converted_amount_display');
+
+        if (convertedSpan && convertedDisplay) {
+            convertedSpan.textContent = formatCurrency(convertedAmount, baseCurrencyCode, true);
+            convertedDisplay.style.display = 'block';
+        }
+    }
+
+
+
+    function calculateFXGainLoss() {
+        const paymentAmount = parseFloat(document.getElementById('amount').value) || 0;
+        const paymentRate = parseFloat(document.getElementById('exchange_rate').value) || 1;
+        const poRate = parseFloat(document.getElementById('po_exchange_rate').value) || 1;
+        const baseCurrencyCode = '{{ base_currency_code }}';
+
+
+        console.log(`Calculating FX Gain/Loss: Payment Amount=${paymentAmount}, Payment Rate=${paymentRate}, PO Rate=${poRate}, Base Currency=${baseCurrencyCode}`);
+        // Calculate in base currency
+        const paymentValueInBase = paymentAmount * paymentRate;
+        const poValueInBase = paymentAmount * poRate;
+        const fxGainLoss = paymentValueInBase - poValueInBase;
+
+        const previewDiv = document.getElementById('fx_gain_loss_preview');
+        const amountSpan = document.getElementById('fx_gain_loss_amount');
+        const labelSpan = document.getElementById('fx_gain_loss_label');
+
+        if (!previewDiv || Math.abs(fxGainLoss) < 0.01) {
+            if (previewDiv) previewDiv.style.display = 'none';
+            return;
+        }
+
+        previewDiv.style.display = 'block';
+
+        if (fxGainLoss > 0) {
+            previewDiv.style.backgroundColor = '#d4edda';
+            previewDiv.style.color = '#155724';
+            labelSpan.innerHTML = '<i class="fas fa-arrow-up"></i> FX Gain:';
+        } else {
+            previewDiv.style.backgroundColor = '#f8d7da';
+            previewDiv.style.color = '#721c24';
+            labelSpan.innerHTML = '<i class="fas fa-arrow-down"></i> FX Loss:';
+        }
+
+        amountSpan.textContent = formatCurrency(Math.abs(fxGainLoss), baseCurrencyCode, true);
+    }
+
+
+
+    // Calculate FX gain/loss for edit modal
+    function calculateEditFXGainLoss() {
+        const paymentAmount = parseFloat(document.getElementById('editAmount').value) || 0;
+        const paymentRate = parseFloat(document.getElementById('edit_exchange_rate').value) || 1;
+        const poRate = parseFloat(document.getElementById('edit_po_exchange_rate').value) || 1;
+        const baseCurrencyCode = document.getElementById('edit_base_currency_id').options?.[document.getElementById('edit_base_currency_id').selectedIndex]?.text;
+
+        const paymentValueInBase = paymentAmount * paymentRate;
+        const poValueInBase = paymentAmount * poRate;
+        const fxGainLoss = paymentValueInBase - poValueInBase;
+
+        const previewDiv = document.getElementById('edit_fx_gain_loss_preview');
+        const amountSpan = document.getElementById('edit_fx_gain_loss_amount');
+        const labelSpan = document.getElementById('edit_fx_gain_loss_label');
+
+        if (!previewDiv || Math.abs(fxGainLoss) < 0.01) {
+            if (previewDiv) previewDiv.style.display = 'none';
+            return;
+        }
+
+        previewDiv.style.display = 'block';
+
+        if (fxGainLoss > 0) {
+            previewDiv.style.backgroundColor = '#d4edda';
+            previewDiv.style.color = '#155724';
+            labelSpan.innerHTML = '<i class="fas fa-arrow-up"></i> FX Gain:';
+        } else {
+            previewDiv.style.backgroundColor = '#f8d7da';
+            previewDiv.style.color = '#721c24';
+            labelSpan.innerHTML = '<i class="fas fa-arrow-down"></i> FX Loss:';
+        }
+
+        amountSpan.textContent = Math.abs(fxGainLoss).toFixed(2);
+    }
+
+
+    function validatePaymentAmount() {
+        const amountInput = document.getElementById('amount');
+        const remainingBalance = parseFloat(document.getElementById('po-data').getAttribute('data-remaining-balance')) || 0;
+        const paymentAmount = parseFloat(amountInput.value) || 0;
+        const errorDiv = document.getElementById('paymentError');
+        const submitBtn = document.querySelector('#paymentForm button[type="submit"]');
+
+        if (paymentAmount > remainingBalance + 0.01) {
+            errorDiv.style.display = 'block';
+            if (submitBtn) submitBtn.disabled = true;
+        } else {
+            errorDiv.style.display = 'none';
+            if (submitBtn) submitBtn.disabled = false;
+            updateConvertedAmount();
+            calculateFXGainLoss();
+        }
+    }
+
+
+    // Validate edit payment amount
+    // Validate edit payment amount
+    function validateEditPaymentAmount() {
+        const amountInput = document.getElementById('editAmount');
+        const remainingBalance = parseFloat(document.getElementById('po-data').getAttribute('data-remaining-balance')) || 0;
+        const originalAmount = parseFloat(amountInput.getAttribute('data-original-amount')) || 0;
+        const paymentAmount = parseFloat(amountInput.value) || 0;
+        const errorDiv = document.getElementById('editPaymentError');
+        const submitBtn = document.querySelector('#editPaymentForm button[type="submit"]');
+
+        // Check if the transaction is cancelled
+        const transactionStatus = document.getElementById('editTransactionStatus')?.value;
+        const isCancelled = transactionStatus === 'cancelled';
+
+        let newRemainingBalance;
+
+        if (isCancelled) {
+            // For cancelled transactions, they don't affect remaining balance
+            // So we just check if new amount exceeds remaining balance
+            newRemainingBalance = remainingBalance - paymentAmount;
+        } else {
+            // For active transactions: remove original, add new
+            newRemainingBalance = (remainingBalance + originalAmount) - paymentAmount;
+        }
+
+        console.log(`Validating: IsCancelled=${isCancelled}, Original=${originalAmount}, New=${paymentAmount}, Current Remaining=${remainingBalance}, New Remaining=${newRemainingBalance}`);
+
+        if (paymentAmount <= 0 || newRemainingBalance < 0) {
+            errorDiv.style.display = 'block';
+            if (submitBtn) submitBtn.disabled = true;
+        } else {
+            errorDiv.style.display = 'none';
+            if (submitBtn) submitBtn.disabled = false;
+            updateEditConvertedAmount();
+            calculateEditFXGainLoss();
+        }
+    }
+    // Add event listener for payment type change
+    document.getElementById('paymentType').addEventListener('change', handlePaymentTypeChange);
+
+
+
+    // Function to set today's date
+    function setTodayDate() {
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('paymentDate').value = today;
+        } catch (error) {
+            console.error('Error setting today date:', error);
+        }
+    }
+
+    // Toggle prepaid account section based on payment type
+    function togglePrepaidAccountSection() {
+        const isPrepaid = document.getElementById('prepaidPayment').checked;
+        const prepaidSection = document.getElementById('prepaidAccountSection');
+        const prepaidAccountSelect = document.getElementById('prepaidAccount');
+
+        if (prepaidSection) {
+            if (isPrepaid) {
+                prepaidSection.style.display = 'block';
+                if (prepaidAccountSelect) {
+                    prepaidAccountSelect.required = true;
+                    // Load prepaid accounts when section is shown
+                    loadPrepaidAccounts();
+                }
+            } else {
+                prepaidSection.style.display = 'none';
+                if (prepaidAccountSelect) {
+                    prepaidAccountSelect.required = false;
+                }
+            }
+        }
+    }
+
+
+    // Load funding accounts (cash and bank accounts)
+    function loadFundingAccounts() {
+        const fundingDropdown = document.getElementById('fundingAccount');
+
+        if (!fundingDropdown) {
+            console.error("Funding account dropdown not found");
+            return;
+        }
+
+        // Show loading state
+        fundingDropdown.innerHTML = '<option value="">Loading accounts...</option>';
+
+        fetch('/api/chart_of_accounts_grouped')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Clear old options
+                fundingDropdown.innerHTML = '<option value="">Select Cash/Bank Account</option>';
+
+                // Sort categories alphabetically
+                const sortedCategories = data.chart_of_accounts_grouped.sort((a, b) =>
+                    a.category.localeCompare(b.category)
+                );
+
+                // Populate Asset Accounts (Cash and Bank accounts)
+                sortedCategories.forEach(cat => {
+                    const assetAccounts = cat.accounts
+                        .filter(acc => acc.account_type === 'Asset' &&
+                            (acc.is_cash ||
+                                acc.is_bank))
+                        .sort((a, b) => a.sub_category.localeCompare(b.sub_category));
+
+                    if (assetAccounts.length > 0) {
+                        const optGroup = document.createElement('optgroup');
+                        optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                        assetAccounts.forEach(acc => {
+                            const option = document.createElement('option');
+                            option.value = acc.sub_category_id;
+                            option.textContent = `${acc.sub_category}${acc.sub_category_code ? ` (${acc.sub_category_code})` : ''}`;
+                            option.title = `${acc.account_type} Account - For payment transactions`;
+                            optGroup.appendChild(option);
+                        });
+
+                        fundingDropdown.appendChild(optGroup);
+                    }
+                });
+
+                console.log("Successfully loaded funding account options");
+            })
+            .catch(error => {
+                console.error('Error loading funding accounts:', error);
+                fundingDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+                showNotification("Failed to load account options. Please try again.", "error");
+            });
+    }
+
+    // Load prepaid accounts
+    // Load prepaid accounts for payment modal
+    function loadPrepaidAccounts() {
+        const prepaidDropdown = document.getElementById('prepaidAccount');
+
+        // Check if we're in the payment modal context
+        if (!prepaidDropdown) {
+            console.warn("Prepaid account dropdown not found in current context");
+            return;
+        }
+
+        // Show loading state
+        prepaidDropdown.innerHTML = '<option value="">Loading prepaid accounts...</option>';
+
+        fetch('/api/chart_of_accounts_grouped')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Clear old options
+                prepaidDropdown.innerHTML = '<option value="">Select Prepaid Account</option>';
+
+                // Sort categories alphabetically
+                const sortedCategories = data.chart_of_accounts_grouped.sort((a, b) =>
+                    a.category.localeCompare(b.category)
+                );
+
+                // Populate Prepaid Accounts (Asset accounts)
+                sortedCategories.forEach(cat => {
+                    const prepaidAccounts = cat.accounts
+                        .filter(acc => acc.account_type === 'Asset' && acc.is_receivable === false && acc.is_bank === false && acc.is_cash === false)
+                        .sort((a, b) => a.sub_category.localeCompare(b.sub_category));
+
+                    if (prepaidAccounts.length > 0) {
+                        const optGroup = document.createElement('optgroup');
+                        optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                        prepaidAccounts.forEach(acc => {
+                            const option = document.createElement('option');
+                            option.value = acc.sub_category_id;
+                            option.textContent = `${acc.sub_category}${acc.sub_category_code ? ` (${acc.sub_category_code})` : ''}`;
+                            option.title = `${acc.account_type} Account - For advance payments`;
+                            optGroup.appendChild(option);
+                        });
+
+                        prepaidDropdown.appendChild(optGroup);
+                    }
+                });
+
+                console.log("Successfully loaded prepaid account options for payment modal");
+            })
+            .catch(error => {
+                console.error('Error loading prepaid accounts:', error);
+                prepaidDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+                showNotification("Failed to load prepaid account options.", "error");
+            });
+    }
+
+
+
+    function setupReturnPostToLedger() {
+        console.log('Setting up return post to ledger modal...');
+
+        document.querySelectorAll('.post-to-ledger-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                // Get return data
+                const returnId = this.dataset.returnId;
+                const returnNumber = this.dataset.returnNumber;
+                const originalAmount = parseFloat(this.dataset.originalAmount) || 0;
+
+                // Set basic info
+                document.getElementById('postPurchaseReturnId').value = returnId;
+                document.getElementById('postPurchaseReturnNumber').textContent = returnNumber;
+                document.getElementById('originalPurchaseAmount').value = originalAmount;
+                document.getElementById('returnAmount').value = ''; // Reset refund amount
+
+                // Get elements
+                const returnAmountInput = document.getElementById('returnAmount');
+                const refundAccountSection = document.getElementById('refundAccountSection');
+                const partialRefundOptionsSection = document.getElementById('partialRefundOptionsSection');
+                const supplierCreditSection = document.getElementById('supplierCreditSection');
+                const writeOffSection = document.getElementById('writeOffSection');
+                const optionCreditSupplier = document.getElementById('optionCreditSupplier');
+                const optionWriteOff = document.getElementById('optionWriteOff');
+                const balanceAmountSpan = document.getElementById('balanceAmount');
+                const balanceAmountWriteOffSpan = document.getElementById('balanceAmountWriteOff');
+
+                // Function to update balance display
+                function updateBalanceDisplay(balanceAmount) {
+                    balanceAmountSpan.textContent = balanceAmount.toFixed(2);
+                    balanceAmountWriteOffSpan.textContent = balanceAmount.toFixed(2);
+                }
+
+                // Function to toggle sections
+                function toggleSections() {
+                    const refundAmount = parseFloat(returnAmountInput.value) || 0;
+                    const balanceAmount = originalAmount - refundAmount;
+                    const isPartialRefund = refundAmount > 0 && balanceAmount > 0;
+                    const isFullRefund = refundAmount >= originalAmount;
+                    const isNoRefund = refundAmount === 0 && originalAmount > 0;
+
+                    // Update balance display
+                    if (isPartialRefund || isNoRefund) {
+                        updateBalanceDisplay(balanceAmount);
+                    }
+
+                    // Reset all sections
+                    refundAccountSection.style.display = 'none';
+                    partialRefundOptionsSection.style.display = 'none';
+                    supplierCreditSection.style.display = 'block';
+                    writeOffSection.style.display = 'none';
+
+                    // Reset required fields
+                    document.getElementById('refundAccount').required = false;
+                    document.getElementById('supplierCreditAccount').required = false;
+                    document.getElementById('lossAccount').required = false;
+
+                    loadInventoryReturnAccounts(); // Load inventory return accounts
+
+                    loadAssetRefundAccounts(); // Load asset refund accounts
+                    loadCreditReturnAccounts(); // Load credit return accounts
+                    loadfilterLossAccounts(); // Load loss accounts
+
+                    const today = new Date().toISOString().split('T')[0];
+                    document.getElementById('returnPostingDate').value = today;
+
+                    // 1. Full refund
+                    if (isFullRefund) {
+                        refundAccountSection.style.display = 'block';
+                        document.getElementById('refundAccount').required = true;
+
+
+                    }
+                    // 2. Partial refund
+                    else if (isPartialRefund) {
+                        refundAccountSection.style.display = 'block';
+                        partialRefundOptionsSection.style.display = 'block';
+                        document.getElementById('refundAccount').required = true;
+
+                        // Show either supplier credit or write-off for balance
+                        if (optionCreditSupplier.checked) {
+                            supplierCreditSection.style.display = 'block';
+                            document.getElementById('supplierCreditAccount').required = true;
+                        } else {
+                            writeOffSection.style.display = 'block';
+                            document.getElementById('lossAccount').required = true;
+                        }
+                    }
+                    // 3. No refund
+                    else if (isNoRefund) {
+                        partialRefundOptionsSection.style.display = 'block';
+
+                        if (optionCreditSupplier.checked) {
+                            supplierCreditSection.style.display = 'block';
+                            document.getElementById('supplierCreditAccount').required = true;
+                        } else {
+                            writeOffSection.style.display = 'block';
+                            document.getElementById('lossAccount').required = true;
+                        }
+                    }
+                }
+
+                // Set up event listeners
+                returnAmountInput.addEventListener('input', toggleSections);
+                optionCreditSupplier.addEventListener('change', toggleSections);
+                optionWriteOff.addEventListener('change', toggleSections);
+
+                // Initialize
+                toggleSections();
+            });
+        });
+    }
+
+
+    async function setupReturnItemModal(receiptId, receiptItemId, itemName) {
+        try {
+            // Fetch available quantity from server
+            const response = await fetch(`/api/receipt_items/${receiptItemId}/available_quantity`);
+            const data = await response.json();
+
+            console.log('Available quantity data:', data);
+
+            if (!response.ok) throw new Error(data.message || "Failed to get available quantity");
+
+            const availableQty = parseFloat(data.available_quantity);
+
+            document.getElementById('returnReceiptId').value = receiptId;
+            document.getElementById('returnReceiptItemId').value = receiptItemId;
+            document.getElementById('returnItemName').textContent = itemName;
+
+            console.log('Setting up Return Item Modal with:', {
+                receiptId, receiptItemId, itemName, availableQty
+            });
+
+            const quantityInput = document.getElementById('returnQuantity');
+            quantityInput.max = availableQty;
+            quantityInput.value = Math.min(1, availableQty).toFixed(2);
+            document.getElementById('maxReturnQuantity').textContent = availableQty;
+
+            // Set today's date as default
+            document.getElementById('returnDate').value = new Date().toISOString().split('T')[0];
+
+
+
+        } catch (error) {
+            console.error("Error setting up return modal:", error);
+            alert("Failed to initialize return. Please try again.");
+        }
+    }
+
+
+    function confirmDeleteReceipt(buttonElement) {
+        const receiptId = buttonElement.getAttribute('data-receipt-id');
+        const receiptItemId = buttonElement.getAttribute('data-receipt-item-id');
+        const receiptNumber = buttonElement.getAttribute('data-receipt-number');
+
+        if (!receiptId || !receiptItemId) {
+            showNotification('error', 'Invalid receipt data');
+            return;
+        }
+
+        Swal.fire({
+            title: 'Delete Entire Receipt?',
+            html: `You are about to delete <strong>Receipt #${receiptNumber}</strong>.<br><br>
+           <div class="text-warning" style="text-align: left;">
+             <strong>⚠️ Important:</strong> This will delete the ENTIRE receipt including:
+             <ul style="text-align: left; margin: 10px 0;">
+               <li>All items in this receipt</li>
+               <li>All ledger entries for this receipt</li>
+               <li>All inventory adjustments for this receipt</li>
+             </ul>
+             This action cannot be undone.
+           </div>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete entire receipt',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content',
+                confirmButton: 'custom-swal-confirm-btn',
+                cancelButton: 'custom-swal-cancel-btn',
+                icon: 'custom-swal-icon'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Show loading state on the button
+                const originalHTML = buttonElement.innerHTML;
+                buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                $.ajax({
+                    url: '/purchases/api/delete_goods_receipt_item',
+                    type: 'POST',
+                    data: {
+                        receipt_id: receiptId,
+                        receipt_item_id: receiptItemId,
+                        csrf_token: $('input[name="csrf_token"]').val()
+                    },
+                    success: function (response) {
+                        // Restore button
+                        buttonElement.innerHTML = originalHTML;
+
+                        if (response.success) {
+                            showNotification('success', response.message);
+                            // Refresh the page to show updated data
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1500);
+                        } else {
+                            showNotification('error', response.message);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        // Restore button
+                        buttonElement.innerHTML = originalHTML;
+
+                        let errorMessage = 'Failed to delete receipt';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                        }
+
+                        showNotification('error', errorMessage);
+                    }
+                });
+            }
+        });
+    }
+
+
+    function confirmCancelPayment(transactionId, isPostedToLedger) {
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+        let htmlContent = 'Are you sure you want to cancel this payment?';
+
+        if (isPostedToLedger) {
+            htmlContent = `
+            <div class="text-warning" style="text-align: left;">
+                <strong>⚠️ Ledger Impact Warning:</strong> This payment was posted to the ledger.<br><br>
+                <strong>Cancelling will:</strong>
+                <ul style="text-align: left; margin: 10px 0;">
+                    <li>Delete all related journal entries</li>
+                    <li>Update payment status to cancelled</li>
+                    <li>Recalculate purchase order balances</li>
+                </ul>
+            </div>
+        `;
+        }
+
+        Swal.fire({
+            title: 'Cancel Payment?',
+            html: htmlContent,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, cancel payment',
+            cancelButtonText: 'Keep Payment',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content',
+                confirmButton: 'custom-swal-confirm-btn',
+                cancelButton: 'custom-swal-cancel-btn',
+                icon: 'custom-swal-icon'
+            },
+            showLoaderOnConfirm: true,
+            preConfirm: async () => {
+                try {
+                    const formData = new FormData();
+                    formData.append('csrf_token', csrfToken);
+                    formData.append('transaction_id', transactionId);
+
+                    const response = await fetch('/purchases/api/cancel_payment', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+
+                    const data = await response.json();
+
+                    if (!data.success) {
+                        throw new Error(data.message || 'Cancellation failed');
+                    }
+
+                    return data;
+                } catch (error) {
+                    Swal.showValidationMessage(`Request failed: ${error.message}`);
+                }
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const data = result.value;
+
+                // Use showNotification for success
+                showNotification('Payment cancelled successfully', 'success');
+
+                // Small delay to show the notification, then reload
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            }
+        });
+    }
+    // Show/hide sections based on payment type
+    function setupLedgerModal(purchasePaymentId, amount, paymentType) {
+        $('#purchasePaymentId').val(purchasePaymentId);
+        $('#ledgerPurchaseOrderAmount').val(amount);
+        $('#paymentType').val(paymentType);
+
+        console.log('Setting up Ledger Modal with:', {
+            purchasePaymentId: purchasePaymentId,
+            amount: amount,
+            paymentType: paymentType
+        });
+
+
+
+        if (paymentType === 'advance_payment') {
+            $('#advancePaymentSection').show();
+            $('#taxSection').hide();  // Hide tax section for advance payments
+            $('#accountPayableSection').hide();
+            // Make prepaid account selections required
+            $('#prepaidAccountCategory').attr('required', true);
+            $('#prepaidAccount').attr('required', true);
+            $('#payableAccountCategory').removeAttr('required');
+            $('#payableAccount').removeAttr('required');
+
+            loadPrepaidAccounts();  // Load prepaid accounts for advance payments
+
+        } else {
+            $('#advancePaymentSection').hide();
+
+            $('#taxSection').show();  // Hide tax section for advance payments
+            $('#accountPayableSection').show();
+
+            // Remove prepaid account requirements
+            $('#prepaidAccountCategory').removeAttr('required');
+            $('#prepaidAccount').removeAttr('required');
+            $('#payableAccountCategory').attr('required', true);
+            $('#payableAccount').attr('required', true);
+
+
+            loadCreditAccounts();  // Load credit accounts for regular payments
+            loadTaxPayableAccounts();  // Load tax payable accounts for regular payments
+
+
+        }
+    }
+
+
+
+
+    document.getElementById('closePrepaidModal').addEventListener('click', function () {
+        document.getElementById('prepaidConfirmationModal').style.display = 'none';
+    });
+
+    // Set up the modal for posting a receipt to the ledger
+    function setupReceiptLedgerModal(receiptId, quantityReceived, itemName, itemType, hasAdvancePaymentThatIsNotPosted) {
+        // Normalize itemType (handle both 'non-inventory' and 'non_inventory')
+        itemType = itemType.replace('-', '_');
+
+        console.log('Item Type:', itemType);
+        console.log('Has Advance Payment That Is Posted:', hasAdvancePaymentThatIsNotPosted);
+        console.log('hasAdvancePaymentThatIsNotPosted:', hasAdvancePaymentThatIsNotPosted);
+        console.log('typeof hasAdvancePaymentThatIsNotPosted:', typeof hasAdvancePaymentThatIsNotPosted);
+
+
+        // Check if advance payment has not been posted
+        if (hasAdvancePaymentThatIsNotPosted === "True") {
+            console.log('advance payment NOT posted');
+            document.getElementById('prepaidConfirmationModal').style.display = 'block';
+            return;
+        }
+
+
+        $('#postReceiptToLedgerModal').modal('show');
+
+        // Cache frequently used selectors
+        const $apSection = $('#receiptsAccountPayableSection');
+        const $taxSection = $('#receiptTaxReceivableSection');
+
+        // Map receipt data to ledger fields
+        $('#receiptId').val(receiptId);
+        $('#quantityReceived').val(quantityReceived);
+        $('#itemName').text(itemName);
+
+        console.log('Setting up Receipt Ledger Modal with:', {
+            receiptId, quantityReceived, itemName, itemType
+        });
+
+        // Always show and require Accounts Payable section
+        $apSection.show();
+        $('#receiptPayableAccountCategory, #receiptPayableAccount').attr('required', true);
+
+        // Reset all requirements first
+        $('[id$="AccountCategory"], [id$="Account"]').removeAttr('required');
+
+        // Define section configurations
+        const sectionConfig = {
+            inventory: {
+                selector: '#inventorySection',
+                required: ['#inventoryAccountCategory', '#inventoryAccount'],
+                loader: loadInventoryAccounts
+            },
+            non_inventory: {
+                selector: '#nonInventoryExpenseSection',
+                required: ['#expenseAccountCategory', '#expenseAccount'],
+                loader: loadNonInventoryExpenseAccounts
+            },
+            service: {
+                selector: '#serviceExpenseSection',
+                required: ['#serviceExpenseAccountCategory', '#serviceExpenseAccount'],
+                loader: loadServiceExpenseAccounts
+            }
+        };
+
+        // Hide all sections initially
+        Object.values(sectionConfig).forEach(config => $(config.selector).hide());
+
+        // Configure active section
+        const activeConfig = sectionConfig[itemType];
+        if (activeConfig) {
+            $(activeConfig.selector).show();
+            $(activeConfig.required.join(',')).attr('required', true);
+            activeConfig.loader();
+        }
+
+        // Handle tax section if it exists
+        if ($taxSection.length) {
+            $taxSection.show();
+            $('#receiptTaxReceivableAccountCategory, #receiptTaxReceivableAccount').attr('required', true);
+            loadReceiptTaxReceivableAccounts();
+        }
+
+        // Load common accounts
+        loadReceiptCreditAccounts();
+    }
+
+
+
+
+    async function setupEditPaymentModal(transactionId) {
+
+
+
+
+        try {
+            const response = await fetch(`/purchases/api/get_purchase_payment_details/${transactionId}`);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const responseData = await response.json();
+            if (!responseData.success) {
+                console.error('Error fetching data:', responseData.message);
+                showNotification('Error loading payment details: ' + responseData.message, 'error');
+                return;
+            }
+
+            let data = responseData.data;
+            console.log('Transaction Data:', data);
+            document.getElementById('editTransactionStatus').value = data.payment_status || '';
+            document.getElementById('editTransactionVersion').value = data.version || 1;
+
+
+
+            // Store the original prepaid account for comparison
+            window.currentEditPrepaidAccountId = data.prepaid_account_id;
+            window.currentEditTransactionId = transactionId;
+
+            // Populate basic fields
+            document.getElementById('editTransactionId').value = transactionId;
+            const amountInput = document.getElementById('editAmount');
+            amountInput.value = data.amount_paid;
+            amountInput.setAttribute('data-original-amount', data.amount_paid);
+            document.getElementById('editPaymentDate').value = data.payment_date;
+            document.getElementById('editReference').value = data.reference_number || '';
+
+            validateEditPaymentAmount(); // Add this line to validate amount on load
+
+            // Reset the update flag
+            document.getElementById('editUpdateExistingJournals').value = 'false';
+
+            // Set payment type dropdown
+            const isAdvancePayment = data.payment_type === 'advance_payment';
+            document.getElementById('editPaymentType').value = isAdvancePayment ? 'advance_payment' : 'regular_payment';
+            handleEditPaymentTypeChange();
+
+            // Set payment method dropdown
+            if (data.payment_method_id) {
+                document.getElementById('editPaymentMethod').value = data.payment_method_id;
+            }
+
+            // Load and set funding account
+            await loadEditFundingAccounts();
+            if (data.funding_account_id) {
+                document.getElementById('editFundingAccount').value = data.funding_account_id;
+            }
+
+            // Load and set prepaid account (for advance payments)
+            if (isAdvancePayment) {
+                await loadEditPrepaidAccounts();
+                if (data.prepaid_account_id) {
+                    document.getElementById('editPrepaidAccount').value = data.prepaid_account_id;
+                }
+            }
+
+            // Initialize Exchange Rate Manager for edit modal
+            if (typeof ExchangeRateManager !== 'undefined') {
+                window.editPaymentRateManager = ExchangeRateManager.init({
+                    currencySelectId: 'edit_payment_currency_active',
+                    dateInputId: 'editPaymentDate',
+                    exchangeRateInputId: 'edit_exchange_rate',
+                    containerId: 'edit_exchange_rate_container',
+                    fromDisplayId: 'edit_from_currency_display',
+                    toDisplayId: 'edit_to_currency_display',
+                    baseCurrencyId: 'edit_base_currency_id',
+                    appId: '{{ app_id }}',
+                    apiEndpoint: '/multi_currency/api/get_exchange_rate',
+                    csrfToken: csrfToken,
+                    callbacks: {
+                        onRateChange: function (rate) {
+                            updateEditConvertedAmount();
+                            calculateEditFXGainLoss();
+                        },
+                        onSuccess: function (rate, source) {
+                            console.log(`Rate ${rate} loaded from ${source}`);
+                            updateEditConvertedAmount();
+                            calculateEditFXGainLoss();
+                        },
+                        onVisibilityChange: function (isVisible) {
+                            if (!isVisible) {
+                                $('#edit_exchange_rate').val('');
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Add amount input listener for FX calculation
+            amountInput.addEventListener('input', function () {
+                validateEditPaymentAmount();
+                updateEditConvertedAmount();
+                calculateEditFXGainLoss();
+            });
+
+            // Initial calculations
+            updateEditConvertedAmount();
+            calculateEditFXGainLoss();
+
+
+
+            // Refresh Select2 after setting values
+            refreshEditModalSelect2();
+
+            // Show the modal
+            $('#editPaymentModal').modal('show');
+
+            // After loading and setting values
+            refreshSelect2('#editPaymentModal');
+
+        } catch (error) {
+            console.error('Error fetching payment details:', error);
+            showNotification('Error loading payment details', 'error');
+        }
+    }
+
+    // Handle payment type change for edit modal
+    function handleEditPaymentTypeChange() {
+        const isPrepaid = document.getElementById('editPaymentType').value === 'advance_payment';
+        const prepaidSection = document.getElementById('editPrepaidAccountSection');
+        const prepaidAccountSelect = document.getElementById('editPrepaidAccount');
+
+        if (prepaidSection) {
+            if (isPrepaid) {
+                prepaidSection.style.display = 'block';
+                if (prepaidAccountSelect) {
+                    prepaidAccountSelect.required = true;
+                    loadEditPrepaidAccounts();
+                }
+            } else {
+                prepaidSection.style.display = 'none';
+                if (prepaidAccountSelect) {
+                    prepaidAccountSelect.required = false;
+                }
+            }
+        }
+    }
+
+
+
+    // Add this function to refresh Select2 dropdowns
+    function refreshEditModalSelect2() {
+        // Refresh all Select2 dropdowns in the edit modal
+        $('#editPaymentModal').find('.form-select').each(function () {
+            if ($(this).hasClass('select2-hidden-accessible')) {
+                $(this).trigger('change.select2');
+            }
+        });
+    }
+
+    // Toggle prepaid account section in edit modal
+    function toggleEditPrepaidAccountSection() {
+        const isPrepaid = document.getElementById('editPrepaidPayment').checked;
+        const prepaidSection = document.getElementById('editPrepaidAccountSection');
+        const prepaidAccountSelect = document.getElementById('editPrepaidAccount');
+
+        if (prepaidSection) {
+            if (isPrepaid) {
+                prepaidSection.style.display = 'block';
+                if (prepaidAccountSelect) {
+                    prepaidAccountSelect.required = true;
+                    // Load prepaid accounts when section is shown
+                    loadEditPrepaidAccounts();
+                }
+            } else {
+                prepaidSection.style.display = 'none';
+                if (prepaidAccountSelect) {
+                    prepaidAccountSelect.required = false;
+                }
+            }
+        }
+    }
+
+    // Load funding accounts for edit modal
+    function loadEditFundingAccounts() {
+        return new Promise((resolve, reject) => {
+            const fundingDropdown = document.getElementById('editFundingAccount');
+
+            if (!fundingDropdown) {
+                console.error("Edit funding account dropdown not found");
+                reject("Dropdown not found");
+                return;
+            }
+
+            // Show loading state
+            fundingDropdown.innerHTML = '<option value="">Loading accounts...</option>';
+
+            fetch('/api/chart_of_accounts_grouped')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Clear old options
+                    fundingDropdown.innerHTML = '<option value="">Select Cash/Bank Account</option>';
+
+                    // Sort categories alphabetically
+                    const sortedCategories = data.chart_of_accounts_grouped.sort((a, b) =>
+                        a.category.localeCompare(b.category)
+                    );
+
+                    // Populate Asset Accounts (Cash and Bank accounts)
+                    sortedCategories.forEach(cat => {
+                        const assetAccounts = cat.accounts
+                            .filter(acc => acc.account_type === 'Asset' &&
+                                (acc.is_cash || acc.is_bank))
+                            .sort((a, b) => a.sub_category.localeCompare(b.sub_category));
+
+                        if (assetAccounts.length > 0) {
+                            const optGroup = document.createElement('optgroup');
+                            optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                            assetAccounts.forEach(acc => {
+                                const option = document.createElement('option');
+                                option.value = acc.sub_category_id;
+                                option.textContent = `${acc.sub_category}${acc.sub_category_code ? ` (${acc.sub_category_code})` : ''}`;
+                                option.title = `${acc.account_type} Account - For payment transactions`;
+                                optGroup.appendChild(option);
+                            });
+
+                            fundingDropdown.appendChild(optGroup);
+                        }
+                    });
+
+                    console.log("Successfully loaded edit funding account options");
+                    resolve();
+                })
+                .catch(error => {
+                    console.error('Error loading edit funding accounts:', error);
+                    fundingDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+                    showNotification("Failed to load account options. Please try again.", "error");
+                    reject(error);
+                });
+        });
+    }
+
+
+    // Add event listener for payment type change in edit modal
+    document.getElementById('editPaymentType')?.addEventListener('change', handleEditPaymentTypeChange);
+
+
+    // Load prepaid accounts for edit modal
+    function loadEditPrepaidAccounts() {
+        return new Promise((resolve, reject) => {
+            const prepaidDropdown = document.getElementById('editPrepaidAccount');
+
+            if (!prepaidDropdown) {
+                console.warn("Edit prepaid account dropdown not found");
+                reject("Dropdown not found");
+                return;
+            }
+
+            // Show loading state
+            prepaidDropdown.innerHTML = '<option value="">Loading prepaid accounts...</option>';
+
+            fetch('/api/chart_of_accounts_grouped')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Clear old options
+                    prepaidDropdown.innerHTML = '<option value="">Select Prepaid Account</option>';
+
+                    // Sort categories alphabetically
+                    const sortedCategories = data.chart_of_accounts_grouped.sort((a, b) =>
+                        a.category.localeCompare(b.category)
+                    );
+
+                    // Populate Prepaid Accounts (Asset accounts)
+                    sortedCategories.forEach(cat => {
+                        const prepaidAccounts = cat.accounts
+                            .filter(acc => acc.account_type === 'Asset' &&
+                                acc.is_receivable === false &&
+                                acc.is_bank === false &&
+                                acc.is_cash === false)
+                            .sort((a, b) => a.sub_category.localeCompare(b.sub_category));
+
+                        if (prepaidAccounts.length > 0) {
+                            const optGroup = document.createElement('optgroup');
+                            optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                            prepaidAccounts.forEach(acc => {
+                                const option = document.createElement('option');
+                                option.value = acc.sub_category_id;
+                                option.textContent = `${acc.sub_category}${acc.sub_category_code ? ` (${acc.sub_category_code})` : ''}`;
+                                option.title = `${acc.account_type} Account - For advance payments`;
+                                optGroup.appendChild(option);
+                            });
+
+                            prepaidDropdown.appendChild(optGroup);
+                        }
+                    });
+
+                    console.log("Successfully loaded edit prepaid account options");
+                    resolve();
+                })
+                .catch(error => {
+                    console.error('Error loading edit prepaid accounts:', error);
+                    prepaidDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+                    showNotification("Failed to load prepaid account options.", "error");
+                    reject(error);
+                });
+        });
+    }
+
+
+    // Setup function for cancel modal
+    // Setup function for cancel modal
+    function setupCancelModal(transactionId, isPostedToLedger) {
+        document.getElementById('cancelTransactionId').value = transactionId;
+
+        const warningDiv = document.getElementById('ledgerWarning');
+        if (isPostedToLedger) {
+            warningDiv.style.display = 'block';
+            document.getElementById('cancelMessage').textContent =
+                'This payment has been posted to ledger. Are you sure you want to cancel and create a reversal entry?';
+        } else {
+            warningDiv.style.display = 'none';
+            document.getElementById('cancelMessage').textContent =
+                'Are you sure you want to cancel this payment?';
+        }
+    }
+
+    function setupEditReceiptModal(receiptId, receiptItemId) {
+        // Clear all form fields and reset buttons
+        const form = document.getElementById('editReceiptForm');
+        if (form) {
+            // Reset form fields
+            form.reset();
+
+            // Manually clear non-form elements
+            document.getElementById('editItemName').value = '';
+
+            // Remove any existing ledger warning
+            const existingWarning = form.querySelector('.alert-warning');
+            if (existingWarning) {
+                existingWarning.remove();
+            }
+
+            // Reset all fields and buttons to default state
+            const elementsToReset = [
+                'editQuantityReceived',
+                'editReceivedCondition',
+                'editReceiptId',
+                'editReceiptItemId',
+                'editReceiptNumber',
+                'editReceiptDate',
+                'editReceivedBy',
+                'editReceiptNotes'
+            ];
+
+            elementsToReset.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.disabled = false;
+                    element.classList.remove('disabled-field');
+                    element.value = '';
+                }
+            });
+
+            // Reset submit button
+            const submitButton = form.querySelector('button[type="submit"]');
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.classList.remove('disabled-btn');
+
+                // Reset button content if it was modified
+                if (submitButton.dataset.originalHtml) {
+                    submitButton.innerHTML = submitButton.dataset.originalHtml;
+                } else {
+                    submitButton.innerHTML = 'Save Changes';
+                }
+            }
+        }
+
+        // Now fetch and populate new data
+        fetch(`/purchases/api/get_goods_receipt_details/${receiptId}/${receiptItemId}`)
+            .then(response => response.json())
+            .then(responseData => {
+                if (!responseData.success) {
+                    console.error('Error fetching receipt details:', responseData.message);
+                    alert('Failed to load receipt details: ' + responseData.message);
+                    return;
+                }
+
+                const data = responseData.data;
+                document.getElementById('editReceiptVersion').value = data.version || 1;
+
+                console.log('Receipt Data:', data);
+
+                // Populate form fields
+                document.getElementById('editReceiptId').value = data.receipt_id;
+                document.getElementById('editReceiptItemId').value = data.receipt_item_id;
+                document.getElementById('editReceiptNumber').value = data.receipt_number;
+                document.getElementById('editReceiptDate').value = data.receipt_date;
+                document.getElementById('editReceivedBy').value = data.received_by;
+                document.getElementById('editItemName').value = data.item_name;
+                document.getElementById('editQuantityReceived').value = data.quantity_received;
+                document.getElementById('editReceiptNotes').value = data.notes || '';
+
+                // Set the received condition value
+                const conditionSelect = document.getElementById('editReceivedCondition');
+                if (conditionSelect) {
+                    conditionSelect.value = data.received_condition || 'good';
+                    console.log('Set received condition to:', conditionSelect.value);
+                } else {
+                    console.error('Condition select element not found');
+                }
+
+
+            })
+            .catch(error => {
+                console.error('Error fetching receipt details:', error);
+                alert('Failed to load receipt details. Please try again.');
+            });
+    }
+
+
+    // Setup function for cancel receipt modal
+    function setupCancelReceiptModal(receiptId, receiptItemId, isPostedToLedger) {
+        document.getElementById('cancelReceiptId').value = receiptId;
+        document.getElementById('cancelReceiptItemId').value = receiptItemId;
+
+        const warningDiv = document.getElementById('receiptLedgerWarning');
+        if (isPostedToLedger) {
+            warningDiv.style.display = 'block';
+            document.getElementById('cancelReceiptMessage').textContent =
+                'This receipt has been posted to ledger. Are you sure you want to cancel and create a reversal entry?';
+        } else {
+            warningDiv.style.display = 'none';
+            document.getElementById('cancelReceiptMessage').textContent =
+                'Are you sure you want to cancel this receipt item?';
+        }
+    }
+
+
+    // Check for prepaid account changes in edit modal
+    async function checkEditPrepaidAccountChange(newPrepaidAccountId) {
+        const currentPrepaidAccountId = window.currentEditPrepaidAccountId;
+        const purchaseOrderId = document.getElementById('editPurchaseOrderId').value;
+
+        console.log('Checking prepaid account change:', {
+            current: currentPrepaidAccountId,
+            new: newPrepaidAccountId,
+            purchaseOrderId: purchaseOrderId
+        });
+
+        // If no change, no validation needed
+        if (currentPrepaidAccountId == newPrepaidAccountId) {
+            console.log('No prepaid account change detected');
+            return { proceed: true, requires_update: false };
+        }
+
+        // If changing from no account to an account, no validation needed
+        if (!currentPrepaidAccountId && newPrepaidAccountId) {
+            console.log('Setting initial prepaid account, no validation needed');
+            return { proceed: true, requires_update: false };
+        }
+
+        // If changing from an account to no account (shouldn't happen for advance payments)
+        if (currentPrepaidAccountId && !newPrepaidAccountId) {
+            console.log('Removing prepaid account - this should not happen for advance payments');
+            return { proceed: true, requires_update: false };
+        }
+
+        // If changing between different prepaid accounts, validate
+        try {
+            const newAccountName = document.getElementById('editPrepaidAccount').options[document.getElementById('editPrepaidAccount').selectedIndex].text;
+
+            const validation = await validatePrepaidAccountChange(
+                purchaseOrderId,
+                newPrepaidAccountId,
+                newAccountName
+            );
+
+            return validation;
+        } catch (error) {
+            console.error('Error validating prepaid account change:', error);
+            return { proceed: false, requires_update: false };
+        }
+    }
+
+
+    // Frontend validation and warning modal
+    function validatePrepaidAccountChange(purchaseOrderId, newPrepaidAccountId, newPrepaidAccountName) {
+        return new Promise((resolve, reject) => {
+            fetch('/purchases/api/check_prepaid_consistency', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    purchase_order_id: purchaseOrderId,
+                    prepaid_account_id: newPrepaidAccountId
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+
+                    console.log('Prepaid consistency check data:', data);
+                    if (data.warning_required) {
+                        showPrepaidAccountChangeWarning(
+                            data.existing_accounts_info,
+                            newPrepaidAccountName,
+                            data.journals_to_update_count,
+                            (confirmed) => {
+                                resolve({
+                                    proceed: confirmed,
+                                    requires_update: true,
+                                    new_prepaid_account_id: newPrepaidAccountId
+                                });
+                            }
+                        );
+                    } else {
+                        resolve({
+                            proceed: true,
+                            requires_update: false,
+                            new_prepaid_account_id: newPrepaidAccountId
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking prepaid consistency:', error);
+                    reject(error);
+                });
+        });
+    }
+
+    function showPrepaidAccountChangeWarning(existingAccountsInfo, newAccountName, journalsToUpdateCount, callback) {
+        const modalHtml = `
+        <div class="modal fade" id="prepaidChangeWarningModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title">⚠ Change Prepaid Account - Ledger Impact</h5>
+                        <button type="button" class="add-button" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Accounting Ledger Modification Required</strong>
+                        </div>
+                        
+                        <p>You are changing the prepaid account for advance payments on this Purchase Order.</p>
+                        
+                        <div class="change-details mb-3">
+                            <p><strong>Previous payments used:</strong></p>
+                            <ul>
+                                ${existingAccountsInfo.map(acc =>
+            `<li>${acc.account_name} (${acc.payment_count} payments)</li>`
+        ).join('')}
+                            </ul>
+                            <p><strong>New account selected:</strong> ${newAccountName}</p>
+                        </div>
+                        
+                        <div class="consequences alert alert-info">
+                            <h6><i class="fas fa-database"></i> Ledger Impact:</h6>
+                            <ul>
+                                <li><strong>${journalsToUpdateCount} journal entries</strong> will be updated</li>
+                                <li>All existing advance payment entries will be modified to use: <strong>${newAccountName}</strong></li>
+                                <li>Account references in journal entries will be directly updated</li>
+                                <li>Payment allocations will be updated to reflect the new prepaid account</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="alert alert-secondary">
+                            <small>
+                                <i class="fas fa-info-circle"></i>
+                                <strong>Note:</strong> This process updates existing journal entries directly 
+                                for simplicity while maintaining data consistency across all related records.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="button remove-button" data-bs-dismiss="modal">Cancel Change</button>
+                        <button type="button" class="button cta-button" id="confirmPrepaidChange">
+                            <i class="fas fa-sync-alt"></i> Update All Journals & Continue
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+        // Add modal to DOM and show it
+        $('body').append(modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('prepaidChangeWarningModal'));
+        modal.show();
+
+        // Handle confirmation
+        $('#confirmPrepaidChange').on('click', function () {
+            modal.hide();
+            callback(true);
+        });
+
+        // Handle cancel
+        $('#prepaidChangeWarningModal').on('hidden.bs.modal', function () {
+            $(this).remove();
+            callback(false);
+        });
+    }
+
+    // Add this function to handle the actual form submission
+    function submitPaymentForm(formData) {
+        const submitBtn = $('#paymentForm').find('button[type="submit"]');
+        const originalText = submitBtn.html();
+
+        // Show loading state
+        submitBtn.prop('disabled', true);
+        submitBtn.html('Processing...');
+
+        fetch('/purchases/api/record_purchase_payment', {
+            method: 'POST',
+            body: formData,
+            redirect: 'follow'  // Explicitly tell fetch to follow redirects
+        })
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response redirected:', response.redirected);
+
+                if (response.redirected) {
+                    // Force page reload to show flash messages
+                    window.location.href = response.url;
+                    return;
+                }
+                return response.text().then(text => {
+                    try {
+                        return JSON.parse(text);
+                    } catch {
+                        return { success: false, message: 'Invalid response from server' };
+                    }
+                });
+            })
+            .then(data => {
+                if (data && data.success === false) {
+                    showNotification(data.message || 'Payment failed', 'error');
+                } else if (data && data.success) {
+                    showNotification('Payment recorded successfully!', 'success');
+                    // Close modal and refresh page
+                    $('#purchaseOrderPaymentModal').modal('hide');
+                    setTimeout(() => window.location.reload(), 1500);
+                }
+            })
+            .catch(error => {
+                console.error('Payment submission error:', error);
+                showNotification('Error submitting payment: ' + error.message, 'error');
+            })
+            .finally(() => {
+                // Restore button state
+                submitBtn.prop('disabled', false);
+                submitBtn.html(originalText);
+            });
+    }
+
+    // Updated payment form submission
+    // Remove the submitPaymentForm function entirely and replace the form submission with:
+    $('#paymentForm').on('submit', function (e) {
+        const amount = parseFloat($('#amount').val()) || 0;
+        const remainingBalance = parseFloat($('#po-data').data('remaining-balance'));
+
+        // Only prevent if validation fails
+        if (amount > remainingBalance) {
+            e.preventDefault();
+            showNotification(`Payment amount (${amount.toFixed(2)}) cannot exceed remaining balance (${remainingBalance.toFixed(2)})`, 'error');
+            return false;
+        }
+
+        // For advance payments with prepaid account, we need async validation
+        const paymentType = $('#paymentType').val();
+        const prepaidAccountId = $('#prepaidAccount').val();
+        const prepaidAccountName = $('#prepaidAccount option:selected').text();
+        const purchaseOrderId = $('#purchaseOrderId').val();
+
+        if (paymentType === 'advance_payment' && prepaidAccountId) {
+            e.preventDefault(); // Stop normal submission while we validate
+
+            validatePrepaidAccountChange(purchaseOrderId, prepaidAccountId, prepaidAccountName)
+                .then(validation => {
+                    if (validation.proceed) {
+                        // Add hidden field if needed
+                        if (validation.requires_update) {
+                            const hiddenField = document.createElement('input');
+                            hiddenField.type = 'hidden';
+                            hiddenField.name = 'update_existing_journals';
+                            hiddenField.value = 'true';
+                            $('#paymentForm').append(hiddenField);
+                        }
+                        // Submit the form normally (NO AJAX)
+                        $('#paymentForm').off('submit').submit();
+                    }
+                })
+                .catch(error => {
+                    console.error('Validation error:', error);
+                    showNotification('Error validating prepaid account change', 'error');
+                });
+        }
+        // If no prepaid validation needed, let the form submit normally
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+
+
+        setupReturnPostToLedger();
+
+
+        // Cancel receipt form submission
+        document.getElementById('cancelReceiptForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('cancelReceiptSubmitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+
+            try {
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    body: new FormData(this)
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('cancelReceiptModal'));
+                    modal.hide();
+
+                    if (data.requires_reversal) {
+                        // Show special alert for posted transactions
+                        Swal.fire({
+                            title: 'Cancellation Complete',
+                            html: `Receipt marked as cancelled.<br><br>
+                    <strong>Important:</strong> This receipt was posted to ledger.
+                    Please create manual reversal entries in the journal.`,
+                            icon: 'warning',
+                            confirmButtonText: 'Go to Journal',
+                            showCancelButton: true,
+                            cancelButtonText: 'Close'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = '/journal/new?reference=CANCEL-RECEIPT-' + data.receipt_id;
+                            } else {
+                                window.location.reload();
+                            }
+                        });
+                    } else {
+                        showNotification('Receipt cancelled successfully', 'success');
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                } else {
+                    showNotification(data.message || 'Failed to cancel receipt', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('An error occurred while cancelling the receipt', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Confirm Cancellation';
+            }
+        });
+
+
+
+        document.getElementById('add-goods-receipt-button')?.addEventListener('click', function () {
+            console.log('Add Goods Receipt button clicked');
+
+            // Set today's date as default
+            const today = new Date().toISOString().split('T')[0];
+            const receiptDateInput = document.getElementById('receiptDate');
+
+            if (receiptDateInput) {
+                receiptDateInput.value = today;
+            } else {
+                console.warn('Receipt date input not found');
+            }
+
+            // Show the modal
+            const goodsReceiptModal = new bootstrap.Modal(document.getElementById('addGoodsReceiptModal'));
+            goodsReceiptModal.show();
+        });
+
+
+        // Adding internal note
+        document.getElementById('add-note-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const noteContent = formData.get('note_content');
+            const purchase_orderId = formData.get('purchase_order_id');
+            const recipient = formData.get('recipient');
+            const purchase_order_number = formData.get('purchase_order_number');
+
+
+
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value; // Fetch CSRF token
+
+            fetch('/purchases/add_purchase_order_note', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken  // Include the CSRF token in the headers
+                },
+                body: JSON.stringify({
+                    note_content: noteContent,
+                    purchase_order_id: purchase_orderId,
+                    recipient: recipient,
+                    purchase_order_number: purchase_order_number
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "danger") {
+                        showNotification(data.message, "error");
+                    } else {
+                        const notesList = document.getElementById('notes-list');
+                        const newNote = document.createElement('div');
+                        newNote.classList.add('note');
+                        newNote.innerHTML = `
+                    <p>${data.note_content}</p>
+                    <small>By ${data.created_by} on ${data.created_at}</small>
+                    
+                `;
+                        notesList.appendChild(newNote);
+                        form.querySelector('textarea').value = '';
+
+                        showNotification(data.message, "success");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification("An error occurred while adding the note.", "error"); // Fixed this line
+                });
+        });
+
+
+        // Add payment type change listeners
+
+        // Add payment type change listeners
+        document.getElementById('prepaidPayment')?.addEventListener('change', togglePrepaidAccountSection);
+        document.getElementById('regularPayment')?.addEventListener('change', togglePrepaidAccountSection);
+
+        // Add payment type change listeners for EDIT modal
+        document.getElementById('editPrepaidPayment')?.addEventListener('change', toggleEditPrepaidAccountSection);
+        document.getElementById('editRegularPayment')?.addEventListener('change', toggleEditPrepaidAccountSection);
+
+        // Handle edit payment form submission
+        // Handle edit payment form submission
+        document.getElementById('updatePaymentBtn')?.addEventListener('click', async function () {
+            console.log('🔥 UPDATE BUTTON CLICKED - MANUAL HANDLER');
+
+            const form = document.getElementById('editPaymentForm');
+            const submitBtn = this;
+            const originalText = submitBtn.innerHTML;
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Updating...';
+
+            try {
+                const formData = new FormData(form);
+
+                const purchaseOrderId = document.getElementById('editPurchaseOrderId').value;
+                const paymentType = document.getElementById('editPaymentType').value;
+                const prepaidAccountId = document.getElementById('editPrepaidAccount').value;
+
+                // Only validate for advance payments with prepaid account changes
+                if (paymentType === 'advance_payment' && prepaidAccountId) {
+                    const validation = await checkEditPrepaidAccountChange(prepaidAccountId);
+
+                    if (!validation.proceed) {
+                        console.log('User cancelled prepaid account change');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                        return;
+                    }
+
+                    if (validation.requires_update) {
+                        formData.set('update_existing_journals', 'true');
+                        console.log('Set update_existing_journals to true for edit');
+                    } else {
+                        formData.set('update_existing_journals', 'false');
+                        console.log('Set update_existing_journals to false for edit');
+                    }
+                } else {
+                    formData.set('update_existing_journals', 'false');
+                }
+
+                // Debug: Log all form data before submission
+                console.log('Final edit form data entries:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(`${key}: ${value}`);
+                }
+
+                // Submit the form - use the correct URL
+                const response = await fetch('/purchases/api/update_purchase_payment', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    const data = await response.json();
+                    if (data && data.success === false) {
+                        showNotification(data.message || 'Failed to update payment', 'error');
+                    } else if (data && data.success) {
+                        showNotification('Payment updated successfully', 'success');
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('editPaymentModal'));
+                        modal.hide();
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error updating payment:', error);
+                showNotification('Error updating payment', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
+        // Add event listener for prepaid account changes in edit modal
+        document.getElementById('editPrepaidAccount')?.addEventListener('change', function () {
+            const newPrepaidAccountId = this.value;
+            const currentPrepaidAccountId = window.currentEditPrepaidAccountId;
+
+            if (newPrepaidAccountId && currentPrepaidAccountId && newPrepaidAccountId != currentPrepaidAccountId) {
+                console.log('Prepaid account changed in edit modal:', {
+                    from: currentPrepaidAccountId,
+                    to: newPrepaidAccountId
+                });
+
+                // You can show a subtle indicator that validation will occur on submission
+                const indicator = document.createElement('small');
+                indicator.className = 'text-warning ms-2';
+                indicator.innerHTML = '<i class="fas fa-exclamation-circle"></i> Account change will be validated';
+
+                // Remove any existing indicator
+                const existingIndicator = this.parentNode.querySelector('.text-warning');
+                if (existingIndicator) {
+                    existingIndicator.remove();
+                }
+
+                this.parentNode.appendChild(indicator);
+
+                // Remove indicator after 3 seconds
+                setTimeout(() => {
+                    indicator.remove();
+                }, 3000);
+            }
+        });
+
+        // JavaScript for approving and canceling purchase_orders
+        // JavaScript for approving purchase orders
+        document.getElementById('approve-purchase_order-button').addEventListener('click', function () {
+            const purchaseOrderId = "{{ purchase_order.id }}";
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+            // Use SweetAlert for confirmation
+            Swal.fire({
+                title: 'Approve Purchase Order?',
+                text: 'Are you sure you want to approve this purchase order?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, approve it!',
+                cancelButtonText: 'Cancel',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    cancelButton: 'custom-swal-cancel-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading state
+                    Swal.fire({
+                        title: 'Approving...',
+                        text: 'Please wait while we process your request',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    // Call the bulk approve route with single PO ID
+                    fetch('/purchases/bulk_approve_purchase_orders', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({
+                            po_ids: [purchaseOrderId]  // Send as array with single ID
+                        })
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === "success") {
+                                Swal.fire({
+                                    title: 'Approved!',
+                                    text: data.message,
+                                    icon: 'success',
+                                    confirmButtonText: 'OK'
+                                }).then(() => {
+                                    location.reload(); // Reload the page to reflect changes
+                                });
+                            } else {
+                                Swal.fire({
+                                    title: 'Error!',
+                                    text: data.message,
+                                    icon: 'error',
+                                    confirmButtonText: 'OK'
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            Swal.fire({
+                                title: 'Error!',
+                                text: 'An error occurred while approving the purchase order.',
+                                icon: 'error',
+                                confirmButtonText: 'OK'
+                            });
+                        });
+                }
+            });
+        });
+
+
+    });
+
+
+
+    // Form submission handler
+    $(document).ready(function () {
+        $('#editReceiptForm').on('submit', function (e) {
+            e.preventDefault();
+
+            const formData = $(this).serialize();
+            const receiptId = $('#editReceiptId').val();
+            const receiptItemId = $('#editReceiptItemId').val();
+
+            if (!receiptId || !receiptItemId) {
+                showNotification('Invalid receipt data', 'error');
+                return;
+            }
+
+            // Show loading state
+            const submitBtn = $(this).find('button[type="submit"]');
+            const originalText = submitBtn.html();
+            submitBtn.html('Updating...').prop('disabled', true);
+
+            $.ajax({
+                url: '/purchases/api/update_goods_receipt',
+                type: 'POST',
+                data: formData,
+                success: function (response) {
+                    submitBtn.html(originalText).prop('disabled', false);
+
+                    if (response.success) {
+                        showNotification(response.message, 'success');
+                        $('#editReceiptModal').modal('hide');
+
+                        // Refresh the page to show updated data
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+
+                    } else {
+                        showNotification(response.message, 'error');
+                        enableAllSubmitButtons(); // Re-enable submit buttons if there was an error
+                    }
+                },
+                error: function (xhr, status, error) {
+                    submitBtn.html(originalText).prop('disabled', false);
+                    console.error('Error updating receipt:', error);
+
+                    let errorMessage = 'Failed to update receipt';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    }
+
+                    showNotification(errorMessage, 'error');
+                }
+            });
+        });
+    });
+
+
+
+
+</script>
+
+{% endblock %}

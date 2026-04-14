@@ -1,0 +1,532 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div class="header-section">
+        <h1>Inventory Categories & Subcategories</h1>
+
+        <!-- Dashboard Shortcuts -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" onclick="toggleDropdown(event)">
+                        <span>Manage </span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('inventory.manage_categories_subcategories') }}">Categories &
+                                Subcategories
+                            </a>
+                            <a href="{{ url_for('inventory.manage_brands') }}">Brands
+                            </a>
+                            <a href="{{ url_for('inventory.manage_uoms') }}"> Units of Measure
+                            </a>
+                            <a href="{{ url_for('inventory.manage_attributes_variations') }}"> Attributes & Variations
+                            </a>
+                            <a href="{{ url_for('inventory.manage_customer_groups') }}">Customer Groups
+                            </a>
+                            <a href="{{ url_for('inventory.manage_selling_prices') }}">Selling Prices
+                            </a>
+                        </div>
+                    </div>
+                </li>
+                {% endif %}
+
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><button class="button cta-button" onclick="showAddCategoryForm()">
+                        <i class="fas fa-plus"></i> New Category
+                    </button></li>
+                <li class="shortcut-item"><button class="button cta-button" onclick="showAddSubcategoryForm()">
+                        <i class="fas fa-plus"></i> New Subcategory
+                    </button></li>
+                {% endif %}
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Add Category Form -->
+    <!-- Add Category Form (Initially Hidden) -->
+    <div id="addCategoryForm" class="form-section" style="display: none; margin-bottom: 30px;">
+        <form id="categoryForm" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <h3>Add New Category</h3>
+            <div class="form-group">
+                <input type="text" id="category_name" class="form-control" name="category_name" required>
+                <label for="category_name" class="form-label">Category Name:</label>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="cta-button">Save</button>
+                <button type="button" class="remove-button" onclick="hideAddCategoryForm()">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+
+    <!-- Add Subcategory Form (Initially Hidden) -->
+    <div id="addSubcategoryForm" class="form-section" style="display: none; margin-bottom: 30px;">
+        <form id="subcategoryForm" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <h3>Add New Subcategory</h3>
+            <div class="form-group">
+                <input type="text" id="subcategory_name" class="form-control" name="subcategory_name" required>
+                <label for="subcategory_name" class="form-label">Subcategory Name:</label>
+            </div>
+            <div class="form-group">
+                <select class="form-control" id="category_id" name="category_id" required>
+                    <option value="">Select Category</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.category_name }}</option>
+                    {% endfor %}
+                </select>
+                <label for="category_id" class="form-label">Linked Category:</label>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="cta-button">Save</button>
+                <button type="button" class="remove-button" onclick="hideAddSubcategoryForm()">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+
+    <!-- Tabs -->
+    <div class="tab">
+        <button class="tablinks" onclick="openTab(event, 'categories')" id="defaultOpen">Categories</button>
+        <button class="tablinks" onclick="openTab(event, 'subcategories')">Subcategories</button>
+    </div>
+
+    <!-- Categories Tab -->
+    <div id="categories" class="tabcontent">
+        <h4>List of Existing Categories</h4>
+        <div class="table-responsive mt-3">
+            <table id="categories-table" class="display">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Category Name</th>
+                        <th>Related Subcategories</th>
+                        {% if role == 'Admin' or role == 'Contributor' %}
+                        <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for category in categories %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            <span id="categoryName_{{ category.id }}">{{ category.category_name }}</span>
+                            {% if role == 'Admin' or role == 'Contributor' %}
+                            <div id="editCategoryForm_{{ category.id }}" style="display:none;">
+                                <input type="text" class="form-control form-control-sm"
+                                    id="editCategoryInput_{{ category.id }}" value="{{ category.category_name }}">
+                                <div class="edit-actions mt-1">
+                                    <button class="button cta-button" onclick="saveCategoryEdit({{ category.id }})"><i
+                                            class="fas fa-check"></i></button>
+                                    <button class="button remove-button"
+                                        onclick="cancelCategoryEdit({{ category.id }})"><i
+                                            class="fas fa-times"></i></button>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if category.inventory_subcategory %}
+                            {{ category.inventory_subcategory|length }} subcategory(ies)
+                            {% else %}
+                            0 subcategories
+                            {% endif %}
+                        </td>
+                        {% if role == 'Admin' or role == 'Contributor' %}
+                        <td>
+                            <div class="action-icons-clean">
+                                <div class="custom-tooltip-container">
+                                    <a href="#" class="edit-icon" onclick="editCategory({{ category.id }})">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <span class="custom-tooltip">Edit</span>
+                                </div>
+
+                                <div class="custom-tooltip-container">
+                                    <a href="#" class="delete-icon"
+                                        onclick="confirmDeleteCategory(event, {{ category.id }})">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </a>
+                                    <span class="custom-tooltip left">Delete</span>
+                                </div>
+                            </div>
+                        </td>
+
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Subcategories Tab -->
+    <div id="subcategories" class="tabcontent">
+        <h4>List of Existing Subcategories</h4>
+        <div class="table-responsive mt-3">
+            <table id="subcategories-table" class="display">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Subcategory Name</th>
+                        <th>Linked Category</th>
+                        {% if role == 'Admin' or role == 'Contributor' %}
+                        <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sub in subcategories %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            <span id="subcategoryName_{{ sub.id }}">{{ sub.subcategory_name }}</span>
+                            {% if role == 'Admin' or role == 'Contributor' %}
+                            <div id="editSubcategoryForm_{{ sub.id }}" style="display:none;">
+                                <input type="text" class="form-control form-control-sm"
+                                    id="editSubcategoryInput_{{ sub.id }}" value="{{ sub.subcategory_name }}">
+                                <div class="edit-actions mt-1">
+                                    <button class="button cta-button" onclick="saveSubcategoryEdit({{ sub.id }})"><i
+                                            class="fas fa-check"></i></button>
+                                    <button class="button remove-button"
+                                        onclick="cancelSubcategoryEdit({{ sub.id }})"><i
+                                            class="fas fa-times"></i></button>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>{{ sub.inventory_category.category_name }}</td>
+                        {% if role == 'Admin' or role == 'Contributor' %}
+                        <td>
+                            <div class="action-icons-clean">
+                                <div class="custom-tooltip-container">
+                                    <a href="#" class="edit-icon" onclick="editSubcategory({{ sub.id }})">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <span class="custom-tooltip">Edit</span>
+                                </div>
+
+                                <div class="custom-tooltip-container">
+                                    <a href="#" class="delete-icon"
+                                        onclick="confirmDeleteSubcategory(event, {{ sub.id }})">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </a>
+                                    <span class="custom-tooltip left">Delete</span>
+                                </div>
+                            </div>
+                        </td>
+
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- JS handling: tabs, DataTables, CRUD -->
+<script>
+    $(document).ready(function () {
+        $('#categories-table').DataTable({
+            "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
+            "columnDefs": [{ "orderable": false, "targets": [{% if role == 'Admin' or role == 'Contributor' %}3{% else %}2{% endif %}] }]
+        });
+
+    $('#subcategories-table').DataTable({
+        "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
+        "columnDefs": [{ "orderable": false, "targets": [{% if role == 'Admin' or role == 'Contributor' %}3{% else %}2{% endif %}] }]
+        });
+
+    document.getElementById("defaultOpen").click();
+    });
+
+    // Tabs
+    function openTab(evt, tabName) {
+        $(".tabcontent").hide();
+        $(".tablinks").removeClass("active");
+        $("#" + tabName).show();
+        evt.currentTarget.className += " active";
+    }
+
+    // Show/Hide forms
+    function showAddCategoryForm() { $("#addCategoryForm").show(); $("#addSubcategoryForm").hide(); }
+    function hideAddCategoryForm() { $("#addCategoryForm").hide(); }
+    function showAddSubcategoryForm() { $("#addSubcategoryForm").show(); $("#addCategoryForm").hide(); }
+    function hideAddSubcategoryForm() { $("#addSubcategoryForm").hide(); }
+
+    // Edit Category
+    function editCategory(id) { $("#categoryName_" + id).hide(); $("#editCategoryForm_" + id).show(); }
+    function cancelCategoryEdit(id) { $("#editCategoryForm_" + id).hide(); $("#categoryName_" + id).show(); }
+
+    // Edit Subcategory
+    function editSubcategory(id) { $("#subcategoryName_" + id).hide(); $("#editSubcategoryForm_" + id).show(); }
+    function cancelSubcategoryEdit(id) { $("#editSubcategoryForm_" + id).hide(); $("#subcategoryName_" + id).show(); }
+
+
+
+    // Submit Category
+    document.getElementById('categoryForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const categoryName = document.getElementById('category_name').value.trim();
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+        if (!categoryName) {
+            alert("Please enter a category name.");
+            return;
+        }
+
+        try {
+            const response = await fetch('{{ url_for("inventory.add_inventory_category") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    'category_name': categoryName,
+                    'csrf_token': csrfToken
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                showNotification("Category added successfully", "success");
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showNotification(data.error || "Failed to add category", "danger");
+            }
+        } catch (err) {
+            console.error(err);
+            showNotification("An error occurred while adding category", "danger");
+        }
+    });
+
+    // Submit Subcategory
+    document.getElementById('subcategoryForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const subcategoryName = document.getElementById('subcategory_name').value.trim();
+        const categoryId = document.getElementById('category_id').value;
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+        if (!subcategoryName || !categoryId) {
+            alert("Please enter subcategory name and select category.");
+            return;
+        }
+
+        try {
+            const response = await fetch('{{ url_for("inventory.add_inventory_subcategory") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    'subcategory_name': subcategoryName,
+                    'category_id': categoryId,
+                    'csrf_token': csrfToken
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                showNotification("Subcategory added successfully", "success");
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showNotification(data.error || "Failed to add subcategory", "danger");
+            }
+        } catch (err) {
+            console.error(err);
+            showNotification("An error occurred while adding subcategory", "danger");
+        }
+    });
+
+    // ============================
+    // SAVE EDIT - CATEGORY
+    // ============================
+    async function saveCategoryEdit(id) {
+        const newName = document.getElementById('editCategoryInput_' + id).value.trim();
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+        if (!newName) {
+            Swal.fire({
+                title: 'Invalid Input',
+                text: 'Category name cannot be empty.',
+                icon: 'warning',
+                confirmButtonColor: '#3085d6',
+                customClass: { popup: 'custom-swal-popup' }
+            });
+            return;
+        }
+
+        try {
+            const response = await fetch(`/inventory/edit_inventory_category/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    'category_name': newName,
+                    'csrf_token': csrfToken
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById('categoryName_' + id).textContent = data.category_name;
+                cancelCategoryEdit(id);
+                showNotification("success", "Category updated successfully.");
+            } else {
+                Swal.fire({
+                    title: 'Error',
+                    text: data.error || "Failed to update category.",
+                    icon: 'error',
+                    confirmButtonColor: '#3085d6',
+                    customClass: { popup: 'custom-swal-popup' }
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            Swal.fire({
+                title: 'Error',
+                text: 'An error occurred while updating category.',
+                icon: 'error',
+                confirmButtonColor: '#3085d6',
+                customClass: { popup: 'custom-swal-popup' }
+            });
+        }
+    }
+
+    // ============================
+    // SAVE EDIT - SUBCATEGORY
+    // ============================
+    async function saveSubcategoryEdit(id) {
+        const newName = document.getElementById('editSubcategoryInput_' + id).value.trim();
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+        const categoryId = document.getElementById('category_id').value;
+
+        if (!newName) {
+            Swal.fire({
+                title: 'Invalid Input',
+                text: 'Subcategory name cannot be empty.',
+                icon: 'warning',
+                confirmButtonColor: '#3085d6',
+                customClass: { popup: 'custom-swal-popup' }
+            });
+            return;
+        }
+
+        try {
+            const response = await fetch(`/inventory/edit_inventory_subcategory/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    'subcategory_name': newName,
+                    'category_id': categoryId,
+                    'csrf_token': csrfToken
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById('subcategoryName_' + id).textContent = data.subcategory_name;
+                cancelSubcategoryEdit(id);
+                showNotification("success", "Subcategory updated successfully.");
+            } else {
+                Swal.fire({
+                    title: 'Error',
+                    text: data.error || "Failed to update subcategory.",
+                    icon: 'error',
+                    confirmButtonColor: '#3085d6',
+                    customClass: { popup: 'custom-swal-popup' }
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            Swal.fire({
+                title: 'Error',
+                text: 'An error occurred while updating subcategory.',
+                icon: 'error',
+                confirmButtonColor: '#3085d6',
+                customClass: { popup: 'custom-swal-popup' }
+            });
+        }
+    }
+
+    // ============================
+    // DELETE CATEGORY
+    // ============================
+    function confirmDeleteCategory(event, id) {
+        event.preventDefault();
+
+        Swal.fire({
+            title: 'Delete Category?',
+            text: 'This will delete the caterogy. This action cannot be undone. Are you sure?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!',
+            customClass: {
+                popup: 'custom-swal-popup',
+                confirmButton: 'custom-swal-confirm-btn',
+                cancelButton: 'custom-swal-cancel-btn'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+                fetch(`/inventory/delete_inventory_category/${id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ 'csrf_token': csrfToken })
+                })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification("success", "Category deleted successfully.");
+                            setTimeout(() => window.location.reload(), 1200);
+                        } else {
+                            Swal.fire('Error', data.error || 'Failed to delete category.', 'error');
+                        }
+                    });
+            }
+        });
+    }
+
+    // ============================
+    // DELETE SUBCATEGORY
+    // ============================
+    function confirmDeleteSubcategory(event, id) {
+        event.preventDefault();
+
+        Swal.fire({
+            title: 'Delete Subcategory?',
+            text: 'Are you sure you want to delete this subcategory?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!',
+            customClass: {
+                popup: 'custom-swal-popup',
+                confirmButton: 'custom-swal-confirm-btn',
+                cancelButton: 'custom-swal-cancel-btn'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+                fetch(`/inventory/delete_inventory_subcategory/${id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ 'csrf_token': csrfToken })
+                })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification("success", "Subcategory deleted successfully.");
+                            setTimeout(() => window.location.reload(), 1200);
+                        } else {
+                            Swal.fire('Error', data.error || 'Failed to delete subcategory.', 'error');
+                        }
+                    });
+            }
+        });
+    }
+</script>
+{% endblock %}

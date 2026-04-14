@@ -1,0 +1,1218 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div class="settings-container">
+        <div class="settings-header">
+            <h1><i class="fas fa-cog"></i> System Settings</h1>
+            <p class="text-muted">Manage application configuration and user permissions</p>
+        </div>
+
+        <div class="settings-sections">
+            {% if role == 'Admin' or role == 'Supervisor' %}
+            <!-- ADMIN SETTINGS -->
+            <section class="settings-card">
+                <div class="card-header" onclick="toggleSection('company-settings', this)">
+                    <h2><i class="fas fa-building"></i> Company Settings</h2>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+
+                <div id="company-settings" class="collapse-section show">
+                    <!-- Company Details -->
+                    <div class="settings-group">
+                        <div class="group-header" onclick="toggleSection('company-details', this)">
+                            <h3><i class="fas fa-building"></i> Company Information</h3>
+                            <i class="fas fa-chevron-down toggle-icon"></i>
+                        </div>
+
+                        <div id="company-details" class="collapse-section show">
+                            <form method="POST" action="{{ url_for('settings') }}" enctype="multipart/form-data">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="update_company">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="app_name">Application Name</label>
+                                        <input type="text" class="form-control" id="app_name" name="app_name"
+                                            value="{{ company.app_name }}" readonly>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="name">Company Name*</label>
+                                        <input type="text" class="form-control" id="name" name="name"
+                                            value="{{ company.name or '' }}" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="address">Address</label>
+                                        <input type="text" class="form-control" id="address" name="address"
+                                            value="{{ company.address or '' }}">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="phone">Phone</label>
+                                        <input type="tel" class="form-control" id="phone" name="phone"
+                                            value="{{ company.phone or '' }}">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="email">Email</label>
+                                        <input type="email" class="form-control" id="email" name="email"
+                                            value="{{ company.email or '' }}">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="website">Website</label>
+                                        <input type="url" class="form-control" id="website" name="website"
+                                            value="{{ company.website or '' }}">
+                                    </div>
+
+                                    <div class="form-group full-width">
+                                        <label for="logo">Company Logo</label>
+                                        <div class="logo-upload">
+                                            {% if company.logo %}
+                                            <div class="current-logo">
+                                                <p>Current Logo:</p>
+                                                <img src="{{ url_for('serve_logo', filename=company.logo) }}"
+                                                    alt="Company Logo" class="logo-preview">
+                                            </div>
+                                            {% endif %}
+                                            <div class="upload-controls">
+                                                <input type="file" id="logo" name="logo" accept="image/*"
+                                                    onchange="validateLogo(event)">
+                                                <small class="form-text text-muted">
+                                                    Max 600×300px, under 200KB (PNG/JPG)
+                                                </small>
+                                                <div id="logo-error" class="error-message"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="cta-button" name="update_company" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Save Company Details
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+
+                    <!-- Document Templates -->
+                    <div class="settings-group">
+                        <div class="group-header" onclick="toggleSection('document-templates', this)">
+                            <h3><i class="fas fa-file-contract"></i> Footer Templates</h3>
+                            <i class="fas fa-chevron-down toggle-icon"></i>
+                        </div>
+
+                        <div id="document-templates" class="collapse-section">
+                            <!-- Footer Template Section -->
+                            <div class="sub-group">
+                                <h4><i class="fas fa-shoe-prints"></i> Document Footer</h4>
+
+                                <form method="POST" action="{{ url_for('settings') }}" id="footer-form"
+                                    enctype="multipart/form-data">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="update_footer_template">
+
+                                    <div class=" mb-4">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="footer_type"
+                                                id="footer_type_text" value="text" checked
+                                                onchange="toggleFooterType()">
+                                            <label class="form-check-label" for="footer_type_text">Text Footer</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="footer_type"
+                                                id="footer_type_file" value="file" onchange="toggleFooterType()">
+                                            <label class="form-check-label" for="footer_type_file">Upload
+                                                Template</label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Text Footer Section -->
+                                    <div id="text-footer-section">
+                                        <div class="form-group full-width mb-3">
+                                            <label for="footer_text">Footer Text</label>
+                                            <textarea class="form-control" id="footer_text" name="footer_text" rows="4"
+                                                placeholder="Example: &#10;Thank you for your business!">{{ company.footer_text or '' }}</textarea>
+                                            <small class="form-text text-muted">
+                                                Plain text only. Will appear at the bottom of all documents.
+                                            </small>
+                                        </div>
+
+
+                                    </div>
+
+                                    <!-- File Upload Section -->
+                                    <div id="file-footer-section" style="display: none;">
+                                        <div class="form-group full-width mb-3">
+                                            <label for="footer_template_file">Template File</label>
+                                            <div class="custom-file">
+                                                <input type="file" class="custom-file-input" id="footer_template_file"
+                                                    name="footer_template_file" accept=".png,.jpg,.jpeg"
+                                                    onchange="refreshPreview()">
+                                            </div>
+                                            <small class="form-text text-muted">
+                                                Accepted formats: PNG, JPG, JPEG. Recommended size: 800×100px (max
+                                                height 120px). Max file size: 2MB.
+                                            </small>
+
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Preview:</label>
+                                        <div class="template-preview border p-3 bg-light">
+                                            {% if company.footer_type == 'text' and company.footer %}
+                                            <div style="white-space: pre-line">{{ company.footer_text }}</div>
+                                            {% elif company.footer_type == 'file' and company.footer_template_file %}
+                                            <div class="text-success">
+                                                <i class="fas fa-file-alt"></i> Template file uploaded
+                                            </div>
+                                            {% else %}
+                                            <div class="text-muted">No footer template set</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <button type="submit" class="btn btn-primary" name="update_footer_template">
+                                            <i class="fas fa-save"></i> Save Settings
+                                        </button>
+                                        <small class="text-muted">Last updated: {{
+                                            company.footer_updated_at|format_datetime if company.footer_updated_at else
+                                            'Never' }}</small>
+                                    </div>
+                                </form>
+
+                                {% if company.footer_type == 'template' %}
+                                <div class="mt-2">
+                                    <span>Current file: {{ company.footer }}</span>
+
+                                    <form method="POST"
+                                        action="{{ url_for('company_settings_routes.delete_footer_template') }}"
+                                        class="mt-2">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="button remove-button">
+                                            <i class="fas fa-trash-alt"></i> Delete Footer Template
+                                        </button>
+                                    </form>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <style>
+                        .template-preview {
+                            min-height: 80px;
+                            border-radius: 4px;
+                            white-space: pre-line;
+                        }
+                    </style>
+
+                    <script>
+                        // Toggle between text and file input
+                        function toggleFooterType() {
+                            const textSection = document.getElementById('text-footer-section');
+                            const fileSection = document.getElementById('file-footer-section');
+
+                            if (document.getElementById('footer_type_text').checked) {
+                                textSection.style.display = 'block';
+                                fileSection.style.display = 'none';
+                            } else {
+                                textSection.style.display = 'none';
+                                fileSection.style.display = 'block';
+                            }
+                        }
+
+
+
+                        function confirmDeleteTemplate() {
+                            if (confirm('Are you sure you want to remove the template file?')) {
+                                // You'll need to implement this in your backend
+                                window.location.href = "{{ url_for('company_settings_routes.delete_footer_template') }}";
+                            }
+                        }
+                        function refreshPreview() {
+                            const preview = document.querySelector('.template-preview');
+
+                            // Handle Text Footer
+                            if (document.getElementById('footer_type_text').checked) {
+                                const text = document.getElementById('footer_text').value;
+                                preview.innerHTML = text
+                                    ? `<div style="white-space: pre-line">${text}</div>`
+                                    : '<div class="text-muted">No footer text entered</div>';
+                                return;
+                            }
+
+                            // Handle File Footer
+                            const fileInput = document.getElementById('footer_template_file');
+                            if (fileInput.files.length > 0) {
+                                const file = fileInput.files[0];
+
+                                const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+                                if (!allowedTypes.includes(file.type)) {
+                                    alert("Unsupported file format. Please upload PNG, JPG, or JPEG.");
+                                    fileInput.value = '';
+                                    preview.innerHTML = '<div class="text-muted">No template file uploaded</div>';
+                                    return;
+                                }
+
+                                if (file.size > 2 * 1024 * 1024) {
+                                    alert("File size exceeds 2MB. Please upload a smaller file.");
+                                    fileInput.value = '';
+                                    preview.innerHTML = '<div class="text-muted">No template file uploaded</div>';
+                                    return;
+                                }
+
+                                const img = new Image();
+                                img.onload = function () {
+                                    const maxWidth = 1200;
+                                    const maxHeight = 200;
+
+                                    if (img.width > maxWidth || img.height > maxHeight) {
+                                        alert(`Image dimensions too large. Max allowed is ${maxWidth}px wide × ${maxHeight}px tall.`);
+                                        fileInput.value = '';
+                                        preview.innerHTML = '<div class="text-muted">No template file uploaded</div>';
+                                        return;
+                                    }
+
+                                    preview.innerHTML = '<div class="text-success"><i class="fas fa-file-alt"></i> New template file selected</div>';
+                                };
+                                img.src = URL.createObjectURL(file);
+                            } else if ("{{ company.footer }}") {
+                                preview.innerHTML = '<div class="text-success"><i class="fas fa-file-alt"></i> Template file already uploaded</div>';
+                            } else {
+                                preview.innerHTML = '<div class="text-muted">No template file uploaded</div>';
+                            }
+                        }
+
+                        // Initialize
+                        document.addEventListener('DOMContentLoaded', function () {
+                            // Set initial state based on current footer type
+                            {% if company.footer_type == 'file' %}
+                            document.getElementById('footer_type_file').checked = true;
+                            toggleFooterType();
+                            {% endif %}
+
+                            // Auto-refresh preview when typing
+                            document.getElementById('footer_text').addEventListener('input', refreshPreview);
+                        });
+                    </script>
+
+
+
+
+                    {% if role == 'Admin' %}
+
+
+
+
+
+
+                    <!-- Currency Settings -->
+                    <div class="settings-group">
+                        <div class="group-header" onclick="toggleSection('currency-settings', this)">
+                            <h3><i class="fas fa-money-bill-wave"></i> Currency Configuration</h3>
+                            <i class="fas fa-chevron-down toggle-icon"></i>
+                        </div>
+
+                        <div id="currency-settings" class="collapse-section">
+
+                            <!-- User Guidance Section -->
+                            <div class="info-hover-container">
+                                <i class="fas fa-info-circle info-icon"></i>
+                                <div class="alert alert-info mb-4 hover-info">
+                                    <h5><i class="fas fa-info-circle"></i> How Currency Configuration Works:</h5>
+                                    <ul class="mb-1">
+                                        <li>Main currency cannot be changed</li>
+                                        <li>The same currency cannot be both main and additional</li>
+                                        <li>Changes do not have any effect on the transactions already stored</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+
+                            <form method="POST" action="{{ url_for('settings') }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="update_currencies">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="main_currency">Main Currency*</label>
+                                        <select class="form-control" id="main_currency_display" disabled>
+                                            <option value="">Select Main Currency</option>
+                                            {% for code, name in currency_list.items() %}
+                                            <option value="{{ code }}" {% if code==main_currency %}selected{% endif %}>
+                                                {{ code }} - {{ name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <input type="hidden" name="main_currency" value="{{ main_currency }}">
+
+                                    </div>
+
+                                    <div class="form-group" id="additional-currencies-container">
+                                        <label for="additional_currency">Additional Currencies</label>
+                                        <select class="form-control additional-currency" id="additional_currency"
+                                            name="additional_currency" multiple>
+                                            {% for code, name in currency_list.items() %}
+                                            <option value="{{ code }}" {% if code in additional_currencies %}selected{%
+                                                endif %}>
+                                                {{ code }} - {{ name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <small class="form-text text-muted">
+                                            Hold CTRL to select multiple currencies
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="cta-button" name="update_currencies"
+                                    class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Save Currency Settings
+                                </button>
+                            </form>
+
+                            <div class="current-settings">
+                                <h4>Current Currency Settings</h4>
+                                <div class="settings-display">
+                                    <div>
+                                        <span class="setting-label">Main Currency:</span>
+                                        <span class="setting-value">{{ main_currency or 'Not set' }}</span>
+                                    </div>
+                                    <div>
+                                        <span class="setting-label">Additional Currencies:</span>
+                                        <span class="setting-value">
+                                            {% if additional_currencies %}
+                                            {{ additional_currencies|join(', ') }}
+                                            {% else %}
+                                            None selected
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% endif %}
+                </div>
+
+
+
+            </section>
+
+
+            {% endif %}
+
+
+            <!-- User Management -->
+            {% if role == 'Admin' %}
+
+            <section class="settings-card">
+                <div class="card-header" onclick="toggleSection('user-settings', this)">
+                    <h2><i class="fas fa-user-shield"></i> User Management</h2>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+
+                <div id="user-settings" class="collapse-section show">
+
+                    <div class="settings-group">
+                        <div class="group-header" onclick="toggleSection('user-management', this)">
+                            <h3><i class="fas fa-user-plus"></i> Add User</h3>
+                            <i class="fas fa-chevron-down toggle-icon"></i>
+                        </div>
+
+                        <div id="user-management" class="collapse-section">
+                            <!-- Add User -->
+                            <div class="sub-group">
+
+                                <form method="POST" action="{{ url_for('settings') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="add_user">
+
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="name">Full Name*</label>
+                                            <input type="text" class="form-control" id="name" name="name" required>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="email">User Email*</label>
+                                            <input type="email" class="form-control" id="email" name="email" required>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="position">Job Position*</label>
+                                            <input type="text" class="form-control" id="position" name="position"
+                                                required>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="role">Role*</label>
+                                            <select class="form-control" id="role" name="role" required>
+                                                <option value="">Select Role</option>
+                                                <option value="Admin">Administrator</option>
+                                                <option value="Supervisor">Supervisor</option>
+                                                <option value="Contributor">Contributor</option>
+                                                <option value="Viewer">Viewer</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="password">Password*</label>
+                                            <input type="password" class="form-control" id="password" name="password"
+                                                required>
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" name="add_user" class="btn btn-primary">
+                                        <i class="fas fa-user-plus"></i> Create User
+                                    </button>
+                                </form>
+                            </div>
+
+                        </div>
+
+                        <!-- Change Role -->
+
+                        <div class="group-header" onclick="toggleSection('role-management', this)">
+                            <h3><i class="fas fa-user-edit"></i> Modify User Roles</h3>
+                            <i class="fas fa-chevron-down toggle-icon"></i>
+                        </div>
+
+                        <div id="role-management" class="collapse-section">
+                            <div class="sub-group">
+
+                                <p style="margin-bottom: 1rem; font-size: 0.95rem; color: #555; line-height: 1.5;">
+                                    <strong style="display: block; margin-bottom: 0.5rem;">Role Guide:</strong>
+                                <ul style="margin: 0; padding-left: 1.2rem; list-style-type: disc;">
+                                    <li style="margin-bottom: 0.4rem;">
+                                        <strong>Admin:</strong> Full system access, including settings, reports, and
+                                        user management.
+                                    </li>
+                                    <li style="margin-bottom: 0.4rem;">
+                                        <strong>Supervisor:</strong> Can view, approve and edit most modules, but cannot
+                                        manage
+                                        users or settings.
+                                    </li>
+                                    <li style="margin-bottom: 0.4rem;">
+                                        <strong>Contributor:</strong> Limited to data entry and edits in assigned
+                                        modules only.
+                                    </li>
+                                    <li style="margin-bottom: 0.4rem;">
+                                        <strong>Viewer:</strong> Read-only access to assigned modules.
+                                    </li>
+                                </ul>
+                                </p>
+
+
+                                <form method="POST" action="{{ url_for('settings') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="change_role">
+
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="user_id">Select User*</label>
+                                            <select class="form-control" id="user_id" name="user_id" required>
+                                                {% for user in users %}
+                                                <option value="{{ user.id }}">
+                                                    {{ user.name }} ({{ user.role }})
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="role">New Role*</label>
+                                            <select class="form-control" id="role" name="role" required>
+                                                <option value="">Select Role</option>
+                                                <option value="Admin">Administrator</option>
+                                                <option value="Supervisor">Supervisor</option>
+                                                <option value="Contributor">Contributor</option>
+                                                <option value="Viewer">Viewer</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" class="cta-button" name="change_role">
+                                        <i class="fas fa-save"></i> Update Role
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Module Assignments Section -->
+
+                        <div class="group-header" onclick="toggleSection('module-management', this)">
+                            <h3><i class="fas fa-puzzle-piece"></i> Module Assignments</h3>
+                            <i class="fas fa-chevron-down toggle-icon"></i>
+                        </div>
+
+                        <div id="module-management" class="collapse-section">
+
+                            <div class="sub-group">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                    <select id="user_select" class="form-group"
+                                        style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; width: 200px;">
+                                        <option value="">-- Select User --</option>
+                                        {% for user in users %}
+                                        <option value="{{ user.id }}">{{ user.name }}</option>
+                                        {% endfor %}
+                                    </select>
+
+                                    <button id="add_module_btn" class="button-outline">
+                                        + Add Module
+                                    </button>
+                                </div>
+
+                                <table class="table table-bordered mt-3" id="modules_table">
+                                    <thead>
+                                        <tr>
+                                            <th>Module</th>
+                                            <th>View</th>
+                                            <th>Edit</th>
+                                            <th>Approve</th>
+                                            <th>Administer</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for module in all_modules %}
+                                        <tr class="module-row" data-module-id="{{ module.id }}">
+                                            <td>{{ module.module_name }}</td>
+                                            <td><input type="checkbox" class="perm-checkbox" id="perm-checkbox"
+                                                    data-permission="can_view">
+                                            </td>
+                                            <td><input type="checkbox" class="perm-checkbox" id="perm-checkbox"
+                                                    data-permission="can_edit">
+                                            </td>
+                                            <td><input type="checkbox" class="perm-checkbox" id="perm-checkbox"
+                                                    data-permission="can_approve"></td>
+                                            <td><input type="checkbox" class="perm-checkbox" id="perm-checkbox"
+                                                    data-permission="can_administer"></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+
+                        </div>
+                    </div>
+                </div>
+
+
+            </section>
+
+
+            {% endif %}
+
+            <!-- USER SETTINGS -->
+            <section class="settings-card">
+                <div class="card-header" onclick="toggleSection('personal-settings', this)">
+                    <h2><i class="fas fa-user"></i> Personal Settings</h2>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+
+                <div id="personal-settings" class="collapse-section show">
+                    <!-- Change Password -->
+                    <div class="settings-group">
+                        <div class="group-header" onclick="toggleSection('password-settings', this)">
+                            <h3><i class="fas fa-lock"></i> Password Management</h3>
+                            <i class="fas fa-chevron-down toggle-icon"></i>
+                        </div>
+
+                        <div id="password-settings" class="collapse-section show">
+                            <form method="POST" action="{{ url_for('settings') }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="change_password">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="old_password">Current Password*</label>
+                                        <input type="password" class="form-control" id="old_password"
+                                            name="old_password" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="new_password">New Password*</label>
+                                        <input type="password" class="form-control" id="new_password"
+                                            name="new_password" required>
+                                        <small class="form-text text-muted">
+                                            Minimum 8 characters with at least 1 number and 1 special character
+                                        </small>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="confirm_password">Confirm New Password*</label>
+                                        <input type="password" class="form-control" id="confirm_password"
+                                            name="confirm_password" required>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="cta-button" name="change_password" class="btn btn-primary">
+                                    <i class="fas fa-key"></i> Change Password
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+<script>
+    // Enhanced toggle functionality with localStorage persistence
+    function toggleSection(sectionId, headerElement) {
+        const section = document.getElementById(sectionId);
+        const icon = headerElement.querySelector('.toggle-icon');
+
+        // Toggle visibility
+        section.classList.toggle('show');
+
+        // Toggle icon
+        icon.classList.toggle('fa-chevron-down');
+        icon.classList.toggle('fa-chevron-up');
+
+        // Store state in localStorage
+        const isOpen = section.classList.contains('show');
+        localStorage.setItem(sectionId, isOpen);
+    }
+
+    // Logo validation function
+    function validateLogo(event) {
+        const file = event.target.files[0];
+        const errorElement = document.getElementById('logo-error');
+        errorElement.textContent = '';
+
+        if (!file) return;
+
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+        if (!validTypes.includes(file.type)) {
+            errorElement.textContent = 'Only JPG, PNG or GIF images are allowed';
+            event.target.value = '';
+            return;
+        }
+
+        // Validate file size (200KB)
+        if (file.size > 200 * 1024) {
+            errorElement.textContent = 'File size must be less than 200KB';
+            event.target.value = '';
+            return;
+        }
+
+        // Validate dimensions
+        const img = new Image();
+        img.onload = function () {
+            if (this.width > 600 || this.height > 300) {
+                errorElement.textContent = 'Image dimensions must be 600×300px or smaller';
+                event.target.value = '';
+            } else {
+                // Preview the image if validation passes
+                const preview = document.querySelector('.logo-preview');
+                if (preview) {
+                    preview.src = URL.createObjectURL(file);
+                }
+            }
+        };
+        img.src = URL.createObjectURL(file);
+    }
+
+
+    // Add this at the top of your script
+    function debounce(func, wait) {
+        let timeout;
+        return function (...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+
+    // Initialize sections from localStorage and set up Select2
+    document.addEventListener('DOMContentLoaded', function () {
+        // 1. Section toggle initialization (unchanged)
+        // document.querySelectorAll('.collapse-section').forEach(section => {
+        //     const sectionId = section.id;
+        //     const storedState = localStorage.getItem(sectionId);
+        //     if (storedState === 'false') {
+        //         section.classList.remove('show');
+        //         const header = document.querySelector(`[onclick*="${sectionId}"]`);
+        //         if (header) {
+        //             header.querySelector('.toggle-icon').classList.replace('fa-chevron-up', 'fa-chevron-down');
+        //         }
+        //     }
+        // });
+
+        // 2. Select2 initialization (unchanged)
+        if (typeof $ !== 'undefined' && $.fn.select2) {
+            $('select:not(.additional-currency):not(#user_select)').select2({
+                theme: 'bootstrap',
+                width: '100%'
+            });
+            $('.additional-currency').select2({
+                theme: 'bootstrap',
+                width: '100%',
+                placeholder: "Select additional currencies",
+                allowClear: true
+            });
+        }
+
+        // 3. ENHANCED User Module Permissions
+
+
+        const userSelect = document.getElementById('user_select');
+        if (userSelect) {
+            userSelect.addEventListener('change', async function () {
+                const userId = this.value;
+                console.log('User selected:', userId);
+
+                // Visual reset
+                document.querySelectorAll('.perm-checkbox').forEach(cb => {
+                    cb.checked = false;
+                    // Force redraw
+                    cb.style.display = 'none';
+                    cb.offsetHeight; // Trigger reflow
+                    cb.style.display = 'block';
+                });
+
+                if (!userId) return;
+
+                try {
+                    const response = await fetch(`/api/user-modules/${userId}`);
+                    const data = await response.json();
+                    console.log('API Data:', data);
+
+                    document.querySelectorAll('.module-row').forEach(row => {
+                        const moduleId = row.dataset.moduleId;
+                        const perms = data[moduleId] || data[parseInt(moduleId)] || {};
+
+                        ['can_view', 'can_edit', 'can_approve', 'can_administer'].forEach(perm => {
+                            const checkbox = row.querySelector(`.perm-checkbox[data-permission="${perm}"]`);
+                            if (checkbox) {
+                                checkbox.checked = !!perms[perm];
+                                // Nuclear option to force update
+                                checkbox.setAttribute('checked', checkbox.checked);
+                                // Visual confirmation
+                                if (perms[perm]) {
+                                    row.style.backgroundColor = '#e8f5e9';
+                                    setTimeout(() => row.style.backgroundColor = '', 500);
+                                }
+                            }
+                        });
+                    });
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+
+            // Trigger initial load
+            if (userSelect.value) userSelect.dispatchEvent(new Event('change'));
+        }
+
+
+        // 4. Handle permission saves (add this if not present)
+
+
+        document.querySelectorAll('.perm-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function () {
+                const moduleRow = this.closest('.module-row');
+                const moduleId = moduleRow.dataset.moduleId;
+                const permission = this.dataset.permission;
+                const value = this.checked;
+                const row = this.closest('.module-row');
+                row.style.borderLeft = '3px solid #FFA500'; // Orange indicator
+                setTimeout(() => row.style.borderLeft = '', 1000);
+
+                const userId = userSelect.value;
+                if (!userId) {
+                    alert('Please select a user first.');
+                    this.checked = !value; // revert change
+                    return;
+                }
+
+                fetch('/api/update-permission', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken(),  // Optional, if CSRF protection is used
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        module_id: moduleId,
+                        permission: permission,
+                        value: value
+                    })
+                })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Failed to update');
+                        return res.json();
+                    })
+                    .then(data => {
+                        showNotification('Permission updated successfully', 'success')
+                        moduleRow.style.borderLeft = '3px solid #28a745'; // green highlight
+                        setTimeout(() => moduleRow.style.borderLeft = '', 3000);
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert('Failed to update permission');
+                        this.checked = !value; // revert checkbox on error
+                    });
+            });
+
+
+
+
+        });
+
+
+
+    });
+
+    // Optional helper to extract CSRF token if needed
+    function getCSRFToken() {
+        return document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '';
+    }
+
+
+
+
+
+</script>
+
+<style>
+    .settings-sections {
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+    }
+
+    .settings-card {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        transition: all 0.3s ease;
+        border: 1px solid #e0e0e0;
+    }
+
+    .settings-card:hover {
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.12);
+        border-color: #d0d0d0;
+    }
+
+    .card-header {
+        padding: 18px 25px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s ease;
+    }
+
+    .card-header:hover {
+        background-color: #f1f3f5;
+    }
+
+    .card-header h2 {
+        margin: 0;
+        font-size: 1.4rem;
+        color: #2c3e50;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .collapse-section {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+        opacity: 0.9;
+    }
+
+    .collapse-section.show {
+        max-height: 5000px;
+        transition: max-height 0.5s ease-in;
+        opacity: 1;
+    }
+
+    .settings-group {
+        padding: 15px 25px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .settings-group:last-child {
+        border-bottom: none;
+    }
+
+    .group-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        padding: 12px 0;
+        transition: all 0.2s;
+        margin-bottom: 5px;
+    }
+
+    .group-header:hover {
+        background-color: #f8f9fa;
+    }
+
+    .group-header h3 {
+        margin: 0;
+        font-size: 1.2rem;
+        color: #34495e;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .toggle-icon {
+        transition: transform 0.3s ease;
+        font-size: 0.9rem;
+        color: #7f8c8d;
+    }
+
+    .sub-group {
+        padding: 15px 0;
+        border-top: 1px dashed #e0e0e0;
+    }
+
+    .sub-group:first-child {
+        border-top: none;
+    }
+
+    .sub-group h4 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #2c3e50;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .full-width {
+        grid-column: 1 / -1;
+    }
+
+
+    .logo-upload {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+    }
+
+    .current-logo {
+        text-align: center;
+        flex-shrink: 0;
+    }
+
+    .current-logo p {
+        margin-bottom: 8px;
+        color: #7f8c8d;
+    }
+
+    .logo-preview {
+        max-width: 150px;
+        max-height: 75px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 5px;
+        background: white;
+    }
+
+    .upload-controls {
+        flex: 1;
+    }
+
+    .error-message {
+        color: #e74c3c;
+        margin-top: 5px;
+        font-size: 0.9rem;
+    }
+
+    .current-settings {
+        margin-top: 30px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border: 1px solid #e0e0e0;
+    }
+
+    .current-settings h4 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #2c3e50;
+    }
+
+    .settings-display {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 10px 20px;
+    }
+
+    .setting-label {
+        font-weight: 600;
+        color: #555;
+    }
+
+    .setting-value {
+        color: #333;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        font-weight: 500;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-primary {
+        background-color: #3498db;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background-color: #2980b9;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .card-header {
+            padding: 15px;
+        }
+
+        .settings-container {
+            padding: 15px;
+        }
+
+        .logo-upload {
+            flex-direction: column;
+        }
+
+        .current-logo {
+            margin-bottom: 15px;
+        }
+    }
+
+    /* Animation for smoother transitions */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .collapse-section.show {
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    .hover-info {
+        display: none;
+        position: absolute;
+        background: #e8f4fd;
+        padding: 15px;
+        border: 1px solid #b5d8f3;
+        border-radius: 5px;
+        width: 500px;
+        z-index: 100;
+        margin-top: 10px;
+        font-size: 14px;
+    }
+
+    .info-hover-container {
+        position: relative;
+        display: inline-block;
+    }
+
+    .info-hover-container:hover .hover-info {
+        display: block;
+    }
+
+    .info-icon {
+        cursor: pointer;
+        color: #2980b9;
+        margin-left: 10px;
+    }
+
+
+    /* Ensures checkboxes are visible and properly aligned */
+    /* Add to your existing styles */
+    .perm-checkbox {
+        width: 12px;
+        height: 12px;
+        margin: 0 auto;
+        display: block;
+        cursor: pointer;
+        /* Force appearance on all browsers */
+        -webkit-appearance: checkbox;
+        -moz-appearance: checkbox;
+        appearance: checkbox;
+        /* Remove default browser styling */
+        opacity: 1 !important;
+        position: static !important;
+    }
+
+    /* Override any framework styles that might hide checkboxes */
+    input[type="checkbox"].perm-checkbox {
+        opacity: 1 !important;
+        position: relative !important;
+        pointer-events: all !important;
+    }
+
+    /* User guidance for roles */
+    .role-guide {
+        background: #f5fafd;
+        border-left: 4px solid #3498db;
+        padding: 16px 22px;
+        margin: 18px 0 22px 0;
+        border-radius: 6px;
+        color: #24587a;
+        font-size: 1rem;
+    }
+
+    .role-guide strong {
+        color: #2176bd;
+    }
+
+    .role-guide ul {
+        margin: 0.5em 0 0 1.2em;
+        padding: 0;
+        list-style-type: disc;
+    }
+
+    .role-guide li {
+        margin-bottom: 0.4em;
+        line-height: 1.6;
+    }
+</style>
+{% endblock %}

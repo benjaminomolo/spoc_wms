@@ -1,0 +1,442 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div class="header-section">
+        <h1>Advance Payments</h1>
+
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li><a href="/payroll/create_advance_payment"> Create Advance</a></li>
+                    <li><a href="{{ url_for('payroll.generate_pay_run') }}">Create Pay Run</a></li>
+
+                    {% endif %}
+                    <li><a href="{{ url_for('payroll.get_pay_runs') }}">View Payroll Runs</a></li>
+                    <li><a href="{{ url_for('payroll.add_employee') }}">View Employees</a></li>
+                    <li><a href="{{ url_for('payroll.get_employee_deductions') }}">Employee Deductions</a></li>
+                    <li><a href="/payroll/advance_repayments">Advance Repayments</a></li>
+                </ul>
+            </nav>
+        </div>
+
+
+        <div class="header-buttons">
+
+
+
+
+            <button class="filter-button" type="filter-button" id="toggleFilterForm" hidden>
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+        </div>
+
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="/payroll/create_advance_payment"> Create Advance </a></li>
+
+                {% endif %}
+
+                <!-- New Dropdown Group -->
+                <li class="shortcut-item">
+                    <a href="{{ url_for('payroll.get_pay_runs') }}"> View Payroll
+                        Runs</a>
+                </li>
+
+
+                <li class="shortcut-item">
+                    <a href="{{ url_for('payroll.get_employee_deductions') }}">Employee Deductions</a>
+                </li>
+
+                <li class="shortcut-item">
+                    <a href="/payroll/advance_repayments">Advance Repayments</a>
+                </li>
+
+
+
+            </ol>
+        </nav>
+
+
+
+
+    </div>
+
+
+    <div class="table-responsive">
+        <table id="advance-payments-table" class="">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Advance Amount</th>
+                    <th>Remaining Balance</th>
+                    <th>Deduction Per Payroll</th>
+                    <th>Advance Date</th>
+                    <th>Payment Method</th>
+                    <th>Currency</th>
+                    <th>Payment Status</th>
+                    <th>Ledger status</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in advance_payments %}
+                <tr>
+                    <td>{{ payment.employees.first_name }} {{ payment.employees.middle_name if
+                        payment.employees.middle_name
+                        else "" }} {{ payment.employees.last_name }}</td>
+                    <td>{{ "{:,.2f}".format(payment.advance_amount) }}</td>
+                    <td>{{ "{:,.2f}".format(payment.remaining_balance) }}</td>
+                    <td>{{ "{:,.2f}".format(payment.deduction_per_payroll) }}</td>
+                    <td>{{ payment.payment_date }}</td>
+                    <td>{{ payment.payment_modes.payment_mode or "-" }}</td>
+                    <td>{{ payment.currency.user_currency }}</td>
+
+                    <td>
+                        <span class="badge 
+                      {% if payment.repayment_status == 'Pending' %} bg-warning 
+                      {% elif payment.repayment_status == 'Partly Paid' %} bg-primary
+                      {% elif payment.repayment_status == 'Paid' %} bg-success 
+                      {% endif %}">
+                            {{ payment.repayment_status }}
+                        </span>
+                    </td>
+
+
+                    <td>
+                        <span class="badge
+                        
+                        {% if not payment.is_posted_to_ledger %}bg-warning
+                        {% else %}bg-success
+                        {% endif %}">
+
+                            {% if not payment.is_posted_to_ledger %}not posted
+                            {% else %}posted
+                            {% endif %}
+                        </span>
+                    </td>
+
+
+
+                    <td>{{ payment.notes or "-"}}</td>
+
+
+                    <td style="width: 50px;">
+                        <div class="action-icons-clean">
+
+                            <!-- Edit Advance Payment (enabled only if Pending) -->
+                            <div class="custom-tooltip-container">
+                                {% if payment.repayment_status == 'Pending' %}
+                                <a href="/payroll/edit_advance_payment/{{ payment.id }}" class="button">
+                                    <i class="fas fa-edit edit-icon"></i>
+                                </a>
+                                <span class="custom-tooltip left">Edit</span>
+                                {% else %}
+                                <button class="button disabled-style" disabled>
+                                    <i class="fas fa-edit edit-icon"></i>
+                                </button>
+                                <span class="custom-tooltip left">Cannot Edit</span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Post to Ledger (disabled if already posted) -->
+                            <div class="custom-tooltip-container" style="display: none;">
+                                {% if not payment.is_posted_to_ledger %}
+                                <button class="button"
+                                    onclick="postAdvancePaymentToLedger({{ payment.id }}, {{ payment.advance_amount|round(2) }})">
+                                    <i class="fas fa-book ledger-icon"></i>
+                                </button>
+
+                                <span class="custom-tooltip left">Post to Ledger</span>
+                                {% else %}
+                                <button class="button disabled-style" disabled>
+                                    <i class="fas fa-book ledger-icon"></i>
+                                </button>
+                                <span class="custom-tooltip left">Already Posted</span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Delete (enabled only for Admin) -->
+                            <div class="custom-tooltip-container">
+                                {% if role == 'Admin' %}
+                                <button class="button delete-icon" onclick="deleteAdvancePayment({{ payment.id }})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <span class="custom-tooltip left">Delete</span>
+                                {% endif %}
+                            </div>
+
+                        </div>
+                    </td>
+
+
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th><input type="text" placeholder="Search Employee" class="column-search"></th>
+                    <th>Total: <span id="totalAdvanceAmount">0.00</span></th>
+                    <th>Total: <span id="totalRemainingBalance">0.00</span></th>
+                    <th>Total: <span id="totalDeductionPerPayroll">0.00</span></th>
+                    <th><input type="text" placeholder="Search Payment Date" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Payment Method" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Currency" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Repayment status" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Posted to Ledger" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Notes" class="column-search"></th>
+                    <th></th> <!-- No search for Actions column -->
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+
+<script>
+    $(document).ready(function () {
+        var table = $('#advance-payments-table').DataTable({
+            "lengthMenu": [
+                [10, 25, 50, 100, -1],
+                [10, 25, 50, 100, 'All']
+            ],
+            "aaSorting": [], // No initial sorting
+            "initComplete": function () {
+                var api = this.api();
+
+                // Bind footer search inputs
+                api.columns().every(function () {
+                    var column = this;
+                    var index = column.index();
+
+                    // Skip totals (1,2,3) and actions (10)
+                    if (![1, 2, 3, 10].includes(index)) {
+                        $('input', column.footer()).on('keyup change clear', function () {
+                            if (column.search() !== this.value) {
+                                column.search(this.value).draw();
+                            }
+                        });
+                    }
+                });
+            },
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+                var intVal = function (i) {
+                    return typeof i === 'string' ?
+                        i.replace(/[\$,]/g, '') * 1 :
+                        typeof i === 'number' ? i : 0;
+                };
+
+                // Totals for columns 1,2,3 (Advance Amount, Remaining Balance, Deduction)
+                var totalAdvanceAmount = api.column(1, { page: 'current' }).data().reduce((a, b) => intVal(a) + intVal(b), 0);
+                var totalRemainingBalance = api.column(2, { page: 'current' }).data().reduce((a, b) => intVal(a) + intVal(b), 0);
+                var totalDeductionPerPayroll = api.column(3, { page: 'current' }).data().reduce((a, b) => intVal(a) + intVal(b), 0);
+
+                // Update footer totals with formatting
+                $('#totalAdvanceAmount').text(totalAdvanceAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                $('#totalRemainingBalance').text(totalRemainingBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                $('#totalDeductionPerPayroll').text(totalDeductionPerPayroll.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            }
+        });
+
+        // Draw table initially to calculate totals
+        table.draw();
+    });
+
+
+
+    // Load Prepaid asset account categories when the modal is opened
+
+    function loadAssetAccountsForAdvance() {
+        const assetSubCategorySelect = document.getElementById('assetSubCategory');
+
+        if (!assetSubCategorySelect) {
+            console.error("Could not find asset subcategory dropdown element");
+            showNotification("Failed to initialize form fields. Please refresh and try again.", "error");
+            return;
+        }
+
+        // Show loading state
+        assetSubCategorySelect.innerHTML = '<option value="">Loading Advance/Prepaid accounts...</option>';
+
+        fetch('/api/chart_of_accounts_grouped')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Clear old options
+                assetSubCategorySelect.innerHTML = '<option value="">Select Advance Account</option>';
+
+                // Sort categories alphabetically
+                const sortedCategories = data.chart_of_accounts_grouped.sort((a, b) =>
+                    a.category.localeCompare(b.category)
+                );
+
+                // Populate Asset Subcategories grouped by category
+                sortedCategories.forEach(cat => {
+                    const assetAccounts = cat.accounts
+                        .filter(acc => acc.account_type === 'Asset' && !acc.is_cash && !acc.is_bank && !acc.is_payable && !acc.is_receivable)
+                        .sort((a, b) => a.sub_category.localeCompare(b.sub_category));
+
+                    if (assetAccounts.length > 0) {
+                        const optGroup = document.createElement('optgroup');
+                        optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                        assetAccounts.forEach(acc => {
+                            const option = document.createElement('option');
+                            option.value = acc.sub_category_id;
+                            option.textContent = `${acc.sub_category} - ${acc.sub_category_code}`;
+                            optGroup.appendChild(option);
+                        });
+
+                        assetSubCategorySelect.appendChild(optGroup);
+                    }
+                });
+
+                console.log("Successfully loaded asset account options");
+            })
+            .catch(error => {
+                console.error('Error loading asset accounts:', error);
+                assetSubCategorySelect.innerHTML = '<option value="">Error loading assets</option>';
+                showNotification("Failed to load account options. Please try again.", "error");
+            });
+    }
+
+
+
+
+    function postAdvancePaymentToLedger(paymentId, advanceAmount) {
+        Swal.fire({
+            title: 'Post to Ledger?',
+            html: `
+            <p>Are you sure you want to post this advance payment to the ledger?</p>
+            <p><strong>Amount:</strong> ${advanceAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+        `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, post it!',
+            cancelButtonText: 'Cancel',
+            width: '420px',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content',
+                confirmButton: 'custom-swal-confirm-btn',
+                cancelButton: 'custom-swal-cancel-btn',
+                icon: 'custom-swal-icon'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+                // Send POST request to backend
+                fetch(`/payroll/post_advance_payment_to_ledger`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        amount: advanceAmount,
+                        advancePaymentId: paymentId,
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification(data.message, 'success');
+                            window.location.reload();
+
+                        } else {
+                            showNotification(data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error posting to ledger:', error);
+                        showNotification('An error occurred while posting to ledger.', 'error');
+                    });
+            }
+        });
+    }
+
+
+
+    function deleteAdvancePayment(paymentId) {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "This action cannot be undone!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!',
+            width: '400px',
+            padding: '1rem',
+            backdrop: 'rgba(0,0,0,0.4)',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(`/payroll/delete_advance_payment/${paymentId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // If deletion is successful, remove the row or update the UI
+                            const paymentRow = document.getElementById(`payment-row-${paymentId}`);
+                            if (paymentRow) {
+                                paymentRow.remove();
+                            }
+                            showNotification(data.message, 'success');
+
+                            // Optional: Reload the page after a short delay
+                            setTimeout(() => {
+                                location.reload();
+                            }, 2000);
+                        } else {
+                            showNotification(data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showNotification('An error occurred while deleting the payment.', 'error');
+                    });
+            }
+        });
+    }
+</script>
+{% endblock %}

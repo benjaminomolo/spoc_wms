@@ -1,0 +1,535 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        font-size: 0.9em;
+        text-align: left;
+    }
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 6px;
+    }
+
+    th {
+        background-color: #f4f4f4;
+    }
+
+    .category-row {
+        font-weight: bold;
+        background-color: #f9f9f9;
+    }
+
+    .subtotal-row,
+    .total-row {
+        font-style: italic;
+    }
+
+    .total-row {
+        font-weight: bold;
+    }
+
+    .total-row td {
+        text-align: right;
+    }
+
+    tfoot tr td {
+        border-top: 2px solid #ddd;
+    }
+
+    .description-column {
+        width: 80.66%;
+    }
+
+    .amount-column,
+    .amount {
+        width: 33.33%;
+        text-align: right;
+    }
+
+    .category-column {
+        width: 40%;
+    }
+
+    .subcategory-column {
+        width: 40%;
+    }
+
+    .date-filter {
+        margin-bottom: 20px;
+    }
+
+    .date-filter label {
+        margin-right: 10px;
+        font-weight: bold;
+    }
+
+    .date-filter input[type="date"] {
+        margin-right: 10px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        height: 30px;
+    }
+
+    .date-filter button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        font-size: 0.9em;
+        cursor: pointer;
+    }
+
+    .date-filter button:hover {
+        background-color: #0056b3;
+    }
+
+    h2.transaction-headings {
+        text-align: left;
+        padding-bottom: 5px;
+        margin-bottom: 20px;
+    }
+
+    /* Style for the select element */
+    /* Currency Select Dropdown */
+    .currency-select-container {
+        display: inline-block;
+        margin-bottom: 20px;
+    }
+
+    .currency-select-container label {
+        margin-right: 10px;
+        font-size: 16px;
+        font-weight: bold;
+    }
+
+    .currency-select {
+        padding: 10px;
+        font-size: 16px;
+        border: 2px solid #ccc;
+        border-radius: 4px;
+        background-color: #fff;
+        appearance: none;
+        background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMCAxMCI+PHBhdGggZD0iTTAgNkw1IDEwbDUtNHoiIGZpbGw9IiM2NjYiLz48L3N2Zz4=');
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 10px;
+        min-width: 150px;
+    }
+
+    /* Remove outline and add focus styles */
+    .currency-select:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    }
+
+
+
+    /* Loading spinner */
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: none;
+        /* Hidden by default */
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        /* Ensure it appears above other content */
+    }
+
+    #loading-spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        /* Light grey */
+        border-left: 4px solid #3498db;
+        /* Blue */
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+
+<!-- Include jsPDF and html2canvas libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<div class="container">
+    <main>
+        <div class="container-fluid px-4" id="report-content">
+            <h2 class="mt-4">Equity / Net Worth</h2>
+
+            <h5>Company: {{company_name}}<span id="company-name"></span></h5>
+            <h6>Role: {{role}}<span id="user-role"></span></h6>
+
+            <div id="loading-overlay">
+                <div id="loading-spinner"></div>
+            </div>
+
+            <!-- Date Filter Section -->
+            <div class="date-filter">
+
+
+                <label for="currency-select">Currency:</label>
+                <select id="currency-select">
+                    <!-- Options will be populated dynamically -->
+                </select>
+
+                <label for="start-date">Start Date:</label>
+                <input type="date" id="start-date">
+                <label for="end-date">End Date:</label>
+                <input type="date" id="end-date">
+                <button id="apply-filter">Apply Filter</button>
+                <button id="download-pdf">Download as PDF</button>
+            </div>
+
+
+
+            <h2 class="transaction-headings">Equity</h2>
+            <table id="equity-table">
+                <thead>
+                    <tr>
+                        <th class="category-column">Category</th>
+                        <th class="subcategory-column">Subcategory</th>
+                        <th class="amount-column">Amount   (<span class="currency-symbol"></span>)</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+                <tfoot>
+                    <tr id="total-equity-row">
+                        <td><strong>Total Equity</strong></td>
+                        <td></td>
+                        <td class="amount"><strong id="total-equity"></strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+
+
+        </div>
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        function formatNumber(number) {
+            return number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // Show the loading animation
+        function showLoading() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+
+        // Hide the loading animation
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+
+
+        // Fetch currencies and set up the default currency
+        function fetchCurrencies() {
+            showLoading(); // Show loading animation
+            return fetch('/get_currency')
+                .then(response => response.json())
+                .then(currencies => {
+                    const currencySelect = document.getElementById('currency-select');
+                    if (!currencySelect) {
+                        console.error('Currency select element not found.');
+                        hideLoading(); // Hide loading animation
+                        return null;
+                    }
+                    currencySelect.innerHTML = ''; // Clear existing options
+
+                    let defaultCurrency = null;
+
+                    currencies.forEach(currency => {
+                        const option = document.createElement('option');
+                        option.value = currency.user_currency;
+                        option.textContent = currency.user_currency;
+
+                        if (currency.currency_index === 1) {
+                            option.selected = true;
+                            defaultCurrency = currency.user_currency;
+                        }
+
+                        currencySelect.appendChild(option);
+                    });
+
+                    console.log('Fetched currencies:', currencies);
+
+                     //Update currency
+                     updateCurrencySymbol(defaultCurrency); // Update currency symbols in the table
+               
+
+                    hideLoading(); // Hide loading animation
+                    return defaultCurrency;
+                })
+                .catch(error => {
+                    console.error('Error fetching currencies:', error);
+                    hideLoading(); // Hide loading animation
+                    return null;
+                });
+        }
+
+
+        function fetchTransactions(user_currency) {
+            showLoading(); // Show loading animation
+            return fetch(`/get_transactions?currency=${encodeURIComponent(user_currency)}`)
+                .then(response => response.json())
+                .then(transactions => {
+                    console.log('Fetched transactions:', transactions);
+
+                    const startDate = document.getElementById('start-date').value;
+                    const endDate = document.getElementById('end-date').value;
+
+                    console.log('Selected dates:', startDate, endDate);
+
+                    const filteredTransactions = transactions.filter(transaction => {
+                        const transactionDate = new Date(transaction.date);
+                        return (!startDate || transactionDate >= new Date(startDate)) &&
+                            (!endDate || transactionDate <= new Date(endDate)) &&
+                            (transaction.currency === user_currency);
+                    });
+
+                    let totalAssets = 0;
+                    let totalLiabilities = 0;
+                    let totalEquity = 0;
+
+                    // Containers to hold debits and credits by category and subcategory
+                    const equityCategories = {};
+                    const incomeCategories = {};
+                    const expenseCategories = {};
+
+                    const equityTableBody = document.getElementById('equity-table').getElementsByTagName('tbody')[0];
+                    equityTableBody.innerHTML = '';
+
+
+
+                    filteredTransactions.forEach(transaction => {
+                        const amount = parseFloat(transaction.amount);
+                        const category = transaction.category || 'Uncategorized';
+                        const subcategory = transaction.subcategory || 'N/A';
+
+                        if (transaction.transaction_type === 'Equity') {
+                            if (!equityCategories[category]) {
+                                equityCategories[category] = { subcategories: {}, debitTotal: 0, creditTotal: 0 };
+                            }
+                            if (!equityCategories[category].subcategories[subcategory]) {
+                                equityCategories[category].subcategories[subcategory] = { debit: 0, credit: 0 };
+                            }
+                            if (transaction.dr_cr === 'D') {
+                                equityCategories[category].subcategories[subcategory].debit += amount;
+                                equityCategories[category].debitTotal += amount;
+                            } else if (transaction.dr_cr === 'C') {
+                                equityCategories[category].subcategories[subcategory].credit += amount;
+                                equityCategories[category].creditTotal += amount;
+                            }
+                        } else if (transaction.transaction_type === 'Income') {
+                            if (!incomeCategories[category]) {
+                                incomeCategories[category] = 0;
+                            }
+                            if (transaction.dr_cr === 'C') {
+                                incomeCategories[category] += amount;
+                            }
+                        } else if (transaction.transaction_type === 'Expense') {
+                            if (!expenseCategories[category]) {
+                                expenseCategories[category] = 0;
+                            }
+                            if (transaction.dr_cr === 'D') {
+                                expenseCategories[category] += amount;
+                            }
+                        }
+                    });
+                    hideLoading();
+
+                    // Display Equity categories
+                    let equityCreditsTotal = 0;
+                    let equityDebitsTotal = 0;
+
+                    for (const [category, data] of Object.entries(equityCategories)) {
+                        // Display category row
+                        const categoryRow = document.createElement('tr');
+                        categoryRow.classList.add('category-row');
+
+                        // Prefix category name if dr_cr = 'D'
+                        const categoryPrefix = data.debitTotal > 0 ? 'Less: ' : '';
+                        categoryRow.innerHTML = `<td><strong>${categoryPrefix}${category}</strong></td><td></td><td></td>`;
+                        equityTableBody.appendChild(categoryRow);
+
+                        // Display subcategories and calculate totals
+                        let categoryCreditTotal = 0;
+                        let categoryDebitTotal = 0;
+
+                        for (const [subcategory, amounts] of Object.entries(data.subcategories)) {
+                            const creditAmount = amounts.credit;
+                            const debitAmount = amounts.debit;
+
+                            if (creditAmount !== 0) {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `<td></td><td>${subcategory}</td><td class="amount">${formatNumber(creditAmount)}</td>`;
+                                equityTableBody.appendChild(row);
+                                categoryCreditTotal += creditAmount;
+                            }
+
+                            if (debitAmount !== 0) {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `<td></td><td>Less: ${subcategory}</td><td class="amount">${formatNumber(debitAmount)}</td>`;
+                                equityTableBody.appendChild(row);
+                                categoryDebitTotal += debitAmount;
+                            }
+                        }
+
+                        // Display subtotals for debits and credits
+                        if (categoryCreditTotal !== 0) {
+                            const creditTotalRow = document.createElement('tr');
+                            creditTotalRow.classList.add('subtotal-row');
+                            creditTotalRow.innerHTML = `<td></td><td><strong>Subtotal</strong></td><td class="amount"><strong>${formatNumber(categoryCreditTotal)}</strong></td>`;
+                            equityTableBody.appendChild(creditTotalRow);
+                            equityCreditsTotal += categoryCreditTotal;
+                        }
+
+                        if (categoryDebitTotal !== 0) {
+                            const debitTotalRow = document.createElement('tr');
+                            debitTotalRow.classList.add('subtotal-row');
+                            debitTotalRow.innerHTML = `<td></td><td><strong>Less: Subtotal</strong></td><td class="amount"><strong>${formatNumber(categoryDebitTotal)}</strong></td>`;
+                            equityTableBody.appendChild(debitTotalRow);
+                            equityDebitsTotal += categoryDebitTotal;
+                        }
+                    }
+
+                    // Display Total Revenue and Total Expenses
+                    let totalRevenue = 0;
+                    for (const amount of Object.values(incomeCategories)) {
+                        totalRevenue += amount;
+                    }
+
+                    let totalExpenses = 0;
+                    for (const amount of Object.values(expenseCategories)) {
+                        totalExpenses += amount;
+                    }
+
+                    // Add Total Revenue row
+                    const revenueTotalRow = document.createElement('tr');
+                    revenueTotalRow.classList.add('subtotal-row');
+                    revenueTotalRow.innerHTML = `<td><strong>Total Revenue</strong></td><td></td><td class="amount"><strong>${formatNumber(totalRevenue)}</strong></td>`;
+                    equityTableBody.appendChild(revenueTotalRow);
+
+                    // Add Total Expenses row
+                    const expensesTotalRow = document.createElement('tr');
+                    expensesTotalRow.classList.add('subtotal-row');
+                    expensesTotalRow.innerHTML = `<td><strong>Less: Total Expenses</strong></td><td></td><td class="amount"><strong>${formatNumber(totalExpenses)}</strong></td>`;
+                    equityTableBody.appendChild(expensesTotalRow);
+
+                    // Overall Equity Calculation
+                    const overallEquityTotal = equityCreditsTotal + totalRevenue - totalExpenses - equityDebitsTotal;
+                    const overallEquityRow = document.createElement('tr');
+                    overallEquityRow.classList.add('subtotal-row');
+
+                    equityTableBody.appendChild(overallEquityRow);
+
+                    // Update totals and net worth
+                    document.getElementById('total-equity').textContent = formatNumber(overallEquityTotal);
+
+                   
+                    const netWorth = overallEquityTotal - totalLiabilities;
+                    document.getElementById('net-worth').textContent = formatNumber(netWorth);
+
+                    
+                })
+                .catch(error => console.error('Error fetching transactions:', error));
+        }
+
+        function setupCurrencySelector() {
+            const currencySelect = document.getElementById('currency-select');
+            if (!currencySelect) {
+                console.error('Currency select element not found.');
+                return;
+            }
+
+            currencySelect.addEventListener('change', (event) => {
+                const selectedCurrency = event.target.value;
+                updateCurrencySymbol(selectedCurrency);
+                fetchTransactions(selectedCurrency);
+            });
+        }
+
+        // Set up the initial state
+        fetchCurrencies().then(defaultCurrency => {
+            if (defaultCurrency) {
+                setupCurrencySelector(); // Set up event listener after fetching currencies
+                fetchTransactions(defaultCurrency); // Fetch transactions with default currency
+            } else {
+                console.error('Default currency not found.');
+            }
+        });
+
+        // Apply filter button click event
+        document.getElementById('apply-filter').addEventListener('click', () => {
+            const currencySelect = document.getElementById('currency-select');
+            if (currencySelect) {
+                const selectedCurrency = currencySelect.value;
+                fetchTransactions(selectedCurrency);
+            } else {
+                console.error('Currency select element not found.');
+            }
+        });
+
+        function updateCurrencySymbol(currencySymbol) {
+        const currencySymbols = document.querySelectorAll('.currency-symbol');
+        currencySymbols.forEach(symbol => {
+            symbol.textContent = currencySymbol;
+        });
+    }
+
+
+
+        // Download PDF button click event
+        function downloadPDF() {
+            const contentElement = document.getElementById('report-content');
+            const options = {
+                margin: 0.5,
+                filename: 'equity_report.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            html2pdf().from(contentElement).set(options).save();
+        }
+
+
+
+        document.getElementById('download-pdf').addEventListener('click', downloadPDF);
+
+
+
+    })
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,905 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .container {
+        display: flex;
+        gap: 20px;
+        width: 100%;
+        max-width: 1200px;
+        margin: 20px auto;
+    }
+
+    .payment-sidebar {
+        width: 350px;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+    }
+
+    .payment-main-content {
+        flex: 1;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+    .summary-section {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        margin-top: 15px;
+    }
+
+    .summary-section h3 {
+        font-size: 1.1rem;
+        color: #2c3e50;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .summary-section p {
+        font-size: 0.9rem;
+        color: #495057;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .summary-section p span {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .summary-total {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: var(--highlight-color);
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .form-section {
+        margin-bottom: 25px;
+    }
+
+    .form-section h2 {
+        font-size: 1.25rem;
+        color: #34495e;
+        margin-bottom: 15px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .full-width {
+        grid-column: span 2;
+    }
+
+    .invoices-table-container {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+
+    .invoices-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .invoices-table th {
+        background-color: #f8f9fa;
+        padding: 10px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .invoices-table td {
+        padding: 10px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .invoices-table tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .text-end {
+        text-align: right;
+    }
+
+    .badge-info {
+        background-color: #17a2b8;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+
+    .exchange-rate-container {
+        background-color: #f8f9fa;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 15px;
+    }
+
+    .converted-amount {
+        margin-top: 5px;
+        font-size: 0.9rem;
+        color: #28a745;
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+        }
+
+        .payment-sidebar,
+        .payment-main-content {
+            width: 90%;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .full-width {
+            grid-column: span 1;
+        }
+    }
+
+    .payment-sidebar {
+        width: 350px;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+        }
+
+        .payment-sidebar {
+            width: 90%;
+            position: relative;
+            top: 0;
+            max-height: none;
+            margin-bottom: 20px;
+        }
+    }
+
+    /* Add to your existing styles */
+    .allocation-preview {
+        background-color: #e8f5e9;
+        font-weight: 500;
+        border-left: 3px solid #28a745;
+        padding: 8px 10px;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .allocation-preview::before {
+        content: "→ ";
+        font-size: 1.1rem;
+        margin-right: 4px;
+    }
+
+    /* Optional: Add a subtle animation */
+    @keyframes highlight {
+        0% {
+            background-color: #e8f5e9;
+        }
+
+        50% {
+            background-color: #c8e6c9;
+        }
+
+        100% {
+            background-color: #e8f5e9;
+        }
+    }
+
+    .allocation-preview {
+        animation: highlight 2s ease;
+    }
+</style>
+
+<div class="content-container">
+    <div class="container">
+        <!-- Sidebar - Payment Summary -->
+        <div class="payment-sidebar">
+            <h2 style="margin-top: 0; margin-bottom: 15px; color: #2c3e50;">Payment Summary</h2>
+
+            <div class="summary-section">
+                <h3>Transaction Details</h3>
+                <p>Receipt #: <span id="summaryReceipt">{{ receipt.receipt_number or 'BULK-' ~ receipt.id }}</span></p>
+                <p>Customer: <span id="summaryCustomer">{{ receipt.customer.vendor_name }}</span></p>
+                <p>Payment Date: <span id="summaryDate">{{ receipt.payment_date.strftime('%Y-%m-%d') }}</span></p>
+                <p>Currency: <span id="summaryCurrency">{{ receipt.currency.user_currency }}</span></p>
+                <p>Reference: <span id="summaryReference">{{ receipt.reference or '-' }}</span></p>
+                <p>Project: <span id="summaryProject">{{ receipt.project.name if receipt.project else '-' }}</span></p>
+            </div>
+
+            <div class="summary-section">
+                <h3>Payment Amount</h3>
+                <p>Amount: <span id="summaryAmount">{{ "{:,.2f}".format(receipt.total_amount) }}</span> <span>{{
+                        receipt.currency.user_currency }}</span></p>
+                <div id="summaryConverted" style="display: none;">
+                    <p>Converted Amount: <span id="summaryConvertedValue">0.00</span> <span>{{
+                            base_currency.user_currency }}</span></p>
+                </div>
+                <div class="summary-total" id="totalOutstanding">
+                    Total Outstanding: <span id="totalOutstandingValue">0.00</span> <span>{{ base_currency.user_currency
+                        }}</span>
+                </div>
+            </div>
+
+            <div class="summary-section" id="overpaymentSection" style="display: none; background-color: #fff3cd;">
+                <h3 style="color: #856404;">Overpayment</h3>
+                <p>Amount: <span id="overpaymentAmount">0.00</span> <span>{{ base_currency.user_currency }}</span></p>
+                <p>Will be handled as: <span id="overpaymentAction">Credit</span></p>
+            </div>
+        </div>
+
+        <!-- Main Content - Edit Payment Form -->
+        <div class="payment-main-content">
+            <h1>Edit Payment Receipt</h1>
+
+            <form id="editPaymentForm" method="POST">
+                <!-- Basic Information Section -->
+                <div class="form-section">
+                    <h2>Basic Information</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="customer" class="form-label fw-bold">Customer <span
+                                    class="required">*</span></label>
+                            <select id="customer" name="customer" class="form-select2" required>
+                                <option value="">Select Customer</option>
+                                {% for customer in customers %}
+                                <option value="{{ customer.id }}" {% if customer.id==selected_customer_id %}selected{%
+                                    endif %}>
+                                    {{ customer.vendor_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="payment_date" class="form-label fw-bold">Payment Date <span
+                                    class="required">*</span></label>
+                            <input type="date" id="payment_date" name="payment_date" class="form-control"
+                                value="{{ receipt.payment_date.strftime('%Y-%m-%d') }}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reference" class="form-label fw-bold">Reference Number</label>
+                            <input type="text" id="reference" name="reference" class="form-control"
+                                value="{{ receipt.reference or '' }}" placeholder="Check #, Transaction ID, etc.">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="project" class="form-label fw-bold">Project</label>
+                            <select id="project" name="project" class="form-select">
+                                <option value="">Select Project</option>
+                                {% for project in projects %}
+                                <option value="{{ project.id }}" {% if receipt.project_id==project.id %}selected{% endif
+                                    %}>
+                                    {{ project.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Details Section -->
+                <div class="form-section">
+                    <h2>Payment Details</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="currency" class="form-label fw-bold">Payment Currency <span
+                                    class="required">*</span></label>
+                            <select id="currency" name="currency" class="form-select" required>
+                                <option value="">Select Currency</option>
+                                {% for currency in currencies %}
+                                <option value="{{ currency.id }}" {% if currency.id==receipt.currency_id %}selected{%
+                                    endif %}>
+                                    {{ currency.user_currency }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="amount" class="form-label fw-bold">Payment Amount <span
+                                    class="required">*</span></label>
+                            <input type="text" id="amount" name="amount" class="form-control" placeholder="0.00"
+                                value="{{ receipt.total_amount }}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="payment_method" class="form-label fw-bold">Payment Method</label>
+                            <select id="payment_method" name="payment_method" class="form-select">
+                                <option value="">Select Method (Optional)</option>
+                                {% for method in payment_methods %}
+                                <option value="{{ method.id }}" {% if receipt.payment_method==method.id %}selected{%
+                                    endif %}>
+                                    {{ method.payment_mode }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="payment_account" class="form-label fw-bold">Deposit To <span
+                                    class="required">*</span></label>
+                            <select id="payment_account" name="payment_account" class="form-select2" required>
+                                <option value="">Select Account</option>
+                                {% for category, accounts in payment_accounts.items() %}
+                                <optgroup label="{{ category }}">
+                                    {% for account in accounts %}
+                                    <option value="{{ account.id }}" {% if receipt.payment_account_id==account.id
+                                        %}selected{% endif %}>
+                                        {{ account.sub_category }}
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Exchange Rate Section -->
+                    <div id="exchange_rate_container" class="exchange-rate-container"
+                        style="display: {% if receipt.currency_id != base_currency.id %}block{% else %}none{% endif %};">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span style="font-weight: 500;">Exchange Rate</span>
+                            <span id="from_currency_display">1 {{ receipt.currency.user_currency if receipt.currency
+                                else '' }}</span>
+                            <span>=</span>
+                            <input type="text" id="exchange_rate" name="exchange_rate" placeholder="Enter rate"
+                                value="{{ receipt.exchange_rate.rate if receipt.exchange_rate else '' }}"
+                                style="padding: 6px 10px; width: 150px; border-radius: 4px; border: 1px solid #ccc;">
+                            <span id="to_currency_display">{{ base_currency.user_currency }}</span>
+                        </div>
+                        <div id="converted_amount_display" class="converted-amount" style="display: none;">
+                            Amount in {{ base_currency.user_currency }}: <strong><span
+                                    id="convertedAmountValue">0.00</span></strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Outstanding Invoices Section -->
+                <div class="form-section" id="invoicesSection">
+                    <h2>Outstanding Invoices</h2>
+                    <p class="text-muted small">The payment will be automatically allocated to these invoices</p>
+
+                    <div class="invoices-table-container">
+                        <table class="invoices-table">
+                            <thead>
+                                <tr>
+                                    <th>Invoice #</th>
+                                    <th>Date</th>
+                                    <th>Due Date</th>
+                                    <th class="text-end">Original Amount</th>
+                                    <th class="text-end">Balance Due</th>
+                                    {% if company and company.has_multiple_currencies %}
+                                    <th class="text-end">Balance ({{ base_currency.user_currency }})</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody id="invoicesBody">
+                                {% for invoice in all_invoices %}
+                                <tr data-invoice-id="{{ invoice.id }}" data-invoice-rate="{{ invoice.exchange_rate }}">
+                                    <td>{{ invoice.invoice_number }}</td>
+                                    <td>{{ invoice.invoice_date.strftime('%d/%m/%Y') }}</td>
+                                    <td>{{ invoice.due_date.strftime('%d/%m/%Y') if invoice.due_date else '-' }}</td>
+                                    <td class="text-end">{{ "{:,.2f}".format(invoice.total_amount) }} {{
+                                        invoice.currency }}</td>
+                                    <td class="text-end">{{ "{:,.2f}".format(invoice.balance_due) }} {{ invoice.currency
+                                        }}</td>
+                                    {% if company and company.has_multiple_currencies %}
+                                    <td class="text-end">{{ "{:,.2f}".format(invoice.balance_due_base) }} {{
+                                        base_currency.user_currency }}</td>
+                                    {% endif %}
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        No outstanding invoices found for this customer
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="form-grid" style="margin-top: 15px;">
+                        <div class="form-group">
+                            <label for="overpayment_action" class="form-label fw-bold">Overpayment Handling</label>
+                            <select id="overpayment_action" name="overpayment_action" class="form-select">
+                                <option value="credit" {% if receipt.customer_credits %}selected{% endif %}>Keep as
+                                    Customer Credit</option>
+                                <option value="write_off">Write Off as Income</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="writeOffAccountSection" style="display: none;">
+                            <label for="write_off_account" class="form-label fw-bold">Write-Off Account</label>
+                            <select id="write_off_account" name="write_off_account" class="form-select">
+                                <option value="">Select Account</option>
+                                {% if write_off_account %}
+                                <option value="{{ write_off_account.id }}" selected>
+                                    {{ write_off_account.sub_category }}
+                                </option>
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hidden Fields -->
+                <input type="hidden" id="base_currency_id" name="base_currency_id" value="{{ base_currency.id }}">
+                <input type="hidden" id="base_currency_code" name="base_currency_code"
+                    value="{{ base_currency.user_currency }}">
+                <input type="hidden" id="is_multi_currency" name="is_multi_currency"
+                    value="{{ 'true' if company and company.has_multiple_currencies else 'false' }}">
+                <input type="hidden" id="allocations_json" name="allocations" value="">
+
+                <input type="hidden" name="version" value="{{ receipt.version }}">
+
+                <!-- Form Actions -->
+                <div class="form-actions" style="margin-top: 30px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button type="submit" class="button add-button" id="submitEdit">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <button type="button" class="button remove-button"
+                        onclick="window.location.href='{{ url_for('sales.view_bulk_receipt', receipt_id=receipt.id) }}'">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Get settings from hidden fields
+        const baseCurrencyId = $('#base_currency_id').val();
+        const baseCurrencyCode = $('#base_currency_code').val();
+        const isMultiCurrency = $('#is_multi_currency').val() === 'true';
+
+        // State variables
+        let totalOutstanding = 0;
+
+        // Initialize Exchange Rate Manager
+        window.rateManager = ExchangeRateManager.init({
+            currencySelectId: 'currency',
+            dateInputId: 'payment_date',
+            exchangeRateInputId: 'exchange_rate',
+            containerId: 'exchange_rate_container',
+            fromDisplayId: 'from_currency_display',
+            toDisplayId: 'to_currency_display',
+            baseCurrencyId: 'base_currency_id',
+            appId: '{{ app_id }}',
+            apiEndpoint: '/multi_currency/api/get_exchange_rate',
+            csrfToken: '{{ csrf_token() }}',
+            callbacks: {
+                onRateChange: function (rate) {
+                    updateConvertedAmount();
+                    calculateTotalOutstanding();
+                    checkForOverpayment();
+                },
+                onSuccess: function (rate, source) {
+                    console.log(`Rate ${rate} loaded from ${source}`);
+                    updateConvertedAmount();
+                    calculateTotalOutstanding();
+                    checkForOverpayment();
+                },
+                onVisibilityChange: function (isVisible) {
+                    if (!isVisible) {
+                        $('#exchange_rate').val('');
+                    }
+                }
+            }
+        });
+
+        // Customer change - reload page with new customer
+        $('#customer').on('change', function () {
+            const customerId = $(this).val();
+            if (customerId) {
+                window.location.href = "{{ url_for('sales.edit_receipt', receipt_id=receipt.id) }}?customer_id=" + customerId;
+            }
+        });
+
+        // Update converted amount display
+        function updateConvertedAmount() {
+            const paymentAmount = parseFloat($('#amount').val()) || 0;
+            const exchangeRate = parseFloat($('#exchange_rate').val()) || 1;
+            const selectedCurrencyId = $('#currency').val();
+
+            if (selectedCurrencyId && selectedCurrencyId !== baseCurrencyId) {
+                const convertedAmount = paymentAmount * exchangeRate;
+                $('#convertedAmountValue').text(formatAmount(convertedAmount));
+                $('#converted_amount_display').show();
+                $('#summaryConverted').show();
+                $('#summaryConvertedValue').text(formatAmount(convertedAmount));
+            } else {
+                $('#converted_amount_display').hide();
+                $('#summaryConverted').hide();
+            }
+        }
+
+
+
+        // Make sure all event listeners update the payment amount
+        $('#amount').on('input', function () {
+            updateConvertedAmount();
+            calculateAllocations();
+            checkForOverpayment();
+            updatePaymentAmount();  // This updates the sidebar
+        });
+
+        $('#currency').on('change', function () {
+            updateConvertedAmount();
+            calculateTotalOutstanding();
+            checkForOverpayment();
+            updatePaymentAmount();  // This updates the sidebar with new currency
+            calculateAllocations();
+        });
+
+        $('#exchange_rate').on('input', function () {
+            updateConvertedAmount();
+            checkForOverpayment();
+            calculateAllocations();
+            // No need to update payment amount here as amount hasn't changed
+        });
+
+
+
+        // Add this function
+        function updatePaymentAmount() {
+            const newAmount = parseFloat($('#amount').val()) || 0;
+            const currency = $('#currency option:selected').text();
+
+            $('#summaryAmount').text(formatAmount(newAmount));
+            $('#summaryCurrency').text(currency);
+        }
+
+        // Update event listeners
+
+
+        // Calculate total outstanding
+        function calculateTotalOutstanding() {
+            totalOutstanding = 0;
+
+            $('#invoicesBody tr').each(function () {
+                if (isMultiCurrency) {
+                    const balanceCell = $(this).find('td:eq(5)').text();
+                    const balance = parseFloat(balanceCell.split(' ')[0].replace(/,/g, '')) || 0;
+                    totalOutstanding += balance;
+                } else {
+                    const balanceCell = $(this).find('td:eq(4)').text();
+                    const balance = parseFloat(balanceCell.replace(/,/g, '')) || 0;
+                    totalOutstanding += balance;
+                }
+            });
+
+            $('#totalOutstandingValue').text(formatAmount(totalOutstanding));
+        }
+
+        function calculateAllocations() {
+            const paymentAmount = parseFloat($('#amount').val()) || 0;
+            const selectedCurrencyId = $('#currency').val();
+            const selectedCurrencyText = $('#currency option:selected').text();
+            const exchangeRate = parseFloat($('#exchange_rate').val()) || 1;
+
+            // Track in BASE currency (UGX) - same as process payment
+            let remainingInBase = paymentAmount;
+            if (selectedCurrencyId && selectedCurrencyId !== baseCurrencyId) {
+                remainingInBase = paymentAmount * exchangeRate;
+            }
+
+            const allocations = [];
+
+            // Remove previous preview cells
+            $('.allocation-preview').remove();
+            $('.allocation-preview-header').remove();
+
+            // Add preview header
+            if ($('#invoicesTable thead th.allocation-preview-header').length === 0) {
+                $('#invoicesTable thead tr').append('<th class="allocation-preview-header">To Apply</th>');
+            }
+
+            $('#invoicesBody tr[data-invoice-id]').each(function () {
+                if (remainingInBase <= 0.01) {
+                    $(this).append('<td class="allocation-preview text-muted">-</td>');
+                    return;
+                }
+
+                const $row = $(this);
+                const invoiceId = $row.data('invoice-id');
+                const invoiceRate = parseFloat($row.data('invoice-rate')) || 1;
+
+                // Get balance in invoice currency
+                const balanceCell = $row.find('td:eq(4)').text();
+                const balanceMatch = balanceCell.match(/^([\d,]+\.?\d*)/);
+                const balanceInInvoice = balanceMatch ? parseFloat(balanceMatch[1].replace(/,/g, '')) : 0;
+                const invoiceCurrency = balanceCell.split(' ')[1] || '';
+
+                // Get balance in base currency
+                let balanceInBase = balanceInInvoice;
+                if (isMultiCurrency) {
+                    const baseCell = $row.find('td:eq(5)').text();
+                    const baseMatch = baseCell.match(/^([\d,]+\.?\d*)/);
+                    balanceInBase = baseMatch ? parseFloat(baseMatch[1].replace(/,/g, '')) : balanceInInvoice;
+                }
+
+                // Calculate in BASE currency first (same as process payment)
+                const amountToPayInBase = Math.min(remainingInBase, balanceInBase);
+
+                if (amountToPayInBase <= 0.01) {
+                    $row.append('<td class="allocation-preview text-muted">-</td>');
+                    return;
+                }
+
+                // Convert to other currencies (same as process payment)
+                let amountToPayInInvoiceCurrency = amountToPayInBase / invoiceRate;
+                let amountToPayInPaymentCurrency = amountToPayInBase / exchangeRate;
+
+                // If invoice currency matches payment currency AND payment covers full invoice
+                if (invoiceCurrency === selectedCurrencyText && amountToPayInBase >= balanceInBase) {
+                    // Use the full invoice amount in payment currency (like your single invoice example)
+                    amountToPayInPaymentCurrency = amountToPayInInvoiceCurrency;
+                }
+
+                // Round to 2 decimals
+                amountToPayInInvoiceCurrency = Math.round(amountToPayInInvoiceCurrency * 100) / 100;
+                amountToPayInBase = Math.round(amountToPayInBase * 100) / 100;
+                amountToPayInPaymentCurrency = Math.round(amountToPayInPaymentCurrency * 100) / 100;
+
+                const percentage = Math.round((amountToPayInBase / balanceInBase) * 100);
+
+                $row.append(`
+            <td class="allocation-preview" style="background-color: #e8f5e9; font-weight: 500;">
+                <div>${formatAmount(amountToPayInPaymentCurrency)} ${selectedCurrencyText} paid</div>
+                <div style="font-size: 0.85rem; color: #555;">
+                    = ${formatAmount(amountToPayInInvoiceCurrency)} ${invoiceCurrency} (${percentage}%)
+                </div>
+            </td>
+        `);
+
+                allocations.push({
+                    invoice_id: invoiceId,
+                    amount: amountToPayInInvoiceCurrency,
+                    amount_base: amountToPayInBase,
+                    amount_payment: amountToPayInPaymentCurrency,
+                    amount_in_invoice_currency: amountToPayInInvoiceCurrency
+                });
+
+                remainingInBase -= amountToPayInBase;
+            });
+
+            window.currentAllocations = allocations;
+        }
+
+        // Check for overpayment
+        function checkForOverpayment() {
+            const paymentAmount = parseFloat($('#amount').val()) || 0;
+            const selectedCurrencyId = $('#currency').val();
+
+            let paymentInBase = paymentAmount;
+            if (selectedCurrencyId && selectedCurrencyId !== baseCurrencyId) {
+                const exchangeRate = parseFloat($('#exchange_rate').val()) || 1;
+                paymentInBase = paymentAmount * exchangeRate;
+            }
+
+            if (paymentInBase > totalOutstanding && totalOutstanding > 0) {
+                const overpayment = paymentInBase - totalOutstanding;
+                $('#overpaymentAmount').text(formatAmount(overpayment));
+                $('#overpaymentSection').show();
+                $('#overpaymentAction').text($('#overpayment_action option:selected').text());
+            } else {
+                $('#overpaymentSection').hide();
+            }
+        }
+
+        // Overpayment action change
+        $('#overpayment_action').on('change', function () {
+            if ($(this).val() === 'write_off') {
+                $('#writeOffAccountSection').show();
+            } else {
+                $('#writeOffAccountSection').hide();
+            }
+            $('#overpaymentAction').text($(this).find('option:selected').text());
+        });
+
+        // Form submission
+        $('#editPaymentForm').on('submit', function (e) {
+            e.preventDefault();
+
+            // Validate
+            if (!$('#customer').val()) {
+                showNotification('Please select a customer', 'error');
+                return;
+            }
+
+            const paymentAmount = parseFloat($('#amount').val()) || 0;
+            if (paymentAmount <= 0) {
+                showNotification('Please enter a valid payment amount', 'error');
+                return;
+            }
+
+            if (!$('#payment_account').val()) {
+                showNotification('Please select a deposit account', 'error');
+                return;
+            }
+
+            const selectedCurrencyId = $('#currency').val();
+            const exchangeRate = parseFloat($('#exchange_rate').val()) || 1;
+
+            // Build allocations array
+            // In edit_receipt template, replace the form submission allocation calculation with this:
+
+            // Build allocations array with proper currency handling
+            const allocations = [];
+            let remainingPayment = paymentAmount;
+            let remainingInBase = paymentAmount;
+
+            if (selectedCurrencyId !== baseCurrencyId) {
+                remainingInBase = paymentAmount * exchangeRate;
+            }
+
+            $('#invoicesBody tr[data-invoice-id]').each(function () {
+                if (remainingPayment <= 0.01) return false;
+
+                const $row = $(this);
+                const invoiceId = $row.data('invoice-id');
+                const invoiceRate = parseFloat($row.data('invoice-rate')) || 1;
+
+                // Get balance due in invoice currency
+                const balanceCell = $row.find('td:eq(4)').text();
+                const balanceInInvoiceCurrency = parseFloat(balanceCell.split(' ')[0].replace(/,/g, '')) || 0;
+                const invoiceCurrency = balanceCell.split(' ')[1] || '';
+
+                // Get balance in base currency
+                let balanceInBase = balanceInInvoiceCurrency;
+                if (isMultiCurrency) {
+                    const baseCell = $row.find('td:eq(5)').text();
+                    balanceInBase = parseFloat(baseCell.split(' ')[0].replace(/,/g, '')) || balanceInInvoiceCurrency;
+                }
+
+                let amountToPayInInvoiceCurrency = 0;
+                let amountToPayInBase = 0;
+                let amountToPayInPaymentCurrency = 0;
+
+                if (selectedCurrencyId === baseCurrencyId) {
+                    // CASE 1: Payment in base currency (UGX)
+                    amountToPayInBase = Math.min(remainingPayment, balanceInBase);
+                    amountToPayInInvoiceCurrency = amountToPayInBase / invoiceRate;
+                    amountToPayInPaymentCurrency = amountToPayInBase;
+                } else {
+                    // CASE 2: Payment in foreign currency (EUR/USD/etc.)
+                    if (invoiceCurrency === $('#currency option:selected').text()) {
+                        // CASE 2A: Invoice currency matches payment currency
+                        amountToPayInPaymentCurrency = Math.min(remainingPayment, balanceInInvoiceCurrency);
+                        amountToPayInInvoiceCurrency = amountToPayInPaymentCurrency;
+                        amountToPayInBase = amountToPayInPaymentCurrency * exchangeRate;
+                    } else {
+                        // CASE 2B: Invoice currency is different from payment currency
+                        // Example: Payment in EUR, Invoice in USD - need to use base as bridge
+
+                        // First, calculate how much of the payment (in base) we can apply
+                        const maxBaseApplicable = Math.min(remainingInBase, balanceInBase);
+
+                        if (maxBaseApplicable > 0) {
+                            // Convert base amount back to payment currency
+                            amountToPayInPaymentCurrency = maxBaseApplicable / exchangeRate;
+
+                            // Convert base amount to invoice currency using invoice rate
+                            amountToPayInInvoiceCurrency = maxBaseApplicable / invoiceRate;
+
+                            amountToPayInBase = maxBaseApplicable;
+                        }
+                    }
+                }
+
+                // Round to 2 decimals
+                amountToPayInInvoiceCurrency = Math.round(amountToPayInInvoiceCurrency * 100) / 100;
+                amountToPayInBase = Math.round(amountToPayInBase * 100) / 100;
+                amountToPayInPaymentCurrency = Math.round(amountToPayInPaymentCurrency * 100) / 100;
+
+                if (amountToPayInInvoiceCurrency > 0.01) {
+                    allocations.push({
+                        invoice_id: invoiceId,
+                        amount: amountToPayInInvoiceCurrency,        // Invoice currency
+                        amount_base: amountToPayInBase,              // Base currency
+                        amount_payment: amountToPayInPaymentCurrency // Payment currency
+                    });
+
+                    remainingPayment -= amountToPayInPaymentCurrency;
+                    remainingInBase -= amountToPayInBase;
+                }
+            });
+            // Store allocations in hidden field
+            $('#allocations_json').val(JSON.stringify(allocations));
+
+            console.log('Allocations to submit:', allocations);
+
+            // Add CSRF token to form if not present
+            let csrfInput = $('#editPaymentForm input[name="csrf_token"]');
+            if (csrfInput.length === 0) {
+                csrfInput = $('<input>').attr({
+                    type: 'hidden',
+                    name: 'csrf_token',
+                    value: '{{ csrf_token() }}'
+                });
+                $('#editPaymentForm').append(csrfInput);
+            }
+
+            // Submit the form
+            this.submit();
+        });
+
+
+        // Helper functions
+        function formatAmount(amount) {
+            return new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        }
+
+        function showNotification(message, type) {
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(message, type);
+            } else {
+                alert(message);
+            }
+        }
+
+
+
+        // Initial calculations
+        calculateTotalOutstanding();
+        checkForOverpayment();
+        // Call on initial load
+        updatePaymentAmount();
+
+        // Add to event listeners
+
+        // Call on initial load
+        calculateAllocations();
+
+    });
+
+
+</script>
+{% endblock %}

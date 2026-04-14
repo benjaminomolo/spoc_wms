@@ -1,0 +1,148 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div class="header-row">
+        <h1>Loan Applicant Details</h1>
+    </div>
+
+    <div class="applicant-table">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>NIN</th>
+                    <th>Telephone</th>
+                    <th>Email</th>
+                    <th>Total Amount Paid</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for applicant_detail in applicant_details %}
+                <tr class="applicant-row">
+                    <td>{{ applicant_detail.applicant.name }}</td>
+                    <td>{{ applicant_detail.applicant.nin_number }}</td>
+                    <td>{{ applicant_detail.applicant.telephone }}</td>
+                    <td>{{ applicant_detail.applicant.email }}</td>
+                    <td>UGX {{ "{:,.0f}".format(applicant_detail.total_amount_paid_by_applicant) }}</td>
+                    <td>
+                        <div class="action-icons">
+                            <button class="view-icon toggle-loan-apps"
+                                data-applicant-id="{{ applicant_detail.applicant.id }}" data-tooltip="View Loans">
+                                <i class="fas fa-list"></i> View Loans
+                            </button>
+                        </div>
+                    </td>
+
+                </tr>
+                <tr class="loan-apps-row" data-applicant-id="{{ applicant_detail.applicant.id }}"
+                    style="display: none;">
+                    <td colspan="6">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+
+                                    <th>Status</th>
+                                    <th>Principal Amount</th>
+                                    <th>Interest Amount</th>
+                                    <th>Date of Request</th>
+                                    <th>Total Amount Paid</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for loan_app_detail in applicant_detail.loan_applications %}
+                                <tr class="loan-app-row">
+
+
+                                    <td class="status 
+    {% if loan_app_detail.loan_application.loan_status.value == 'Approved' %}approved
+    {% elif loan_app_detail.loan_application.loan_status.value == 'In Progress' %}in-progress
+    {% elif loan_app_detail.loan_application.loan_status.value == 'Pending' %}pending
+    {% elif loan_app_detail.loan_application.loan_status.value == 'Cancelled' %}cancelled
+    {% elif loan_app_detail.loan_application.loan_status.value == 'Closed' %}closed
+    {% elif loan_app_detail.loan_application.loan_status.value == 'On Hold' %}on-hold
+    {% elif loan_app_detail.loan_application.loan_status.name == 'Not Approved' %}not-approved
+    {% elif loan_app_detail.loan_application.loan_status.value == 'Discontinued' %}discontinued
+    {% elif loan_app_detail.loan_application.loan_status.value == 'Repaid' %}repaid
+    {% endif %}">
+                                        {{ loan_app_detail.loan_application.loan_status.value }}
+                                    </td>
+
+                                    <td>UGX {{ "{:,.0f}".format(loan_app_detail.loan_application.principal_amount) }}
+                                    </td>
+                                    <td>UGX {{ "{:,.0f}".format(loan_app_detail.loan_application.interest_amount) }}
+                                    </td>
+                                    <td>{{ loan_app_detail.loan_application.date_of_request }}</td>
+                                    <td>UGX {{ "{:,.0f}".format(loan_app_detail.total_amount_paid_for_loan) }}</td>
+                                    <td>
+                                        <div class="action-icons">
+                                            <button class="view-icon toggle-loan-history"
+                                                data-loan-id="{{ loan_app_detail.loan_application.id }}"
+                                                data-tooltip="View History">
+                                                <i class="fas fa-history"></i> View History
+                                            </button>
+                                        </div>
+                                    </td>
+
+                                </tr>
+                                <tr class="loan-history-row" data-loan-id="{{ loan_app_detail.loan_application.id }}"
+                                    style="display: none;">
+                                    <td colspan="7">
+                                        <table class="table table-bordered">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Amount Paid</th>
+                                                    <th>Discount</th>
+                                                    <th>Notes</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for history in loan_app_detail.loan_history %}
+                                                <tr>
+                                                    <td>{{ history.creation_date }}</td>
+                                                    <td>UGX {{ "{:,.0f}".format(history.amount_paid) }}</td>
+                                                    <td>UGX {{ "{:,.0f}".format(history.discount_amount) }}</td>
+                                                    <td>{{ history.notes }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Toggle loan applications for an applicant
+        document.querySelectorAll('.toggle-loan-apps').forEach(button => {
+            button.addEventListener('click', function () {
+                const applicantId = this.getAttribute('data-applicant-id');
+                const loanAppsRow = document.querySelector(`.loan-apps-row[data-applicant-id="${applicantId}"]`);
+                loanAppsRow.style.display = loanAppsRow.style.display === 'none' ? 'table-row' : 'none';
+            });
+        });
+
+        // Toggle loan history for a loan application
+        document.querySelectorAll('.toggle-loan-history').forEach(button => {
+            button.addEventListener('click', function () {
+                const loanId = this.getAttribute('data-loan-id');
+                const loanHistoryRow = document.querySelector(`.loan-history-row[data-loan-id="${loanId}"]`);
+                loanHistoryRow.style.display = loanHistoryRow.style.display === 'none' ? 'table-row' : 'none';
+            });
+        });
+    });
+
+
+</script>
+{% endblock %}

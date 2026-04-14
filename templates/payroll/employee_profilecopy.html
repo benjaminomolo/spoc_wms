@@ -1,0 +1,1165 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+
+    <div class="header-section">
+        <h1>Payroll Summary</h1>
+
+        <!-- New Buttons -->
+        <div class="header-buttons">
+            <button class="cta-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+            <button class="cta-button" type="button" id="postToLedger" onclick="openPostAllToLedgerModal()">
+                <i class="fas fa-book"></i> Post All Entries to Ledger
+            </button>
+
+            <button class="cta-button" type="button" id="payInFull">
+                <i class="fas fa-money-check-alt"></i> Pay in Full
+            </button>
+        </div>
+    </div>
+    <h4>Payroll Number: {{ payroll_period_name }}</h4>
+
+    <!-- Filter Section -->
+    <div class="filter-section" id="filter-section">
+        <form method="GET" action="{{ url_for('get_payroll_summary', payroll_period_id=payroll_period_id) }}"
+            class="date-filter-form" id="filter-form">
+
+            <!-- Department Filter -->
+            <div class="filter-group">
+                <label for="department" class="filter-label">Department</label>
+                <select id="department" name="department" class="form-select">
+                    <option value="">All Departments</option>
+                    {% for department in departments %}
+                    <option value="{{ department.id }}" {% if request.args.get('department')==department.id|string %}
+                        selected {% endif %}>
+                        {{ department.department_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Salary Type Filter -->
+            <div class="filter-group">
+                <label for="salary_type" class="filter-label">Salary Type</label>
+                <select id="salary_type" name="salary_type" class="form-select">
+                    <option value="">All Salary Types</option>
+                    <option value="Hourly" {% if request.args.get('salary_type')=='Hourly' %}selected{% endif %}>Hourly
+                    </option>
+                    <option value="Monthly" {% if request.args.get('salary_type')=='Monthly' %}selected{% endif %}>
+                        Monthly</option>
+                    <option value="Daily" {% if request.args.get('salary_type')=='Daily' %}selected{% endif %}>Daily
+                    </option>
+                    <option value="Weekly" {% if request.args.get('salary_type')=='Weekly' %}selected{% endif %}>Weekly
+                    </option>
+                    <option value="Bi-weekly" {% if request.args.get('salary_type')=='Bi-weekly' %}selected{% endif %}>
+                        Bi-weekly</option>
+                    <option value="Piece Rate" {% if request.args.get('salary_type')=='Piece Rate' %}selected{% endif
+                        %}>Piece Rate</option>
+                    <option value="Commission" {% if request.args.get('salary_type')=='Commission' %}selected{% endif
+                        %}>Commission</option>
+                    <option value="Other" {% if request.args.get('salary_type')=='Other' %}selected{% endif %}>Other
+                    </option>
+                </select>
+            </div>
+
+            <!-- Currency Filter -->
+            <div class="filter-group">
+                <label for="currency" class="filter-label">Currency</label>
+                <select id="currency" name="currency" class="form-select">
+                    <option value="">All Currencies</option>
+                    {% for currency in currencies %}
+                    <option value="{{ currency.id }}" {% if request.args.get('currency')==currency.id|string %} selected
+                        {% endif %}>
+                        {{ currency.user_currency }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="filter-actions">
+                <button type="submit" class="add-button">Apply Filter</button>
+                <a href="{{ url_for('get_payroll_summary', payroll_period_id=payroll_period_id) }}"
+                    class="btn reset-button">Reset</a>
+            </div>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <!-- Payroll Summary Table -->
+        <table id="payroll-summary-table" class="table_responsive stripe">
+            <thead>
+                <tr>
+                    <th>Department</th>
+                    <th>Salary Type</th>
+                    <th>Employee Name</th>
+                    <th>Base Currency</th>
+                    <th>Gross Salary</th>
+                    <th>Net Salary</th>
+                    <th>Total Benefits</th>
+                    <th>Total Deductions</th>
+                    <th>Paid Amount</th>
+                    <th>Balance Due</th>
+                    <th>Payment Status</th>
+                    <th>Actions</th> <!-- New column for action buttons -->
+                </tr>
+            </thead>
+            <tbody id="payroll-summary-body">
+                {% for payroll in payroll_summary %}
+                <tr>
+                    <td>{{ payroll.department_name }}</td>
+                    <td>{{ payroll.salary_type }}</td>
+                    <td>{{ payroll.employee_name }}</td>
+                    <td>{{ payroll.user_currency }}</td>
+                    <td>{{ "{:,.2f}".format(payroll.gross_salary or 0) }}</td>
+                    <td>{{ "{:,.2f}".format(payroll.net_salary or 0) }}</td>
+                    <td>{{ "{:,.2f}".format(payroll.total_benefits or 0) }}</td>
+                    <td>{{ "{:,.2f}".format(payroll.total_deductions or 0) }}</td>
+                    <td>{{ "{:,.2f}".format(payroll.paid_amount or 0) }}</td>
+                    <td>{{ "{:,.2f}".format(payroll.balance_due or 0) }}</td>
+                    <td>{{ payroll.payment_status.value }}</td>
+                    <td>
+                        <button class="btn btn-view-details"
+                            onclick="window.location.href='/payroll/payrun_transaction_details/{{ payroll.payroll_transaction_id }}'">
+                            <i class="fas fa-eye"></i> View Details
+                        </button>
+
+                        {% if payroll.balance_due > 0 %}
+                        <button class="btn btn-make-payment"
+                            onclick="openPaymentModal({{ payroll.payroll_transaction_id }}, {{ payroll.balance_due }})">
+                            <i class="fas fa-money-bill"></i> Make Payment
+                        </button>
+                        {% endif %}
+
+                        {% if payroll.is_posted_to_ledger == 0 %}
+                        <button class="btn btn-post-to-ledger"
+                            onclick="openPostToLedgerModal({{ payroll.payroll_transaction_id }}, {{ payroll.balance_due }})">
+                            <i class="fas fa-book"></i> Post to Ledger
+                        </button>
+                        {% endif %}
+
+
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th>Search Department</th>
+                    <th>Search Salary Type</th>
+                    <th>Search Employee Name</th>
+                    <th>Search Base Currency</th>
+                    <th>{{ "{:,.2f}".format(totals.gross_salary) }}</th>
+                    <th>{{ "{:,.2f}".format(totals.net_salary) }}</th>
+                    <th>{{ "{:,.2f}".format(totals.total_benefits) }}</th>
+                    <th>{{ "{:,.2f}".format(totals.total_deductions) }}</th>
+                    <th>{{ "{:,.2f}".format(totals.paid_amount) }}</th>
+                    <th>{{ "{:,.2f}".format(totals.balance_due) }}</th>
+                    <th></th>
+                    <th></th> <!-- Empty footer for actions column -->
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Make Payment Modal -->
+    <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="paymentModalLabel">Make Payment</h5>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="paymentForm">
+                        <input type="hidden" id="payrollTransactionId" name="payrollTransactionId">
+                        <!-- Amount Field -->
+                        <div class="form-group mb-4">
+                            <label for="amount" class="form-label fw-bold">Amount <span
+                                    class="required">*</span></label>
+                            <input type="number" id="amount" name="amount" class="form-control" required>
+                            <small class="form-text text-muted">Enter the amount to be paid.</small>
+                        </div>
+
+                        <!-- Payment Type Field -->
+                        <div class="form-group mb-4">
+                            <label for="paymentType" class="form-label fw-bold">Payment Type <span
+                                    class="required">*</span></label>
+                            <select id="paymentType" name="paymentType" class="form-select"
+                                onchange="handlePaymentTypeChange()" required>
+                                <option value="full">Full Payment</option>
+                                <option value="partial">Partial Payment</option>
+                            </select>
+                            <small class="form-text text-muted">Select whether this is a full or partial
+                                payment.</small>
+                        </div>
+
+                        <!-- Payment Date Field -->
+                        <div class="form-group mb-4">
+                            <label for="paymentDate" class="form-label fw-bold">Payment Date <span
+                                    class="required">*</span></label>
+                            <input type="date" id="paymentDate" name="paymentDate" class="form-control" required>
+                            <small class="form-text text-muted">Select the payment date. Defaults to today.</small>
+                        </div>
+
+                        <!-- Payment Account Category (Category) Field -->
+                        <div class="form-group mb-4">
+                            <label for="paymentCategory" class="form-label fw-bold">Payment Account Category <span
+                                    class="required">*</span></label>
+                            <select id="paymentCategory" name="paymentCategory" class="form-select"
+                                onchange="filterFundingAccounts()">
+                                <option value="">Select Payment Account Category</option>
+                                <!-- Categories will be dynamically populated here -->
+                            </select>
+                            <small class="form-text text-muted">Select the category for the funding account.</small>
+                        </div>
+
+                        <!-- Funding Account (Subcategory) Field -->
+                        <div class="form-group mb-4">
+                            <label for="fundingAccount" class="form-label fw-bold">Funding Account <span
+                                    class="required">*</span></label>
+                            <select id="fundingAccount" name="fundingAccount" class="form-select" required>
+                                <option value="">Select Funding Account</option>
+                                <!-- Funding accounts (subcategories) will be dynamically populated here based on category selection -->
+                            </select>
+                            <small class="form-text text-muted">Select the funding account from the selected
+                                category.</small>
+                        </div>
+
+
+                        <!-- Reference Field -->
+                        <div class="form-group mb-4">
+                            <label for="reference" class="form-label fw-bold">Reference</label>
+                            <input type="text" id="reference" name="reference" class="form-control">
+                            <small class="form-text text-muted">Enter transaction reference (e.g., cheque
+                                number).</small>
+                        </div>
+
+                        <!-- Notes Field -->
+                        <div class="form-group mb-4">
+                            <label for="notes" class="form-label fw-bold">Notes</label>
+                            <textarea id="notes" name="notes" class="form-control" rows="3"></textarea>
+                            <small class="form-text text-muted">Additional details about the payment.</small>
+                        </div>
+
+
+
+                        <!-- Payment Method Section -->
+                        <div class="form-group mb-4">
+                            <label for="paymentMethod" class="form-label fw-bold">Payment Method</label>
+                            <select id="paymentMethod" name="paymentMethod" class="form-select">
+                                <option value="">Select Payment Method</option>
+                                {% for mode in payment_modes %}
+                                <option value="{{ mode.id }}">{{ mode.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">Choose the payment method for this transaction.</small>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="button cta-button">Submit Payment</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Post to Ledger Modal -->
+    <div class="modal fade" id="postToLedgerModal" tabindex="-1" aria-labelledby="postToLedgerModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="postToLedgerModalLabel">Post to Ledger</h3>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="postToLedgerForm">
+                        <!-- Hidden field for balance due -->
+                        <input type="hidden" id="ledgerBalanceDue" name="ledgerBalanceDue">
+                        <input type="hidden" id="ledgerTransactionId" name="ledgerTransactionId">
+
+
+                        <!-- Expense Allocation Section -->
+                        <h4 class="mb-3">Expense Allocation</h4>
+                        <div class="form-group mb-4">
+                            <label for="debitAccountCategory" class="form-label fw-bold">
+                                Account Category (Expenses) <span class="required">*</span>
+                            </label>
+                            <select id="debitAccountCategory" name="debitAccountCategory" class="form-select"
+                                onchange="loadExpenseSubcategories()" required>
+                                <option value="">Select Account Category</option>
+                                <!-- Expense categories will be populated here -->
+                            </select>
+                            <small class="form-text text-muted">Select the payroll expense classification for this
+                                transaction.</small>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="debitSubCategory" class="form-label fw-bold">
+                                Subcategory <span class="required">*</span>
+                            </label>
+                            <select id="debitSubCategory" name="debitSubCategory" class="form-select" required>
+                                <option value="">Select Subcategory</option>
+                                <!-- Subcategories will be dynamically loaded based on the selected category -->
+                            </select>
+                            <small class="form-text text-muted">Select Choose the specific payroll expense
+                                account.</small>
+                        </div>
+
+                        {% if payroll_count > 1 or payroll.balance_due > 0 %}
+                        <!-- Liability Allocation Section -->
+                        <h4 class="mb-3">Salaries Payable Allocation</h4>
+                        <div class="form-group mb-4">
+                            <label for="creditAccountCategory" class="form-label fw-bold">
+                                Account Category (Liabilities) <span class="required">*</span>
+                            </label>
+                            <select id="creditAccountCategory" name="creditAccountCategory" class="form-select"
+                                onchange="loadLiabilitySubcategories()" required>
+                                <option value="">Select Account Category</option>
+                                <!-- Liability categories will be populated here -->
+                            </select>
+                            <small class="form-text text-muted">Select the liability account category for unpaid
+                                salaries or payroll deductions.</small>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="creditSubCategory" class="form-label fw-bold">
+                                Subcategory <span class="required">*</span>
+                            </label>
+                            <select id="creditSubCategory" name="creditSubCategory" class="form-select" required>
+                                <option value="">Select Subcategory</option>
+                                <!-- Subcategories will be dynamically loaded based on the selected category -->
+                            </select>
+                            <small class="form-text text-muted">Select the specific subcategory for the chosen liability
+                                account.</small>
+                        </div>
+                        {% endif %}
+
+
+                        <!-- Submit Button -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="button cta-button">Post to Ledger</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Post All Entries to Ledger Modal -->
+    <div class="modal fade" id="postAllToLedgerModal" tabindex="-1" aria-labelledby="postAllToLedgerModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="postAllToLedgerModalLabel">Post All Entries to Ledger</h3>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="postAllToLedgerForm">
+                        <!-- Hidden field for Payroll Period ID -->
+                        <input type="hidden" id="payrollPeriodId" name="payrollPeriodId"
+                            value="{{ payroll_period_id }}">
+
+                        <!-- Expense Allocation Section -->
+                        <h4 class="mb-3">Expense Allocation</h4>
+                        <div class="form-group mb-4">
+                            <label for="alldebitAccountCategory" class="form-label fw-bold">
+                                Account Category (Expenses) <span class="required">*</span>
+                            </label>
+                            <select id="alldebitAccountCategory" name="alldebitAccountCategory" class="form-select"
+                                onchange="loadAllExpenseSubcategories()" required>
+                                <option value="">Select Account Category</option>
+                                <!-- Expense categories will be populated here -->
+                            </select>
+                            <small class="form-text text-muted">Select the payroll expense classification for this
+                                transaction.</small>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="alldebitSubCategory" class="form-label fw-bold">
+                                Subcategory <span class="required">*</span>
+                            </label>
+                            <select id="alldebitSubCategory" name="alldebitSubCategory" class="form-select" required>
+                                <option value="">Select Subcategory</option>
+                                <!-- Subcategories will be dynamically loaded based on the selected category -->
+                            </select>
+                            <small class="form-text text-muted">Select Choose the specific payroll expense
+                                account.</small>
+                        </div>
+
+                        <!-- Salaries Payable Allocation -->
+                        <!-- Liability Allocation Section -->
+                        <h4 class="mb-3">Salaries Payable Allocation</h4>
+                        <div class="form-group mb-4">
+                            <label for="allcreditAccountCategory" class="form-label fw-bold">
+                                Account Category (Liabilities) <span class="required">*</span>
+                            </label>
+                            <select id="allcreditAccountCategory" name="allcreditAccountCategory" class="form-select"
+                                onchange="loadAllLiabilitySubcategories()" required>
+                                <option value="">Select Account Category</option>
+                                <!-- Liability categories will be populated here -->
+                            </select>
+                            <small class="form-text text-muted">Select the liability account category for unpaid
+                                salaries or payroll deductions.</small>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="allcreditSubCategory" class="form-label fw-bold">
+                                Subcategory <span class="required">*</span>
+                            </label>
+                            <select id="allcreditSubCategory" name="allcreditSubCategory" class="form-select" required>
+                                <option value="">Select Subcategory</option>
+                                <!-- Subcategories will be dynamically loaded based on the selected category -->
+                            </select>
+                            <small class="form-text text-muted">Select the specific subcategory for the chosen liability
+                                account.</small>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="button cta-button">Post All Entries</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+</div>
+
+<script>
+
+    const ledgerTransactionInput = document.getElementById('ledgerTransactionId');
+
+    $(document).ready(function () {
+        // Initialize DataTable
+        var table = $('#payroll-summary-table').DataTable({
+            "lengthMenu": [
+                [10, 25, 50, 100, -1],
+                [10, 25, 50, 100, 'All']
+            ],
+            "aaSorting": [],
+            "initComplete": function () {
+                this.api().columns().every(function () {
+                    let column = this;
+                    let index = column.index();
+                    let title = $(column.footer()).text();
+
+                    // Check if it's the 10th column (index 9, as it's 0-indexed)
+                    if (index === 10) {
+                        var input = $('<input>').attr('placeholder', 'Search ' + title).addClass('form-control form-control-sm search-input');
+                        $(column.footer()).html(input);
+
+                        input.on('keyup change', function () {
+                            column.search($(this).val()).draw();
+                        });
+                    }
+                    //For other columns you want to search
+                    else if (index < 4) { // Only add search inputs to the first 4 columns
+                        var input = $('<input>').attr('placeholder', 'Search ' + title).addClass('form-control form-control-sm search-input');
+                        $(column.footer()).html(input);
+
+                        input.on('keyup change', function () {
+                            column.search($(this).val()).draw();
+                        });
+                    }
+                });
+            },
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                // Format the amount column with thousands separators
+                function formatNumber(num) {
+                    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+
+                // Calculate totals for each column
+                var intVal = function (i) {
+                    return typeof i === 'string' ? i.replace(/[^0-9.-]+/g, '') * 1 : typeof i === 'number' ? i : 0;
+                };
+
+                // Gross Salary (Column 4)
+                var totalGrossSalary = api.column(4, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Net Salary (Column 5)
+                var totalNetSalary = api.column(5, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Total Benefits (Column 6)
+                var totalBenefits = api.column(6, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Total Deductions (Column 7)
+                var totalDeductions = api.column(7, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Paid Amount (Column 8)
+                var totalPaidAmount = api.column(8, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Balance Due (Column 9)
+                var totalBalanceDue = api.column(9, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Update the footer with the new totals
+                $(api.column(4).footer()).html(formatNumber(totalGrossSalary));
+                $(api.column(5).footer()).html(formatNumber(totalNetSalary));
+                $(api.column(6).footer()).html(formatNumber(totalBenefits));
+                $(api.column(7).footer()).html(formatNumber(totalDeductions));
+                $(api.column(8).footer()).html(formatNumber(totalPaidAmount));
+                $(api.column(9).footer()).html(formatNumber(totalBalanceDue));
+            }
+        });
+
+        // Toggle the filter section visibility
+        document.getElementById('toggleFilterForm').addEventListener('click', function () {
+            const filterSection = document.getElementById('filter-section');
+            filterSection.classList.toggle('visible');
+        });
+
+
+        // Function to set today's date in the payment date field
+        function setTodayDate() {
+            const dateInput = document.getElementById('paymentDate');
+            const today = new Date();
+            const formattedDate = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+            dateInput.value = formattedDate; // Set the value to today's date
+        }
+
+
+
+        // Open Payment Modal function
+        window.openPaymentModal = function (payrollTransactionId, balanceDue) {
+            // Set the payrollTransactionId and balanceDue to the form for payment
+            $('#paymentForm')[0].reset(); // Reset form
+            $('#paymentModal').modal('show'); // Show the modal
+            // Set today's date in the payment date field
+            setTodayDate();
+
+
+            console.log('Payroll Transaction ID: ' + payrollTransactionId);
+
+            // You can pass the payrollTransactionId and balanceDue for use within the modal
+            // Set values inside form
+            $('#payrollTransactionId').val(payrollTransactionId);  // Store the transaction ID
+            $('#amount').val(balanceDue); // Set default payment amount to balance due
+            $('#paymentForm').on('submit', function (e) {
+                e.preventDefault();
+                // Handle the form submission for payment here
+                var amount = $('#amount').val();
+                var paymentType = $('#paymentType').val();
+                // Here, send an AJAX request or process the payment in the backend as required
+                console.log('Payroll Transaction ID: ' + payrollTransactionId);
+                console.log('Amount to Pay: ' + amount);
+                console.log('Payment Type: ' + paymentType);
+
+                // After payment, you may close the modal or show a success message
+                $('#paymentModal').modal('hide');
+            });
+        };
+
+        // Handle changes to payment type selection
+        window.handlePaymentTypeChange = function () {
+            var paymentType = $('#paymentType').val();
+            if (paymentType === 'partial') {
+                $('#amount').attr('max', $('#amount').val()); // Allow partial payment within the balance due
+            } else {
+                $('#amount').removeAttr('max'); // Remove the max attribute for full payment
+            }
+        };
+    });
+
+    // Function to fetch and populate Payment Account Categories
+    function loadPaymentAccountCategories() {
+        fetch('/api/chart_of_accounts')  // Fetch the chart of accounts
+            .then(response => response.json())
+            .then(data => {
+                console.log('Chart of Accounts:', data);
+                const paymentCategoryDropdown = document.getElementById('paymentCategory');
+                const fundingAccountDropdown = document.getElementById('fundingAccount');
+                const modal = document.getElementById('paymentModal');  // Assuming the modal has an ID 'paymentModal'
+
+                // Filter Asset accounts and populate Payment Account Categories
+                const assetAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Asset');
+
+                // Populate Payment Account Category dropdown
+                paymentCategoryDropdown.innerHTML = '<option value="">Select Payment Account Category</option>';
+                const categories = [...new Set(assetAccounts.map(account => account.category_id))];  // Get unique categories
+
+                // Check if categories exist
+                if (categories.length === 0) {
+                    alert("No categories found. Please add a Chart of Accounts first.");
+
+                    // Close the modal
+                    $(modal).modal('hide');  // If using Bootstrap modal
+
+                    return;  // Exit the function if no categories exist
+                }
+
+                // Populate category options
+                categories.forEach(categoryId => {
+                    const category = assetAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`  // Display account name as category
+                    paymentCategoryDropdown.appendChild(option);
+                });
+
+                // Reset Funding Account dropdown
+                fundingAccountDropdown.innerHTML = '<option value="">Select Funding Account</option>';
+            })
+            .catch(error => console.error('Error fetching chart of accounts:', error));
+    }
+
+    // Function to filter and populate Funding Account (Subcategory) dropdown based on selected Payment Account Category
+    function filterFundingAccounts() {
+        const categoryId = document.getElementById('paymentCategory').value;
+        const fundingAccountDropdown = document.getElementById('fundingAccount');
+
+        // If no category is selected, reset the Funding Account dropdown
+        if (!categoryId) {
+            fundingAccountDropdown.innerHTML = '<option value="">Select Funding Account</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')  // Fetch the chart of accounts again
+            .then(response => response.json())
+            .then(data => {
+                // Filter subcategories based on selected category
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Asset');
+
+                // Populate Funding Account dropdown with filtered subcategories
+                fundingAccountDropdown.innerHTML = '<option value="">Select Funding Account</option>';  // Reset options
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;  // Display account name as subcategory
+                    fundingAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching funding accounts:', error));
+    }
+
+    // Submitting payment 
+    document.addEventListener("DOMContentLoaded", function () {
+        document.getElementById("paymentForm").addEventListener("submit", function (event) {
+            event.preventDefault(); // Prevent default form submission
+
+            let formData = new FormData(this);
+            let payrollTransactionId = document.getElementById("payrollTransactionId").value; // Get from hidden input
+
+            // Create an object to store the form data
+            let data = {};
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+
+            // Add payrollTransactionId to the data object
+            data.payrollTransactionId = payrollTransactionId;
+
+            console.log("Submitting payment for transaction ID:", payrollTransactionId); // Debugging
+
+            fetch(`/payroll/make_payment/${payrollTransactionId}`, {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json', // Set the correct Content-Type
+                },
+                body: JSON.stringify(data), // Send the data as JSON
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert("Payment successful!");
+                        $('#paymentModal').modal('hide'); // Close modal
+                        location.reload(); // Refresh the page
+                    } else {
+                        alert("Payment failed: " + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("An error occurred while processing the payment.");
+                });
+        });
+    });
+
+
+    // **************************Post to Ledger function ****************************************************************************
+    /**
+     * Opens the Post to Ledger modal.
+     * @param {number} transactionId - The ID of the payroll transaction.
+     * @param {number} balanceDue - The balance due for the transaction.
+     */
+    function openPostToLedgerModal(transactionId, balanceDue) {
+        console.log("openPostToLedgerModal called with transactionId:", transactionId, "and balanceDue:", balanceDue);
+
+        // Reset the ledger form
+        const ledgerForm = document.getElementById('postToLedgerForm');
+        if (ledgerForm) {
+            ledgerForm.reset();
+            console.log("Ledger form has been reset.");
+        } else {
+            console.error("Ledger form element 'postToLedgerForm' not found.");
+        }
+
+        // Set the hidden transaction ID field
+
+        if (ledgerTransactionInput) {
+            ledgerTransactionInput.value = transactionId;
+            console.log("Hidden ledgerTransactionId set to:", ledgerTransactionInput.value);
+        } else {
+            console.error("Hidden element 'ledgerTransactionId' not found.");
+        }
+
+        // Set the hidden balance due field
+        const ledgerBalanceDueInput = document.getElementById('ledgerBalanceDue');
+        if (ledgerBalanceDueInput) {
+            ledgerBalanceDueInput.value = balanceDue;
+            console.log("Hidden ledgerBalanceDue set to:", ledgerBalanceDueInput.value);
+        } else {
+            console.error("Hidden element 'ledgerBalanceDue' not found.");
+        }
+
+        // Check if a balance exists; if so, show the Credit section, else hide it.
+        const creditSection = document.getElementById('creditSection');
+        if (creditSection) {
+            if (balanceDue > 0) {
+                creditSection.style.display = 'block';
+                console.log("Balance due is greater than 0. Showing Credit section.");
+            } else {
+                creditSection.style.display = 'none';
+                console.log("No balance due. Hiding Credit section.");
+            }
+        } else {
+            console.error("Element 'creditSection' not found.");
+        }
+
+        // Load Debit (Expense) and Credit (Liability) account categories
+        console.log("Loading Debit (Expense) categories...");
+        loadExpenseAndLiabilityAllocation();
+        console.log("Loading Credit (Liability) categories...");
+
+
+        // Open the modal using Bootstrap's modal method
+        console.log("Opening Post to Ledger modal.");
+        $('#postToLedgerModal').modal('show');
+    }
+
+
+    // Open Post All Entries to Ledger modal
+    function openPostAllToLedgerModal() {
+        console.log("Opening Post All Entries to Ledger modal.");
+
+        // Reset the form
+        const allLedgerForm = document.getElementById('postAllToLedgerForm');
+        if (allLedgerForm) {
+            allLedgerForm.reset();
+            console.log("Post All Ledger form has been reset.");
+        } else {
+            console.error("Ledger form 'postAllToLedgerForm' not found.");
+        }
+
+        // Set Payroll Period ID
+        const payrollPeriodInput = document.getElementById('payrollPeriodId');
+        if (payrollPeriodInput) {
+            payrollPeriodInput.value = "{{ payroll_period_id }}"; // Dynamically set from template
+            console.log("Payroll Period ID set to:", payrollPeriodInput.value);
+        } else {
+            console.error("Element 'payrollPeriodId' not found.");
+        }
+
+        // Open the modal
+        $('#postAllToLedgerModal').modal('show');
+    }
+
+
+
+    /**
+     * Loads Debit (expense) account categories.
+     */
+    function loadExpenseAndLiabilityAllocation() {
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Chart of Accounts:', data);
+
+                // Get the dropdown elements and modal
+                const expenseDropdown = document.getElementById('debitAccountCategory');
+                const liabilityDropdown = document.getElementById('creditAccountCategory');
+                const modal = document.getElementById('postToLedgerModal');  // Assuming your modal has this ID
+
+                // ------------------------------
+                // Expense Allocation (Debit) Section
+                // ------------------------------
+                // Filter expense accounts
+                const expenseAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Expense');
+                expenseDropdown.innerHTML = '<option value="">Select Account Category</option>';
+                const expenseCategories = [...new Set(expenseAccounts.map(account => account.category_id))]; // Unique expense category IDs
+
+                if (expenseCategories.length === 0) {
+                    alert("No expense categories found. Please add a Chart of Accounts first.");
+                    $(modal).modal('hide');
+                    return;
+                }
+
+                // Populate expense dropdown
+                expenseCategories.forEach(categoryId => {
+                    const category = expenseAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    expenseDropdown.appendChild(option);
+                });
+
+                // ------------------------------
+                // Liability Allocation (Credit) Section
+                // ------------------------------
+                // Filter liability accounts
+                const liabilityAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Liability');
+                liabilityDropdown.innerHTML = '<option value="">Select Account Category</option>';
+                const liabilityCategories = [...new Set(liabilityAccounts.map(account => account.category_id))]; // Unique liability category IDs
+
+                if (liabilityCategories.length === 0) {
+                    alert("No liability categories found. Please add a Chart of Accounts first.");
+                    $(modal).modal('hide');
+                    return;
+                }
+
+                // Populate liability dropdown
+                liabilityCategories.forEach(categoryId => {
+                    const category = liabilityAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    liabilityDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching chart of accounts:', error));
+    }
+
+
+    /**
+    * Loads Debit (expense) account categories.
+    */
+    function loadAllExpenseAndLiabilityAllocation() {
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Chart of Accounts:', data);
+
+                // Get the dropdown elements and modal
+                const expenseDropdown = document.getElementById('alldebitAccountCategory');
+                const liabilityDropdown = document.getElementById('allcreditAccountCategory');
+                const modal = document.getElementById('postAllToLedgerModal');  // Assuming your modal has this ID
+
+                // ------------------------------
+                // Expense Allocation (Debit) Section
+                // ------------------------------
+                // Filter expense accounts
+                const expenseAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Expense');
+                expenseDropdown.innerHTML = '<option value="">Select Account Category</option>';
+                const expenseCategories = [...new Set(expenseAccounts.map(account => account.category_id))]; // Unique expense category IDs
+
+                if (expenseCategories.length === 0) {
+                    alert("No expense categories found. Please add a Chart of Accounts first.");
+                    $(modal).modal('hide');
+                    return;
+                }
+
+                // Populate expense dropdown
+                allexpenseCategories.forEach(categoryId => {
+                    const category = allexpenseAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    expenseDropdown.appendChild(option);
+                });
+
+                // ------------------------------
+                // Liability Allocation (Credit) Section
+                // ------------------------------
+                // Filter liability accounts
+                const liabilityAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Liability');
+                liabilityDropdown.innerHTML = '<option value="">Select Account Category</option>';
+                const liabilityCategories = [...new Set(liabilityAccounts.map(account => account.category_id))]; // Unique liability category IDs
+
+                if (liabilityCategories.length === 0) {
+                    alert("No liability categories found. Please add a Chart of Accounts first.");
+                    $(modal).modal('hide');
+                    return;
+                }
+
+                // Populate liability dropdown
+                liabilityCategories.forEach(categoryId => {
+                    const category = liabilityAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    liabilityDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching chart of accounts:', error));
+    }
+
+
+
+    /**
+   * Loads Debit subcategories based on the selected expense account category.
+   */
+    function loadExpenseSubcategories() {
+        const debitCategoryId = document.getElementById('debitAccountCategory').value;
+        const debitSubCategorySelect = document.getElementById('debitSubCategory');
+
+        // Reset subcategory dropdown if no category is selected
+        if (!debitCategoryId) {
+            debitSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const expenseSubcategories = data.chart_of_accounts.filter(account =>
+                    account.category_id == debitCategoryId && account.account_type === 'Expense'
+                );
+
+                debitSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+                expenseSubcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    debitSubCategorySelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading expense subcategories:', error));
+    }
+
+
+    /**
+* Loads All Debit subcategories based on the selected expense account category.
+*/
+    function loadAllExpenseSubcategories() {
+        const alldebitCategoryId = document.getElementById('alldebitAccountCategory').value;
+        const alldebitSubCategorySelect = document.getElementById('alldebitSubCategory');
+
+        // Reset subcategory dropdown if no category is selected
+        if (!alldebitCategoryId) {
+            alldebitSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const allexpenseSubcategories = data.chart_of_accounts.filter(account =>
+                    account.category_id == alldebitCategoryId && account.account_type === 'Expense'
+                );
+
+                alldebitSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+                allexpenseSubcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    alldebitSubCategorySelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading expense subcategories:', error));
+    }
+
+
+    /**
+     * Loads Credit subcategories based on the selected liability account category.
+     */
+    function loadLiabilitySubcategories() {
+        const creditCategoryId = document.getElementById('creditAccountCategory').value;
+        const creditSubCategorySelect = document.getElementById('creditSubCategory');
+
+        // Reset subcategory dropdown if no category is selected
+        if (!creditCategoryId) {
+            creditSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const liabilitySubcategories = data.chart_of_accounts.filter(account =>
+                    account.category_id == creditCategoryId && account.account_type === 'Liability'
+                );
+
+                creditSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+                liabilitySubcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    creditSubCategorySelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading liability subcategories:', error));
+    }
+
+
+    /**
+  * Loads All Credit subcategories based on the selected liability account category.
+  */
+    function loadAllLiabilitySubcategories() {
+        const creditCategoryId = document.getElementById('allcreditAccountCategory').value;
+        const creditSubCategorySelect = document.getElementById('allcreditSubCategory');
+
+        // Reset subcategory dropdown if no category is selected
+        if (!creditCategoryId) {
+            creditSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const liabilitySubcategories = data.chart_of_accounts.filter(account =>
+                    account.category_id == creditCategoryId && account.account_type === 'Liability'
+                );
+
+                creditSubCategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+                liabilitySubcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    creditSubCategorySelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading liability subcategories:', error));
+    }
+
+
+
+
+    /**
+     * Handles the submission of the Post to Ledger form.
+     */
+    document.getElementById('postToLedgerForm').addEventListener('submit', function (e) {
+        e.preventDefault(); // Prevent default form submission
+
+        let formData = new FormData(this);
+        let ledgerData = Object.fromEntries(formData.entries()); // Convert FormData to Object
+        console.log('Ledger data:', ledgerData);
+
+        if (!ledgerData.ledgerTransactionId) {
+            alert("Error: Ledger Transaction ID is missing.");
+            return;
+        }
+
+        console.log('Posting ledger for transaction:', ledgerData.ledgerTransactionId, ledgerData);
+
+        fetch(`/payroll/post_to_ledger/${ledgerData.ledgerTransactionId}`, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(ledgerData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    alert("Ledger posted successfully!");
+                    $('#postToLedgerModal').modal('hide');
+                    location.reload();
+                } else {
+                    alert("Ledger posting failed: " + (data.message || "Unknown error"));
+                }
+            })
+            .catch(error => {
+                console.error("Error posting ledger:", error);
+                alert("An error occurred while posting to ledger. Please try again.");
+            });
+    });
+
+
+
+
+
+    // Call function to load Payment Account Categories when the modal opens
+    document.addEventListener('DOMContentLoaded', () => {
+        loadPaymentAccountCategories();
+    });
+
+</script>
+
+
+<style>
+    /* Style for action buttons */
+    .btn-view-details,
+    .btn-make-payment,
+    .btn-post-to-ledger {
+        margin: 2px;
+        padding: 5px 10px;
+        font-size: 12px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-view-details {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+    }
+
+    .btn-make-payment {
+        background-color: #2196F3;
+        color: white;
+        border: none;
+    }
+
+    .btn-post-to-ledger {
+        background-color: #f44336;
+        color: white;
+        border: none;
+    }
+
+    .btn-view-details:hover,
+    .btn-make-payment:hover,
+    .btn-post-to-ledger:hover {
+        opacity: 0.8;
+    }
+
+    .btn-primary {
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-primary:hover {
+        opacity: 0.8;
+    }
+</style>
+{% endblock %}

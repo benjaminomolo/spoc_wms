@@ -1,0 +1,742 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <!-- HEADER SECTION -->
+    <div class="header-section">
+        <h1>Stock Receipt by Item</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li><a href="{{ url_for('purchases.add_purchase_transaction') }}">Quick Purchase</a></li>
+                    <li><a href="{{ url_for('purchases.add_purchase_order') }}">New Purchase Order</a></li>
+                    {% endif %}
+                    <li><a href="{{ url_for('view_purchase_transactions') }}">Purchase Transactions</a></li>
+                    <li><a href="{{ url_for('purchases.purchase_order_management') }}">Purchase Orders</a></li>
+                    <li><a href="{{ url_for('purchases.goods_receipt_management') }}">Goods Receipts</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Header buttons -->
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <!-- View Toggle Buttons -->
+            <div class="btn-group" role="group">
+                <button type="button" id="summaryViewBtn" class="button-outline active">
+                    <i class="fas fa-chart-bar"></i> Summary
+                </button>
+                <button type="button" id="detailViewBtn" class="button-outline">
+                    <i class="fas fa-list-alt"></i> Detail
+                </button>
+            </div>
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+            <!-- Export buttons -->
+            <button class="button-outline" type="button" id="exportExcelBtn" style="display: none;">
+                <i class="fas fa-file-excel"></i> Excel
+            </button>
+            <button class="button-outline" type="button" id="exportPdfBtn">
+                <i class="fas fa-file-pdf"></i> PDF
+            </button>
+
+            <!-- Refresh button -->
+            <div class="custom-tooltip-container">
+                <button class="refresh-btn" id="refreshBtn">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <span class="custom-tooltip">Refresh Data</span>
+            </div>
+        </div>
+
+        <!-- Dashboard Shortcuts -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                <li class="shortcut-item"><a href="{{ url_for('purchases.add_purchase_transaction') }}">Quick
+                        Purchase</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('view_purchase_transactions') }}">Transactions</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('purchases.purchase_order_management') }}">Orders</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('purchases.goods_receipt_management') }}">Receipts</a>
+                </li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- FILTER SECTION -->
+    <div class="filter-section" id="filter-section">
+        <form class="date-filter-form" id="filter-form">
+
+            <!-- Item Filter -->
+            <div class="filter-group">
+                <label for="item" class="filter-label">Item</label>
+                <select id="item" name="item" class="form-select form-select2">
+                    <option value="">All Items</option>
+                    {% for item in items %}
+                    <option value="{{ item.id }}">{{ item.inventory_item.item_name }}{% if item.inventory_item_variation
+                        and item.inventory_item_variation.variation_name %} - ({{
+                        item.inventory_item_variation.variation_name }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="filter-group">
+                <label for="category" class="filter-label">Category</label>
+                <select id="category" name="category" class="form-select2">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.category_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Transaction Type Filter -->
+            <!-- Transaction Type Filter -->
+            <div class="filter-group">
+                <label for="transaction_type" class="filter-label">Transaction Type</label>
+                <select id="transaction_type" name="transaction_type" class="form-select">
+                    <option value="">All Types</option>
+                    <option value="purchase_order">Purchase Orders</option>
+                    <option value="direct_purchase">Direct Purchases</option>
+                    <option value="inventory_entry">Inventory Entry (Manual)</option>
+                </select>
+            </div>
+
+            <!-- Date Range -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control">
+            </div>
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control">
+            </div>
+
+            <!-- Quick Date Range -->
+            <div class="filter-group">
+                <label for="quick_range" class="filter-label">Quick Range</label>
+                <select id="quick_range" class="form-select">
+                    <option value="">Select Range</option>
+                    <option value="current_month">Current Month</option>
+                    <option value="last_month">Last Month</option>
+                    <option value="current_quarter">Current Quarter</option>
+                    <option value="current_year">Current Year</option>
+                    <option value="last_year">Last Year</option>
+                </select>
+            </div>
+
+            <!-- Vendor Filter -->
+            <div class="filter-group">
+                <label for="vendor" class="filter-label">Sender</label>
+                <select id="vendor" name="vendor" class="form-select select2">
+                    <option value="">All Senders</option>
+                    {% for vendor in vendors %}
+                    <option value="{{ vendor.id }}">{{ vendor.vendor_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+
+            <!-- Currency Filter -->
+            <div class="filter-group">
+                <label for="currency" class="filter-label">Currency</label>
+                <select id="currency" name="currency" class="form-select">
+                    <option value="">All Currencies</option>
+                    {% for currency in currencies %}
+                    <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+            <!-- Location Filter -->
+            <div class="filter-group">
+                <label for="location" class="filter-label">Location</label>
+                <select id="location" name="location" class="form-select2">
+                    <option value="">All Locations</option>
+                    {% for location in locations %}
+                    <option value="{{ location.id }}">{{ location.location}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Project Filter -->
+            <div class="filter-group">
+                <label for="project" class="filter-label">Project</label>
+                <select id="project" name="project" class="form-select2">
+                    <option value="">All Projects</option>
+                    {% for project in projects %}
+                    <option value="{{ project.id }}">{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+            <!-- Sort Controls -->
+            <div class="filter-group">
+                <label for="sort_field" class="filter-label">Sort By</label>
+                <select id="sort_field" class="form-select">
+                    <option value="total_cost">Total Cost</option>
+                    <option value="total_quantity">Quantity</option>
+                    <option value="item_name">Item Name</option>
+                    <option value="last_purchase_date">Last Purchase Date</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="sort_order" class="filter-label">Sort Order</label>
+                <select id="sort_order" class="form-select">
+                    <option value="desc">Descending (High to Low)</option>
+                    <option value="asc">Ascending (Low to High)</option>
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="button" class="filter-section-button filter" id="applyFilter">Apply Filter</button>
+                <button type="button" class="filter-section-button reset" id="resetFilters">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- SUMMARY VIEW TABLE -->
+    <!-- SUMMARY VIEW TABLE -->
+    <div id="summaryView" class="table-responsive">
+        <table class="table table-bordered table-hover" id="summaryTable">
+            <thead class="table-light">
+                <tr>
+                    <th>Item Name</th>
+                    <th>Item Code</th>
+                    <th>Category</th>
+                    <th>UOM</th>
+                    <th class="text-right">Quantity Received</th>
+                    <th>Last Purchase Date</th>
+                </tr>
+            </thead>
+            <tbody id="summaryBody">
+                <tr>
+                    <td colspan="8" class="text-center">Loading summary data...</td>
+                </tr>
+            </tbody>
+            <tfoot class="table-light">
+                <tr class="font-weight-bold">
+                    <th colspan="4" class="text-right">Totals:</th>
+                    <th id="summaryTotalQty" class="text-right">0</th>
+                    <th colspan="2"></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- DETAIL VIEW TABLE -->
+    <!-- DETAIL VIEW TABLE -->
+    <div id="detailView" style="display: none;" class="table-responsive">
+        <table class="table table-bordered table-hover" id="detailTable">
+            <thead class="table-light">
+                <tr>
+                    <th>Transaction Date</th>
+                    <th>Transaction #</th>
+                    <th>Sender</th>
+                    <th>Item Name</th>
+                    <th>Item Code</th>
+                    <th>Category</th>
+                    <th>UOM</th>
+                    <th class="text-right">Quantity</th>
+                </tr>
+            </thead>
+            <tbody id="detailBody">
+                <tr>
+                    <td colspan="11" class="text-center">Loading detail data...</td>
+                </tr>
+            </tbody>
+            <tfoot class="table-light">
+                <tr class="font-weight-bold">
+                    <th colspan="7" class="text-right">Totals:</th>
+                    <th id="detailTotalQty" class="text-right">0</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- PAGINATION -->
+    <nav>
+        <ul class="pagination" id="pagination"></ul>
+        <div id="paginationInfo" class="mt-2"></div>
+    </nav>
+</div>
+
+<script>
+    // ========== STATE VARIABLES ==========
+    let currentView = 'summary'; // 'summary' or 'detail'
+    let currentPage = 1;
+    let perPage = 50;
+    let startDate = '';
+    let endDate = '';
+    let vendorId = '';
+    let itemId = '';
+    let categoryId = '';
+    let transactionType = '';
+    let currencyId = '';
+    let baseCurrency = '{{ base_currency.user_currency if base_currency else "USD" }}';
+
+    // Add these with your other state variables
+    let locationId = '';
+    let projectId = '';
+    let sortField = 'total_cost';  // Default sort field
+    let sortOrder = 'desc';        // Default sort order (desc or asc)
+
+    // Set default to current month
+    function setDefaultDateRange() {
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+        startDate = firstDay.toISOString().split('T')[0];
+        endDate = lastDay.toISOString().split('T')[0];
+
+        document.getElementById('start_date').value = startDate;
+        document.getElementById('end_date').value = endDate;
+    }
+
+    // ========== DOM ELEMENTS ==========
+    const summaryView = document.getElementById('summaryView');
+    const detailView = document.getElementById('detailView');
+    const summaryViewBtn = document.getElementById('summaryViewBtn');
+    const detailViewBtn = document.getElementById('detailViewBtn');
+    const summaryBody = document.getElementById('summaryBody');
+    const detailBody = document.getElementById('detailBody');
+    const paginationElement = document.getElementById('pagination');
+    const paginationInfoElement = document.getElementById('paginationInfo');
+    const applyFilterBtn = document.getElementById('applyFilter');
+    const resetFiltersBtn = document.getElementById('resetFilters');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const exportExcelBtn = document.getElementById('exportExcelBtn');
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
+    const quickRangeSelect = document.getElementById('quick_range');
+
+    // Add these with your other DOM elements
+    const locationFilter = document.getElementById('location');
+    const projectFilter = document.getElementById('project');
+    const sortFieldSelect = document.getElementById('sort_field');
+    const sortOrderSelect = document.getElementById('sort_order');
+
+    // ========== INITIALIZE SELECT2 ==========
+    $(document).ready(function () {
+        $('#vendor').select2({ placeholder: 'Select Vendor', allowClear: true, width: '100%' });
+        $('#item').select2({ placeholder: 'Select Item', allowClear: true, width: '100%' });
+    });
+
+    // ========== QUICK DATE RANGE HANDLER ==========
+    quickRangeSelect.addEventListener('change', function () {
+        const range = this.value;
+        const today = new Date();
+        let start, end;
+
+        switch (range) {
+            case 'current_month':
+                start = new Date(today.getFullYear(), today.getMonth(), 1);
+                end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                break;
+            case 'last_month':
+                start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                end = new Date(today.getFullYear(), today.getMonth(), 0);
+                break;
+            case 'current_quarter':
+                const quarter = Math.floor(today.getMonth() / 3);
+                start = new Date(today.getFullYear(), quarter * 3, 1);
+                end = new Date(today.getFullYear(), quarter * 3 + 3, 0);
+                break;
+            case 'current_year':
+                start = new Date(today.getFullYear(), 0, 1);
+                end = new Date(today.getFullYear(), 11, 31);
+                break;
+            case 'last_year':
+                start = new Date(today.getFullYear() - 1, 0, 1);
+                end = new Date(today.getFullYear() - 1, 11, 31);
+                break;
+            default:
+                return;
+        }
+
+        document.getElementById('start_date').value = start.toISOString().split('T')[0];
+        document.getElementById('end_date').value = end.toISOString().split('T')[0];
+        applyFilterBtn.click();
+    });
+
+    // ========== VIEW TOGGLE ==========
+    summaryViewBtn.addEventListener('click', () => {
+        currentView = 'summary';
+        summaryView.style.display = 'block';
+        detailView.style.display = 'none';
+        summaryViewBtn.classList.add('active');
+        detailViewBtn.classList.remove('active');
+        currentPage = 1;
+        loadSummaryData();
+    });
+
+    detailViewBtn.addEventListener('click', () => {
+        currentView = 'detail';
+        summaryView.style.display = 'none';
+        detailView.style.display = 'block';
+        detailViewBtn.classList.add('active');
+        summaryViewBtn.classList.remove('active');
+        currentPage = 1;
+        loadDetailData();
+    });
+
+    // ========== FILTER HANDLERS ==========
+    applyFilterBtn.addEventListener('click', () => {
+        startDate = document.getElementById('start_date').value;
+        endDate = document.getElementById('end_date').value;
+        vendorId = document.getElementById('vendor').value;
+        itemId = document.getElementById('item').value;
+        categoryId = document.getElementById('category').value;
+        transactionType = document.getElementById('transaction_type').value;
+        currencyId = document.getElementById('currency').value;
+
+        locationId = document.getElementById('location').value;  // ADD
+        projectId = document.getElementById('project').value;    // ADD
+        sortField = document.getElementById('sort_field').value;  // ADD
+        sortOrder = document.getElementById('sort_order').value;
+
+        currentPage = 1;
+
+        if (currentView === 'summary') {
+            loadSummaryData();
+        } else {
+            loadDetailData();
+        }
+    });
+
+    resetFiltersBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+
+        // Reset all form elements
+        document.getElementById('filter-form').reset();
+
+        // Reset Select2 dropdowns properly
+        $('#vendor').val(null).trigger('change');
+        $('#item').val(null).trigger('change');
+        $('#location').val(null).trigger('change');  // ADD
+        $('#project').val(null).trigger('change');    // ADD
+
+        // Reset regular select elements
+        $('#category').val('').trigger('change');
+        $('#transaction_type').val('').trigger('change');
+        $('#currency').val('').trigger('change');
+        $('#quick_range').val('').trigger('change');
+        $('#sort_field').val('total_cost').trigger('change');    // ADD
+        $('#sort_order').val('desc').trigger('change');          // ADD
+
+        // Reset date inputs to current month
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+        startDate = firstDay.toISOString().split('T')[0];
+        endDate = lastDay.toISOString().split('T')[0];
+
+        document.getElementById('start_date').value = startDate;
+        document.getElementById('end_date').value = endDate;
+
+        // Reset all filter variables
+        vendorId = '';
+        itemId = '';
+        categoryId = '';
+        transactionType = '';
+        currencyId = '';
+        locationId = '';    // ADD
+        projectId = '';     // ADD
+        sortField = 'total_cost';   // ADD
+        sortOrder = 'desc';         // ADD
+        currentPage = 1;
+
+        // Reload data
+        if (currentView === 'summary') {
+            loadSummaryData();
+        } else {
+            loadDetailData();
+        }
+    });
+    refreshBtn.addEventListener('click', () => {
+        if (currentView === 'summary') {
+            loadSummaryData();
+        } else {
+            loadDetailData();
+        }
+    });
+
+    // ========== EXPORT FUNCTIONS ==========
+    exportExcelBtn.addEventListener('click', () => {
+        const params = getFilterParams();
+        window.location.href = `/purchases/reports/purchases_by_item/export/excel?${params}&view=${currentView}`;
+    });
+
+    exportPdfBtn.addEventListener('click', () => {
+        const params = getFilterParams();
+        window.location.href = `/purchases/reports/purchases_by_item/export/pdf?${params}&view=${currentView}`;
+    });
+
+    function getFilterParams() {
+        return new URLSearchParams({
+            start_date: startDate,
+            end_date: endDate,
+            vendor_id: vendorId,
+            item_id: itemId,
+            category_id: categoryId,
+            transaction_type: transactionType,
+            currency_id: currencyId,
+            location_id: locationId,    // ADD
+            project_id: projectId,       // ADD
+            sort_field: sortField,       // ADD
+            sort_order: sortOrder,       // ADD
+            per_page: perPage,
+            page: currentPage
+        }).toString();
+    }
+
+    // ========== LOAD SUMMARY DATA ==========
+    // ========== LOAD SUMMARY DATA ==========
+    function loadSummaryData() {
+        summaryBody.innerHTML = '=<td colspan="8" class="text-center">Loading summary data...<\/td>';
+
+        // Use getFilterParams() instead of manually building params
+        const params = getFilterParams();
+
+        fetch(`/purchases/reports/purchases_by_item/summary?${params}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderSummaryData(data.data, data.totals);
+                    renderPagination(data.pagination);
+                } else {
+                    summaryBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">${data.message}<\/td><\/tr>`;
+                }
+            })
+            .catch(err => {
+                console.error('Error loading summary:', err);
+                summaryBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error loading data<\/td><\/tr>';
+            });
+    }
+
+    // ========== LOAD DETAIL DATA ==========
+    function loadDetailData() {
+        // REMOVE THE = SIGN here too
+        detailBody.innerHTML = '<tr><td colspan="11" class="text-center">Loading detail data...</td></tr>';
+
+        const params = getFilterParams();
+
+        fetch(`/purchases/reports/purchases_by_item/detail?${params}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log("Detail API response:", data);
+                if (data.success) {
+                    renderDetailData(data.data);
+                    renderPagination(data.pagination);
+                } else {
+                    detailBody.innerHTML = `<tr><td colspan="11" class="text-center text-danger">${data.message}</td></tr>`;
+                }
+            })
+            .catch(err => {
+                console.error('Error loading detail:', err);
+                detailBody.innerHTML = '<tr><td colspan="11" class="text-center text-danger">Error loading data</td></tr>';
+            });
+    }
+
+    function renderSummaryData(items, totals) {
+        if (!items || items.length === 0) {
+            summaryBody.innerHTML = '<tr><td colspan="8" class="text-center">No purchase data found for selected period</td></tr>';
+            document.getElementById('summaryTotalQty').textContent = '0';
+
+            return;
+        }
+
+        let totalQty = 0;
+        let totalCost = 0;
+
+        let html = '';
+        items.forEach(item => {
+            totalQty += item.total_quantity;
+            totalCost += item.total_cost;
+
+            html += `
+                <tr>
+                    <td>${escapeHtml(item.item_name)}</td>
+                    <td>${escapeHtml(item.item_code || '-')}</td>
+                    <td>${escapeHtml(item.category_name || '-')}</td>
+                    <td>${escapeHtml(item.uom || '-')}</td>
+                    <td class="text-right">${formatNumber(item.total_quantity)}</td>
+                    <td>${item.last_purchase_date || '-'}</td>
+                </tr>
+            `;
+        });
+
+        summaryBody.innerHTML = html;
+
+        // Use totals from backend or calculate from items
+        if (totals) {
+            document.getElementById('summaryTotalQty').textContent = formatNumber(totals.total_quantity);
+        } else {
+            document.getElementById('summaryTotalQty').textContent = formatNumber(totalQty);
+        }
+    }
+
+
+
+    function renderDetailData(transactions) {
+        // Check if transactions exists and is an array
+        if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+            // REMOVE THE = SIGN at the beginning
+            detailBody.innerHTML = '<tr><td colspan="11" class="text-center">No purchase transactions found for selected period</td></tr>';
+            document.getElementById('detailTotalQty').textContent = '0';
+            return;
+        }
+
+        let totalQty = 0;
+        let totalCost = 0;
+        let html = '';
+
+        // Use for loop instead of forEach for better error handling
+        for (let i = 0; i < transactions.length; i++) {
+            const tx = transactions[i];
+
+            // Skip if tx is undefined
+            if (!tx) continue;
+
+            totalQty += tx.quantity || 0;
+            totalCost += tx.total_cost || 0;
+
+            // Determine the correct URL based on transaction type
+            let transactionUrl = '#';
+            if (tx.transaction_type === 'Purchase Order') {
+                transactionUrl = `/purchases/purchase_order/${tx.transaction_id}`;
+            } else if (tx.transaction_type === 'Direct Purchase') {
+                transactionUrl = `/purchases/direct_purchase/${tx.transaction_id}`;
+            } else if (tx.transaction_type === 'Inventory Entry') {
+                transactionUrl = `/inventory/inventory_entry/${tx.transaction_id}`;
+            }
+
+            html += `
+            <tr>
+                <td>${tx.transaction_date || '-'}</td>
+                <td><a href="${transactionUrl}" class="reference-link">${tx.transaction_number || '-'}</a></td>
+                <td>${escapeHtml(tx.vendor_name || '-')}</td>
+                <td>${escapeHtml(tx.item_name || '-')}</td>
+                <td>${escapeHtml(tx.item_code || '-')}</td>
+                <td>${escapeHtml(tx.category_name || '-')}</td>
+                <td>${escapeHtml(tx.uom || 'pcs')}</td>
+                <td class="text-right">${formatNumber(tx.quantity || 0)}</td>
+            </tr>
+        `;
+        }
+
+        detailBody.innerHTML = html;
+        document.getElementById('detailTotalQty').textContent = formatNumber(totalQty);
+    }
+
+
+    // ========== PAGINATION ==========
+    function renderPagination(pagination) {
+        const { page, total_pages, total_items, has_next, has_prev } = pagination;
+
+        paginationInfoElement.textContent = `Showing ${(page - 1) * perPage + 1} to ${Math.min(page * perPage, total_items)} of ${total_items} entries`;
+
+        let html = '';
+
+        if (has_prev) {
+            html += `<li class="page-item"><a class="page-link" href="#" data-page="${page - 1}">‹ Previous</a></li>`;
+        } else {
+            html += `<li class="page-item disabled"><a class="page-link">‹ Previous</a></li>`;
+        }
+
+        const startPage = Math.max(1, page - 2);
+        const endPage = Math.min(total_pages, page + 2);
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<li class="page-item ${i === page ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+        }
+
+        if (has_next) {
+            html += `<li class="page-item"><a class="page-link" href="#" data-page="${page + 1}">Next ›</a></li>`;
+        } else {
+            html += `<li class="page-item disabled"><a class="page-link">Next ›</a></li>`;
+        }
+
+        paginationElement.innerHTML = html;
+
+        document.querySelectorAll('.page-link[data-page]').forEach(el => {
+            el.addEventListener('click', e => {
+                e.preventDefault();
+                currentPage = parseInt(el.getAttribute('data-page'));
+                if (currentView === 'summary') {
+                    loadSummaryData();
+                } else {
+                    loadDetailData();
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+    }
+
+    // ========== HELPER FUNCTIONS ==========
+    function formatNumber(num) {
+        return new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        }).format(num);
+    }
+
+
+
+    function escapeHtml(text) {
+        if (!text) return '-';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // ========== TOGGLE FILTER SECTION ==========
+    document.getElementById('toggleFilterForm').addEventListener('click', () => {
+        document.getElementById('filter-section').classList.toggle('visible');
+    });
+
+    // ========== SHORTCUT SIDEBAR TOGGLE ==========
+    const shortcutToggleBtn = document.getElementById('shortcutToggleBtn');
+    const mobileSidebar = document.getElementById('mobileShortcutsSidebar');
+    const closeShortcutsBtn = document.getElementById('closeShortcutsBtn');
+
+    if (shortcutToggleBtn && mobileSidebar) {
+        shortcutToggleBtn.addEventListener('click', () => {
+            mobileSidebar.classList.toggle('show');
+        });
+    }
+
+    if (closeShortcutsBtn && mobileSidebar) {
+        closeShortcutsBtn.addEventListener('click', () => {
+            mobileSidebar.classList.remove('show');
+        });
+    }
+
+    // ========== INITIALIZATION ==========
+    setDefaultDateRange();
+    loadSummaryData();
+</script>
+
+
+{% endblock %}

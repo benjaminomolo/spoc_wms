@@ -1,0 +1,741 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .container {
+        display: flex;
+        gap: 20px;
+        width: 100%;
+        max-width: 1200px;
+        margin: 20px auto;
+    }
+
+    .credit-sidebar {
+        width: 350px;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+    }
+
+    .credit-main-content {
+        flex: 1;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+    .summary-section {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        margin-top: 15px;
+    }
+
+    .summary-section h3 {
+        font-size: 1.1rem;
+        color: #2c3e50;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .summary-section p {
+        font-size: 0.9rem;
+        color: #495057;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .summary-section p span {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .summary-total {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: var(--highlight-color);
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .credit-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-active {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .badge-partial {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .form-section {
+        margin-bottom: 25px;
+    }
+
+    .form-section h2 {
+        font-size: 1.25rem;
+        color: #34495e;
+        margin-bottom: 15px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .invoices-table-container {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+
+    .invoices-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .invoices-table th {
+        background-color: #f8f9fa;
+        padding: 10px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .invoices-table td {
+        padding: 10px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .text-end {
+        text-align: right;
+    }
+
+    .amount-input {
+        width: 120px;
+        text-align: right;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+
+    .amount-input:focus {
+        border-color: #80bdff;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, .25);
+    }
+
+    .preview-section {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #28a745;
+    }
+
+    .preview-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px dashed #dee2e6;
+    }
+
+    .preview-total {
+        font-weight: bold;
+        color: #28a745;
+        font-size: 1.1rem;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 2px solid #28a745;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+        }
+
+        .credit-sidebar,
+        .credit-main-content {
+            width: 90%;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Mobile Responsive Fixes */
+    @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+            padding: 10px;
+            margin: 10px auto;
+        }
+
+        .credit-sidebar {
+            width: 90%;
+            position: relative;
+            top: 0;
+            max-height: none;
+            margin-bottom: 15px;
+            padding: 12px;
+        }
+
+        .credit-main-content {
+            width: 100%;
+            padding: 15px;
+        }
+
+        /* Make table scrollable horizontally */
+        .invoices-table-container {
+            overflow-x: auto;
+            max-height: none;
+        }
+
+        .invoices-table {
+            min-width: 800px;
+            /* Ensures table doesn't squish */
+        }
+
+        .invoices-table th,
+        .invoices-table td {
+            padding: 8px 5px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        /* Stack form grid items */
+        .form-grid {
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        /* Adjust input groups */
+        .input-group {
+            width: 100%;
+        }
+
+        .input-group input {
+            width: calc(100% - 50px);
+        }
+
+        /* Stack action buttons */
+        .action-buttons {
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .action-buttons button {
+            width: 100%;
+            margin: 0;
+        }
+
+        /* Adjust summary section */
+        .summary-section {
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .summary-section p {
+            font-size: 0.85rem;
+        }
+
+        .summary-total {
+            font-size: 1rem;
+        }
+
+        /* Preview section adjustments */
+        .preview-section {
+            padding: 10px;
+        }
+
+        .preview-row {
+            font-size: 0.85rem;
+        }
+
+        /* Hide some columns on very small screens if needed */
+        @media (max-width: 480px) {
+
+            .invoices-table th:nth-child(3),
+            .invoices-table td:nth-child(3) {
+                display: none;
+                /* Hide Due Date on very small screens */
+            }
+        }
+    }
+</style>
+
+<div class="content-container">
+    <div class="container">
+        <!-- Sidebar - Credit Summary -->
+        <div class="credit-sidebar">
+            <h2 style="margin-top: 0; margin-bottom: 15px; color: #2c3e50;">Credit Summary</h2>
+
+            <div class="summary-section">
+                <h3>Credit Details</h3>
+                <p>Credit #: <span>{{ credit.id }}</span></p>
+                <p>Customer: <span>{{ credit.customer.vendor_name }}</span></p>
+                <p>Issued Date: <span>{{ credit.issued_date.strftime('%Y-%m-%d') }}</span></p>
+                <p>Currency: <span>{{ credit.currency.user_currency }}</span></p>
+                <p>Status:
+                    <span class="credit-badge 
+                        {% if credit.status == 'active' %}badge-active
+                        {% elif credit.status == 'partially_used' %}badge-partial
+                        {% else %}bg-secondary{% endif %}">
+                        {{ credit.status|replace('_', ' ')|title }}
+                    </span>
+                </p>
+            </div>
+
+            <div class="summary-section">
+                <h3>Amount Summary</h3>
+                <p>Original Amount:
+                    <span>{{ "{:,.2f}".format(credit.original_amount) }}</span>
+                </p>
+                <p>Already Used:
+                    <span>{{ "{:,.2f}".format(credit.original_amount - credit.available_amount) }}</span>
+                </p>
+                <p>Available:
+                    <span class="text-success fw-bold">{{ "{:,.2f}".format(credit.available_amount) }}</span>
+                </p>
+                <div class="summary-total">
+                    To Apply:
+                    <span id="totalToApply">{{ "{:,.2f}".format(credit.available_amount) }}</span>
+                    <span>{{ credit.currency.user_currency }}</span>
+                </div>
+            </div>
+
+            <div class="summary-section" id="previewSection" style="display: none;">
+                <h3 style="color: #28a745;">Application Preview</h3>
+                <div id="previewContent"></div>
+            </div>
+        </div>
+
+        <!-- Main Content - Apply Credit Form -->
+        <div class="credit-main-content">
+            <h1>Apply Credit to Invoices</h1>
+            <p class="text-muted">Credit will be automatically applied to oldest outstanding invoices first</p>
+
+            <form id="applyCreditForm">
+                <!-- Hidden Fields -->
+                <input type="hidden" id="credit_id" name="credit_id" value="{{ credit.id }}">
+                <input type="hidden" id="base_currency_id" name="base_currency_id" value="{{ base_currency.id }}">
+                <input type="hidden" id="base_currency_code" name="base_currency_code"
+                    value="{{ base_currency.user_currency }}">
+                <input type="hidden" id="is_multi_currency" name="is_multi_currency"
+                    value="{{ 'true' if company and company.has_multiple_currencies else 'false' }}">
+
+                <!-- Application Details Section -->
+                <div class="form-section">
+                    <h2>Application Details</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="application_date" class="form-label fw-bold">Application Date</label>
+                            <input type="date" id="application_date" name="application_date" class="form-control"
+                                value="{{ today }}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reference" class="form-label fw-bold">Reference</label>
+                            <input type="text" id="reference" name="reference" class="form-control"
+                                placeholder="Optional reference" value="Credit #{{ credit.id }} Application">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="amount_to_apply" class="form-label fw-bold">Amount to Apply</label>
+                            <div class="input-group">
+                                <input type="number" id="amount_to_apply" name="amount_to_apply" class="form-control"
+                                    min="0.01" step="0.01" value="{{ credit.available_amount }}"
+                                    max="{{ credit.available_amount }}" required>
+                                <span class="input-group-text">{{ credit.currency.user_currency }}</span>
+                            </div>
+                            <small class="text-muted">Max: {{ "{:,.2f}".format(credit.available_amount) }} {{
+                                credit.currency.user_currency }}</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="project" class="form-label fw-bold">Project</label>
+                            <select id="project" name="project" class="form-select">
+                                <option value="">Select Project</option>
+                                {% for project in projects %}
+                                <option value="{{ project.id }}">{{ project.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Outstanding Invoices Section -->
+                <div class="form-section" id="invoicesSection">
+                    <h2>Outstanding Invoices</h2>
+                    <p class="text-muted small">The credit will be automatically allocated to these invoices</p>
+
+                    <div class="invoices-table-container">
+                        <table class="invoices-table">
+                            <thead>
+                                <tr>
+                                    <th>Invoice #</th>
+                                    <th>Date</th>
+                                    <th>Due Date</th>
+                                    <th class="text-end">Original Amount</th>
+                                    <th class="text-end">Balance Due</th>
+                                    {% if company and company.has_multiple_currencies %}
+                                    <th class="text-end">Balance ({{ base_currency.user_currency }})</th>
+                                    {% endif %}
+                                    <th class="text-end">To Apply</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoicesBody">
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <i class="fas fa-spinner fa-spin"></i> Loading invoices...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="action-buttons">
+
+                    <button type="submit" class="button add-button" id="submitBtn">
+                        <i class="fas fa-check-circle"></i> Apply Credit
+                    </button>
+                    <button type="button" class="button remove-button" onclick="window.history.back();">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Get settings
+        const baseCurrencyId = $('#base_currency_id').val();
+        const baseCurrencyCode = $('#base_currency_code').val();
+        const isMultiCurrency = $('#is_multi_currency').val() === 'true';
+        const creditId = {{ credit.id| tojson
+    }};
+    const creditCurrency = "{{ credit.currency.user_currency }}";
+    const maxAmount = parseFloat("{{ credit.available_amount }}");
+
+    // State
+    let outstandingInvoices = [];
+    let previewAllocations = [];
+
+    // Load outstanding invoices
+    function loadOutstandingInvoices() {
+        $.ajax({
+            url: `/sales/api/customer_outstanding_invoices/{{ credit.customer_id }}`,
+            method: 'GET',
+            data: {
+                base_currency_id: baseCurrencyId
+            },
+            success: function (response) {
+                if (response.success) {
+                    outstandingInvoices = response.invoices;
+                    renderInvoices(response.invoices);
+                } else {
+                    showNotification(response.message, 'error');
+                }
+            },
+            error: function () {
+                showNotification('Error loading invoices', 'error');
+            }
+        });
+    }
+
+    // Render invoices table
+    function renderInvoices(invoices) {
+        if (invoices.length === 0) {
+            $('#invoicesBody').html('<tr><td colspan="7" class="text-center py-4">No outstanding invoices found</td></tr>');
+            return;
+        }
+
+        let html = '';
+        invoices.forEach(invoice => {
+            html += `<tr data-invoice-id="${invoice.id}" data-balance="${invoice.balance_due}" data-currency="${invoice.currency}">`;
+            html += `<td>${invoice.invoice_number}</td>`;
+            html += `<td>${formatDate(invoice.invoice_date)}</td>`;
+            html += `<td>${invoice.due_date ? formatDate(invoice.due_date) : '-'}</td>`;
+            html += `<td class="text-end">${formatAmount(invoice.total_amount)} ${invoice.currency}</td>`;
+            html += `<td class="text-end balance-cell">${formatAmount(invoice.balance_due)} ${invoice.currency}</td>`;
+
+            if (isMultiCurrency) {
+                const balanceBase = invoice.balance_due_base || invoice.balance_due;
+                html += `<td class="text-end">${formatAmount(balanceBase)} ${baseCurrencyCode}</td>`;
+            }
+
+            html += `<td class="text-end allocation-cell">0.00</td>`;
+            html += `</tr>`;
+        });
+
+        $('#invoicesBody').html(html);
+    }
+
+    // Calculate allocations based on amount
+    // Calculate allocations for credit application
+    function calculateCreditAllocations(amount) {
+        console.log("Calculating credit allocations for amount:", amount, creditCurrency);
+        const allocations = [];
+        let remaining = amount;
+        const creditRate = "{{ credit_rate }}" ? parseFloat("{{ credit_rate }}") : 1;
+
+
+        $('#invoicesBody tr[data-invoice-id]').each(function () {
+            if (remaining <= 0.01) return false;
+
+            const $row = $(this);
+            const invoiceId = $row.data('invoice-id');
+
+            // Get balance in invoice currency
+            const balanceText = $row.find('.balance-cell').text();
+            const balanceMatch = balanceText.match(/^([\d,]+\.?\d*)/);
+            const balanceInInvoice = balanceMatch ? parseFloat(balanceMatch[1].replace(/,/g, '')) : 0;
+            const invoiceCurrency = $row.data('currency') || 'USD';
+
+            // Get balance in base currency
+            let balanceInBase = balanceInInvoice;
+            if (isMultiCurrency) {
+                const baseCell = $row.find('td:eq(5)').text();
+                const baseMatch = baseCell.match(/^([\d,]+\.?\d*)/);
+                balanceInBase = baseMatch ? parseFloat(baseMatch[1].replace(/,/g, '')) : balanceInInvoice;
+            }
+
+            // Calculate how much credit to apply
+            let applyAmount = 0;
+            let amountInBase = 0;
+
+            if (invoiceCurrency === creditCurrency) {
+                applyAmount = Math.min(remaining, balanceInInvoice);
+                amountInBase = applyAmount * creditRate;
+            } else {
+                const remainingInBase = remaining * creditRate;
+                amountInBase = Math.min(remainingInBase, balanceInBase);
+                applyAmount = amountInBase / creditRate;
+                applyAmount = Math.round(applyAmount * 100) / 100;
+            }
+
+            if (applyAmount > 0.01) {
+                allocations.push({
+                    invoice_id: invoiceId,
+                    amount: applyAmount,
+                    amount_base: amountInBase,
+                    currency: invoiceCurrency
+                });
+
+                $row.find('.allocation-cell').text(formatAmount(applyAmount));
+                remaining -= applyAmount;
+            } else {
+                $row.find('.allocation-cell').text('0.00');
+            }
+        });
+
+        return allocations;
+    }
+
+
+    // Update preview
+    function updatePreview() {
+        const amount = parseFloat($('#amount_to_apply').val()) || 0;
+        console.log("Preview amount:", amount);
+
+        if (amount <= 0 || amount > maxAmount) {
+            $('#previewSection').hide();
+            return;
+        }
+
+        previewAllocations = calculateCreditAllocations(amount);
+
+        if (previewAllocations.length === 0) {
+            $('#previewSection').hide();
+            return;
+        }
+
+        // Build preview HTML
+        let previewHtml = '';
+        let totalApplied = 0;
+
+        previewAllocations.forEach(alloc => {
+            const $row = $(`tr[data-invoice-id="${alloc.invoice_id}"]`);
+            const invoiceNum = $row.find('td:first').text();
+
+            previewHtml += `
+            <div class="preview-row">
+                <span>${invoiceNum} (${alloc.currency})</span>
+                <span>${formatAmount(alloc.amount)} ${creditCurrency}</span>
+            </div>
+        `;
+            totalApplied += alloc.amount;
+        });
+
+        previewHtml += `
+        <div class="preview-total">
+            <span>Total to Apply:</span>
+            <span>${formatAmount(totalApplied)} ${creditCurrency}</span>
+        </div>
+    `;
+
+        $('#previewContent').html(previewHtml);
+        $('#previewSection').show();
+    }
+
+
+    // Amount input change
+    // Amount input change
+    $('#amount_to_apply').on('input', function () {
+        let val = parseFloat($(this).val()) || 0;
+        if (val > maxAmount) {
+            $(this).val(maxAmount);
+            val = maxAmount;
+        }
+        if (val < 0) {
+            $(this).val(0);
+            val = 0;
+        }
+        $('#totalToApply').text(formatAmount(val));
+        updatePreview(); // Add this line to update preview dynamically
+    });
+
+    // Form submission
+    $('#applyCreditForm').on('submit', function (e) {
+        e.preventDefault();
+
+        const amount = parseFloat($('#amount_to_apply').val()) || 0;
+
+        if (amount <= 0) {
+            showNotification('Please enter an amount to apply', 'error');
+            return;
+        }
+
+        if (amount > maxAmount) {
+            showNotification(`Amount cannot exceed available credit (${formatAmount(maxAmount)} ${creditCurrency})`, 'error');
+            return;
+        }
+
+        // Recalculate to ensure allocations are fresh
+        // Recalculate to ensure allocations are fresh
+        previewAllocations = calculateCreditAllocations(amount);
+
+        if (previewAllocations.length === 0) {
+            showNotification('No invoices available to apply credit to', 'error');
+            return;
+        }
+
+        // Build allocations array for backend
+        const allocations = previewAllocations.map(alloc => ({
+            invoice_id: alloc.invoice_id,
+            amount: alloc.amount
+        }));
+
+        const data = {
+            credit_id: creditId,
+            application_date: $('#application_date').val(),
+            reference: $('#reference').val(),
+            project_id: $('#project').val() || null,
+            base_currency_id: baseCurrencyId,
+            allocations: allocations
+        };
+
+        // Submit
+        $.ajax({
+            url: '/sales/api/credit/apply-auto',
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            data: JSON.stringify(data),
+            contentType: 'application/json',
+            beforeSend: function () {
+                $('#submitBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Applying...');
+            },
+            success: function (response) {
+                if (response.success) {
+                    showNotification(response.message, 'success');
+                    setTimeout(() => {
+                        window.location.href = "{{ url_for('sales.view_customer_credits') }}";
+                    }, 1500);
+                } else {
+                    showNotification(response.message, 'error');
+                    $('#submitBtn').prop('disabled', false).html('<i class="fas fa-check-circle"></i> Apply Credit');
+                }
+            },
+            error: function (xhr) {
+                const response = xhr.responseJSON;
+                showNotification(response?.message || 'Error applying credit', 'error');
+                $('#submitBtn').prop('disabled', false).html('<i class="fas fa-check-circle"></i> Apply Credit');
+            }
+        });
+    });
+
+    // Helper functions
+    function formatAmount(amount) {
+        return new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(amount);
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    }
+
+    function showNotification(message, type) {
+        if (typeof window.showNotification === 'function') {
+            window.showNotification(message, type);
+        } else {
+            alert(message);
+        }
+    }
+
+    // Initial load
+    loadOutstandingInvoices();
+
+    // Initial preview
+    setTimeout(() => {
+        updatePreview();
+    }, 500);
+    });
+</script>
+{% endblock %}

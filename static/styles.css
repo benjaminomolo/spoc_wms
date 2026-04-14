@@ -1,0 +1,548 @@
+:root {
+  --font-family: "Open Sans", sans-serif; /* Replace Poppins with Open Sans */
+  --primary-color: #003366;
+  --secondary-color: #00b5b8;
+  --highlight-color: #008c8a;
+  --sidebar-bg-color: #2f4f4f;
+  --white: white;
+  --padding: 10px;
+  --font-size-normal: 16px;
+  --font-size-large: 18px;
+  --font-size-heading: 24px;
+  --cta-font-size: 14px;
+  --bs-dropdown-divider-bg: var(--bs-border-color-translucent);
+  --bs-dropdown-divider-margin-y: 0.5rem;
+}
+
+body {
+  font-family: var(--font-family);
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f4;
+  font-size: var(--font-size-normal);
+}
+
+/* Header */
+header {
+  background-color: var(--primary-color);
+  color: var(--white);
+  padding: var(--padding);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.header-left .company-name {
+  margin-right: 20px;
+  font-size: var(--font-size-heading);
+  font-weight: bold;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  margin-right: 30px;
+}
+
+.header-right .user-dropdown {
+  position: relative;
+  cursor: pointer;
+}
+
+.header-right .user-dropdown .dropdown-content {
+  display: none;
+  position: absolute;
+  right: 0;
+  background-color: var(--secondary-color);
+  min-width: 160px;
+  z-index: 1;
+  border-radius: 5px;
+  overflow: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.header-right .user-dropdown.active .dropdown-content {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.header-right .user-dropdown .dropdown-content a {
+  padding: 12px 16px;
+  color: var(--white);
+  text-decoration: none;
+  display: block;
+  transition: background-color 0.3s;
+}
+
+.header-right .user-dropdown .dropdown-content a:hover {
+  background-color: var(--highlight-color);
+}
+
+.header-right span {
+  margin-right: 10px;
+  font-size: var(--font-size-normal);
+}
+
+.toggle-sidebar {
+  background: none;
+  border: none;
+  color: var(--white);
+  font-size: var(--font-size-large);
+  cursor: pointer;
+}
+
+/* Sidebar */
+.sidebar {
+  height: 100vh;
+  width: 250px;
+  position: fixed;
+  top: 60px;
+  left: 0;
+  background-color: var(--sidebar-bg-color);
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  padding-top: var(--padding);
+  transition: transform 0.3s ease;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+
+.sidebar.hidden {
+  transform: translateX(-250px);
+}
+
+.sidebar a {
+  padding: 15px 25px;
+  text-decoration: none;
+  font-size: var(--font-size-normal);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  transition: background-color 0.3s, padding-left 0.3s;
+  background-color: transparent;
+  border-radius: 5px;
+  margin: 5px 10px;
+  padding: 10px 15px;
+}
+
+.sidebar a i {
+  margin-right: 15px !important;
+  font-size: var(--font-size-large) !important;
+}
+
+.sidebar a:hover {
+  background-color: var(--secondary-color);
+  padding-left: 30px;
+}
+
+.sidebar .dropdown-content {
+  display: none;
+  background-color: rgba(0, 0, 0, 0.1);
+  padding-left: 10px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  opacity: 0;
+  transform: translateY(-10px);
+  border-radius: 5px;
+  margin: 5px 10px;
+}
+
+.sidebar .dropdown.active .dropdown-content {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sidebar .dropdown-content a {
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+/* Space between the icon and text */
+.sidebar .dropdown-content a i {
+  margin-right: 10px; /* Adjust the margin to your desired space */
+  font-size: 100px;
+}
+
+.sidebar .dropdown-content a:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar .dropdown .fa-caret-down {
+  transform: rotate(-90deg);
+  transition: transform 0.3s ease;
+}
+
+.sidebar .dropdown.active .fa-caret-down {
+  transform: rotate(0deg);
+}
+
+/* Main Content Area */
+.main-content {
+  margin-left: 250px;
+  padding: var(--padding);
+  margin-top: 60px;
+  transition: margin-left 0.3s ease;
+}
+
+.main-content.expanded {
+  margin-left: 50px;
+}
+
+/* Footer */
+footer {
+  background-color: var(--primary-color);
+  color: var(--white);
+  text-align: center;
+  padding: 0;
+  position: fixed;
+  width: 100%;
+  bottom: 0;
+  padding: 1px 0; /* Adjust padding to reduce height */
+  font-size: 10px;
+}
+
+/* Container in content area */
+.content-container {
+  background-color: var(--white);
+  padding: var(--padding);
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Call-to-action buttons */
+.cta-buttons {
+  margin-top: 30px;
+  display: flex;
+  gap: 20px;
+}
+
+.cta-button {
+  background-color: var(--secondary-color);
+  color: var(--white);
+  padding: 8px 15px;
+  font-size: var(--cta-font-size);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  transition: background-color 0.3s;
+}
+
+.cta-button:hover {
+  background-color: var(--highlight-color);
+}
+
+.cta-button:active {
+  background-color: #007e7a;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 200px;
+    transform: translateX(-100%);
+    position: fixed;
+    left: 0;
+    top: 60px;
+    height: calc(100% - 60px);
+    transition: transform 0.3s ease;
+  }
+
+  .sidebar.active {
+    transform: translateX(0);
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebar {
+    width: 100%;
+    transform: translateX(-100%);
+    position: fixed;
+  }
+
+  .sidebar.active {
+    transform: translateX(0);
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+
+  .cta-button {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+}
+
+/* Company Logo and or Name appears here */
+.navbar-brand {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.logo-img {
+  height: 40px;
+  width: auto;
+  margin-right: 5px;
+}
+
+.company-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 250px;
+  display: inline-block;
+  color: var(--white);
+}
+
+.dropdown-divider {
+  height: 0;
+  margin: var(--bs-dropdown-divider-margin-y) 0;
+  overflow: hidden;
+  border-top: 1px solid var(--bs-dropdown-divider-bg);
+  opacity: 1;
+}
+
+/*------------------------------------------------- General Ledger Dashboard ------------------------------------------------*/
+
+/* Summary Section */
+.summary-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.summary-item {
+  flex: 1;
+  margin: 10px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  text-align: center;
+  width: calc(25% - 20px);
+  height: 110px;
+
+  min-width: 200px;
+
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* Make the summary items take up 25% of the width, minus the margin */
+}
+
+.summary-item h2 {
+  margin: 5px 0;
+  font-size: 1em;
+  font-weight: bold;
+}
+
+.summary-item p {
+  margin: 0;
+}
+
+.summary-item ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.summary-item li {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.summary-item li:last-child {
+  border-bottom: none;
+}
+
+/* -------------------- Filter Controls-------------------------*/
+
+/* Filter Container */
+.filter-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: center;
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+/* Individual Filter Groups */
+.filter-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-group label {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.filter-group select,
+.filter-group input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  min-width: 180px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .filter-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-group select,
+  .filter-group input {
+    width: 100%;
+  }
+
+  #apply-filter {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.header-row {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #dcdde1;
+}
+/*-------------------------------------------------End  General Ledger Dashboard ------------------------------------------------*/
+/* ----------------------------------------------------------------------------------------------------------------------------- */
+
+/* -------------------------------------------------Dashboard Shortcuts Container ------------------------------------------------*/
+/* Dashboard Shortcuts Container */
+.dashboard-shortcuts {
+  padding: var(--padding);
+  margin: 0;
+  list-style: none;
+  background-color: var(--white); /* White background */
+  border-radius: 5px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+/* Shortcut Items */
+.shortcut-item {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-normal);
+  color: var(--primary-color); /* Primary color for text */
+}
+
+.shortcut-item a {
+  color: var(--primary-color); /* Primary color for links */
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.shortcut-item a:hover {
+  color: var(--highlight-color); /* Highlight color on hover */
+}
+
+/* Separator between shortcut items */
+.shortcut-item + .shortcut-item::before {
+  content: "/";
+  padding: 0 8px;
+  color: var(--primary-color); /* Primary color for separator */
+}
+
+/* Dropdown Styling */
+.shortcut-dropdown {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.shortcut-dropdown span {
+  margin-right: 5px;
+}
+
+.shortcut-dropdown .dropdown-content {
+  display: none;
+  position: absolute;
+  top: 100%; /* Position the dropdown below the parent */
+  left: -100px;
+  background-color: var(
+    --secondary-color
+  ); /* Secondary color for dropdown background */
+  min-width: 160px;
+  z-index: 1;
+  border-radius: 5px;
+  overflow: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.shortcut-dropdown.active .dropdown-content {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.shortcut-dropdown .dropdown-content a {
+  padding: 12px 16px;
+  color: var(--white); /* White text color */
+  text-decoration: none;
+  display: block;
+  transition: background-color 0.3s;
+}
+
+.shortcut-dropdown .dropdown-content a:hover {
+  background-color: var(--highlight-color); /* Highlight color on hover */
+}
+
+.shortcut-dropdown .dropdown-content hr.dropdown-divider {
+  margin: 5px 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1); /* Light divider */
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .dashboard-shortcuts {
+    padding: 8px 10px;
+  }
+
+  .shortcut-item {
+    font-size: var(--cta-font-size); /* Smaller font size for mobile */
+  }
+
+  .shortcut-item + .shortcut-item::before {
+    padding: 0 5px;
+  }
+
+  .shortcut-dropdown .dropdown-content a {
+    padding: 6px 12px;
+    font-size: var(--cta-font-size); /* Smaller font size for mobile */
+  }
+}

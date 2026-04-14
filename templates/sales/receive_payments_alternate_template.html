@@ -1,0 +1,727 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div class="header-section">
+        <h1>Receive Payment</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('sales_routes.sales_dashboard') }}">Sales Dashboard</a></li>
+                    <li><a href="#">New Invoice</a></li>
+                    <li><a href="#">Customers</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Header buttons and controls -->
+        <div class="header-buttons">
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+
+        </div>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                <li class="shortcut-item"><a href="{{ url_for('sales_routes.sales_dashboard') }}">Sales Dashboard</a>
+                </li>
+                <li class="shortcut-item"><a href="#">New Invoice</a></li>
+                <li class="shortcut-item"><a href="#">Customers</a></li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Payment Form -->
+    <div class="card">
+        <div class="card-body">
+            <form id="paymentForm">
+                <!-- Row 1: Customer Selection -->
+                <div class="form-grid mb-4">
+                    <div class="form-group">
+                        <label for="customer" class="form-label fw-bold">Customer <span
+                                class="required">*</span></label>
+                        <select id="customer" name="customer" class="form-select2" required>
+                            <option value="">Select Customer</option>
+                            {% for customer in customers %}
+                            <option value="{{ customer.id }}">{{ customer.vendor_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+
+                    <div class="form-group">
+                        <label for="currency" class="form-label fw-bold">Currency <span
+                                class="required">*</span></label>
+                        <select id="currency" name="currency" class="form-select2" required>
+                            <option value="">Select Currency</option>
+                            {% for currency in currencies %}
+                            <option value="{{ currency.id }}" {% if currency.is_base %}selected{% endif %}>
+                                {{ currency.user_currency }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                </div>
+
+                <!-- Row 2: Amount and Payment Date (2 columns) -->
+                <!-- Row 2: Amount, Currency, and Payment Date (3 columns) -->
+                <div class="form-grid mb-4" style="grid-template-columns: 2fr 1fr 1fr;">
+                    <div class="form-group">
+                        <label for="amount" class="form-label fw-bold">Payment Amount <span
+                                class="required">*</span></label>
+                        <input type="text" id="amount" name="amount" class="form-control" placeholder="0.00" required>
+                        <small class="form-text text-muted" id="balanceInfo">
+                            Enter the amount received
+                        </small>
+                        <div id="overpaymentWarning" class="text-warning text-muted" style="display: none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            This payment exceeds the total outstanding.
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="payment_date" class="form-label fw-bold">Payment Date <span
+                                class="required">*</span></label>
+                        <input type="date" id="payment_date" name="payment_date" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reference" class="form-label fw-bold">Reference</label>
+                        <input type="text" id="reference" name="reference" class="form-control"
+                            placeholder="Check #, Ref #">
+                    </div>
+                </div>
+
+
+
+                <!-- Row 3: Reference and Payment Method (2 columns) -->
+                <div class="form-grid mb-4">
+
+
+                    <div class="form-group">
+                        <label for="payment_method" class="form-label fw-bold">Payment Method</label>
+                        <select id="payment_method" name="payment_method" class="form-select2">
+                            <option value="">Select Method (Optional)</option>
+                            {% for method in payment_methods %}
+                            <option value="{{ method.id }}">{{ method.payment_mode }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="funding_account" class="form-label fw-bold">Deposit To <span
+                                class="required">*</span></label>
+                        <select id="funding_account" name="funding_account" class="form-select2" required>
+                            <option value="">Select Account</option>
+
+
+
+                            {% for category, accounts in funding_accounts.items() %}
+                            <optgroup label="{{ category }}">
+                                {% for account in accounts %}
+                                <option value="{{ account.id }}">
+                                    {{ account.sub_category }} - {{ account.sub_category_id }}
+                                </option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endfor %}
+
+                        </select>
+
+
+                    </div>
+                </div>
+
+
+
+                <!-- Outstanding Invoices Section (Display Only) -->
+                <div class="row mb-4" id="invoicesSection" style="display: none;">
+                    <div class="col-12">
+                        <h5 class="mb-3">Outstanding Invoices (For Reference)</h5>
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="invoicesTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Invoice #</th>
+                                        <th>Date</th>
+                                        <th>Due Date</th>
+                                        <th class="text-end">Total (Original)</th>
+                                        <th class="text-end">Balance Due (Original)</th>
+                                        {% if company and company.has_multiple_currencies %}
+                                        <th class="text-end">Balance Due ({{ base_currency_code }})</th>
+                                        {% endif %}
+                                    </tr>
+                                </thead>
+                                <tbody id="invoicesBody">
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4">
+                                            Select a customer to view outstanding invoices
+                                        </td>
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="4" class="text-end">Total Outstanding ({{ base_currency_code }}):
+                                        </th>
+                                        <th class="text-end" id="totalOutstanding">0.00</th>
+                                        {% if company and company.has_multiple_currencies %}
+                                        <!-- This is hidden because we only want to show one total in base currency -->
+                                        <th class="text-end" id="totalOutstandingBase" style="display: none;">0.00</th>
+                                        {% endif %}
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Overpayment Section -->
+                <div class="row mb-4" id="overpaymentSection" style="display: none;">
+                    <div class="col-12">
+                        <div class="alert alert-warning">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>Overpayment Detected:</strong>
+                                    Payment amount exceeds total outstanding by
+                                    <strong id="overpaymentAmount">0.00</strong>
+                                </div>
+                                <div>
+                                    <select id="overpayment_action" name="overpayment_action"
+                                        class="form-select form-select-sm" style="width: auto;">
+                                        <option value="credit">Keep as Customer Credit</option>
+                                        <option value="write_off">Write Off as Income</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="writeOffAccountSection" style="display: none; margin-top: 10px;">
+                                <label for="write_off_account" class="form-label fw-bold">Write-Off Account</label>
+                                <select id="write_off_account" name="write_off_account" class="form-select">
+                                    <option value="">Select Account</option>
+                                    {% if write_off_account %}
+                                    <option value="{{ write_off_account.id }}" selected>
+                                        {{ write_off_account.sub_category }}
+                                    </option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- ADD THIS: Hidden field for base currency ID -->
+                <!-- Hidden fields for currency settings -->
+                <input type="hidden" id="base_currency_id" name="base_currency_id" value="{{ base_currency.id}}">
+                <input type="hidden" id="base_currency_code" name="base_currency_code" value="{{ base_currency_code }}">
+                <input type="hidden" id="is_multi_currency" name="is_multi_currency"
+                    value="{{ 'true' if company and company.has_multiple_currencies else 'false' }}">
+
+
+                <!-- Exchange Rate Field (Hidden by default) -->
+                <div id="exchange_rate_container"
+                    style="display: none; margin-top: 15px; padding: 12px; background-color: #f8f9fa; border-radius: 6px;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <span style="font-weight: 500;">Exchange Rate</span>
+                        <span id="from_currency_display">1</span>
+                        <span>=</span>
+                        <input type="number" id="exchange_rate" name="exchange_rate" step="0.0000000001"
+                            min="0.0000000001" placeholder="Enter rate"
+                            style="padding: 6px 10px; width: 150px; border-radius: 4px; border: 1px solid #ccc;">
+                        <span id="to_currency_display"></span>
+                    </div>
+                </div>
+
+                <!-- Converted Amount Display -->
+                <div id="converted_amount_display"
+                    style="display: none; margin-top: 5px; font-size: 0.9rem; color: #666;">
+                    Payment in {{ base_currency_code }}: <span id="convertedAmountValue">0.00</span>
+                </div>
+
+
+                <!-- Form Actions -->
+                <div class="row">
+                    <div class="col-12">
+                        <button type="submit" class="button cta-button" id="submitPayment">
+                            Record Payment
+                        </button>
+                        <button type="button" class="button remove-button" id="cancelBtn"
+                            onclick="window.history.back();" aria-label="Go back">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Set today's date
+        const today = new Date().toISOString().split('T')[0];
+
+        // Get settings from hidden fields
+        const baseCurrencyCode = $('#base_currency_code').val();
+        const baseCurrencyId = $('#base_currency_id').val();
+        const isMultiCurrency = $('#is_multi_currency').val() === 'true';
+
+
+
+        $('#payment_date').val(today);
+
+        // Initialize Exchange Rate Manager for Receive Payment
+        window.rateManager = ExchangeRateManager.init({
+            currencySelectId: 'currency',
+            dateInputId: 'payment_date',
+            exchangeRateInputId: 'exchange_rate',
+            containerId: 'exchange_rate_container',
+            fromDisplayId: 'from_currency_display',
+            toDisplayId: 'to_currency_display',
+            baseCurrencyId: 'base_currency_id',
+            appId: '{{ app_id }}',
+            apiEndpoint: '/multi_currency/api/get_exchange_rate',
+            csrfToken: '{{ csrf_token() }}',
+            callbacks: {
+                onRateChange: function (rate) {
+                    // Update any calculations that depend on exchange rate
+                    updateConvertedAmount();
+                    checkForOverpayment(); // Add this
+                },
+                onSuccess: function (rate, source) {
+                    console.log(`Rate ${rate} loaded from ${source}`);
+                    updateConvertedAmount();
+                    checkForOverpayment(); // Add this
+                },
+                onVisibilityChange: function (isVisible) {
+                    if (!isVisible) {
+                        // Reset exchange rate when hiding (base currency selected)
+                        $('#exchange_rate').val('');
+                    }
+                }
+            }
+        });
+
+
+
+
+        // Function to update converted amount display
+        // Function to update converted amount display
+        function updateConvertedAmount() {
+            const paymentAmount = parseFloat($('#amount').val()) || 0;
+            const exchangeRate = parseFloat($('#exchange_rate').val()) || 1;
+            const selectedCurrencyId = $('#currency').val();
+            const selectedCurrencyText = $('#currency option:selected').text();
+
+            // Make sure exchange rate input is editable
+            $('#exchange_rate').prop('disabled', false);
+
+            // Only calculate if foreign currency is selected
+            if (selectedCurrencyId && selectedCurrencyId !== baseCurrencyId) {
+                // Show the converted amount display
+                $('#converted_amount_display').show();
+
+                if (paymentAmount > 0 && exchangeRate > 0) {
+                    // Convert from foreign to base currency
+                    // Based on your log: 1 USD = 0.00018187 SSP
+                    // So SSP * 0.00018187 = USD
+                    const convertedAmount = paymentAmount * exchangeRate;
+
+                    console.log(`Payment: ${paymentAmount} ${selectedCurrencyText} = ${convertedAmount} ${baseCurrencyCode}`);
+                    console.log(`Exchange rate: 1 ${baseCurrencyCode} = ${exchangeRate} ${selectedCurrencyText}`);
+
+                    $('#convertedAmountValue').text(formatAmount(convertedAmount));
+                } else {
+                    // No payment amount or invalid rate
+                    $('#convertedAmountValue').text('0.00');
+                }
+            } else {
+                // Base currency selected - hide converted display
+                $('#converted_amount_display').hide();
+                console.log(`Payment in base currency: ${paymentAmount} ${baseCurrencyCode}`);
+            }
+        }
+
+
+        // Also add this to ensure the rate input is editable when switching currencies
+        $('#currency').on('change', function () {
+            $('#exchange_rate').prop('disabled', false);
+            updateConvertedAmount();
+            checkForOverpayment();
+        });
+
+
+
+        // Shortcut toggle
+        $('#shortcutToggleBtn').on('click', function () {
+            $('#mobileShortcutsSidebar').toggleClass('open');
+        });
+
+        $('#closeShortcutsBtn').on('click', function () {
+            $('#mobileShortcutsSidebar').removeClass('open');
+        });
+
+        let currentInvoices = [];
+        let totalOutstanding = 0;
+
+        // Load invoices when customer changes
+        $('#customer').on('change', function () {
+            const customerId = $(this).val();
+            if (customerId) {
+                loadCustomerInvoices(customerId);
+            } else {
+                resetInvoices();
+            }
+        });
+
+        // Check for overpayment when amount changes
+        // Call updateConvertedAmount when amount changes
+        $('#amount').on('input', function () {
+            updateConvertedAmount();
+            checkForOverpayment();
+        });
+
+
+
+
+
+
+
+        function loadCustomerInvoices(customerId) {
+
+            const selectedCurrencyId = $('#currency').val(); // Add this
+
+
+            // Add this debug line
+            console.log('Sending to backend:', {
+                base_currency_id: baseCurrencyId,
+                selected_currency_id: selectedCurrencyId
+            });
+
+            $.ajax({
+                url: `/sales/api/customer_outstanding_invoices/${customerId}`,
+                method: 'GET',
+                data: {
+                    base_currency_id: baseCurrencyId,
+                    selected_currency_id: selectedCurrencyId
+                },
+                beforeSend: function () {
+                    $('#invoicesSection').show();
+                    $('#invoicesBody').html('<tr><td colspan="5" class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Loading invoices...</td></tr>');
+                },
+                success: function (response) {
+                    if (response.success) {
+                        currentInvoices = response.invoices;
+
+                        console.log('Received invoices from backend:', currentInvoices);
+                        renderInvoices(response.invoices);
+                        calculateTotalOutstanding();
+                        checkForOverpayment();
+
+                        // Update balance info
+                        // Update balance info with appropriate currency
+                        if (isMultiCurrency) {
+                            $('#balanceInfo').text(`Total outstanding: ${formatAmount(totalOutstanding)} ${baseCurrencyCode}`);
+                        } else {
+                            $('#balanceInfo').text(`Total outstanding: ${formatAmount(totalOutstanding)}`);
+                        }
+                    } else {
+                        showNotification(response.message, 'error');
+                    }
+                },
+                error: function () {
+                    showNotification('Error loading invoices', 'error');
+                    $('#invoicesSection').hide();
+                    resetInvoices();
+                }
+            });
+        }
+
+
+        function renderInvoices(invoices) {
+            if (invoices.length === 0) {
+                const colSpan = isMultiCurrency ? 6 : 5;
+                $('#invoicesBody').html(`<tr><td colspan="${colSpan}" class="text-center py-4">No outstanding invoices found</td></tr>`);
+                return;
+            }
+
+            let html = '';
+            invoices.forEach(invoice => {
+                let row = `
+        <tr data-invoice-id="${invoice.id}">  <!-- THIS LINE MUST BE PRESENT -->
+            <td>${invoice.invoice_number}</td>
+            <td>${formatDate(invoice.invoice_date)}</td>
+            <td>${formatDate(invoice.due_date)}</td>
+            <td class="text-end">${formatAmount(invoice.total_amount)} ${invoice.currency}</td>
+            <td class="text-end">${formatAmount(invoice.balance_due)} ${invoice.currency}</td>
+        `;
+
+                if (isMultiCurrency) {
+                    const convertedAmount = invoice.balance_due_base !== undefined ?
+                        invoice.balance_due_base : invoice.balance_due;
+                    row += `<td class="text-end">${formatAmount(convertedAmount)} ${baseCurrencyCode}</td>`;
+                }
+
+                row += `</tr>`;
+                html += row;
+            });
+
+            $('#invoicesBody').html(html);
+        }
+
+        function calculateTotalOutstanding() {
+            totalOutstanding = 0;
+
+            $('#invoicesBody tr').each(function () {
+                if (isMultiCurrency) {
+                    // For multi-currency, use the converted amount column (column index 5)
+                    const balanceCell = $(this).find('td:eq(5)').text();
+                    // Extract just the number (remove currency code)
+                    const balance = parseFloat(balanceCell.split(' ')[0].replace(/,/g, '')) || 0;
+                    totalOutstanding += balance;
+                } else {
+                    // For single currency, use the original balance (column index 4)
+                    const balanceCell = $(this).find('td:eq(4)').text();
+                    const balance = parseFloat(balanceCell.replace(/,/g, '')) || 0;
+                    totalOutstanding += balance;
+                }
+            });
+
+            // Update the display - always show total in base currency
+            $('#totalOutstanding').text(formatAmount(totalOutstanding));
+
+            // Also update the hidden base total if it exists (for potential future use)
+            if (isMultiCurrency && $('#totalOutstandingBase').length) {
+                $('#totalOutstandingBase').text(formatAmount(totalOutstanding));
+            }
+        }
+
+        // Fix checkForOverpayment to ensure consistent currency comparison
+        function checkForOverpayment() {
+            const paymentAmount = parseFloat($('#amount').val()) || 0;
+            const selectedCurrencyId = $('#currency').val();
+            const selectedCurrencyText = $('#currency option:selected').text();
+
+            // totalOutstanding is ALWAYS in base currency (from your calculateTotalOutstanding)
+            let paymentInBase = paymentAmount;
+
+            if (selectedCurrencyId && selectedCurrencyId !== baseCurrencyId) {
+                const exchangeRate = parseFloat($('#exchange_rate').val()) || 1;
+                // Convert payment from foreign to base using multiplication (based on your rate definition)
+                paymentInBase = paymentAmount * exchangeRate;
+                console.log(`Payment in ${selectedCurrencyText}: ${paymentAmount}, in ${baseCurrencyCode}: ${paymentInBase} (using rate ${exchangeRate})`);
+            }
+
+            // Compare both in base currency
+            if (paymentInBase > totalOutstanding && totalOutstanding > 0) {
+                const overpayment = paymentInBase - totalOutstanding;
+                $('#overpaymentAmount').text(formatAmount(overpayment));
+                $('#overpaymentSection').show();
+                $('#overpaymentWarning').show();
+                console.log(`Overpayment detected: ${overpayment} ${baseCurrencyCode}`);
+            } else {
+
+
+                $('#overpaymentSection').hide();
+                $('#overpaymentWarning').hide();
+
+                console.log('No overpayment. Payment in base currency:', paymentInBase, 'Total outstanding:', totalOutstanding);
+            }
+        }
+
+        // Handle overpayment action change
+        $('#overpayment_action').on('change', function () {
+            if ($(this).val() === 'write_off') {
+                $('#writeOffAccountSection').show();
+            } else {
+                $('#writeOffAccountSection').hide();
+            }
+        });
+
+        // Form submission
+        // Form submission
+        $('#paymentForm').on('submit', function (e) {
+            e.preventDefault();
+
+            // Validate
+            if (!$('#customer').val()) {
+                showNotification('Please select a customer', 'error');
+                return;
+            }
+
+            const paymentAmount = parseFloat($('#amount').val()) || 0;
+            if (paymentAmount <= 0) {
+                showNotification('Please enter a valid payment amount', 'error');
+                return;
+            }
+
+            if (!$('#funding_account').val()) {
+                showNotification('Please select a deposit account', 'error');
+                return;
+            }
+
+            const selectedCurrencyId = $('#currency').val();
+            const exchangeRate = parseFloat($('#exchange_rate').val()) || 1;
+
+            // Build allocations array from the invoices table
+            const allocations = [];
+            $('#invoicesBody tr').each(function () {
+                const invoiceId = $(this).data('invoice-id');
+                if (!invoiceId) return;
+
+                // Get amount in invoice currency (column index 4)
+                const invoiceCell = $(this).find('td:eq(4)').text();
+                const amountInInvoiceCurrency = parseFloat(invoiceCell.split(' ')[0].replace(/,/g, '')) || 0;
+
+                // Get amount in base currency (column index 5 if multi-currency)
+                let amountInBaseCurrency = amountInInvoiceCurrency;
+                if (isMultiCurrency) {
+                    const baseCell = $(this).find('td:eq(5)').text();
+                    amountInBaseCurrency = parseFloat(baseCell.split(' ')[0].replace(/,/g, '')) || amountInInvoiceCurrency;
+                }
+
+                // Calculate amount in payment currency
+                let amountInPaymentCurrency = amountInInvoiceCurrency;
+
+                // Get invoice currency from the displayed text
+                const invoiceCurrencyText = invoiceCell.split(' ')[1] || '';
+
+                // If payment currency is different from invoice currency, convert
+                if (selectedCurrencyId !== baseCurrencyId) {
+                    // Payment is in foreign currency
+                    if (invoiceCurrencyText === $('#currency option:selected').text()) {
+                        // Same currency as payment
+                        amountInPaymentCurrency = amountInInvoiceCurrency;
+                    } else {
+                        // Different currency - use exchange rate
+                        // This assumes payment is in foreign, invoice is in base or other
+                        amountInPaymentCurrency = amountInBaseCurrency / exchangeRate;
+                    }
+                } else {
+                    // Payment is in base currency
+                    amountInPaymentCurrency = amountInBaseCurrency;
+                }
+
+                // ✅ ROUND TO 2 DECIMAL PLACES HERE
+                amountInPaymentCurrency = Math.round(amountInPaymentCurrency * 100) / 100;
+
+                allocations.push({
+                    invoice_id: invoiceId,
+                    amount: amountInInvoiceCurrency,        // Original invoice currency
+                    amount_base: amountInBaseCurrency,       // Base currency
+                    amount_payment: amountInPaymentCurrency  // Payment currency (rounded to 2 decimals)
+                });
+            });
+
+            const paymentData = {
+                customer_id: $('#customer').val(),
+                payment_date: $('#payment_date').val(),
+                amount: paymentAmount,
+                payment_method: $('#payment_method').val() || null,
+                funding_account: $('#funding_account').val(),
+                reference: $('#reference').val() || null,
+                overpayment_action: $('#overpayment_action').val(),
+                write_off_account: $('#write_off_account').val() || null,
+                currency_id: selectedCurrencyId,
+                exchange_rate: exchangeRate || null,
+                base_currency_id: $('#base_currency_id').val(),
+                allocations: allocations
+            };
+
+            console.log('Sending payment data:', paymentData); // Debug log
+            submitPayment(paymentData);
+        });
+
+        function submitPayment(data) {
+            $.ajax({
+                url: '/sales/api/process_payment',
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                data: JSON.stringify(data),
+                contentType: 'application/json',
+                beforeSend: function () {
+                    $('#invoicesSection').show();
+                    const colSpan = isMultiCurrency ? 6 : 5;
+                    $('#invoicesBody').html(`<tr><td colspan="${colSpan}" class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Loading invoices...</td></tr>`);
+                },
+                success: function (response) {
+                    if (response.success) {
+                        showNotification(response.message, 'success');
+                        setTimeout(() => {
+                            window.location.href = "{{ url_for('sales_routes.sales_dashboard') }}";
+                        }, 1500);
+                    } else {
+                        showNotification(response.message, 'error');
+                        enableAllSubmitButtons();
+                        $('#submitPayment').text('Record Payment');
+
+                    }
+                },
+                error: function (xhr) {
+                    const response = xhr.responseJSON;
+                    showNotification(response?.message || 'Error processing payment', 'error');
+                    enableAllSubmitButtons();
+                    $('#submitPayment').text('Record Payment');
+
+                }
+            });
+        }
+
+
+
+        function resetInvoices() {
+            currentInvoices = [];
+            totalOutstanding = 0;
+            $('#invoicesSection').hide();
+            const colSpan = isMultiCurrency ? 6 : 5;
+            $('#invoicesBody').html(`<tr><td colspan="${colSpan}" class="text-center py-4">Select a customer to view outstanding invoices</td></tr>`);
+            $('#totalOutstanding').text('0.00');
+            if (isMultiCurrency) {
+                $('#totalOutstandingBase').text('0.00');
+            }
+            $('#overpaymentSection').hide();
+            $('#balanceInfo').text('Enter the amount received');
+        }
+
+        // Helper functions
+        function formatAmount(amount) {
+            return new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function showNotification(message, type) {
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(message, type);
+            } else {
+                alert(message);
+            }
+        }
+    });
+</script>
+{% endblock %}

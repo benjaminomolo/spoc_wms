@@ -1,0 +1,891 @@
+{% extends "transaction_base_template.html" %}
+
+
+{% block content %}
+<div class="content-container">
+
+    <div class="header-section">
+        <h1>Warehouse Management</h1>
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{url_for('inventory_entry')}}">New Stock Entry</a></li>
+
+                {% endif %}
+
+                <li class="shortcut-item"><a href="{{ url_for('inventory_dashboard') }}">Dashboard</a></li>
+
+
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" onclick="toggleDropdown(event)">
+                        <span>&nbsp;View&nbsp;</span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('stock_list_grid') }}">Stock List</a>
+                            <a href="{{ url_for('inventory_entries') }}">Inventory Entries</a>
+                            <a href="{{ url_for('backorders') }}">Backorders</a>
+                        </div>
+                    </div>
+                </li>
+
+
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <!-- Add New Location Button -->
+                <li class="shortcut-item">
+                    <button id="add-location-btn" class="add-location-btn button cta-button" data-bs-toggle="modal"
+                        data-bs-target="#addLocationModal">
+                        <i class="fas fa-plus"></i> Add New Location
+                    </button>
+                    {% endif %}
+                </li>
+            </ol>
+        </nav>
+    </div>
+
+
+    <div class="summary-container">
+        <div class="summary-item total-items-hover">
+            <i class="fas fa-boxes"></i>
+            <h2>Total Items</h2>
+            <h1>{{ '{:,.0f}'.format(total_items) }}</h1>
+            {% if item_details %}
+            <div class="total-items-hover">
+                <ul class="total-items-tooltip">
+                    {% for item in item_details %}
+                    <li>{{ item.category }}: {{ '{:,.0f}'.format(item.count) }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        <div class="summary-item">
+            <i class="fas fa-check-circle"></i>
+            <h2>In Stock Items</h2>
+            <h1>{{ '{:,.0f}'.format(total_in_stock_items) }}</h1>
+        </div>
+        <div class="summary-item missing-items-hover">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h2>Missing Items</h2>
+            <h1>{{ '{:,.0f}'.format(total_missing_items) }}</h1>
+            {% if missing_items %}
+            <div class="missing-items-hover">
+                <ul class="missing-items-tooltip">
+                    {% for item in missing_items %}
+                    <li>{{ item.name }}: {{ item.quantity }} missing</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        <div class="summary-item">
+            <i class="fas fa-tachometer-alt"></i>
+            <h2>Low Stock Items</h2>
+            <h1>{{ '{:,.0f}'.format(total_low_stock_items) }}</h1>
+        </div>
+        <div class="summary-item warehouses-hover">
+            <i class="fas fa-warehouse"></i>
+            <h2>Warehouses</h2>
+            <h1>{{ '{:,.0f}'.format(total_warehouses) }}</h1>
+            {% if warehouse_details %}
+            <div class="warehouses-hover">
+                <ul class="warehouses-tooltip">
+                    {% for warehouse in warehouse_details %}
+                    <li>{{ warehouse.name }}: {{ warehouse.location }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+
+    <!-- Location Dropdown, Edit Button, Add Location Button, and Batch Toggle -->
+    <div class="controls">
+        <!-- Location Dropdown -->
+        <form method="get" action="{{ url_for('warehouse_management') }}" class="location-form">
+            <label for="location">Warehouse:</label>
+            <select name="location_id" id="location" onchange="this.form.submit()">
+                {% for location in locations %}
+                <option value="{{ location.id }}" {% if location.id==selected_location_id %}selected{% endif %}>
+                    {{ location.location }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+
+        {% if role == 'Admin' or role == 'Contributor' %}
+        <!-- Edit Warehouse Button -->
+        <button id="edit-warehouse-btn" class="edit-warehouse-btn button cta-button" data-bs-toggle="modal"
+            data-bs-target="#editWarehouseModal">
+            <i class="fas fa-edit"></i> Edit Warehouse
+        </button>
+        {% endif %}
+
+
+
+
+
+        <!-- Batch Grouping Toggle -->
+        <button id="toggle-batch-grouping" class="button info" data-group="{{ group_by_batch|lower }}">
+            {% if group_by_batch %}
+            Hide Batch Details
+            {% else %}
+            Show Batch Details
+            {% endif %}
+        </button>
+    </div>
+
+    <!-- Stock Summary Table -->
+    <div class="stock-summary table-container table-responsive" id="inventoryTable">
+        <h4>Stock Summary for {{ selected_location_name if selected_location_name else "No Location Selected" }}
+        </h4>
+        <!-- Table for Normal View (without Batch column) -->
+        <table id="inventory-normal" class="stock-list-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Category</th>
+
+                    <th>Brand</th>
+                    <th>Attribute</th>
+                    <th>Variation</th>
+                    <th>Quantity</th>
+                    <th>Missing Items</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+                <tr class="search-row">
+                    <th><input type="text" placeholder="Search Item" /></th>
+                    <th><input type="text" placeholder="Search Category" /></th>
+
+                    <th><input type="text" placeholder="Search Brand" /></th>
+                    <th><input type="text" placeholder="Search Attribute" /></th>
+                    <th><input type="text" placeholder="Search Variation" /></th>
+                    <th><input type="text" placeholder="Search Quantity" /></th>
+                    <th><input type="text" placeholder="Search Missing Items" /></th>
+                    <th><input type="text" placeholder="Search Status" /></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for category, items in stock_by_category.items() %}
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.item_name }}</td>
+                    <td>{{ category }}</td>
+
+                    <td>{{ item.brand or "-"}}</td>
+                    <td>{{ item.attribute or "-" }}</td>
+                    <td>{{ item.variation or "-" }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.missing_items }}</td>
+                    <td><span class="status 
+                    {% if item.status == 'Out of Stock' %}cancelled
+                    {% elif item.status == 'Low Stock' %}pending
+                    {% elif item.status == 'In Stock' %}approved
+                    {% endif %}">{{ item.status }}</span></td>
+                    <td>
+                        <div class="action-icons">
+                            <button class="action-btn transfer-btn edit-icon" data-tooltip="Transfer"
+                                data-bs-toggle="modal" data-bs-target="#transferModal" data-item-id="{{ item.id }}"
+                                data-item-name="{{ item.item_name }}" data-quantity="{{ item.quantity }}"
+                                data-variation="{{ item.variation_id or '' }}" data-batch="{{ item.batch_id }}">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
+                            <button class="action-btn missing-item-btn delete-icon" data-tooltip="Record Missing Item"
+                                data-bs-toggle="modal" data-bs-target="#missingItemModal" data-item-id="{{ item.id }}"
+                                data-item-name="{{ item.item_name }}" data-variation="{{ item.variation_id or '' }}"
+                                data-batch="{{ item.batch }}" data-quantity="{{ item.quantity }}">
+                                <i class="fas fa-exclamation-circle"></i>
+                            </button>
+                            <button class="view-icon" data-tooltip="View Details"
+                                onclick="window.location.href='{{ url_for('inventory_item_details', item_id=item.id) }}'">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="8">Total Quantity:</td>
+                    <td id="totalQuantityNormal">0</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <!-- Table for Batch View (with Batch column) -->
+        <table id="inventory-batch" class="stock-list-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Category</th>
+
+                    <th>Brand</th>
+                    <th>Attribute</th>
+                    <th>Variation</th>
+                    <th>Batch</th>
+                    <th>Quantity</th>
+                    <th>Missing Items</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+                <tr class="search-row">
+                    <th><input type="text" placeholder="Search Item" /></th>
+                    <th><input type="text" placeholder="Search Category" /></th>
+
+                    <th><input type="text" placeholder="Search Brand" /></th>
+                    <th><input type="text" placeholder="Search Attribute" /></th>
+                    <th><input type="text" placeholder="Search Variation" /></th>
+                    <th><input type="text" placeholder="Search Batch" /></th>
+                    <th><input type="text" placeholder="Search Quantity" /></th>
+                    <th><input type="text" placeholder="Search Missing Items" /></th>
+                    <th><input type="text" placeholder="Search Status" /></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for category, items in stock_by_category.items() %}
+                {% for item in items %}
+                <tr>
+
+                    <td>{{ item.item_name }}</td>
+                    <td>{{ category }}</td>
+                    <td>{{ item.brand or "-"}}</td>
+                    <td>{{ item.attribute or "-" }}</td>
+                    <td>{{ item.variation or "-" }}</td>
+                    <td>{{ item.batch or "-"}}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.missing_items }}</td>
+                    <td><span class="status 
+                        {% if item.status == 'Out of Stock' %}cancelled
+                        {% elif item.status == 'Low Stock' %}pending
+                        {% elif item.status == 'In Stock' %}approved
+                        {% endif %}">{{ item.status }}</span></td>
+                    <td>
+                        <div class="action-icons">
+                            <button class="action-btn transfer-btn button-table cta-button-table"
+                                data-tooltip="Transfer" data-bs-toggle="modal" data-bs-target="#transferModal"
+                                data-item-id="{{ item.id }}" data-item-name="{{ item.item_name }}"
+                                data-quantity="{{ item.quantity }}" data-variation="{{ item.variation_id or ''}}"
+                                data-batch="{{ item.batch_id }}">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
+                            <button class="action-btn missing-item-btn button-table remove-button-table"
+                                data-tooltip="Record Missing Item" data-bs-toggle="modal"
+                                data-bs-target="#missingItemModal" data-item-id="{{ item.id }}"
+                                data-item-name="{{ item.item_name }}" data-variation="{{ item.variation }}"
+                                data-batch="{{ item.batch }}" data-quantity="{{ item.quantity }}">
+                                <i class="fas fa-exclamation-circle"></i>
+                            </button>
+                            <button class="button-table view-icon" data-tooltip="View Details"
+                                onclick="window.location.href='{{ url_for('inventory_item_details', item_id=item.id) }}'">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="9">Total Quantity:</td>
+                    <td id="totalQuantityBatch">0</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+</div>
+
+<!-- Transfer Modal -->
+<!-- Transfer Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1" role="dialog" aria-labelledby="transferModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="transferModalLabel">Transfer Item</h5>
+                <button type="button" class="close button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="transferForm" method="post" action="{{ url_for('transfer_item') }}">
+                    <!-- Hidden fields for item details -->
+                    <input type="hidden" name="item_id" id="transfer-item-id">
+                    <input type="hidden" name="variation" id="transfer-item-variation">
+                    <input type="hidden" name="batch" id="transfer-item-batch">
+                    <input type="hidden" name="from_location" id="from_location" value="{{ selected_location_id }}">
+
+                    <!-- Display item name -->
+                    <div class="form-group">
+                        <p><strong>Item:</strong> <span id="transfer-item-name"></span></p>
+                    </div>
+
+                    <!-- Transfer to location dropdown -->
+                    <div class="form-group">
+                        <label for="to_location">Transfer to: <span class="required">*</span></label>
+                        <select name="to_location" id="to_location" class="form-control" required>
+                            {% for location in locations %}
+                            {% if location.id != selected_location_id %}
+                            <option value="{{ location.id }}">{{ location.location }}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Quantity input -->
+                    <div class="form-group">
+                        <label for="quantity">Quantity: <span class="required">*</span></label>
+                        <input type="number" name="quantity" id="quantity" class="form-control" min="1" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="button cta-button" form="transferForm">Transfer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Missing Item Modal -->
+<div class="modal fade" id="missingItemModal" tabindex="-1" aria-labelledby="missingItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="missingItemModalLabel">Mark Item as Missing</h5>
+                <button type="button" class="close button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="missingItemForm">
+                    <!-- Hidden fields for item details -->
+                    <input type="hidden" name="item_id" id="missing-item-id">
+                    <input type="hidden" name="variation" id="missing-item-variation">
+                    <input type="hidden" name="batch" id="missing-item-batch">
+                    <input type="hidden" name="from_location" id="from_location" value="{{ selected_location_id }}">
+
+                    <!-- Display item name -->
+                    <p><strong>Item:</strong> <span id="missing-item-name"></span></p>
+
+                    <!-- Display current location as plain text -->
+                    <p><strong>From Location:</strong> {{ selected_location_name if selected_location_name else "No
+                        Location Selected" }}</p>
+
+                    <!-- Quantity input -->
+                    <div class="form-group">
+                        <label for="quantity">Quantity: <span class="required">*</span></label>
+                        <input type="number" name="quantity" id="quantity" class="form-control" min="1" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" id="submit-missing-item" class="button cta-button" form="missingItemForm">Mark as
+                    Missing</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Warehouse Modal -->
+<!-- Edit Warehouse Modal -->
+<div class="modal fade" id="editWarehouseModal" tabindex="-1" aria-labelledby="editWarehouseModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editWarehouseModalLabel">Edit Warehouse Name</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-warehouse-form" method="POST" action="{{ url_for('edit_warehouse') }}">
+                    <input type="hidden" name="location_id" id="edit-location-id" value="{{ selected_location_id }}">
+                    <div class="form-group mb-3">
+                        <label for="new_location_name">Warehouse Name: <span class="required">*</span></label>
+                        <input type="text" id="new_location_name" name="new_location_name" class="form-control"
+                            maxlength="100" required>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="button add-button">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Location Modal -->
+<div class="modal fade" id="addLocationModal" tabindex="-1" aria-labelledby="addLocationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addLocationModalLabel">Add New Inventory Location</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close"><i
+                        class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-location-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group mb-3">
+                        <label for="location_name">Location Name: <span class="required">*</span></label>
+                        <input type="text" id="location_name" name="location" class="form-control" maxlength="100"
+                            required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="location_description">Location Description:</label>
+                        <textarea id="location_description" name="description" class="form-control" maxlength="300"
+                            rows="3"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="submit-location" class="button add-button">Add Location</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for DataTables and Modal Handling -->
+<script>
+    // Function to initialize DataTable for a specific table
+    function initializeDataTable(tableId, groupByBatch) {
+        console.log('Initializing DataTable for:', tableId); // Debugging
+
+        // Destroy existing DataTable instance (if any)
+        if ($.fn.DataTable.isDataTable(tableId)) {
+            console.log('Destroying existing DataTable instance...'); // Debugging
+            $(tableId).DataTable().destroy();
+        }
+
+        // Initialize DataTable
+        var table = $(tableId).DataTable({
+            paging: true,
+            ordering: true,
+            info: true,
+            searching: true, // Enable the general search bar
+            responsive: true,
+            columnDefs: [
+                { "orderable": false, "targets": [groupByBatch ? 9 : 8] } // Disable sorting on Actions column
+            ],
+            footerCallback: function (row, data, start, end, display) {
+                var api = this.api();
+                var totalQuantity = api.column(groupByBatch ? 6 : 5, { page: 'current' }).data().reduce(function (a, b) {
+                    return a + b * 1; // Summing up the quantities (assuming they are numbers)
+                }, 0);
+                $(tableId + ' #totalQuantity' + (groupByBatch ? 'Batch' : 'Normal')).html(totalQuantity);
+            },
+            initComplete: function () {
+                console.log('DataTable initialization complete for:', tableId); // Debugging
+
+                // Apply search for each column
+                this.api().columns().every(function () {
+                    var column = this;
+                    var header = $(column.header());
+                    var searchInput = header.find('input');
+
+                    if (searchInput.length > 0) {
+                        searchInput.on('keyup change clear', function () {
+                            if (column.search() !== this.value) {
+                                column.search(this.value).draw();
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    // Function to toggle between tables
+    function toggleTables(groupByBatch) {
+        if (groupByBatch) {
+            $('#inventory-normal').hide();
+            $('#inventory-batch').show();
+            initializeDataTable('#inventory-batch', true);
+        } else {
+            $('#inventory-batch').hide();
+            $('#inventory-normal').show();
+            initializeDataTable('#inventory-normal', false);
+        }
+    }
+
+
+
+    // Initialize DataTable on page load
+    $(document).ready(function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const groupByBatch = urlParams.get('group_by_batch') === 'true'; // Get the current state
+        toggleTables(groupByBatch);
+    });
+
+    // Handle batch grouping toggle
+    const toggleBatchButton = document.getElementById('toggle-batch-grouping');
+    if (toggleBatchButton) {
+        toggleBatchButton.addEventListener('click', function () {
+            console.log('Toggle Batch Button Clicked'); // Debugging
+            const url = new URL(window.location.href);
+            const currentGroupByBatch = url.searchParams.get('group_by_batch') === 'true'; // Convert to boolean
+            url.searchParams.set('group_by_batch', !currentGroupByBatch); // Toggle the boolean
+            window.location.href = url.toString(); // Reload the page with the updated parameter
+        });
+    } else {
+        console.error('Toggle batch button not found'); // Debugging
+    }
+
+
+
+    // Other Functionality (in its own DOMContentLoaded event listener)
+    document.addEventListener('DOMContentLoaded', function () {
+        // Handle transfer form submission
+        const transferForm = document.querySelector('#transferModal form');
+        const notification = document.getElementById('notification');
+
+
+
+        // Handle missing item form submission
+        document.getElementById('missingItemForm').addEventListener('submit', async function (event) {
+            event.preventDefault(); // Prevent default form submission
+            const submitBtn = document.getElementById('submit-missing-item');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Processing...';
+            }
+            const formData = new FormData(this); // Get form data
+
+
+            try {
+                // Send the form data to the server using fetch
+                const response = await fetch("{{ url_for('missing_item') }}", {
+
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: formData
+                });
+
+                const result = await response.json(); // Parse the JSON response
+
+                console.log('Missing item recorded successfully:', result.message);
+
+                if (response.ok) {
+                    // Show success message
+                    showNotification(result.message, "success");
+
+                    // Close the modal
+                    // Close the modal
+                    bootstrap.Modal.getInstance(document.getElementById('missingItemModal')).hide();
+
+                    // Reload the page to reflect changes
+                    location.reload();
+                } else {
+                    // Show error message
+                    showNotification(result.message, "error");
+                    enableAllSubmitButtons();
+                }
+            } catch (error) {
+                // Handle network or other errors
+                showNotification('An error occurred while recording missing items.', true);
+                console.error('Error:', error);
+            }
+        });
+
+
+
+
+        // Ensure this code only runs once
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('add-location-form');
+            const notification = document.getElementById('notification');
+
+            // Only add if form exists and listener hasn't been added
+            if (form && !form.dataset.listenerAdded) {
+                form.addEventListener('submit', async function (event) {
+                    event.preventDefault();
+
+                    const submitButton = document.getElementById('submit-location');
+                    if (submitButton) {
+                        submitButton.disabled = true;
+                        submitButton.textContent = 'Processing...';
+                    }
+
+                    const formData = new FormData(this);
+
+                    try {
+                        const response = await fetch("{{ url_for('add_inventory_location') }}", {
+                            method: 'POST',
+                            headers: { 'X-CSRFToken': csrfToken },
+                            body: formData
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            showNotification(result.message, false);
+                            bootstrap.Modal.getInstance(document.getElementById('addLocationModal')).hide();
+                            location.reload();
+                        } else {
+                            showNotification(result.error, true);
+                            enableAllSubmitButtons();
+                        }
+                    } catch (error) {
+                        showNotification('An error occurred while adding the location.', true);
+                        console.error('Error:', error);
+                        enableAllSubmitButtons();
+                    }
+                });
+
+                // Mark the form as having the listener
+                form.dataset.listenerAdded = 'true';
+            }
+        });
+    });
+
+    // Add event listener to the missing item buttons
+    document.querySelectorAll('.missing-item-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            // Get data attributes from the button
+            const itemId = this.getAttribute('data-item-id');
+            const itemName = this.getAttribute('data-item-name');
+            const variation = this.getAttribute('data-variation');
+            const batch = this.getAttribute('data-batch');
+            const quantity = this.getAttribute('data-quantity');
+
+            // Check if the quantity is valid
+            if (quantity <= 0) {
+                alert('Quantity is 0 or lower. Cannot record missing.');
+                return;
+            }
+
+            // Populate the modal fields
+            document.getElementById('missing-item-id').value = itemId;
+            document.getElementById('missing-item-name').textContent = itemName;
+            document.getElementById('missing-item-variation').value = variation;
+            document.getElementById('missing-item-batch').value = batch;
+
+            // Set the maximum value for the quantity input
+            const quantityInput = document.getElementById('quantity');
+            quantityInput.setAttribute('max', quantity);
+        });
+    });
+
+
+    // Add event listener to the transfer buttons
+    // Add event listener to the transfer buttons
+    document.querySelectorAll('.transfer-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            // Get data attributes from the button
+            const itemId = this.getAttribute('data-item-id');
+            const itemName = this.getAttribute('data-item-name');
+            const variation = this.getAttribute('data-variation');
+            const batch = this.getAttribute('data-batch');
+            const quantity = this.getAttribute('data-quantity');
+            const fromLocation = "{{ selected_location_id }}"; // Get the current location ID from the template
+
+            // Check if the quantity is valid
+            if (quantity <= 0) {
+                alert('Quantity is 0 or lower. Cannot transfer.');
+                return;
+            }
+
+            // Populate the modal fields
+            document.getElementById('transfer-item-id').value = itemId;
+            document.getElementById('transfer-item-name').textContent = itemName;
+            document.getElementById('transfer-item-variation').value = variation;
+            document.getElementById('transfer-item-batch').value = batch;
+            document.getElementById('from_location').value = fromLocation;
+
+            // Set the maximum value for the quantity input
+            const quantityInput = document.getElementById('quantity');
+            quantityInput.setAttribute('max', quantity);
+        });
+    });
+
+    // Handle form submission for the transfer modal
+    const transferForm = document.getElementById('transferForm');
+    if (transferForm) {
+        transferForm.addEventListener('submit', function (event) {
+            event.preventDefault(); // Prevent the default form submission
+
+            // Get the form data
+            const formData = new FormData(transferForm);
+
+            // Send the form data using AJAX
+            fetch(transferForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest', // Indicate this is an AJAX request
+                    'X-CSRFToken': csrfToken // Include the CSRF token in the headers
+                },
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message) {
+                        // Close the modal
+                        const transferModal = bootstrap.Modal.getInstance(document.getElementById('transferModal'));
+                        // Show a success alert
+                        showNotification(data.message); // Simple alert
+
+                        transferModal.hide();
+
+                        // Reload the page to reflect the changes
+                        location.reload();
+                    } else if (data.error) {
+                        // Display an error message if the submission fails
+                        showNotification('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('An error occurred while transferring the item.');
+                });
+        });
+    }
+
+
+    // Function to handle the edit warehouse form submission
+    async function handleEditWarehouseFormSubmit(event) {
+        event.preventDefault(); // Prevent the default form submission
+
+        const form = event.target;
+        const formData = new FormData(form); // Get form data
+        const notification = document.getElementById('notification'); // Notification element
+
+        try {
+            // Send the form data to the server using fetch
+            const response = await fetch("{{ url_for('edit_warehouse') }}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken // Include the CSRF token in the headers
+                },
+                body: formData
+            });
+
+            const result = await response.json(); // Parse the JSON response
+
+            if (response.ok) {
+                // Show success message
+                showNotification(result.message, false);
+
+
+                // Reload the page to reflect changes
+                location.reload();
+            } else {
+                // Show error message
+                showNotification(result.error, true);
+            }
+        } catch (error) {
+            // Handle network or other errors
+            showNotification('An error occurred while updating the warehouse name.', true);
+            console.error('Error:', error);
+        }
+    }
+    // Attach the form submission handler to the edit warehouse form
+    document.getElementById('edit-warehouse-form').addEventListener('submit', handleEditWarehouseFormSubmit);
+
+    // Function to add lcoation
+    document.addEventListener('DOMContentLoaded', function () {
+        const addLocationForm = document.getElementById('add-location-form');
+        if (addLocationForm) {
+            addLocationForm.addEventListener('submit', function (event) {
+                event.preventDefault(); // Prevent the default form submission
+
+                // Get the form data
+                const formData = new FormData(addLocationForm);
+
+                // Send the form data using AJAX
+                fetch(addLocationForm.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest', // Indicate this is an AJAX request
+                        'X-CSRFToken': csrfToken // Include the CSRF token in the headers
+                    },
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Close the modal
+                            const addLocationModal = bootstrap.Modal.getInstance(document.getElementById('addLocationModal'));
+                            addLocationModal.hide();
+
+                            // Reload the page to reflect the changes
+                            location.reload();
+                        } else {
+                            // Display an error message if the submission fails
+                            alert('Error: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while adding the location.');
+                    });
+            });
+        }
+    });
+</script>
+
+<style>
+    /* Add this CSS for the batch toggle button */
+    .controls {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+
+
+    /* Dropdown Select Box */
+    form select {
+        padding: 8px 12px;
+
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        background-color: #fff;
+        color: #333;
+        cursor: pointer;
+        transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    /* Dropdown Hover State */
+    form select:hover {
+        border-color: #007bff;
+    }
+
+    /* Dropdown Focus State */
+    form select:focus {
+        border-color: #007bff;
+        outline: none;
+        box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+    }
+
+
+
+    /* Dropdown Option Styling */
+    form select option {
+        padding: 8px;
+        background-color: #fff;
+        color: #333;
+    }
+
+    /* Dropdown Option Hover State */
+    form select option:hover {
+        background-color: #007bff;
+        color: #fff;
+    }
+</style>
+{% endblock %}

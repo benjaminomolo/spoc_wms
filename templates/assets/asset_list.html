@@ -1,0 +1,1183 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Asset List</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Supervisor' or role == 'Viewer' %}
+                    <li><a href="{{ url_for('assets.add_new_asset_type') }}">New Asset Type</a></li>
+                    {% endif %}
+
+                    <li><a href="{{ url_for('assets.asset_types') }}">Asset Types</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Header buttons and controls -->
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+            <!-- Multi-select button -->
+            <button class="btn button-outline" type="button" id="toggleMultiSelect">
+                <i class="fas fa-check-square"></i> Select
+            </button>
+
+            <!-- Hide button (initially hidden) -->
+            <button class="btn button-outline" type="button" id="hideMultiSelect" style="display: none;">
+                <i class="fas fa-eye-slash"></i> Hide
+            </button>
+
+            <!-- Bulk action buttons (hidden by default) -->
+            <div class="bulk-actions" id="bulkActions" style="gap: 10px; display: none;">
+                <div>
+                    <button class="button-outline" type="button" id="bulkDelete">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+
+            <!-- Export button -->
+            <button class="button-outline" type="button" id="exportBtn">
+                <i class="fas fa-download"></i> Export
+            </button>
+
+            <!-- Quick Search -->
+            <input type="text" id="assetSearch" class="form-control search-input"
+                placeholder="Search by tag, serial, or type...">
+
+            <div class="custom-tooltip-container">
+                <!-- Refresh Button -->
+                <button class="refresh-btn" id="refreshBtn">
+                    <span class="icon">🔄</span>
+                </button>
+                <span class="custom-tooltip">Refresh Page</span>
+            </div>
+        </div>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
+                <li class="shortcut-item"><a href="{{ url_for('assets.asset_entry') }}">New Asset</a></li>
+                {% endif %}
+                <li class="shortcut-item"><a href="{{ url_for('assets.asset_list') }}">Asset List</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('assets.asset_types') }}">Asset Types</a></li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section" id="filter-section">
+        <form class="date-filter-form" id="filter-form">
+            <div class="filter-row">
+                <!-- Asset Type Filter -->
+                <div class="filter-group">
+                    <label for="asset_type" class="filter-label">Asset Type</label>
+                    <select id="asset_type" name="asset_type" class="form-select select2">
+                        <option value="">All Types</option>
+                        {% for type in asset_types %}
+                        <option value="{{ type.id }}">{{ type.asset_name }}{% if type.asset_code %} ({{ type.asset_code
+                            }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Status Filter -->
+                <div class="filter-group">
+                    <label for="status" class="filter-label">Status</label>
+                    <select id="status" name="status" class="form-select">
+                        <option value="">All Statuses</option>
+                        {% for status in status_options %}
+                        <option value="{{ status }}">{{ status.replace('_', ' ').title() }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Condition Filter -->
+                <div class="filter-group">
+                    <label for="condition" class="filter-label">Condition</label>
+                    <select id="condition" name="condition" class="form-select">
+                        <option value="">All Conditions</option>
+                        {% for condition in condition_options %}
+                        <option value="{{ condition }}">{{ condition.title() }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Location Filter -->
+                <div class="filter-group">
+                    <label for="location" class="filter-label">Location</label>
+                    <select id="location" name="location" class="form-select select2">
+                        <option value="">All Locations</option>
+                        {% for location in locations %}
+                        <option value="{{ location.id }}">{{ location.location }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-row">
+                <!-- Department Filter -->
+                <div class="filter-group">
+                    <label for="department" class="filter-label">Department</label>
+                    <select id="department" name="department" class="form-select select2">
+                        <option value="">All Departments</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}">{{ dept.department_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Assigned To Filter -->
+                <div class="filter-group">
+                    <label for="assigned_to" class="filter-label">Assigned To</label>
+                    <select id="assigned_to" name="assigned_to" class="form-select select2">
+                        <option value="">All Employees</option>
+                        {% for employee in employees %}
+                        <option value="{{ employee.id }}">{{ employee.first_name }} {{ employee.last_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Supplier Filter -->
+                <div class="filter-group">
+                    <label for="supplier" class="filter-label">Supplier</label>
+                    <select id="supplier" name="supplier" class="form-select select2">
+                        <option value="">All Suppliers</option>
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}">{{ supplier.vendor_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Project Filter -->
+                <div class="filter-group">
+                    <label for="project" class="filter-label">Project</label>
+                    <select id="project" name="project" class="form-select select2">
+                        <option value="">All Projects</option>
+                        {% for project in projects %}
+                        <option value="{{ project.id }}">{{ project.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-row">
+                <!-- Purchase Date Range -->
+                <div class="filter-group">
+                    <label for="date_from" class="filter-label">Purchase Date From</label>
+                    <input type="date" id="date_from" name="date_from" class="form-control">
+                </div>
+
+                <div class="filter-group">
+                    <label for="date_to" class="filter-label">Purchase Date To</label>
+                    <input type="date" id="date_to" name="date_to" class="form-control">
+                </div>
+
+                <!-- Items Per Page -->
+                <div class="filter-group">
+                    <label for="per_page" class="filter-label">Items Per Page</label>
+                    <select id="per_page" name="per_page" class="form-select">
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+
+                <div class="filter-actions">
+                    <button type="button" class="filter-section-button filter" id="applyFilter">Apply Filter</button>
+                    <button type="button" class="filter-section-button reset" id="resetFilters">Reset</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Assets Table -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" id="assetTable">
+            <thead class="table-light">
+                <tr>
+                    <th id="selectAllHeader" style="display: none; width: 40px;">
+                        <input type="checkbox" id="selectAll">
+                    </th>
+                    <th>Asset Tag</th>
+                    <th>Serial Number</th>
+                    <th>Asset Type</th>
+                    <th>Status</th>
+                    <th>Location/Dept</th>
+                    <th>Assigned To</th>
+                    <th>Date Received</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="assetBody">
+                <!-- Content loaded via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <nav>
+        <ul class="pagination" id="pagination"></ul>
+        <div id="paginationInfo" class="mt-2"></div>
+    </nav>
+</div>
+
+<!-- Asset Detail Modal -->
+<div id="assetDetailModal" style="display: none;">
+    <div class="modal-content" style="width: 600px; max-width: 90%;">
+        <div class="modal-header">
+            <h5 class="modal-title" id="assetDetailTitle">Asset Details</h5>
+            <button type="button" class="btn-close" onclick="closeAssetModal()">×</button>
+        </div>
+        <div class="modal-body" id="assetDetailBody">
+            <!-- Content loaded via JavaScript -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeAssetModal()">Close</button>
+            <a href="#" id="editAssetBtn" class="btn btn-sm btn-primary">Edit Asset</a>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="confirmationModal" style="display: none;">
+    <p id="deleteMessage">Are you sure you want to delete this asset?</p>
+    <p class="text-danger mb-0"><small>This action cannot be undone. Assets with movement history cannot be
+            deleted.</small></p>
+    <div>
+        <button id="confirmDelete" class="confirmDelete">Yes, Delete</button>
+        <button id="cancelDelete" class="cancelDelete">Cancel</button>
+    </div>
+</div>
+
+<script>
+    // Initialize Select2
+    $('#asset_type').select2({
+        placeholder: 'Select Asset Type',
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('#location').select2({
+        placeholder: 'Select Location',
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('#department').select2({
+        placeholder: 'Select Department',
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('#assigned_to').select2({
+        placeholder: 'Select Employee',
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('#supplier').select2({
+        placeholder: 'Select Supplier',
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('#project').select2({
+        placeholder: 'Select Project',
+        allowClear: true,
+        width: '100%'
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // State
+        let currentPage = 1;
+        let perPage = 20;
+        let search = '';
+        let assetTypeId = '';
+        let status = '';
+        let condition = '';
+        let locationId = '';
+        let departmentId = '';
+        let assignedToId = '';
+        let supplierId = '';
+        let projectId = '';
+        let dateFrom = '';
+        let dateTo = '';
+        let isMultiSelectMode = false;
+        let selectedAssets = new Set();
+        let currentAssets = [];
+
+        // DOM Elements
+        const tableBody = document.getElementById('assetBody');
+        const paginationElement = document.getElementById('pagination');
+        const paginationInfoElement = document.getElementById('paginationInfo');
+        const filterButton = document.getElementById('toggleFilterForm');
+        const filterSection = document.getElementById('filter-section');
+        const applyFilterBtn = document.getElementById('applyFilter');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+        const shortcutButton = document.getElementById('shortcutToggleBtn');
+        const dashboardShortcuts = document.querySelector('.dashboard-shortcuts');
+        const searchInput = document.getElementById('assetSearch');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const toggleMultiSelectBtn = document.getElementById('toggleMultiSelect');
+        const hideMultiSelectBtn = document.getElementById('hideMultiSelect');
+        const selectAllHeader = document.getElementById('selectAllHeader');
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const bulkActionsDiv = document.getElementById('bulkActions');
+        const bulkDeleteBtn = document.getElementById('bulkDelete');
+        const exportBtn = document.getElementById('exportBtn');
+
+        // Modal elements
+        const confirmationModal = document.getElementById('confirmationModal');
+        const confirmDeleteBtn = document.getElementById('confirmDelete');
+        const cancelDeleteBtn = document.getElementById('cancelDelete');
+        const assetDetailModal = document.getElementById('assetDetailModal');
+        let deleteId = null;
+        let deleteMultipleIds = [];
+
+        // Toggle filter section
+        filterButton.addEventListener('click', () => {
+            filterSection.classList.toggle('visible');
+        });
+
+        // Shortcuts toggle
+        shortcutButton.addEventListener('click', () => {
+            document.getElementById('mobileShortcutsSidebar').classList.toggle('open');
+        });
+
+        document.getElementById('closeShortcutsBtn').addEventListener('click', () => {
+            document.getElementById('mobileShortcutsSidebar').classList.remove('open');
+        });
+
+        // Refresh button
+        refreshBtn.addEventListener('click', function () {
+            const originalHtml = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            this.disabled = true;
+            location.reload();
+        });
+
+        // Toggle multi-select mode
+        toggleMultiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = !isMultiSelectMode;
+            updateMultiSelectUI();
+        });
+
+        // Hide multi-select mode
+        hideMultiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = false;
+            selectedAssets.clear();
+            updateMultiSelectUI();
+            renderTable(currentAssets);
+        });
+
+        // Select all checkbox
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.asset-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+                const assetId = checkbox.getAttribute('data-asset-id');
+                if (e.target.checked) {
+                    selectedAssets.add(assetId);
+                } else {
+                    selectedAssets.delete(assetId);
+                }
+            });
+            updateBulkActionButtons();
+            updateMultiSelectUI();
+        });
+
+        // Bulk delete
+        bulkDeleteBtn.addEventListener('click', () => {
+            if (selectedAssets.size === 0) return;
+            deleteMultipleIds = Array.from(selectedAssets);
+            document.getElementById('deleteMessage').textContent = `Are you sure you want to delete ${selectedAssets.size} asset(s)?`;
+            confirmationModal.style.display = 'block';
+        });
+
+        // Confirm delete
+        confirmDeleteBtn.addEventListener('click', function () {
+            if (deleteMultipleIds.length > 0) {
+                bulkDeleteAssets(deleteMultipleIds);
+            } else if (deleteId) {
+                deleteAsset(deleteId);
+            }
+            confirmationModal.style.display = 'none';
+        });
+
+        // Cancel delete
+        cancelDeleteBtn.addEventListener('click', function () {
+            confirmationModal.style.display = 'none';
+            deleteId = null;
+            deleteMultipleIds = [];
+        });
+
+        // Export button
+        exportBtn.addEventListener('click', function () {
+            const filters = {
+                asset_type_id: assetTypeId,
+                status: status,
+                condition: condition,
+                location_id: locationId,
+                department_id: departmentId
+            };
+
+            exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+            exportBtn.disabled = true;
+
+            fetch('/assets/api/assets/export', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(filters)
+            })
+                .then(response => {
+                    if (response.ok) {
+                        return response.blob();
+                    }
+                    throw new Error('Network response was not ok.');
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `assets_${new Date().toISOString().slice(0, 10)}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+
+                    exportBtn.innerHTML = '<i class="fas fa-download"></i> Export';
+                    exportBtn.disabled = false;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Failed to export assets', 'error');
+                    exportBtn.innerHTML = '<i class="fas fa-download"></i> Export';
+                    exportBtn.disabled = false;
+                });
+        });
+
+        function updateMultiSelectUI() {
+            if (isMultiSelectMode) {
+                filterButton.style.display = 'none';
+                exportBtn.style.display = 'none';
+                if (dashboardShortcuts) dashboardShortcuts.style.display = 'none';
+                if (searchInput) searchInput.style.display = 'none';
+
+                toggleMultiSelectBtn.style.display = 'none';
+                hideMultiSelectBtn.style.display = '';
+                selectAllHeader.style.display = '';
+
+                document.querySelectorAll('.action-icons-clean').forEach(el => {
+                    el.style.display = 'none';
+                });
+
+                document.querySelectorAll('#assetBody tr td:first-child').forEach(td => {
+                    td.style.display = '';
+                });
+            } else {
+                filterButton.style.display = '';
+                exportBtn.style.display = '';
+                if (dashboardShortcuts) dashboardShortcuts.style.display = '';
+                if (searchInput) searchInput.style.display = '';
+
+                toggleMultiSelectBtn.style.display = '';
+                hideMultiSelectBtn.style.display = 'none';
+                selectAllHeader.style.display = 'none';
+
+                document.querySelectorAll('.action-icons-clean').forEach(el => {
+                    el.style.display = 'flex';
+                });
+
+                document.querySelectorAll('#assetBody tr td:first-child').forEach(td => {
+                    td.style.display = 'none';
+                });
+            }
+
+            if (selectedAssets.size > 0 && isMultiSelectMode) {
+                bulkActionsDiv.style.display = 'flex';
+            } else {
+                bulkActionsDiv.style.display = 'none';
+            }
+
+            updateBulkActionButtons();
+        }
+
+        function updateBulkActionButtons() {
+            const hasSelections = selectedAssets.size > 0;
+            bulkDeleteBtn.disabled = !hasSelections;
+
+            if (hasSelections) {
+                bulkDeleteBtn.textContent = `Delete (${selectedAssets.size})`;
+            } else {
+                bulkDeleteBtn.textContent = 'Delete';
+            }
+        }
+
+        // Apply filters
+        applyFilterBtn.addEventListener('click', function () {
+            currentPage = 1;
+            assetTypeId = document.getElementById('asset_type').value;
+            status = document.getElementById('status').value;
+            condition = document.getElementById('condition').value;
+            locationId = document.getElementById('location').value;
+            departmentId = document.getElementById('department').value;
+            assignedToId = document.getElementById('assigned_to').value;
+            supplierId = document.getElementById('supplier').value;
+            projectId = document.getElementById('project').value;
+            dateFrom = document.getElementById('date_from').value;
+            dateTo = document.getElementById('date_to').value;
+            perPage = document.getElementById('per_page').value;
+            loadAssets();
+            filterSection.classList.remove('visible');
+        });
+
+        // Reset filters
+        resetFiltersBtn.addEventListener('click', function () {
+            document.getElementById('filter-form').reset();
+            $('#asset_type').val(null).trigger('change');
+            $('#location').val(null).trigger('change');
+            $('#department').val(null).trigger('change');
+            $('#assigned_to').val(null).trigger('change');
+            $('#supplier').val(null).trigger('change');
+            $('#project').val(null).trigger('change');
+
+            assetTypeId = '';
+            status = '';
+            condition = '';
+            locationId = '';
+            departmentId = '';
+            assignedToId = '';
+            supplierId = '';
+            projectId = '';
+            dateFrom = '';
+            dateTo = '';
+            perPage = '20';
+            currentPage = 1;
+            loadAssets();
+        });
+
+        // Quick Search
+        searchInput.addEventListener('input', function () {
+            const searchValue = this.value.toLowerCase();
+            const rows = tableBody.getElementsByTagName('tr');
+            Array.from(rows).forEach(row => {
+                const rowText = row.textContent.toLowerCase();
+                row.style.display = rowText.includes(searchValue) ? '' : 'none';
+            });
+        });
+
+        // Load assets
+        function loadAssets() {
+            setLoadingState(true);
+
+            const columnCount = 12;
+            tableBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center py-3">Loading assets...</td></tr>`;
+
+            const params = new URLSearchParams({
+                page: currentPage,
+                per_page: perPage,
+                search: search,
+                asset_type_id: assetTypeId,
+                status: status,
+                condition: condition,
+                location_id: locationId,
+                department_id: departmentId,
+                assigned_to_id: assignedToId,
+                supplier_id: supplierId,
+                project_id: projectId,
+                date_from: dateFrom,
+                date_to: dateTo
+            });
+
+            fetch(`/assets/api/assets?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentAssets = data.assets;
+                        renderTable(data.assets);
+                        renderPagination(data.pagination);
+                    } else {
+                        tableBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center text-danger py-3">${data.message}</td></tr>`;
+                    }
+                    setLoadingState(false);
+                })
+                .catch(err => {
+                    tableBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center text-danger py-3">Error loading assets</td></tr>`;
+                    console.error(err);
+                    setLoadingState(false);
+                });
+        }
+
+        // Render table
+        function renderTable(assets) {
+            if (!assets || assets.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="12" class="text-center py-3">No assets found</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            assets.forEach(asset => {
+                // Status badge class
+                let statusClass = {
+                    'in_stock': 'bg-success',
+                    'assigned': 'bg-info',
+                    'maintenance': 'bg-warning',
+                    'disposed': 'bg-danger',
+                    'sold': 'bg-secondary'
+                }[asset.status] || 'bg-secondary';
+
+                let statusLabel = {
+                    'in_stock': 'In Stock',
+                    'assigned': 'Assigned',
+                    'maintenance': 'In Maintenance',
+                    'disposed': 'Disposed',
+                    'sold': 'Dispatched'  // Changed from "Sold" to "Dispatched"
+                }[asset.status] || asset.status;
+
+                // Condition badge class
+                let conditionClass = {
+                    'excellent': 'bg-success',
+                    'good': 'bg-info',
+                    'fair': 'bg-warning',
+                    'poor': 'bg-danger'
+                }[asset.condition] || 'bg-secondary';
+
+                const isChecked = selectedAssets.has(asset.id.toString());
+
+                html += `
+                <tr>
+                    <td style="display: ${isMultiSelectMode ? '' : 'none'};">
+                        <input type="checkbox" class="asset-checkbox" 
+                               data-asset-id="${asset.id}" 
+                               ${isChecked ? 'checked' : ''}>
+                    </td>
+                   <td>
+                        <a href="/assets/asset/${asset.id}/view" class="reference-link ">
+                            ${escapeHtml(asset.asset_tag)}
+                        </a>
+                    </td>
+                    <td><span style="font-family: monospace;">${escapeHtml(asset.serial_number) || '—'}</span></td>
+                    <td>
+                        ${escapeHtml(asset.asset_type_name) || '—'}
+                        ${asset.asset_type_code ? `<br><small class="text-muted">${escapeHtml(asset.asset_type_code)}</small>` : ''}
+                    </td>
+                    <td>
+                        <span class="badge ${statusClass}">${statusLabel}</span>
+                        <br><small class="text-muted">${asset.condition_label || ''}</small>
+                    </td>
+                    <td>
+                        ${asset.location_name ? `📍 ${escapeHtml(asset.location_name)}` : ''}
+                        ${asset.department_name ? `${asset.location_name ? '<br>' : ''}🏢 ${escapeHtml(asset.department_name)}` : ''}
+                        ${!asset.location_name && !asset.department_name ? '—' : ''}
+                    </td>
+                    <td>${escapeHtml(asset.assigned_to_name) || '—'}</td>
+                    <td>${asset.purchase_date || '—'}</td>
+                
+                    <td style="width:80px;" class="text-center">
+                    <div class="action-icons-clean" style="display: ${isMultiSelectMode ? 'none' : 'flex'};">
+                        <div class="custom-tooltip-container">
+                            <a href="/assets/asset/${asset.id}/view" class="view-icon">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <span class="custom-tooltip left">View Details</span>
+                        </div>
+                        ${asset.movement_count === 0 ? `
+                        <div class="custom-tooltip-container">
+                            <button class="btn btn-sm btn-link p-0 text-danger delete-btn" data-asset-id="${asset.id}" style="background: none; border: none;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <span class="custom-tooltip left">Delete</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </td>
+                </tr>
+                `;
+            });
+
+            tableBody.innerHTML = html;
+
+
+            // Delete buttons
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const assetId = this.getAttribute('data-asset-id');
+                    deleteId = assetId;
+                    deleteMultipleIds = [];
+                    document.getElementById('deleteMessage').textContent = 'Are you sure you want to delete this asset?';
+                    confirmationModal.style.display = 'block';
+                });
+            });
+
+            // Checkbox event listeners
+            document.querySelectorAll('.asset-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const assetId = e.target.getAttribute('data-asset-id');
+                    if (e.target.checked) {
+                        selectedAssets.add(assetId);
+                    } else {
+                        selectedAssets.delete(assetId);
+                        selectAllCheckbox.checked = false;
+                    }
+                    updateBulkActionButtons();
+                    updateMultiSelectUI();
+                });
+            });
+        }
+
+        // View asset details
+
+        // Display asset details in modal
+        function displayAssetDetails(asset) {
+            const modal = document.getElementById('assetDetailModal');
+            const title = document.getElementById('assetDetailTitle');
+            const body = document.getElementById('assetDetailBody');
+            const editBtn = document.getElementById('editAssetBtn');
+
+            title.textContent = `Asset: ${asset.asset_tag}`;
+            editBtn.href = `/assets/asset/${asset.id}/edit`;
+
+            let statusClass = {
+                'in_stock': 'bg-success',
+                'assigned': 'bg-info',
+                'maintenance': 'bg-warning',
+                'disposed': 'bg-danger',
+                'sold': 'bg-secondary'
+            }[asset.status] || 'bg-secondary';
+
+            let conditionClass = {
+                'excellent': 'bg-success',
+                'good': 'bg-info',
+                'fair': 'bg-warning',
+                'poor': 'bg-danger'
+            }[asset.condition] || 'bg-secondary';
+
+            // Build movement history HTML
+            let movementHtml = '';
+            if (asset.movement_history && asset.movement_history.length > 0) {
+                movementHtml = '<h6 class="mt-4 mb-2">Recent Movements</h6><div class="movement-timeline">';
+                asset.movement_history.forEach(m => {
+                    movementHtml += `
+                        <div class="movement-item">
+                            <small class="text-muted">${m.transaction_date}</small>
+                            <div>
+                                <span class="badge bg-secondary">${m.movement_type?.replace('_', ' ').title() || ''}</span>
+                                <span class="ms-2">${m.reference || ''}</span>
+                            </div>
+                            <small>${m.from_location || ''} → ${m.to_location || ''} ${m.party_name ? `(${m.party_name})` : ''}</small>
+                        </div>
+                    `;
+                });
+                movementHtml += '</div>';
+            } else {
+                movementHtml = '<p class="text-muted mt-3">No movement history</p>';
+            }
+
+            body.innerHTML = `
+                <div class="asset-detail-grid">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td style="width: 40%;" class="text-muted">Asset Tag:</td>
+                                    <td class="fw-medium">${escapeHtml(asset.asset_tag)}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Serial Number:</td>
+                                    <td><span style="font-family: monospace;">${escapeHtml(asset.serial_number) || '—'}</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Asset Type:</td>
+                                    <td>${escapeHtml(asset.asset_type_name)} ${asset.asset_type_code ? `(${escapeHtml(asset.asset_type_code)})` : ''}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Status:</td>
+                                    <td><span class="badge ${statusClass}">${asset.status.replace('_', ' ').title()}</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Condition:</td>
+                                    <td><span class="badge ${conditionClass}">${asset.condition?.title() || '—'}</span></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td style="width: 40%;" class="text-muted">Location:</td>
+                                    <td>${escapeHtml(asset.location_name) || '—'}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Department:</td>
+                                    <td>${escapeHtml(asset.department_name) || '—'}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Assigned To:</td>
+                                    <td>${escapeHtml(asset.assigned_to_name) || '—'}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Supplier:</td>
+                                    <td>${escapeHtml(asset.supplier_name) || '—'}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Project:</td>
+                                    <td>${escapeHtml(asset.project_name) || '—'}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <h6 class="mt-3 mb-2">Financial Information</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td style="width: 40%;" class="text-muted">Date Received:</td>
+                                    <td>${asset.purchase_date || '—'}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Purchase Price:</td>
+                                    <td class="fw-medium">${formatNumber(asset.purchase_price)}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Current Value:</td>
+                                    <td class="fw-medium">${formatNumber(asset.current_value)}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td style="width: 40%;" class="text-muted">Useful Life:</td>
+                                    <td>${asset.useful_life_years || '—'} years</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Depreciation Method:</td>
+                                    <td>${asset.depreciation_method?.replace('_', ' ').title() || '—'}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Warranty Expiry:</td>
+                                    <td>${asset.warranty_expiry || '—'}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    ${movementHtml}
+                </div>
+            `;
+
+            modal.style.display = 'block';
+        }
+
+        // Delete asset
+        function deleteAsset(assetId) {
+            fetch(`/assets/api/assets/${assetId}/delete`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        selectedAssets.delete(assetId.toString());
+                        loadAssets();
+                    } else {
+                        showNotification(data.message || 'Failed to delete asset', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Failed to delete asset', 'error');
+                });
+        }
+
+        // Bulk delete assets
+        function bulkDeleteAssets(assetIds) {
+            fetch('/assets/api/assets/bulk_delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ asset_ids: assetIds })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        assetIds.forEach(id => selectedAssets.delete(id.toString()));
+                        loadAssets();
+                    } else {
+                        showNotification(data.message || 'Failed to delete assets', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Failed to delete assets', 'error');
+                });
+        }
+
+        // Close asset modal
+        window.closeAssetModal = function () {
+            document.getElementById('assetDetailModal').style.display = 'none';
+        };
+
+        // Click outside to close modal
+        window.addEventListener('click', function (e) {
+            const modal = document.getElementById('assetDetailModal');
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // Pagination
+        function renderPagination(pagination) {
+            const { page, per_page, total_pages, total_items, has_next, has_prev } = pagination;
+            paginationInfoElement.textContent = `Showing ${(page - 1) * per_page + 1} to ${Math.min(page * per_page, total_items)} of ${total_items} entries`;
+
+            let html = '';
+
+            if (has_prev) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page - 1}">‹ Previous</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">‹ Previous</a></li>`;
+            }
+
+            const maxVisiblePages = 7;
+            let startPage = Math.max(1, page - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(total_pages, startPage + maxVisiblePages - 1);
+
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<li class="page-item ${i === page ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+            }
+
+            if (has_next) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page + 1}">Next ›</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">Next ›</a></li>`;
+            }
+
+            paginationElement.innerHTML = html;
+
+            document.querySelectorAll('.page-link[data-page]').forEach(el => {
+                el.addEventListener('click', e => {
+                    e.preventDefault();
+                    currentPage = parseInt(el.getAttribute('data-page'));
+                    loadAssets();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            });
+        }
+
+        function setLoadingState(loading) {
+            const applyBtn = document.getElementById("applyFilter");
+            const resetBtn = document.getElementById("resetFilters");
+            const exportBtn = document.getElementById("exportBtn");
+
+            if (loading) {
+                if (applyBtn) applyBtn.disabled = true;
+                if (resetBtn) resetBtn.disabled = true;
+                if (exportBtn) exportBtn.disabled = true;
+            } else {
+                if (applyBtn) applyBtn.disabled = false;
+                if (resetBtn) resetBtn.disabled = false;
+                if (exportBtn) exportBtn.disabled = false;
+            }
+        }
+
+        function formatNumber(value) {
+            if (value === undefined || value === null) return '0.00';
+            return parseFloat(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showNotification(message, type = 'info') {
+            alert(message);
+        }
+
+        // Initial load
+        loadAssets();
+    });
+</script>
+
+<style>
+    /* Modal styles */
+    #assetDetailModal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1050;
+    }
+
+    #assetDetailModal .modal-content {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        max-height: 90vh;
+        overflow-y: auto;
+        margin: 20px;
+    }
+
+    .modal-header {
+        padding: 1rem 1.5rem;
+        background: #f8fafc;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-footer {
+        padding: 1rem 1.5rem;
+        background: #f8fafc;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
+    .btn-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0;
+        color: #6c757d;
+    }
+
+    .btn-close:hover {
+        color: #343a40;
+    }
+
+
+
+    .action-icons-clean {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+    }
+
+    .delete-btn {
+        color: #dc3545;
+    }
+
+    .delete-btn:hover {
+        color: #bb2d3b;
+    }
+
+    .movement-timeline {
+        max-height: 200px;
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+
+    .movement-item {
+        padding: 8px 0;
+        border-bottom: 1px solid #f1f1f1;
+    }
+
+    .movement-item:last-child {
+        border-bottom: none;
+    }
+
+    #confirmationModal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1060;
+        max-width: 400px;
+        width: 90%;
+    }
+
+    #confirmDelete {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+
+    #cancelDelete {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+
+    .filter-group {
+        flex: 1 1 200px;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        margin-left: auto;
+    }
+</style>
+
+{% endblock %}

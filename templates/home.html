@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Intrasonic Home</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <style>
+        .quick-links {
+        display: flex;
+    <!--    justify-content: space-around;-->
+        margin-top: 25px;
+    }
+
+    .quick-links a {
+        padding: 10px 15px;
+        text-decoration: none;
+    <!--    background-color: #007bff;-->
+        color: #fff;
+        font-size:12px;
+        border-radius: 5px;
+        transition: background-color 0.3s ease;
+    }
+
+    .quick-links a:hover {
+        background-color: #0056b3;
+    }
+    </style>
+</head>
+<body class="w3-content" style="max-width:1300px">
+
+<!-- First Grid: Logo & About -->
+<div class="w3-row" style="padding-top:15px;">
+    <div class="w3-half w3-black w3-container w3-center" style="height:720px">
+        <div class="w3-padding-16">
+            <h1><img src="/static/logo.png" class="w3-margin w3-circle" alt="Person" style="object-fit: scale-down ; margin-top: 10px; position: block; height:150px; width:250px;  margin-left: auto;
+  margin-right: auto; "></h1>
+            <h4> Welcome {{name}}</h4>
+        </div>
+        <div style="padding-top:1px">
+            <a href="{{(url_for('dashboard'))}}" class="w3-button w3-black w3-block w3-hover-blue-grey w3-padding-16">Dashboard</a>
+            <a href="{{(url_for('add_expense'))}}" class="w3-button w3-black w3-block w3-hover-teal w3-padding-16">Expenses</a>
+            <a href="#work" class="w3-button w3-black w3-block w3-hover-dark-grey w3-padding-16">Incomes</a>
+            <a href="#work" class="w3-button w3-black w3-block w3-hover-dark-blue w3-padding-16">Analytics</a>
+            <a href="#contact" class="w3-button w3-black w3-block w3-hover-brown w3-padding-16">Reports</a>
+        </div>
+        <footer class="w3-container w3-black w3-padding-10" style="margin-top:25px; text-align:center; font-size:10px">
+            <p>Designed by Benjamin Omolo</p>
+        </footer>
+    </div>
+    <div class="w3-half w3-blue-grey w3-container" style="height:720px">
+        <div class="quick-links">
+            <a href="/add_expense_account">Add Expense Account</a>
+            <a href="/add-site">Add Site</a>
+            <a href="/add_payment_platform">Add Payment Platform</a>
+            <a href="/add_vendor">Add Vendor</a>
+            <a href="#">Add Invoice</a>
+        </div>
+        <div class="w3-padding-16 w3-center">
+            <h1>Quick Links</h1>
+
+            <img src="/static/Finance report.jpg" class="w3-margin w3-circle" alt="Person" style="width:50%">
+            <img src="/static/dashboard (1).jpg" class="w3-margin w3-square" alt="Person" style="width:50%">
+            <!--      <div class="w3-left-align w3-padding-large">-->
+            <!--        <p>"Monitor expenses, track budgets, and analyze spending trends with ease. Stay informed with real-time updates on key metrics and recent financial activity. -->
+            <!--      </div>-->
+        </div>
+    </div>
+</div>
+
+
+</div>
+</div>
+
+<!-- Footer -->
+
+
+</body>
+</html>

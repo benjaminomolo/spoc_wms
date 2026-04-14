@@ -1,0 +1,1124 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+    /* Dashboard Header with Tabs and Refresh */
+
+
+
+    .tab-btn.active {
+        color: var(--primary-color);
+        border-bottom: 2px solid var(--primary-color);
+    }
+
+
+    .tab-pane {
+        display: none;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .tab-pane.active {
+        display: block;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Additional spacing */
+    .filter-wrapper {
+        margin-top: 0.5rem;
+    }
+
+    .metrics-grid {
+        margin-top: 0.5rem;
+    }
+</style>
+
+<div class="content-container">
+    <!-- Dashboard Header Bar with Tabs and Refresh Buttons -->
+    <div class="dashboard-header-bar">
+        <div class="dashboard-tabs">
+            <button class="tab-btn active" data-tab="inventory">Inventory Dashboard</button>
+            <button class="tab-btn" data-tab="assets">Asset Dashboard</button>
+        </div>
+
+    </div>
+
+    <!-- ==================== INVENTORY DASHBOARD TAB ==================== -->
+    <div class="tab-pane active" id="tab-inventory">
+        <div class="dashboard-header">
+            <div class="filter-wrapper">
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label for="item-select">Inventory Item</label>
+                        <select id="item-select" class="form-select2">
+                            <option value="">All Inventory Items</option>
+                            {% for item in items %}
+                            <option value="{{ item.id }}">
+                                {{ item.inventory_item.item_name }}
+                                {% if item.inventory_item_variation %}
+                                - {{ item.inventory_item_variation.variation_name }}
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="location-select">Location</label>
+                        <select id="location-select" class="form-select">
+                            <option value="">All Locations</option>
+                            {% for loc in locations %}
+                            <option value="{{ loc.id }}">{{ loc.location }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="category-select">Category</label>
+                        <select id="category-select" class="form-select">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.category_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="subcategory-select">Subcategory</label>
+                        <select id="subcategory-select" class="form-select">
+                            <option value="">All Subcategories</option>
+                            {% for subcategory in subcategories %}
+                            <option value="{{ subcategory.id }}">{{ subcategory.subcategory_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="brand-select">Brand</label>
+                        <select id="brand-select" class="form-select">
+                            <option value="">All Brands</option>
+                            {% for brand in brands %}
+                            <option value="{{ brand.id }}">{{ brand.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="status-select">Status</label>
+                        <select id="status-select" class="form-select">
+                            <option value="active" selected>Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="all">All Statuses</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <h3>Total Items (SKUs)</h3>
+                <p class="metric-value" id="totalItems">0</p>
+            </div>
+            <div class="metric-card">
+                <h3>Total Stock Quantity</h3>
+                <p class="metric-value" id="totalQuantity">0</p>
+            </div>
+            <div class="metric-card">
+                <h3>Out of Stock</h3>
+                <p class="metric-value" id="outOfStock">0</p>
+            </div>
+            <div class="metric-card">
+                <h3>Transactions</h3>
+                <p class="metric-value" id="transactionCount">0</p>
+            </div>
+        </div>
+
+        <div class="dashboards-charts-container">
+
+            <div class="chart-card secondary-chart">
+                <div class="chart-header">
+                    <h3>Stock Quantity by Category</h3>
+                    <div class="chart-period-selector">
+                        <button class="period-btn active" data-view="category">By Category</button>
+                        <button class="period-btn" data-view="subcategory">By Subcategory</button>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="categoryStockChart" height="300"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card main-chart">
+                <div class="chart-header">
+                    <h3>Stock Status</h3>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="stockStatusChart" height="300"></canvas>
+                </div>
+            </div>
+
+
+        </div>
+
+        <div class="secondary-metric">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>Inventory Movement (Last 30 Days)</h3>
+                    <div class="chart-period-selector">
+                        <button class="period-btn active" data-period="daily">Daily</button>
+                        <button class="period-btn" data-period="weekly">Weekly</button>
+                        <button class="period-btn" data-period="monthly">Monthly</button>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="inventoryMovementChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="secondary-metric">
+            <div class="table-card">
+                <div class="table-header">
+                    <h3>Top 10 Items by Stock Quantity</h3>
+                </div>
+                <div class="table-responsive">
+                    <table id="topItemsTable">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Category</th>
+                                <th>Location</th>
+                                <th class="text-center">Quantity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="4" class="text-center">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="secondary-metric">
+            <div class="table-card">
+                <div class="table-header">
+                    <h3>Recent Stock Movements</h3>
+                </div>
+                <div class="table-responsive">
+                    <table id="recentMovementsTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Item</th>
+                                <th>Type</th>
+                                <th class="text-center">Quantity</th>
+                                <th>Location</th>
+                                <th>Reference</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="6" class="text-center">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ASSET DASHBOARD TAB (No Financial Values) ==================== -->
+    <div class="tab-pane" id="tab-assets">
+        <div class="dashboard-header">
+            <div class="filter-wrapper">
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label for="asset-type-select">Asset Type</label>
+                        <select id="asset-type-select" class="form-select form-select2">
+                            <option value="">All Asset Types</option>
+                            {% for type in asset_types %}
+                            <option value="{{ type.id }}">{{ type.asset_name }}{% if type.asset_code %} ({{
+                                type.asset_code }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="asset-status-select">Status</label>
+                        <select id="asset-status-select" class="form-select">
+                            <option value="">All Statuses</option>
+                            {% for status in status_options %}
+                            <option value="{{ status }}">{{ status.replace('_', ' ').title() }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="asset-location-select">Location</label>
+                        <select id="asset-location-select" class="form-select form-select2">
+                            <option value="">All Locations</option>
+                            {% for loc in locations %}
+                            <option value="{{ loc.id }}">{{ loc.location }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="department-select">Department</label>
+                        <select id="department-select" class="form-select form-select2">
+                            <option value="">All Departments</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}">{{ dept.department_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="assigned-select">Assigned To</label>
+                        <select id="assigned-select" class="form-select form-select2">
+                            <option value="">All Employees</option>
+                            {% for emp in employees %}
+                            <option value="{{ emp.id }}">{{ emp.first_name }} {{ emp.last_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="asset-category-select">Category</label>
+                        <select id="asset-category-select" class="form-select form-select2">
+                            <option value="">All Categories</option>
+                            {% for cat in categories %}
+                            <option value="{{ cat.id }}">{{ cat.category_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="brand-select-asset">Brand</label>
+                        <select id="brand-select-asset" class="form-select form-select2">
+                            <option value="">All Brands</option>
+                            {% for brand in brands %}
+                            <option value="{{ brand.id }}">{{ brand.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="supplier-select">Supplier</label>
+                        <select id="supplier-select" class="form-select form-select2">
+                            <option value="">All Suppliers</option>
+                            {% for supplier in suppliers %}
+                            <option value="{{ supplier.id }}">{{ supplier.vendor_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="project-select">Project</label>
+                        <select id="project-select" class="form-select form-select2">
+                            <option value="">All Projects</option>
+                            {% for project in projects %}
+                            <option value="{{ project.id }}">{{ project.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Cards - No financial values -->
+        <div class="metrics-grid">
+            <div class="metric-card" style="height: 60px">
+                <div class="metric-content">
+                    <div>
+                        <h3>Total Assets</h3>
+                        <p class="metric-value" id="totalAssets">0</p>
+                    </div>
+                    <div class="metric-icon">📦</div>
+                </div>
+            </div>
+
+            <div class="metric-card" style="height: 60px">
+                <div class="metric-content">
+                    <div>
+                        <h3>Assets In Stock</h3>
+                        <p class="metric-value" id="assetsInStock">0</p>
+                    </div>
+                    <div class="metric-icon">🏭</div>
+                </div>
+            </div>
+
+            <div class="metric-card" style="height: 60px">
+                <div class="metric-content">
+                    <div>
+                        <h3>Assets Assigned</h3>
+                        <p class="metric-value" id="assetsAssigned">0</p>
+                    </div>
+                    <div class="metric-icon">👤</div>
+                </div>
+            </div>
+
+            <div class="metric-card" style="height: 60px">
+                <div class="metric-content">
+                    <div>
+                        <h3>Movements (Period)</h3>
+                        <p class="metric-value" id="totalMovements">0</p>
+                    </div>
+                    <div class="metric-icon">🔄</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboards-charts-container">
+            <div class="chart-card main-chart">
+                <div class="chart-header">
+                    <div class="custom-tooltip-container lower">
+                        <h3>
+                            <a href="/assets/asset_types"
+                                style="color: inherit; text-decoration: none; cursor: pointer;">
+                                Assets by Type
+                            </a>
+                        </h3>
+                        <span class="custom-tooltip lower">View asset types</span>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="assetTypeChart" height="300"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card secondary-chart">
+                <div class="chart-header">
+                    <h3>Asset Status Distribution</h3>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="assetStatusChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboards-charts-container">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="custom-tooltip-container lower">
+                        <h3>
+                            <a href="/assets/asset_list"
+                                style="color: inherit; text-decoration: none; cursor: pointer;">
+                                Assets by Location
+                            </a>
+                        </h3>
+                        <span class="custom-tooltip lower">View asset list</span>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="assetLocationChart" height="250"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="custom-tooltip-container lower">
+                        <h3>
+                            <a href="/assets/movement_history"
+                                style="color: inherit; text-decoration: none; cursor: pointer;">
+                                Asset Movement Trend
+                            </a>
+                        </h3>
+                        <span class="custom-tooltip lower">View movement history</span>
+                    </div>
+                    <div class="chart-period-selector">
+                        <button class="period-btn active" data-value="monthly">Monthly</button>
+                        <button class="period-btn" data-value="quarterly">Quarterly</button>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="assetMovementChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assets Table - No financial columns -->
+        <div class="table-card" style="margin-bottom: 20px;">
+            <div class="table-header">
+                <div class="custom-tooltip-container">
+                    <h3 style="margin-bottom: -5px;">
+                        <a href="/assets/asset_list" style="color: inherit; text-decoration: none; cursor: pointer;">
+                            Assets List
+                        </a>
+                    </h3>
+                    <span class="custom-tooltip">View all assets</span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table id="topAssetsTable">
+                    <thead>
+                        <tr>
+                            <th>Asset Tag</th>
+                            <th>Asset Type</th>
+                            <th>Serial Number</th>
+                            <th>Status</th>
+                            <th>Location</th>
+                            <th>Purchase Date</th>
+                            <th>Condition</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="7" class="text-center">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="table-footer">
+                <div class="table-info" id="topAssetsInfo" style="margin-bottom: 15px;">Loading assets...</div>
+                <a href="/assets/asset_list" class="button-outline" style="text-decoration: none !important;">
+                    View All Assets
+                </a>
+            </div>
+        </div>
+
+        <!-- Warranty Section -->
+
+    </div>
+</div>
+
+<script>
+    const apiKey = "{{ api_key }}";
+    const baseCurrency = "{{ base_currency }}";
+
+    // Inventory Dashboard Variables
+    let currentPeriod = 'daily';
+    let categoryView = 'category';
+    let stockStatusChart, inventoryMovementChart, categoryStockChart;
+
+    // Asset Dashboard Variables
+    let assetTypeChart, assetStatusChart, assetLocationChart, assetMovementChart;
+
+    // Initialize Select2
+    $('.form-select2').select2({
+        placeholder: 'All',
+        allowClear: true,
+        width: '100%'
+    });
+
+    // ==================== INVENTORY DASHBOARD CODE ====================
+    function initInventoryCharts() {
+        const stockCtx = document.getElementById('stockStatusChart').getContext('2d');
+        stockStatusChart = new Chart(stockCtx, {
+            type: 'doughnut',
+            data: { labels: ['In Stock', 'Low Stock', 'Out of Stock'], datasets: [{ data: [0, 0, 0], backgroundColor: ['#4cc9f0', '#f8961e', '#ff6b6b'] }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        });
+
+        const movementCtx = document.getElementById('inventoryMovementChart').getContext('2d');
+        inventoryMovementChart = new Chart(movementCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        });
+
+        const categoryCtx = document.getElementById('categoryStockChart').getContext('2d');
+        categoryStockChart = new Chart(categoryCtx, {
+            type: 'bar',
+            data: { labels: [], datasets: [] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } } }
+        });
+    }
+
+    async function loadInventoryData() {
+        const params = new URLSearchParams({
+            time_filter: 'all',
+            item: document.getElementById('item-select')?.value || '',
+            location: document.getElementById('location-select')?.value || '',
+            category: document.getElementById('category-select')?.value || '',
+            subcategory: document.getElementById('subcategory-select')?.value || '',
+            brand: document.getElementById('brand-select')?.value || '',
+            status: document.getElementById('status-select')?.value || 'active'
+        });
+
+        try {
+            const response = await fetch(`/api/inventory/transactions?${params}`, {
+                headers: { 'X-API-Key': apiKey }
+            });
+            const data = await response.json();
+
+            if (data && data[4] && data[4].transactions) {
+                updateInventoryDashboard(data[4].transactions);
+            }
+        } catch (error) {
+            console.error('Error loading inventory data:', error);
+        }
+    }
+
+    function updateInventoryDashboard(transactions) {
+        const itemMap = new Map();
+        let totalQuantity = 0;
+        let outOfStockCount = 0;
+        let lowStockCount = 0;
+        let inStockCount = 0;
+        const categoryData = new Map();
+        const subcategoryData = new Map();
+
+        transactions.forEach(t => {
+            const key = `${t.item_id}_${t.location_id}`;
+            const currentStock = t.current_stock || 0;
+            const reorderPoint = t.reorder_point || 5;
+
+            if (!itemMap.has(key)) {
+                itemMap.set(key, { current_stock: currentStock, category: t.category || 'Uncategorized', subcategory: t.subcategory || 'Uncategorized' });
+                totalQuantity += currentStock;
+                if (currentStock <= 0) outOfStockCount++;
+                else if (currentStock <= reorderPoint) lowStockCount++;
+                else inStockCount++;
+            }
+
+            const cat = t.category || 'Uncategorized';
+            if (!categoryData.has(cat)) categoryData.set(cat, { quantity: 0, items: new Set() });
+            const catItem = categoryData.get(cat);
+            if (!catItem.items.has(key)) {
+                catItem.items.add(key);
+                catItem.quantity += currentStock;
+            }
+
+            const subcat = t.subcategory || 'Uncategorized';
+            const subcatKey = `${cat}|${subcat}`;
+            if (!subcategoryData.has(subcatKey)) subcategoryData.set(subcatKey, { name: `${cat} - ${subcat}`, quantity: 0, items: new Set() });
+            const subcatItem = subcategoryData.get(subcatKey);
+            if (!subcatItem.items.has(key)) {
+                subcatItem.items.add(key);
+                subcatItem.quantity += currentStock;
+            }
+        });
+
+        document.getElementById('totalItems').textContent = itemMap.size;
+        document.getElementById('totalQuantity').textContent = totalQuantity.toLocaleString();
+        document.getElementById('outOfStock').textContent = outOfStockCount;
+        document.getElementById('transactionCount').textContent = transactions.length;
+
+        stockStatusChart.data.datasets[0].data = [inStockCount, lowStockCount, outOfStockCount];
+        stockStatusChart.update();
+
+        updateTopItemsTable(transactions);
+        updateRecentMovements(transactions);
+        updateCategoryChart(categoryData, subcategoryData);
+        loadMovementData();
+    }
+
+    function updateCategoryChart(categoryData, subcategoryData) {
+        let labels, data;
+
+        if (categoryView === 'category') {
+            const categories = Array.from(categoryData.entries())
+                .map(([name, d]) => ({ name, quantity: d.quantity }))
+                .sort((a, b) => b.quantity - a.quantity);
+            labels = categories.map(c => c.name);
+            data = categories.map(c => c.quantity);
+        } else {
+            const subcats = Array.from(subcategoryData.entries())
+                .map(([key, d]) => ({ name: d.name, quantity: d.quantity }))
+                .sort((a, b) => b.quantity - a.quantity)
+                .slice(0, 15);
+            labels = subcats.map(s => s.name);
+            data = subcats.map(s => s.quantity);
+        }
+
+        categoryStockChart.data.labels = labels;
+        categoryStockChart.data.datasets = [{
+            label: categoryView === 'category' ? 'Stock Quantity by Category' : 'Stock Quantity by Subcategory',
+            data: data,
+            backgroundColor: '#4361ee',
+            borderColor: '#3a0ca3',
+            borderWidth: 1
+        }];
+        categoryStockChart.update();
+    }
+
+    function updateTopItemsTable(transactions) {
+        const itemMap = new Map();
+
+        transactions.forEach(t => {
+            const key = `${t.item_id}_${t.location_id}`;
+            if (!itemMap.has(key)) {
+                itemMap.set(key, {
+                    item_name: t.item_name,
+                    variation: t.variation_name,
+                    category: t.category,
+                    location: t.location_name,
+                    current_stock: t.current_stock || 0
+                });
+            }
+        });
+
+        const items = Array.from(itemMap.values())
+            .sort((a, b) => b.current_stock - a.current_stock)
+            .slice(0, 10);
+
+        const tbody = document.querySelector('#topItemsTable tbody');
+        tbody.innerHTML = items.map(item => `
+            <tr>
+                <td>${item.item_name}${item.variation ? ` (${item.variation})` : ''}</td>
+                <td>${item.category || '-'}</td>
+                <td>${item.location || '-'}</td>
+                <td class="text-center">${item.current_stock.toLocaleString()}</td>
+            </tr>
+        `).join('');
+    }
+
+    function updateRecentMovements(transactions) {
+        const recent = [...transactions].sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date)).slice(0, 20);
+        const tbody = document.querySelector('#recentMovementsTable tbody');
+        tbody.innerHTML = recent.map(t => `
+            <tr>
+                <td>${t.transaction_date}</td>
+                <td>${t.item_name}${t.variation_name ? ` (${t.variation_name})` : ''}</td>
+                <td><span class="badge ${t.movement_type === 'in' ? 'bg-success' : 'bg-danger'}">${t.movement_type === 'in' ? 'Stock In' : 'Stock Out'}</span></td>
+                <td class="text-center">${Math.abs(t.quantity)}</td>
+                <td>${t.location_name || '-'}</td>
+                <td>${t.reference_number || '-'}</td>
+            </tr>
+        `).join('');
+    }
+
+    async function loadMovementData() {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+
+        const params = new URLSearchParams({
+            start_date: startDate.toISOString().split('T')[0],
+            end_date: endDate.toISOString().split('T')[0],
+            item: document.getElementById('item-select')?.value || '',
+            location: document.getElementById('location-select')?.value || '',
+            category: document.getElementById('category-select')?.value || ''
+        });
+
+        try {
+            const response = await fetch(`/api/inventory/transactions?${params}`, {
+                headers: { 'X-API-Key': apiKey }
+            });
+            const data = await response.json();
+
+            if (data && data[4] && data[4].transactions) {
+                updateMovementChart(data[4].transactions);
+            }
+        } catch (error) {
+            console.error('Error loading movement data:', error);
+        }
+    }
+
+    function updateMovementChart(transactions) {
+        const grouped = {};
+        const movementTypes = {
+            'purchase': { label: 'Stock In', color: '#28a745' },
+            'sale': { label: 'Stock Out', color: '#dc3545' },
+            'transfer': { label: 'Transfer', color: '#17a2b8' },
+            'adjustment': { label: 'Adjustment', color: '#ffc107' }
+        };
+
+        transactions.forEach(t => {
+            let dateKey;
+            const date = new Date(t.transaction_date);
+
+            if (currentPeriod === 'daily') {
+                dateKey = t.transaction_date;
+            } else if (currentPeriod === 'weekly') {
+                const week = getWeekNumber(date);
+                dateKey = `Week ${week}`;
+            } else {
+                dateKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+            }
+
+            if (!grouped[dateKey]) grouped[dateKey] = { date: t.transaction_date };
+
+            let sourceType = t.inventory_source || t.source_type || t.movement_type;
+
+            if (sourceType === 'in' || sourceType === 'purchase') sourceType = 'purchase';
+            if (sourceType === 'out' || sourceType === 'sale' || sourceType === 'stock_out_sale') sourceType = 'sale';
+
+            if (movementTypes[sourceType]) {
+                if (!grouped[dateKey][sourceType]) grouped[dateKey][sourceType] = 0;
+                grouped[dateKey][sourceType] += Math.abs(t.quantity);
+            }
+        });
+
+        let sorted = Object.entries(grouped).sort((a, b) => new Date(a[1].date) - new Date(b[1].date));
+
+        if (currentPeriod === 'weekly') {
+            sorted = sorted.slice(-12);
+        }
+
+        inventoryMovementChart.data.labels = sorted.map(s => s[0]);
+        inventoryMovementChart.data.datasets = Object.entries(movementTypes)
+            .filter(([key]) => sorted.some(s => s[1][key]))
+            .map(([key, config]) => ({
+                label: config.label,
+                data: sorted.map(s => s[1][key] || 0),
+                borderColor: config.color,
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: false
+            }));
+        inventoryMovementChart.update();
+    }
+
+    function getWeekNumber(date) {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+        const week1 = new Date(d.getFullYear(), 0, 4);
+        return 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+    }
+
+    // ==================== ASSET DASHBOARD CODE ====================
+    class AssetDashboard {
+        constructor() {
+            this.initElements();
+            this.initEventListeners();
+            this.loadInitialData();
+        }
+
+        initElements() {
+            this.assetTypeChart = this.createChart('assetTypeChart', 'bar');
+            this.assetStatusChart = this.createChart('assetStatusChart', 'doughnut');
+            this.assetLocationChart = this.createChart('assetLocationChart', 'bar');
+            this.assetMovementChart = this.createChart('assetMovementChart', 'line');
+            this.topAssetsTable = document.getElementById('topAssetsTable').querySelector('tbody');
+        }
+
+        createChart(elementId, type) {
+            const ctx = document.getElementById(elementId).getContext('2d');
+            return new Chart(ctx, {
+                type: type,
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: type === 'doughnut' ? 'bottom' : 'top', labels: { boxWidth: 12, padding: 15 } } }
+                }
+            });
+        }
+
+        initEventListeners() {
+            document.querySelectorAll('#tab-assets .chart-period-selector .period-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const button = e.target;
+                    const chartSelector = button.closest('.chart-period-selector');
+                    if (chartSelector) {
+                        chartSelector.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+                        button.classList.add('active');
+                        this.updateAssetMovementChart();
+                    }
+                });
+            });
+
+            const filterIds = ['asset-type-select', 'asset-status-select', 'asset-location-select', 'department-select',
+                'assigned-select', 'asset-category-select', 'brand-select-asset', 'supplier-select', 'project-select'];
+
+            filterIds.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.addEventListener('change', () => this.loadData());
+                    if ($(element).hasClass('form-select2')) {
+                        $(element).on('select2:select select2:unselect', () => this.loadData());
+                    }
+                }
+            });
+        }
+
+        async fetchData(additionalFilters = {}, refreshCache = false) {
+            let url = '/api/assets/transactions';
+            const params = new URLSearchParams();
+            params.append('time_filter', 'month');
+            if (refreshCache) params.append('_', Date.now());
+
+            Object.entries(additionalFilters).forEach(([key, value]) => {
+                if (value && value !== '') {
+                    params.append(key, value);
+                }
+            });
+
+            console.log('Fetching asset data with params:', params.toString());
+
+            const headers = { 'X-API-Key': apiKey };
+            const response = await fetch(url + (params.toString() ? `?${params.toString()}` : ''), { headers });
+            if (!response.ok) throw new Error('Network response was not ok');
+            return await response.json();
+        }
+
+        getCurrentFilters() {
+            return {
+                asset_type_id: document.getElementById('asset-type-select')?.value || '',
+                status: document.getElementById('asset-status-select')?.value || '',
+                location_id: document.getElementById('asset-location-select')?.value || '',
+                department_id: document.getElementById('department-select')?.value || '',
+                assigned_to_id: document.getElementById('assigned-select')?.value || '',
+                category_id: document.getElementById('asset-category-select')?.value || '',
+                brand_id: document.getElementById('brand-select-asset')?.value || '',
+                supplier_id: document.getElementById('supplier-select')?.value || '',
+                project_id: document.getElementById('project-select')?.value || ''
+            };
+        }
+
+        async loadData(refreshCache = false) {
+            try {
+                const filters = this.getCurrentFilters();
+                const data = await this.fetchData(filters, refreshCache);
+                this.handleApiResponse(data);
+                this.updateDashboard();
+                this.updateCharts();
+                this.updateTables();
+            } catch (error) {
+                console.error('Error loading asset data:', error);
+            }
+        }
+
+        async loadInitialData() {
+            console.log('Loading initial asset dashboard data...');
+            await this.loadData();
+        }
+
+        handleApiResponse(data) {
+            this.apiResponse = data || [];
+            this.summaryMetrics = data[0] || [];
+            this.statusData = data[1] || [];
+            this.conditionData = data[2] || [];
+            this.movementData = data[3] || [];
+            this.assetTypeData = data[4] || [];
+            this.locationData = data[5] || [];
+            this.timelineData = data[6] || [];
+            this.warrantyData = data[7] || [];
+            this.topAssetsData = data[8] || [];
+        }
+
+        updateDashboard() {
+            if (!this.summaryMetrics || this.summaryMetrics.length < 5) return;
+            const metrics = this.summaryMetrics;
+
+            document.getElementById('totalAssets').textContent = this.formatNumber(metrics[0]?.total_assets || 0);
+            document.getElementById('assetsInStock').textContent = this.statusData.find(s => s.status === 'In Stock')?.count || 0;
+            document.getElementById('assetsAssigned').textContent = this.statusData.find(s => s.status === 'Assigned')?.count || 0;
+            document.getElementById('totalMovements').textContent = this.formatNumber(metrics[4]?.total_movements || 0);
+        }
+
+        updateCharts() {
+            this.updateAssetTypeChart();
+            this.updateAssetStatusChart();
+            this.updateAssetLocationChart();
+            this.updateAssetMovementChart();
+        }
+
+        updateAssetTypeChart() {
+            if (!this.assetTypeData || this.assetTypeData.length === 0) {
+                this.assetTypeChart.data.labels = [];
+                this.assetTypeChart.data.datasets = [];
+                this.assetTypeChart.update();
+                return;
+            }
+
+            const topTypes = this.assetTypeData.slice(0, 8);
+            const labels = topTypes.map(t => t.name.length > 20 ? t.name.substring(0, 20) + '...' : t.name);
+            const values = topTypes.map(t => t.asset_count);
+
+            this.assetTypeChart.data.labels = labels;
+            this.assetTypeChart.data.datasets = [{
+                label: 'Number of Assets',
+                data: values,
+                backgroundColor: '#4361ee',
+                borderColor: '#3a0ca3',
+                borderWidth: 1
+            }];
+            this.assetTypeChart.update();
+        }
+
+        updateAssetStatusChart() {
+            if (!this.statusData || this.statusData.length === 0) {
+                this.assetStatusChart.data.labels = [];
+                this.assetStatusChart.data.datasets = [];
+                this.assetStatusChart.update();
+                return;
+            }
+
+            const labels = this.statusData.map(s => s.status);
+            const counts = this.statusData.map(s => s.count);
+            const colors = { 'In Stock': '#4cc9f0', 'Assigned': '#4361ee', 'Disposed': '#6c757d', 'Sold': '#ff6b6b', 'Maintenance': '#f8961e' };
+            const backgroundColors = labels.map(label => colors[label] || '#6c757d');
+
+            this.assetStatusChart.data.labels = labels;
+            this.assetStatusChart.data.datasets = [{ data: counts, backgroundColor: backgroundColors, borderWidth: 1 }];
+            this.assetStatusChart.update();
+        }
+
+        updateAssetLocationChart() {
+            if (!this.locationData || this.locationData.length === 0) {
+                this.assetLocationChart.data.labels = [];
+                this.assetLocationChart.data.datasets = [];
+                this.assetLocationChart.update();
+                return;
+            }
+
+            const topLocations = this.locationData.slice(0, 6);
+            const labels = topLocations.map(l => l.name.length > 15 ? l.name.substring(0, 15) + '...' : l.name);
+            const values = topLocations.map(l => l.asset_count);
+
+            this.assetLocationChart.data.labels = labels;
+            this.assetLocationChart.data.datasets = [{
+                label: 'Assets by Location',
+                data: values,
+                backgroundColor: '#f8961e',
+                borderColor: '#e07c1c',
+                borderWidth: 1
+            }];
+            this.assetLocationChart.update();
+        }
+
+        updateAssetMovementChart() {
+            if (!this.movementData || this.movementData.length === 0) {
+                this.assetMovementChart.data.labels = [];
+                this.assetMovementChart.data.datasets = [];
+                this.assetMovementChart.update();
+                return;
+            }
+
+            const movementPeriod = document.querySelector('#tab-assets .chart-card .period-btn.active')?.dataset.value || 'monthly';
+            const movementsByDate = {};
+
+            this.movementData.forEach(m => {
+                let dateKey = m.transaction_date;
+                if (movementPeriod === 'quarterly') {
+                    const date = new Date(m.transaction_date);
+                    const quarter = Math.floor(date.getMonth() / 3) + 1;
+                    dateKey = `${date.getFullYear()} Q${quarter}`;
+                }
+                if (!movementsByDate[dateKey]) movementsByDate[dateKey] = { acquisitions: 0, disposals: 0, transfers: 0 };
+                if (['acquisition', 'donation_in', 'opening_balance'].includes(m.movement_type)) movementsByDate[dateKey].acquisitions += 1;
+                if (['sale', 'donation_out', 'disposal'].includes(m.movement_type)) movementsByDate[dateKey].disposals += 1;
+                if (m.movement_type === 'transfer') movementsByDate[dateKey].transfers += 1;
+            });
+
+            const sortedDates = Object.keys(movementsByDate).sort();
+            const lastDates = movementPeriod === 'quarterly' ? sortedDates.slice(-4) : sortedDates.slice(-7);
+
+            this.assetMovementChart.data.labels = lastDates;
+            this.assetMovementChart.data.datasets = [
+                { label: 'Acquisitions', data: lastDates.map(d => movementsByDate[d].acquisitions), borderColor: '#4cc9f0', backgroundColor: 'rgba(76, 201, 240, 0.1)', borderWidth: 2, tension: 0.1, fill: true },
+                { label: 'Disposals', data: lastDates.map(d => movementsByDate[d].disposals), borderColor: '#ff6b6b', backgroundColor: 'rgba(255, 107, 107, 0.1)', borderWidth: 2, tension: 0.1, fill: true },
+                { label: 'Transfers', data: lastDates.map(d => movementsByDate[d].transfers), borderColor: '#f8961e', backgroundColor: 'rgba(248, 150, 30, 0.1)', borderWidth: 2, tension: 0.1, fill: true }
+            ];
+            this.assetMovementChart.update();
+        }
+
+        updateTables() {
+            this.updateAssetsTable();
+        }
+
+        updateAssetsTable() {
+            if (!this.topAssetsData || this.topAssetsData.length === 0) {
+                this.topAssetsTable.innerHTML = '<td><td colspan="7" class="text-center">No asset data available</td></tr>';
+                document.getElementById('topAssetsInfo').textContent = 'No assets found';
+                return;
+            }
+
+            this.topAssetsTable.innerHTML = this.topAssetsData.slice(0, 10).map(asset => {
+                let statusClass = 'bg-success';
+                if (asset.status === 'assigned') statusClass = 'bg-primary';
+                else if (asset.status === 'maintenance') statusClass = 'bg-warning';
+                else if (asset.status === 'disposed') statusClass = 'bg-danger';
+                else if (asset.status === 'sold') statusClass = 'bg-secondary';
+
+                let conditionClass = 'asset-condition ' + (asset.condition || 'good');
+
+                return `
+                <tr>
+                    <td><a href="/assets/asset/${asset.id}/view" class="reference-link">${asset.asset_tag}</a></td>
+                    <td>${asset.asset_type}</td>
+                    <td><span style="font-family: monospace;">${asset.serial_number || '-'}</span></td>
+                    <td><span class="badge ${statusClass}">${asset.status_label || asset.status}</span></td>
+                    <td>${asset.location || '-'}</td>
+                    <td>${asset.purchase_date || '-'}</td>
+                    <td><span class="${conditionClass}">${asset.condition || 'good'}</span></td>
+                </tr>
+                `;
+            }).join('');
+            document.getElementById('topAssetsInfo').textContent = `Showing ${Math.min(10, this.topAssetsData.length)} assets`;
+        }
+
+
+        formatNumber(value) {
+            return new Intl.NumberFormat('en-US').format(value || 0);
+        }
+    }
+
+    // ==================== INITIALIZATION ====================
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize Inventory Dashboard
+        initInventoryCharts();
+        loadInventoryData();
+
+        $('#item-select').select2({ width: '100%', placeholder: 'Select Item', allowClear: true });
+        $('#item-select').on('change', () => loadInventoryData());
+
+        ['location-select', 'category-select', 'subcategory-select', 'brand-select', 'status-select'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) element.addEventListener('change', () => loadInventoryData());
+        });
+
+
+        document.querySelectorAll('#tab-inventory [data-period]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#tab-inventory [data-period]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentPeriod = btn.dataset.period;
+                loadMovementData();
+            });
+        });
+
+        document.querySelectorAll('#tab-inventory [data-view]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#tab-inventory [data-view]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                categoryView = btn.dataset.view;
+                loadInventoryData();
+            });
+        });
+
+        // Initialize Asset Dashboard
+        new AssetDashboard();
+
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById(`tab-${this.dataset.tab}`).classList.add('active');
+
+                setTimeout(() => {
+                    if (stockStatusChart) stockStatusChart.resize();
+                    if (categoryStockChart) categoryStockChart.resize();
+                    if (inventoryMovementChart) inventoryMovementChart.resize();
+                    if (assetTypeChart) assetTypeChart.resize();
+                    if (assetStatusChart) assetStatusChart.resize();
+                    if (assetLocationChart) assetLocationChart.resize();
+                    if (assetMovementChart) assetMovementChart.resize();
+                }, 100);
+            });
+        });
+    });
+</script>
+
+{% endblock %}

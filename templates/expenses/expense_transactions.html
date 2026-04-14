@@ -1,0 +1,1166 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <!-- HEADER SECTION -->
+    <div class="header-section">
+        <h1>Expense Transaction Management</h1>
+
+        <!-- Header buttons and controls -->
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <!-- Multi-select button -->
+            <button class="btn button-outline" type="button" id="toggleMultiSelect">
+                <i class="fas fa-check-square"></i> Select
+            </button>
+
+            <!-- Hide button (initially hidden) -->
+            <button class="btn button-outline" type="button" id="hideMultiSelect" style="display: none;">
+                <i class="fas fa-eye-slash"></i> Hide
+            </button>
+
+            <!-- Bulk action buttons (hidden by default) -->
+            <div class="bulk-actions" id="bulkActions" style="gap: 10px; display: none;">
+                <div style="gap: 10px;">
+                    <button class="button-outline" type="button" id="bulkApprove">
+                        <i class="fas fa-check-circle"></i> Approve
+                    </button>
+                </div>
+                <div>
+                    <button class="button-outline" type="button" id="bulkDelete">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+
+            <!-- 🔍 Quick Search -->
+            <input type="text" id="expenseSearch" class="form-control search-input"
+                placeholder="Search expense transactions...">
+
+            <div class="custom-tooltip-container">
+                <button class="refresh-btn" id="refreshBtn">
+                    <span class="icon">🔄</span>
+                </button>
+                <span class="custom-tooltip">Refresh Page</span>
+            </div>
+        </div>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{ url_for('expense_routes.add_expense') }}">Add Expense</a></li>
+                {% endif %}
+
+            </ol>
+        </nav>
+    </div>
+
+    <!-- FILTER SECTION -->
+    <!-- FILTER SECTION -->
+    <div class="filter-section" id="filter-section">
+        <form class="date-filter-form" id="filter-form">
+            <!-- Expense Number Filter -->
+            <div class="filter-group">
+                <label for="expense_number" class="filter-label">Expense Number</label>
+                <input type="text" id="expense_number" name="expense_number" class="form-control"
+                    placeholder="Search by expense number">
+            </div>
+
+            <!-- Reference Filter -->
+            <div class="filter-group">
+                <label for="reference" class="filter-label">Reference</label>
+                <input type="text" id="reference" name="reference" class="form-control"
+                    placeholder="Search by reference">
+            </div>
+
+            <!-- Narration Filter -->
+            <div class="filter-group">
+                <label for="narration" class="filter-label">Narration</label>
+                <input type="text" id="narration" name="narration" class="form-control"
+                    placeholder="Search in narration">
+            </div>
+
+            <!-- Vendor Filter -->
+            <div class="filter-group">
+                <label for="vendor" class="filter-label">Payee/Vendor</label>
+                <select id="vendor" name="vendor" class="form-select select2">
+                    <option value="">All Vendors</option>
+                    {% for vendor in vendors %}
+                    <option value="{{ vendor.id }}">{{ vendor.vendor_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Project Filter -->
+            <div class="filter-group">
+                <label for="project" class="filter-label">Project</label>
+                <select id="project" name="project" class="form-select select2">
+                    <option value="">All Projects</option>
+                    {% for project in projects %}
+                    <option value="{{ project.id }}">{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Expense Category Filter -->
+            <div class="filter-group">
+                <label for="expense_category" class="filter-label">Expense Category</label>
+                <select id="expense_category" name="expense_category" class="form-select select2">
+                    <option value="">All Categories</option>
+                    {% for category in expense_categories %}
+                    <option value="{{ category.id }}">{{ category.category }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Expense Subcategory Filter (NEW - replaces Ledger Status) -->
+            <div class="filter-group">
+                <label for="expense_subcategory" class="filter-label">Expense Subcategory</label>
+                <select id="expense_subcategory" name="expense_subcategory" class="form-select select2">
+                    <option value="">All Subcategories</option>
+                    {% for subcategory in expense_subcategories %}
+                    <option value="{{ subcategory.id }}">{{ subcategory.sub_category }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Payment Mode Filter -->
+            <div class="filter-group">
+                <label for="payment_mode" class="filter-label">Payment Mode</label>
+                <select id="payment_mode" name="payment_mode" class="form-select">
+                    <option value="">All Payment Modes</option>
+                    {% for mode in payment_modes %}
+                    <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Payment Account Filter -->
+            <div class="filter-group">
+                <label for="payment_account" class="filter-label">Funding Account</label>
+                <select id="payment_account" name="payment_account" class="form-select select2">
+                    <option value="">All Accounts</option>
+                    {% for account in funding_accounts %}
+                    <option value="{{ account.id }}">{{ account.sub_category }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Currency Filter -->
+            <div class="filter-group">
+                <label for="currency" class="filter-label">Currency</label>
+                <select id="currency" name="currency" class="form-select">
+                    <option value="">All Currencies</option>
+                    {% for currency in currencies %}
+                    <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Status Filter -->
+            <div class="filter-group">
+                <label for="status" class="filter-label">Approval Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">All</option>
+                    <option value="draft">Draft</option>
+                    <option value="approved">Approved</option>
+                </select>
+            </div>
+
+            <!-- Date Range Filter -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control">
+            </div>
+
+            <!-- Items Per Page -->
+            <div class="filter-group">
+                <label for="per_page" class="filter-label">Items Per Page</label>
+                <select id="per_page" name="per_page" class="form-select">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="button" class="filter-section-button filter" id="applyFilter">Apply Filter</button>
+                <button type="button" class="filter-section-button reset" id="resetFilters">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- EXPENSE TRANSACTIONS TABLE -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" id="expenseTransactionsTable">
+            <thead class="table-light">
+                <tr>
+                    <th id="selectAllHeader" style="display: none; width: 40px;">
+                        <input type="checkbox" id="selectAll">
+                    </th>
+                    <th>Exp Number</th>
+                    <th>Reference</th>
+                    <th>Narration</th>
+                    <th>Payee</th>
+                    <th>Project</th>
+                    <th>Expense Date</th>
+                    <th>Total Amount</th>
+                    <th>Currency</th>
+                    <th>Payment Mode</th>
+                    <th>Funding Account</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="expenseTransactionsBody">
+                <!-- Content loaded via JavaScript -->
+                {% for transaction in transactions %}
+                <tr data-transaction-id="{{ transaction.id }}">
+                    <td>{{ transaction.expense_entry_number or '-' }}</td>
+                    <td>{{ transaction.expense_ref_no or '-' }}</td>
+                    <td>{{ transaction.narration or '-' }}</td>
+                    <td>{{ transaction.vendor.vendor_name if transaction.vendor else '-' }}</td>
+                    <td>{{ transaction.project.name if transaction.project else '-' }}</td>
+                    <td>{{ transaction.payment_date.strftime('%Y-%m-%d') if transaction.payment_date else '-' }}</td>
+                    <td class="num-right">{{ "{:,.2f}".format(transaction.total_amount) }}</td>
+                    <td>{{ transaction.currency.user_currency if transaction.currency else '-' }}</td>
+                    <td>{{ transaction.payment_mode.payment_mode if transaction.payment_mode else '-' }}</td>
+                    <td>{{ transaction.payment_account.sub_category if transaction.payment_account else '-' }}</td>
+                    <td>
+                        {% if transaction.status.name == 'approved' %}
+                        <span class="badge bg-success">Approved</span>
+                        {% else %}
+                        <span class="badge bg-warning">Draft</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-icons-clean">
+                            <div class="custom-tooltip-container">
+                                <a href="#" class="view-journal" data-id="{{ transaction.id }}">
+                                    <i class="fas fa-eye view-icon"></i>
+                                </a>
+                                <span class="custom-tooltip">View Journal</span>
+                            </div>
+
+
+                            {% if 'Expenses' in modules and has_permission('Expenses', 'can_edit') %}
+                            <div class="custom-tooltip-container">
+                                <a href="{{ url_for('expense_routes.edit_expense', expense_id=transaction.id) }}">
+                                    <i class="fas fa-edit text-primary edit-icon"></i>
+                                </a>
+                                <span class="custom-tooltip">Edit</span>
+                            </div>
+                            {% endif %}
+
+
+
+                            {% if transaction.status.name == 'draft' and has_permission('Expenses', 'can_approve') %}
+                            <div class="custom-tooltip-container">
+                                <a href="#" class="approve-single" data-id="{{ transaction.id }}">
+                                    <i class="fas fa-check-circle text-success"></i>
+                                </a>
+                                <span class="custom-tooltip left">Approve</span>
+                            </div>
+                            {% endif %}
+
+                            {% if has_permission('Expenses', 'can_administer') %}
+                            <div class="custom-tooltip-container">
+                                <a href="#" class="delete-single" data-id="{{ transaction.id }}">
+                                    <i class="fas fa-trash-alt text-danger delete-icon"></i>
+                                </a>
+                                <span class="custom-tooltip left">Delete</span>
+                            </div>
+
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="12" class="text-center py-4">No expense transactions found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAGINATION -->
+    <nav>
+        <ul class="pagination" id="pagination">
+            {% if pagination.page > 1 %}
+            <li class="page-item">
+                <a class="page-link" href="#" data-page="{{ pagination.page - 1 }}">‹ Previous</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><a class="page-link">‹ Previous</a></li>
+            {% endif %}
+
+            {% for p in range(1, pagination.pages + 1) %}
+            {% if p >= pagination.page - 2 and p <= pagination.page + 2 %} <li
+                class="page-item {% if p == pagination.page %}active{% endif %}">
+                <a class="page-link" href="#" data-page="{{ p }}">{{ p }}</a>
+                </li>
+                {% endif %}
+                {% endfor %}
+
+                {% if pagination.page < pagination.pages %} <li class="page-item">
+                    <a class="page-link" href="#" data-page="{{ pagination.page + 1 }}">Next ›</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><a class="page-link">Next ›</a></li>
+                    {% endif %}
+        </ul>
+        <div id="paginationInfo" class="mt-2">
+            Showing {{ (pagination.page - 1) * pagination.per_page + 1 }} to
+            {{ [pagination.page * pagination.per_page, pagination.total]|min }} of {{ pagination.total }} entries
+        </div>
+    </nav>
+
+    <!-- Journal Entries Modal -->
+    <div class="modal fade" id="journalEntriesModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Journal Entries</h5>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="journalEntriesContent">
+                    Loading...
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button remove-button" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    // Pass user permissions from template to JavaScript
+    const userPermissions = {
+        can_edit: {% if 'Expenses' in modules and has_permission('Expenses', 'can_edit') %}true{% else %} false{% endif %},
+    can_administer: {% if has_permission('Expenses', 'can_administer') %} true{% else %} false{% endif %},
+    can_approve: {% if has_permission('Expenses', 'can_approve') %} true{% else %} false{% endif %}
+    };
+</script>
+
+<script>
+    $(document).ready(function () {
+        // ========== INITIALIZATION ==========
+        // Initialize Select2
+        $('#vendor, #project, #expense_category, #expense_subcategory, #payment_account').select2({
+            placeholder: 'Select option',
+            allowClear: true,
+            width: '100%'
+        });
+
+        // ========== STATE VARIABLES ==========
+        let currentPage = 1;
+        let perPage = 20;
+        let isMultiSelectMode = false;
+        let selectedTransactions = new Set();
+        let currentTransactions = [];
+
+        // ========== DOM ELEMENTS ==========
+        const $tableBody = $('#expenseTransactionsBody');
+        const $pagination = $('#pagination');
+        const $paginationInfo = $('#paginationInfo');
+        const $applyFilter = $('#applyFilter');
+        const $resetFilters = $('#resetFilters');
+        const $toggleMultiSelect = $('#toggleMultiSelect');
+        const $hideMultiSelect = $('#hideMultiSelect');
+        const $bulkActions = $('#bulkActions');
+        const $selectAllHeader = $('#selectAllHeader');
+        const $selectAll = $('#selectAll');
+        const $filterSection = $('#filter-section');
+        const $searchInput = $('#expenseSearch');
+
+        // ========== TOGGLE FILTER ==========
+        $('#toggleFilterForm, #toggleFilterForm2').on('click', function () {
+            $filterSection.toggleClass('visible');
+        });
+
+        // ========== REFRESH BUTTON ==========
+        $('#refreshBtn').on('click', function () {
+            location.reload();
+        });
+
+        // ========== MULTI-SELECT MODE ==========
+        $toggleMultiSelect.on('click', function () {
+            isMultiSelectMode = true;
+            updateMultiSelectUI();
+            loadFilteredTransactions();
+        });
+
+        $hideMultiSelect.on('click', function () {
+            isMultiSelectMode = false;
+            selectedTransactions.clear();
+            updateMultiSelectUI();
+            loadFilteredTransactions();
+        });
+
+        function updateMultiSelectUI() {
+            if (isMultiSelectMode) {
+                $toggleMultiSelect.hide();
+                $hideMultiSelect.show();
+                $selectAllHeader.show();
+                $('.action-icons-clean').hide();
+                // Add checkbox column to existing rows
+                addCheckboxesToRows();
+            } else {
+                $toggleMultiSelect.show();
+                $hideMultiSelect.hide();
+                $selectAllHeader.hide();
+                $('.action-icons-clean').show();
+                // Remove checkbox column
+                removeCheckboxesFromRows();
+            }
+
+            $bulkActions.toggle(selectedTransactions.size > 0 && isMultiSelectMode);
+            updateBulkActionButtons();
+        }
+
+        function addCheckboxesToRows() {
+            $('#expenseTransactionsBody tr').each(function () {
+                const $row = $(this);
+                const transactionId = $row.find('.view-journal').data('id');
+                if (transactionId && !$row.find('td:first-child input[type="checkbox"]').length) {
+                    const isChecked = selectedTransactions.has(transactionId.toString());
+                    $row.prepend(`<td><input type="checkbox" class="transaction-checkbox" 
+                        data-transaction-id="${transactionId}" ${isChecked ? 'checked' : ''}></td>`);
+                }
+            });
+
+            // Reattach checkbox event listeners
+            $('.transaction-checkbox').on('change', function () {
+                const id = $(this).data('transaction-id').toString();
+                if ($(this).prop('checked')) {
+                    selectedTransactions.add(id);
+                } else {
+                    selectedTransactions.delete(id);
+                    $selectAll.prop('checked', false);
+                }
+                updateBulkActionButtons();
+            });
+        }
+
+        function removeCheckboxesFromRows() {
+            $('#expenseTransactionsBody tr').each(function () {
+                $(this).find('td:first-child').remove();
+            });
+        }
+
+        // ========== SELECT ALL ==========
+        $selectAll.on('change', function () {
+            const isChecked = $(this).prop('checked');
+            $('.transaction-checkbox:visible').each(function () {
+                $(this).prop('checked', isChecked);
+                const id = $(this).data('transaction-id');
+                if (isChecked) {
+                    selectedTransactions.add(id.toString());
+                } else {
+                    selectedTransactions.delete(id.toString());
+                }
+            });
+            updateBulkActionButtons();
+        });
+
+        // ========== LOAD FILTERED TRANSACTIONS ==========
+        function loadFilteredTransactions() {
+            const params = {
+                page: currentPage,
+                per_page: perPage,
+                expense_number: $('#expense_number').val(),
+                reference: $('#reference').val(),
+                narration: $('#narration').val(),
+                vendor: $('#vendor').val(),
+                project: $('#project').val(),
+                expense_category: $('#expense_category').val(),
+                expense_subcategory: $('#expense_subcategory').val(), // Add this line
+                payment_mode: $('#payment_mode').val(),
+                payment_account: $('#payment_account').val(),
+                currency: $('#currency').val(),
+                start_date: $('#start_date').val(),
+                end_date: $('#end_date').val(),
+                status: $('#status').val(),
+
+            };
+
+            $.ajax({
+                url: '{{ url_for("expense_routes.expense_transactions_filter") }}',
+                method: 'GET',
+                data: params,
+                beforeSend: function () {
+                    $tableBody.html('<tr><td colspan="12" class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>');
+                },
+                success: function (response) {
+                    if (response.success) {
+                        currentTransactions = response.transactions;
+                        renderTransactions(response.transactions);
+                        renderPagination(response.pagination);
+                    } else {
+                        $tableBody.html('<tr><td colspan="12" class="text-center text-danger py-3">Error loading transactions</td></tr>');
+                    }
+                },
+                error: function () {
+                    $tableBody.html('<tr><td colspan="12" class="text-center text-danger py-3">Error loading transactions</td></tr>');
+                }
+            });
+        }
+
+        // ========== RENDER TRANSACTIONS ==========
+        // ========== RENDER TRANSACTIONS ==========
+        function renderTransactions(transactions) {
+            if (!transactions || transactions.length === 0) {
+                $tableBody.html('<tr><td colspan="12" class="text-center py-3">No expense transactions found</td></tr>');
+                return;
+            }
+
+            let html = '';
+            transactions.forEach(t => {
+                const isChecked = selectedTransactions.has(t.id.toString());
+
+                html += '<tr>';
+
+                // Checkbox column (only in multi-select mode)
+                if (isMultiSelectMode) {
+                    html += `<td><input type="checkbox" class="transaction-checkbox" 
+                data-transaction-id="${t.id}" ${isChecked ? 'checked' : ''}></td>`;
+                }
+
+                html += `
+        <td>${t.expense_number || '-'}</td>
+        <td>${t.reference || '-'}</td>
+        <td>${t.narration || '-'}</td>
+        <td>${t.payee || '-'}</td>
+        <td>${t.project || '-'}</td>
+        <td>${t.payment_date || '-'}</td>
+        <td class="num-right">${formatAmount(t.total_amount)}</td>
+        <td>${t.currency || '-'}</td>
+        <td>${t.payment_mode || '-'}</td>
+        <td>${t.payment_account || '-'}</td>
+        <td>
+            <span class="badge ${t.status === 'approved' ? 'bg-success' : 'bg-warning'}">
+                ${t.status_display || (t.status === 'approved' ? 'Approved' : 'Draft')}
+            </span>
+        </td>
+        <td>
+            <div class="action-icons-clean" ${isMultiSelectMode ? 'style="display:none;"' : ''}>
+                <div class="custom-tooltip-container">
+                    <a href="#" class="view-journal" data-id="${t.id}">
+                        <i class="fas fa-eye view-icon"></i>
+                    </a>
+                    <span class="custom-tooltip">View Journal</span>
+                </div>
+        `;
+
+                // Edit - controlled by userPermissions from template
+                if (userPermissions.can_edit) {
+                    html += `
+            <div class="custom-tooltip-container">
+                <a href="/expenses/edit/${t.id}">
+                    <i class="fas fa-edit text-primary edit-icon"></i>
+                </a>
+                <span class="custom-tooltip">Edit</span>
+            </div>
+            `;
+                }
+
+                // Approve - only for draft status
+                if (userPermissions.can_approve && t.status === 'draft') {
+                    html += `
+            <div class="custom-tooltip-container">
+                <a href="#" class="approve-single" data-id="${t.id}">
+                    <i class="fas fa-check-circle text-success"></i>
+                </a>
+                <span class="custom-tooltip left">Approve</span>
+            </div>
+            `;
+                }
+
+                // Delete - controlled by userPermissions from template
+                if (userPermissions.can_administer) {
+                    html += `
+            <div class="custom-tooltip-container">
+                <a href="#" class="delete-single" data-id="${t.id}">
+                    <i class="fas fa-trash-alt text-danger delete-icon"></i>
+                </a>
+                <span class="custom-tooltip left">Delete</span>
+            </div>
+            `;
+                }
+
+                html += `
+            </div>
+        </td>
+    </tr>`;
+            });
+
+            $tableBody.html(html);
+
+            // Add checkbox event listeners
+            $('.transaction-checkbox').on('change', function () {
+                const id = $(this).data('transaction-id').toString();
+                if ($(this).prop('checked')) {
+                    selectedTransactions.add(id);
+                } else {
+                    selectedTransactions.delete(id);
+                    $selectAll.prop('checked', false);
+                }
+                updateBulkActionButtons();
+            });
+
+            // Add action event listeners
+            $('.view-journal').on('click', viewJournalEntries);
+            $('.approve-single').on('click', approveSingleTransaction);
+            $('.delete-single').on('click', deleteSingleTransaction);
+        }
+        // ========== ATTACH EVENT LISTENERS TO INITIAL ROWS ==========
+        function attachEventListenersToInitialRows() {
+            $('.view-journal').on('click', viewJournalEntries);
+            $('.approve-single').on('click', approveSingleTransaction);
+            $('.delete-single').on('click', deleteSingleTransaction);
+        }
+
+        // Call this after the document is ready
+        attachEventListenersToInitialRows();
+
+        // ========== RENDER PAGINATION ==========
+        function renderPagination(pagination) {
+            if (!pagination || pagination.pages <= 1) {
+                $pagination.empty();
+                return;
+            }
+
+            let html = '';
+
+            // Previous button
+            if (pagination.has_prev) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${pagination.page - 1}">‹ Previous</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">‹ Previous</a></li>`;
+            }
+
+            // Page numbers
+            for (let i = 1; i <= pagination.pages; i++) {
+                if (i >= pagination.page - 2 && i <= pagination.page + 2) {
+                    html += `<li class="page-item ${i === pagination.page ? 'active' : ''}">
+                    <a class="page-link" href="#" data-page="${i}">${i}</a>
+                </li>`;
+                }
+            }
+
+            // Next button
+            if (pagination.has_next) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${pagination.page + 1}">Next ›</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">Next ›</a></li>`;
+            }
+
+            $pagination.html(html);
+
+            // Pagination info
+            const start = (pagination.page - 1) * pagination.per_page + 1;
+            const end = Math.min(pagination.page * pagination.per_page, pagination.total);
+            $paginationInfo.html(`Showing ${start} to ${end} of ${pagination.total} entries`);
+
+            // Add click handlers
+            $('.page-link[data-page]').on('click', function (e) {
+                e.preventDefault();
+                currentPage = parseInt($(this).data('page'));
+                loadFilteredTransactions();
+            });
+        }
+
+        // ========== BULK ACTION BUTTONS ==========
+        function updateBulkActionButtons() {
+            const count = selectedTransactions.size;
+            if (count > 0) {
+
+                $('#bulkApprove').text(`Approve (${count})`);
+                $('#bulkDelete').text(`Delete (${count})`);
+                $bulkActions.show();
+            } else {
+                $bulkActions.hide();
+            }
+        }
+
+        // ========== FILTER HANDLERS ==========
+        $applyFilter.on('click', function () {
+            currentPage = 1;
+            loadFilteredTransactions();
+        });
+
+        // In resetFilters click handler, add expense_subcategory
+        $resetFilters.on('click', function () {
+            $('#filter-form')[0].reset();
+            $('#vendor, #project, #expense_category, #expense_subcategory, #payment_account').val(null).trigger('change');
+            currentPage = 1;
+            loadFilteredTransactions();
+        });
+
+        // ========== QUICK SEARCH ==========
+        $searchInput.on('input', function () {
+            const searchTerm = $(this).val().toLowerCase();
+            $('#expenseTransactionsBody tr').each(function () {
+                const text = $(this).text().toLowerCase();
+                $(this).toggle(text.includes(searchTerm));
+            });
+        });
+
+        // ========== VIEW JOURNAL ENTRIES ==========
+        function viewJournalEntries(e) {
+            e.preventDefault();
+            const id = $(this).data('id');
+
+            $('#journalEntriesModal').modal('show');
+            $('#journalEntriesContent').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>');
+
+            $.getJSON(`/expenses/transactions/${id}/journal-entries-json`)
+                .done(function (data) {
+                    if (!data.success) {
+                        $('#journalEntriesContent').html('<div class="alert alert-danger">Could not load journal entries</div>');
+                        return;
+                    }
+
+                    let html = `<h6>Expense Number: ${data.expense_number}</h6>`;
+                    html += '<table class="table table-bordered table-sm"><thead><tr><th>Date</th><th>Account</th><th>Description</th><th class="text-end">Debit</th><th class="text-end">Credit</th></tr></thead><tbody>';
+
+                    let totalDebit = 0, totalCredit = 0;
+                    data.entries.forEach(entry => {
+                        totalDebit += entry.debit;
+                        totalCredit += entry.credit;
+                        html += `<tr>
+                        <td>${entry.entry_date}</td>
+                        <td>${entry.account}</td>
+                        <td>${entry.description}</td>
+                        <td class="text-end">${formatAmount(entry.debit)}</td>
+                        <td class="text-end">${formatAmount(entry.credit)}</td>
+                    </tr>`;
+                    });
+
+                    html += `<tr class="fw-bold">
+                    <td colspan="3" class="text-end">Total</td>
+                    <td class="text-end">${formatAmount(totalDebit)}</td>
+                    <td class="text-end">${formatAmount(totalCredit)}</td>
+                </tr></tbody></table>`;
+
+                    $('#journalEntriesContent').html(html);
+                })
+                .fail(function () {
+                    $('#journalEntriesContent').html('<div class="alert alert-danger">Failed to load journal entries</div>');
+                });
+        }
+
+        // ========== SINGLE ACTIONS ==========
+
+        // ========== SINGLE ACTIONS ==========
+        function approveSingleTransaction(e) {
+            e.preventDefault();
+            const id = $(this).data('id');
+
+            Swal.fire({
+                title: 'Approve Transaction?',
+                text: 'Are you sure you want to approve this expense?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                confirmButtonText: 'Yes, approve it!',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading notification
+                    showNotification('Approving transaction...', 'info');
+
+                    $.ajax({
+                        url: '/expenses/approve_transaction',
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': '{{ csrf_token() }}' },
+                        data: JSON.stringify({ transaction_id: id }),
+                        contentType: 'application/json',
+                        success: function (response) {
+                            if (response.success) {
+                                showNotification(response.message || 'Transaction approved successfully', 'success');
+                                loadFilteredTransactions();
+                            } else {
+                                showNotification(response.message || 'Failed to approve transaction', 'error');
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            console.error('Approve error:', error);
+                            showNotification('Failed to approve transaction. Please try again.', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function deleteSingleTransaction(e) {
+            e.preventDefault();
+            const id = $(this).data('id');
+
+            Swal.fire({
+                title: 'Delete Transaction?',
+                text: 'Are you sure you want to delete this expense? This action cannot be undone!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it!',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading notification
+                    showNotification('Deleting transaction...', 'info');
+
+                    $.ajax({
+                        url: '/expenses/delete_transaction',
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': '{{ csrf_token() }}' },
+                        data: JSON.stringify({ transaction_id: id }),
+                        contentType: 'application/json',
+                        success: function (response) {
+                            if (response.success) {
+                                showNotification(response.message || 'Transaction deleted successfully', 'success');
+                                loadFilteredTransactions();
+                            } else {
+                                showNotification(response.message || 'Failed to delete transaction', 'error');
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            console.error('Delete error:', error);
+                            showNotification('Failed to delete transaction. Please try again.', 'error');
+                        }
+                    });
+                }
+            });
+        }
+        // ========== BULK ACTIONS ==========
+
+        // Add this validation function after updateBulkActionButtons()
+        function validateBulkApproveSelection(transactionIds) {
+            let invalidTransactions = [];
+            let validTransactions = [];
+
+            transactionIds.forEach(id => {
+                const transaction = currentTransactions.find(t => t.id.toString() === id);
+                if (transaction) {
+                    if (transaction.status === 'draft') {
+                        validTransactions.push(transaction);
+                    } else {
+                        let reason = '';
+                        if (transaction.status === 'approved') {
+                            reason = ' (already approved)';
+                        } else if (transaction.status !== 'draft') {
+                            reason = ` (status: ${transaction.status_display || transaction.status})`;
+                        }
+
+                        invalidTransactions.push({
+                            reference: transaction.expense_number || transaction.reference || `ID: ${id}`,
+                            reason: reason
+                        });
+                    }
+                }
+            });
+
+            return {
+                hasInvalid: invalidTransactions.length > 0,
+                invalidTransactions,
+                validTransactions
+            };
+        }
+
+        function validateBulkDeleteSelection(transactionIds) {
+            let validTransactions = [];
+
+            transactionIds.forEach(id => {
+                const transaction = currentTransactions.find(t => t.id.toString() === id);
+                if (transaction) {
+                    // Allow all transactions to be deleted regardless of posted status
+                    validTransactions.push(transaction);
+                }
+            });
+
+            return {
+                hasInvalid: false,
+                invalidTransactions: [],
+                validTransactions
+            };
+        }
+        // Update bulkApprove click handler
+        $('#bulkApprove').on('click', function () {
+            if (selectedTransactions.size === 0) return;
+
+            const validation = validateBulkApproveSelection(Array.from(selectedTransactions));
+
+            if (validation.hasInvalid) {
+                let message = `
+            <div style="text-align: left;">
+                <p class="mb-2"><strong>The following transactions cannot be approved:</strong></p>
+                <div style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+        `;
+
+                validation.invalidTransactions.forEach(item => {
+                    message += `<div style="padding: 4px 0; color: #dc3545;">
+                <i class="fas fa-times-circle"></i> ${item.reference}${item.reason}
+            </div>`;
+                });
+
+                if (validation.validTransactions.length > 0) {
+                    message += `
+                </div>
+                <p class="mt-2 text-success"><strong>${validation.validTransactions.length} transaction(s) can be approved.</strong></p>
+                <p class="text-warning mt-1">Do you want to proceed with the valid transactions only?</p>
+            `;
+                } else {
+                    message += `</div><p class="mt-2">No valid transactions to approve.</p>`;
+                }
+                message += `</div>`;
+
+                Swal.fire({
+                    title: 'Cannot Approve All Selected',
+                    html: message,
+                    icon: 'warning',
+                    showCancelButton: validation.validTransactions.length > 0,
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: validation.validTransactions.length > 0 ? 'Yes, approve valid ones' : 'OK',
+                    cancelButtonText: 'Cancel',
+                    customClass: {
+                        popup: 'custom-swal-popup',
+                        title: 'custom-swal-title',
+                        content: 'custom-swal-content',
+                        confirmButton: 'custom-swal-confirm-btn',
+                        icon: 'custom-swal-icon'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed && validation.validTransactions.length > 0) {
+                        // Proceed with only valid transactions
+                        const validIds = validation.validTransactions.map(t => t.id.toString());
+                        proceedWithBulkApprove(validIds);
+                    }
+                });
+                return;
+            }
+
+            // All transactions are valid
+            let transactionList = '';
+            validation.validTransactions.forEach(t => {
+                transactionList += `<div>${t.expense_number || t.reference || 'N/A'} - ${formatAmount(t.total_amount)}</div>`;
+            });
+
+            Swal.fire({
+                title: 'Approve Transactions?',
+                html: `
+            <div style="text-align: left;">
+                <p>You are about to approve <strong>${selectedTransactions.size}</strong> transaction(s):</p>
+                <div style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0;">
+                    ${transactionList}
+                </div>
+                <p class="text-warning"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</p>
+            </div>
+        `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                confirmButtonText: 'Yes, approve them!',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    proceedWithBulkApprove(Array.from(selectedTransactions));
+                }
+            });
+        });
+
+        function proceedWithBulkApprove(transactionIds) {
+            // Show loading notification
+            showNotification('Approving transactions...', 'info');
+
+            $.ajax({
+                url: '/expenses/approve_bulk_transactions',
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token() }}' },
+                data: JSON.stringify({ transaction_ids: transactionIds }),
+                contentType: 'application/json',
+                success: function (response) {
+                    if (response.success) {
+                        showNotification(response.message || 'Transactions approved successfully', 'success');
+                        selectedTransactions.clear();
+                        isMultiSelectMode = false;
+                        updateMultiSelectUI();
+                        loadFilteredTransactions();
+                    } else {
+                        showNotification(response.message || 'Failed to approve transactions', 'error');
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error('Approve error:', error);
+                    showNotification('Failed to approve transactions. Please try again.', 'error');
+                }
+            });
+        }
+
+
+        // Update bulkDelete click handler
+        $('#bulkDelete').on('click', function () {
+            if (selectedTransactions.size === 0) return;
+
+            const validation = validateBulkDeleteSelection(Array.from(selectedTransactions));
+
+            if (validation.hasInvalid) {
+                let message = `
+            <div style="text-align: left;">
+                <p class="mb-2"><strong>The following transactions cannot be deleted:</strong></p>
+                <div style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+        `;
+
+                validation.invalidTransactions.forEach(item => {
+                    message += `<div style="padding: 4px 0; color: #dc3545;">
+                <i class="fas fa-times-circle"></i> ${item.reference}${item.reason}
+            </div>`;
+                });
+
+                if (validation.validTransactions.length > 0) {
+                    message += `
+                </div>
+                <p class="mt-2 text-success"><strong>${validation.validTransactions.length} transaction(s) can be deleted.</strong></p>
+                <p class="text-warning mt-1">Do you want to proceed with the valid transactions only?</p>
+            `;
+                } else {
+                    message += `</div><p class="mt-2">No valid transactions to delete.</p>`;
+                }
+                message += `</div>`;
+
+                Swal.fire({
+                    title: 'Cannot Delete All Selected',
+                    html: message,
+                    icon: 'warning',
+                    showCancelButton: validation.validTransactions.length > 0,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: validation.validTransactions.length > 0 ? 'Yes, delete valid ones' : 'OK',
+                    cancelButtonText: 'Cancel',
+                    customClass: {
+                        popup: 'custom-swal-popup',
+                        title: 'custom-swal-title',
+                        content: 'custom-swal-content',
+                        confirmButton: 'custom-swal-confirm-btn',
+                        icon: 'custom-swal-icon'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed && validation.validTransactions.length > 0) {
+                        // Proceed with only valid transactions
+                        const validIds = validation.validTransactions.map(t => t.id.toString());
+                        proceedWithBulkDelete(validIds);
+                    }
+                });
+                return;
+            }
+
+            // All transactions are valid
+            let transactionList = '';
+            validation.validTransactions.forEach(t => {
+                transactionList += `<div>${t.expense_number || t.reference || 'N/A'} - ${formatAmount(t.total_amount)} (${t.status_display || t.status})</div>`;
+            });
+
+            Swal.fire({
+                title: 'Delete Transactions?',
+                html: `
+            <div style="text-align: left;">
+                <p>You are about to delete <strong>${selectedTransactions.size}</strong> transaction(s):</p>
+                <div style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0;">
+                    ${transactionList}
+                </div>
+                <p class="text-danger"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone!</p>
+            </div>
+        `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete them!',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    proceedWithBulkDelete(Array.from(selectedTransactions));
+                }
+            });
+        });
+
+        function proceedWithBulkDelete(transactionIds) {
+            // Show loading notification
+            showNotification('Deleting transactions...', 'info');
+
+            $.ajax({
+                url: '/expenses/delete_bulk_transactions',
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token() }}' },
+                data: JSON.stringify({ transaction_ids: transactionIds }),
+                contentType: 'application/json',
+                success: function (response) {
+                    if (response.success) {
+                        showNotification(response.message || 'Transactions deleted successfully', 'success');
+                        selectedTransactions.clear();
+                        isMultiSelectMode = false;
+                        updateMultiSelectUI();
+                        loadFilteredTransactions();
+                    } else {
+                        showNotification(response.message || 'Failed to delete transactions', 'error');
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error('Delete error:', error);
+                    showNotification('Failed to delete transactions. Please try again.', 'error');
+                }
+            });
+        }
+
+        // ========== HELPER FUNCTIONS ==========
+        function formatAmount(amount) {
+            return new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount || 0);
+        }
+
+        // ========== INITIAL LOAD ==========
+        // No need to load, initial data is rendered server-side
+    });
+</script>
+
+
+{% endblock %}

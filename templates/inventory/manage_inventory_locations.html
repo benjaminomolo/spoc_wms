@@ -1,0 +1,953 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div class="header-section">
+        <h1>Manage Inventory Locations</h1>
+        {% if role in ['Admin', 'Contributor'] %}
+        <button class="button cta-button" id="addLocationBtn">Add Location</button>
+        {% endif %}
+    </div>
+
+    <table id="locations-table" class="display responsive nowrap" style="width:100%">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Location</th>
+                <th>Description</th>
+                <th>Project</th>
+                <th>Assigned Users</th>
+                <th>Discount Account</th>
+                <th>Payment Account</th>
+                <th>Card Payment Account</th>
+                <th>Mobile Money Account</th>
+                <th>Workflow Type</th>
+                {% if role in ['Admin', 'Contributor'] %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% if locations|length > 0 %}
+            {% for loc in locations %}
+            <tr data-location-id="{{ loc.id }}" data-location-name="{{ loc.location }}"
+                data-description="{{ loc.description or '' }}" data-project-id="{{ loc.project_id or '' }}"
+                data-discount-account-id="{{ loc.discount_account_id or '' }}"
+                data-payment-account-id="{{ loc.payment_account_id or '' }}"
+                data-card-payment-account-id="{{ loc.card_payment_account_id or '' }}"
+                data-mobile-money-account-id="{{ loc.mobile_money_account_id or '' }}"
+                data-workflow-type="{{ loc.workflow_type or 'process_payment' }}">
+                <td>{{ loop.index }}</td>
+                <td>{{ loc.location }}</td>
+                <td>{{ loc.description or '-' }}</td>
+                <td>
+                    {% if loc.project %}
+                    {{ loc.project.name }}
+                    {% else %}
+                    <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="assigned-users-container">
+                        {% if loc.user_location_assignments %}
+                        {% for assignment in loc.user_location_assignments %}
+                        {% if assignment.is_active %}
+                        <div class="user-badge" id="user-badge-{{ assignment.id }}">
+                            <span class="user-name">{{ assignment.user.name }}</span>
+                            <span class="user-role">({{ assignment.role_at_location }})</span>
+                            {% if role in ['Admin', 'Contributor'] %}
+                            <button class="remove-user-btn"
+                                onclick="removeUserFromLocation('{{ assignment.id }}', '{{ assignment.user.name }}', '{{ loc.location }}')">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                        {% else %}
+                        <span class="text-muted">No users assigned</span>
+                        {% endif %}
+
+                        {% if role in ['Admin', 'Contributor'] %}
+                        <button class="button add-user-btn button-outline"
+                            onclick="openAddUserModal('{{ loc.id }}', '{{ loc.location }}')">
+                            <i class="fas fa-user-plus"></i> Add User
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+                <td>
+                    {% if loc.discount_account %}
+                    {{ loc.discount_account.sub_category }} ({{ loc.discount_account.sub_category_id }})
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if loc.payment_account %}
+                    {{ loc.payment_account.sub_category }} ({{ loc.payment_account.sub_category_id }})
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if loc.card_payment_account %}
+                    {{ loc.card_payment_account.sub_category }} ({{ loc.card_payment_account.sub_category_id }})
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if loc.mobile_money_account %}
+                    {{ loc.mobile_money_account.sub_category }} ({{ loc.mobile_money_account.sub_category_id }})
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if loc.workflow_type %}
+                    {% if loc.workflow_type == 'process_payment' %}
+                    <span class="badge bg-primary">Process Payment</span>
+                    {% elif loc.workflow_type == 'order_slip' %}
+                    <span class="badge bg-success">Order Slip</span>
+                    {% endif %}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                {% if role in ['Admin', 'Contributor'] %}
+                <td>
+                    <div class="action-icons-clean">
+                        <div class="custom-tooltip-container">
+                            <a href="#" class="edit-icon" onclick="openEditLocationModal('{{ loc.id }}')">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <span class="custom-tooltip">Edit</span>
+                        </div>
+                        <div class="custom-tooltip-container">
+                            <a href="#" class="delete-icon" onclick="confirmDeleteLoc(event, '{{ loc.id }}')">
+                                <i class="fas fa-trash-alt"></i>
+                            </a>
+                            <span class="custom-tooltip">Delete</span>
+                        </div>
+                    </div>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="11" class="text-center">No inventory locations available</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Location Modal -->
+<div class="modal fade" id="addLocationModal" tabindex="-1" aria-labelledby="addLocationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addLocationModalLabel">Add New Inventory Location</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="addLocationForm">
+                    <div class="form-group mb-3">
+                        <label for="loc_name">Location:</label>
+                        <input type="text" id="loc_name" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="loc_description">Description (optional):</label>
+                        <input type="text" id="loc_description" class="form-control">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="loc_project">Project (optional):</label>
+                        <select id="loc_project" class="form-control">
+                            <option value="">Select Project</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="loc_discount_account">Discount Account (optional - Only required for POS):</label>
+                        <select id="loc_discount_account" class="form-control">
+                            <option value="">Loading Discount Account...</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="loc_payment_account">Cash Payment Account (optional - Only required for
+                            POS):</label>
+                        <select id="loc_payment_account" class="form-control">
+                            <option value="">Loading Payment Account...</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="loc_card_payment_account">Card Payment Account (optional - Only required for
+                            POS):</label>
+                        <select id="loc_card_payment_account" class="form-control">
+                            <option value="">Loading Card Payment Account...</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="loc_mobile_money_account">Mobile Money Account (optional - Only required for
+                            POS):</label>
+                        <select id="loc_mobile_money_account" class="form-control">
+                            <option value="">Loading Mobile Money Account...</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="loc_workflow_type">
+                            Default Workflow Type:
+                            <div class="custom-tooltip-container">
+                                <i class="fas fa-info-circle text-muted" style="font-size: 14px;"></i>
+                                <span class="custom-tooltip">
+                                    Process Payment: Complete sales with immediate payment<br>
+                                    Order Slip: Create orders for later payment processing
+                                </span>
+                            </div>
+                        </label>
+                        <select id="loc_workflow_type" class="form-control">
+                            <option value="process_payment">Process Payment</option>
+                            <option value="order_slip">Order Slip</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                <button class="button cta-button" id="saveNewLocationBtn">Add Location</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Location Modal -->
+<div class="modal fade" id="editLocationModal" tabindex="-1" aria-labelledby="editLocationModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editLocationModalLabel">Edit Inventory Location</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editLocationForm">
+                    <input type="hidden" id="edit_location_id">
+                    <div class="form-group mb-3">
+                        <label for="edit_loc_name">Location:</label>
+                        <input type="text" id="edit_loc_name" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="edit_loc_description">Description (optional):</label>
+                        <input type="text" id="edit_loc_description" class="form-control">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="edit_loc_project">Project (optional):</label>
+                        <select id="edit_loc_project" class="form-control">
+                            <option value="">Select Project</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="edit_loc_discount_account">Discount Account (optional):</label>
+                        <select id="edit_loc_discount_account" class="form-control">
+                            <option value="">Loading Discount Account...</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="edit_loc_payment_account">Cash Payment Account (optional):</label>
+                        <select id="edit_loc_payment_account" class="form-control">
+                            <option value="">Loading Payment Account...</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="edit_loc_card_payment_account">Card Payment Account (optional):</label>
+                        <select id="edit_loc_card_payment_account" class="form-control">
+                            <option value="">Loading Card Payment Account...</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="edit_loc_mobile_money_account">Mobile Money Account (optional):</label>
+                        <select id="edit_loc_mobile_money_account" class="form-control">
+                            <option value="">Loading Mobile Money Account...</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="edit_loc_workflow_type">Default Workflow Type:</label>
+                        <select id="edit_loc_workflow_type" class="form-control">
+                            <option value="process_payment">Process Payment</option>
+                            <option value="order_slip">Order Slip</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                <button class="button cta-button" id="saveEditLocationBtn">Update Location</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add User to Location Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addUserModalLabel">Add User to Location</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="addUserLocationId">
+                <div class="form-group mb-3">
+                    <label for="locationDisplay">Location:</label>
+                    <input type="text" id="locationDisplay" class="form-control" readonly>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="userSelect">Select User:</label>
+                    <select id="userSelect" class="form-control">
+                        <option value="">Loading users...</option>
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="userRole">Role at Location:</label>
+                    <select id="userRole" class="form-control">
+                        <option value="manager">Manager</option>
+                        <option value="staff" selected>Staff</option>
+                        <option value="cashier">Cashier</option>
+                        <option value="viewer">Viewer</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                <button class="button cta-button" id="saveUserAssignmentBtn">Add User</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const safeStr = val => {
+        if (val === undefined || val === null || val === '') {
+            return null;
+        }
+        return String(val);
+    };
+
+    // Load account dropdowns from API
+    async function loadAccountDropdowns(
+        discountSelectId,
+        paymentSelectId,
+        cardPaymentSelectId,
+        mobileMoneySelectId,
+        selectedDiscount = '',
+        selectedPayment = '',
+        selectedCardPayment = '',
+        selectedMobileMoney = ''
+    ) {
+        const discountDropdown = document.getElementById(discountSelectId);
+        const paymentDropdown = document.getElementById(paymentSelectId);
+        const cardPaymentDropdown = document.getElementById(cardPaymentSelectId);
+        const mobileMoneyDropdown = document.getElementById(mobileMoneySelectId);
+
+        discountDropdown.innerHTML = '<option value="">Loading accounts...</option>';
+        paymentDropdown.innerHTML = '<option value="">Loading accounts...</option>';
+        cardPaymentDropdown.innerHTML = '<option value="">Loading accounts...</option>';
+        mobileMoneyDropdown.innerHTML = '<option value="">Loading accounts...</option>';
+
+        try {
+            const res = await fetch('/api/chart_of_accounts_grouped');
+            const data = await res.json();
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            // Clear all dropdowns first
+            discountDropdown.innerHTML = '<option value="">Select Discount Account</option>';
+            paymentDropdown.innerHTML = '<option value="">Select Payment Account</option>';
+            cardPaymentDropdown.innerHTML = '<option value="">Select Card Payment Account</option>';
+            mobileMoneyDropdown.innerHTML = '<option value="">Select Mobile Money Account</option>';
+
+            // Process each category
+            data.chart_of_accounts_grouped.forEach(category => {
+                // DISCOUNT ACCOUNTS (Revenue/Income)
+                const discountAccounts = category.accounts.filter(acc =>
+                    ['Revenue', 'Income'].includes(acc.account_type)
+                );
+
+                if (discountAccounts.length > 0) {
+                    const discountOptGroup = document.createElement('optgroup');
+                    discountOptGroup.label = `${category.category} (${category.category_code})`;
+
+                    discountAccounts.forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.sub_category_id;
+                        option.textContent = `${account.sub_category} (${account.sub_category_code})`;
+                        if (selectedDiscount && account.sub_category_id == selectedDiscount) {
+                            option.selected = true;
+                        }
+                        discountOptGroup.appendChild(option);
+                    });
+
+                    discountDropdown.appendChild(discountOptGroup);
+                }
+
+                // ASSET ACCOUNTS
+                const assetAccounts = category.accounts.filter(acc => acc.account_type === 'Asset');
+
+                if (assetAccounts.length > 0) {
+                    const cashAccounts = assetAccounts.filter(acc => acc.is_cash);
+                    const bankAccounts = assetAccounts.filter(acc => acc.is_bank);
+                    const cashOrBankAccounts = assetAccounts.filter(acc => acc.is_cash || acc.is_bank);
+
+                    // CASH PAYMENT ACCOUNTS (is_cash = true)
+                    if (cashAccounts.length > 0) {
+                        const cashOptGroup = document.createElement('optgroup');
+                        cashOptGroup.label = `${category.category} - Cash Accounts`;
+
+                        cashAccounts.forEach(account => {
+                            const option = document.createElement('option');
+                            option.value = account.sub_category_id;
+                            option.textContent = `${account.sub_category} (${account.sub_category_code})`;
+                            if (selectedPayment && account.sub_category_id == selectedPayment) {
+                                option.selected = true;
+                            }
+                            cashOptGroup.appendChild(option);
+                        });
+
+                        paymentDropdown.appendChild(cashOptGroup);
+                    }
+
+                    // CARD PAYMENT ACCOUNTS (cash OR bank)
+                    if (cashOrBankAccounts.length > 0) {
+                        const cardOptGroup = document.createElement('optgroup');
+                        cardOptGroup.label = `${category.category} - Payment Accounts`;
+
+                        cashOrBankAccounts.forEach(account => {
+                            const option = document.createElement('option');
+                            option.value = account.sub_category_id;
+                            option.textContent = `${account.sub_category} (${account.sub_category_code})`;
+                            if (selectedCardPayment && account.sub_category_id == selectedCardPayment) {
+                                option.selected = true;
+                            }
+                            cardOptGroup.appendChild(option);
+                        });
+
+                        cardPaymentDropdown.appendChild(cardOptGroup);
+                    }
+
+                    // MOBILE MONEY ACCOUNTS (cash OR bank)
+                    if (cashOrBankAccounts.length > 0) {
+                        const mobileOptGroup = document.createElement('optgroup');
+                        mobileOptGroup.label = `${category.category} - Payment Accounts`;
+
+                        cashOrBankAccounts.forEach(account => {
+                            const option = document.createElement('option');
+                            option.value = account.sub_category_id;
+                            option.textContent = `${account.sub_category} (${account.sub_category_code})`;
+                            if (selectedMobileMoney && account.sub_category_id == selectedMobileMoney) {
+                                option.selected = true;
+                            }
+                            mobileOptGroup.appendChild(option);
+                        });
+
+                        mobileMoneyDropdown.appendChild(mobileOptGroup);
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('Error loading accounts:', error);
+            discountDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+            paymentDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+            cardPaymentDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+            mobileMoneyDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+        }
+    }
+
+    // Load users for assignment
+    async function loadUsers() {
+        const userSelect = document.getElementById('userSelect');
+        userSelect.innerHTML = '<option value="">Loading users...</option>';
+
+        try {
+            const res = await fetch('/inventory/api/users', {
+                credentials: 'include'
+            });
+
+            const contentType = res.headers.get('content-type') || '';
+            if (!res.ok || !contentType.includes('application/json')) {
+                if (res.status === 403) {
+                    throw new Error("You do not have permission to load users.");
+                } else {
+                    throw new Error(`You do not have permission to load users. Check with your admin`);
+                }
+            }
+
+            const data = await res.json();
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            // Clear and populate dropdown
+            userSelect.innerHTML = '<option value="">Select User</option>';
+            data.users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.name} (${user.email}) - ${user.role}`;
+                userSelect.appendChild(option);
+            });
+
+        } catch (error) {
+            console.warn('Error loading users:', error);
+            userSelect.innerHTML = `<option value="">${error.message}</option>`;
+        }
+    }
+
+    // Load projects
+    async function loadProjects(selectId, selectedValue = '') {
+        const select = document.getElementById(selectId);
+        select.innerHTML = '<option value="">Loading projects...</option>';
+
+        try {
+            const res = await fetch('/inventory/api/projects');
+            const data = await res.json();
+
+            select.innerHTML = '<option value="">Select Project</option>';
+
+            if (data.projects && data.projects.length > 0) {
+                data.projects.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.id;
+                    option.textContent = p.name;
+                    if (p.id == selectedValue) option.selected = true;
+                    select.appendChild(option);
+                });
+            } else {
+                select.innerHTML = '<option value="">No projects available</option>';
+            }
+        } catch (err) {
+            console.error('Error loading projects:', err);
+            select.innerHTML = '<option value="">Error loading projects</option>';
+        }
+    }
+
+    // Open Edit Location Modal
+    // Open Edit Location Modal - Using data attributes
+    async function openEditLocationModal(locationId) {
+        document.getElementById('edit_location_id').value = locationId;
+
+        try {
+            // Find the location row in the table
+            const locationRow = document.querySelector(`tr[data-location-id="${locationId}"]`);
+            if (!locationRow) {
+                throw new Error('Location not found in table');
+            }
+
+            // Get data from attributes
+            const locationName = locationRow.dataset.locationName;
+            const description = locationRow.dataset.description;
+            const projectId = locationRow.dataset.projectId;
+            const discountAccountId = locationRow.dataset.discountAccountId;
+            const paymentAccountId = locationRow.dataset.paymentAccountId;
+            const cardPaymentAccountId = locationRow.dataset.cardPaymentAccountId;
+            const mobileMoneyAccountId = locationRow.dataset.mobileMoneyAccountId;
+            const workflowType = locationRow.dataset.workflowType;
+
+            // Populate form fields
+            document.getElementById('edit_loc_name').value = locationName;
+            document.getElementById('edit_loc_description').value = description;
+            document.getElementById('edit_loc_workflow_type').value = workflowType;
+
+            // Load dropdowns with current values
+            await loadAccountDropdowns(
+                'edit_loc_discount_account',
+                'edit_loc_payment_account',
+                'edit_loc_card_payment_account',
+                'edit_loc_mobile_money_account',
+                discountAccountId,
+                paymentAccountId,
+                cardPaymentAccountId,
+                mobileMoneyAccountId
+            );
+
+            // Load projects with current value
+            await loadProjects('edit_loc_project', projectId);
+
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('editLocationModal'));
+            modal.show();
+
+        } catch (error) {
+            console.error('Error loading location details:', error);
+            showNotification('Failed to load location details', 'error');
+        }
+    }
+    // Save Edit Location
+    document.getElementById('saveEditLocationBtn').addEventListener('click', async function () {
+        const locationId = document.getElementById('edit_location_id').value;
+        const location = document.getElementById('edit_loc_name').value.trim();
+        const description = document.getElementById('edit_loc_description').value.trim();
+        const project_id = document.getElementById('edit_loc_project').value || null;
+        const discount_account_id = document.getElementById('edit_loc_discount_account').value || null;
+        const payment_account_id = document.getElementById('edit_loc_payment_account').value || null;
+        const card_payment_account_id = document.getElementById('edit_loc_card_payment_account').value || null;
+        const mobile_money_account_id = document.getElementById('edit_loc_mobile_money_account').value || null;
+        const workflow_type = document.getElementById('edit_loc_workflow_type').value;
+
+        if (!location) {
+            showNotification('Location name is required', 'error');
+            return;
+        }
+
+        const saveBtn = this;
+        saveBtn.disabled = true;
+
+        try {
+            const res = await fetch(`/inventory/inventory_location/${locationId}/edit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    location,
+                    description: description || null,
+                    project_id,
+                    discount_account_id,
+                    payment_account_id,
+                    card_payment_account_id,
+                    mobile_money_account_id,
+                    workflow_type
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.success || 'Location updated successfully', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('editLocationModal')).hide();
+                window.location.reload();
+            } else {
+                showNotification(data.error || 'Failed to update location', 'error');
+            }
+        } catch (err) {
+            console.error('Network error:', err);
+            showNotification('An error occurred while updating location', 'error');
+        } finally {
+            saveBtn.disabled = false;
+        }
+    });
+
+    // Open Add User Modal
+    function openAddUserModal(locationId, locationName) {
+        document.getElementById('addUserLocationId').value = locationId;
+        document.getElementById('locationDisplay').value = locationName;
+
+        const modal = new bootstrap.Modal(document.getElementById('addUserModal'));
+        modal.show();
+
+        // Load users when modal opens
+        loadUsers();
+    }
+
+    // Add User to Location
+    document.getElementById('saveUserAssignmentBtn').addEventListener('click', async function () {
+        const locationId = document.getElementById('addUserLocationId').value;
+        const userId = document.getElementById('userSelect').value;
+        const role = document.getElementById('userRole').value;
+
+        if (!userId) {
+            showNotification('Please select a user', 'error');
+            return;
+        }
+
+        const saveBtn = document.getElementById('saveUserAssignmentBtn');
+        saveBtn.disabled = true;
+
+        try {
+            const res = await fetch('/inventory/inventory_location/assign_user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    location_id: locationId,
+                    user_id: userId,
+                    role: role
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.success || 'User assigned successfully', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+                window.location.reload();
+            } else {
+                showNotification(data.error || 'Failed to assign user', 'error');
+            }
+        } catch (err) {
+            console.error('Network error:', err);
+            showNotification('An error occurred while assigning user', 'error');
+        } finally {
+            saveBtn.disabled = false;
+        }
+    });
+
+    // Remove User from Location
+    async function removeUserFromLocation(assignmentId, userName, locationName) {
+        Swal.fire({
+            title: 'Remove User from Location?',
+            html: `Are you sure you want to remove <strong>${userName}</strong> from <strong>${locationName}</strong>?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, remove user!',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content'
+            }
+        }).then(async result => {
+            if (result.isConfirmed) {
+                try {
+                    const res = await fetch('/inventory/inventory_location/remove_user', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({
+                            assignment_id: assignmentId
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (res.ok) {
+                        showNotification(data.success || 'User removed successfully', 'success');
+                        window.location.reload();
+                    } else {
+                        showNotification(data.error || 'Failed to remove user', 'error');
+                    }
+                } catch (err) {
+                    console.error('Network error:', err);
+                    showNotification('An error occurred while removing user', 'error');
+                }
+            }
+        });
+    }
+
+    // Add Location Modal
+    document.getElementById('addLocationBtn')?.addEventListener('click', async () => {
+        const modal = new bootstrap.Modal(document.getElementById('addLocationModal'));
+        modal.show();
+
+        // Load accounts when modal is shown
+        await loadAccountDropdowns(
+            'loc_discount_account',
+            'loc_payment_account',
+            'loc_card_payment_account',
+            'loc_mobile_money_account'
+        );
+
+        // Load projects
+        await loadProjects('loc_project');
+    });
+
+    // Save New Location
+    document.getElementById('saveNewLocationBtn')?.addEventListener('click', async () => {
+        const location = document.getElementById('loc_name').value.trim();
+        const description = document.getElementById('loc_description').value.trim();
+        const projectSelect = document.getElementById('loc_project');
+        const project_id = projectSelect.value ? projectSelect.value : null;
+        const discountSelect = document.getElementById('loc_discount_account');
+        const paymentSelect = document.getElementById('loc_payment_account');
+        const cardPaymentSelect = document.getElementById('loc_card_payment_account');
+        const mobileMoneySelect = document.getElementById('loc_mobile_money_account');
+        const workflowTypeSelect = document.getElementById('loc_workflow_type');
+
+        const discount_account_id = discountSelect.value ? discountSelect.value : null;
+        const payment_account_id = paymentSelect.value ? paymentSelect.value : null;
+        const card_payment_account_id = cardPaymentSelect.value ? cardPaymentSelect.value : null;
+        const mobile_money_account_id = mobileMoneySelect.value ? mobileMoneySelect.value : null;
+        const workflow_type = workflowTypeSelect.value;
+
+        if (!location) {
+            showNotification('Location name is required', 'error');
+            return;
+        }
+
+        const saveBtn = document.getElementById('saveNewLocationBtn');
+        if (saveBtn) saveBtn.disabled = true;
+
+        try {
+            const res = await fetch('/inventory/inventory_location/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    location,
+                    description: description || null,
+                    project_id,
+                    discount_account_id,
+                    payment_account_id,
+                    card_payment_account_id,
+                    mobile_money_account_id,
+                    workflow_type
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.success || 'Location added successfully', 'success');
+                window.location.reload();
+            } else {
+                showNotification(data.error || 'Failed to add location', 'error');
+                console.error('Server error:', data);
+            }
+        } catch (err) {
+            console.error('Network error:', err);
+            showNotification('An error occurred while adding location', 'error');
+        } finally {
+            if (saveBtn) saveBtn.disabled = false;
+        }
+    });
+
+    // Delete Location
+    async function confirmDeleteLoc(event, id) {
+        event.preventDefault();
+        Swal.fire({
+            title: 'Delete Location?',
+            text: 'Are you sure you want to delete this inventory location?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content'
+            }
+        }).then(async result => {
+            if (result.isConfirmed) {
+                try {
+                    const res = await fetch(`/inventory/inventory_location/${id}/delete`, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken }
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        showNotification(data.success || 'Location deleted', 'success');
+                        window.location.reload();
+                    } else {
+                        showNotification(data.error || 'Cannot delete location', 'error');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showNotification('An error occurred', 'error');
+                }
+            }
+        });
+    }
+
+    // Initialize modals
+    $('#addLocationModal').on('show.bs.modal', function () {
+        loadProjects('loc_project');
+    });
+
+</script>
+
+<style>
+    .assigned-users-container {
+        max-width: 250px;
+    }
+
+    .user-badge {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 4px 8px;
+        margin-bottom: 4px;
+        font-size: 12px;
+    }
+
+    .user-name {
+        font-weight: 500;
+    }
+
+    .user-role {
+        color: #6c757d;
+        font-size: 11px;
+    }
+
+    .remove-user-btn {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        padding: 2px;
+        font-size: 10px;
+    }
+
+    .remove-user-btn:hover {
+        color: #c82333;
+    }
+
+    .add-user-btn {
+        font-size: 12px;
+        padding: 4px 8px;
+        margin-top: 4px;
+    }
+
+    /* Improved modal styling */
+    .modal-content {
+        border-radius: 8px;
+        border: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 1rem 1.5rem;
+    }
+
+    .modal-title {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .form-group label {
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control {
+        border-radius: 6px;
+        border: 1px solid #ced4da;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+</style>
+
+{% endblock %}

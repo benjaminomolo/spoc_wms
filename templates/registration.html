@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <title>Registration Page</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #003366;
+            --primary-dark: #263238;
+            --secondary: #00b5b8;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --light-gray: #e9ecef;
+            --success: #4cc9f0;
+            --border-radius: 10px;
+            --box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f5f7ff;
+            color: var(--dark);
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .registration-container {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            width: 100%;
+            max-width: 900px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .registration-header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .registration-header .logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 15px;
+            object-fit: contain;
+        }
+
+        .registration-header h2 {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .registration-header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .registration-body {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-section {
+            grid-column: span 2;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .form-group label.required::after {
+            content: " *";
+            color: #e63946;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--light-gray);
+            border-radius: var(--border-radius);
+            font-size: 0.9rem;
+            transition: var(--transition);
+            background-color: var(--light);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236c757d' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+            background-size: 12px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            text-align: center;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .module-section {
+            grid-column: span 2;
+            margin-top: 10px;
+        }
+
+        .module-section h3 {
+            margin-bottom: 15px;
+            color: var(--primary);
+            font-size: 1.1rem;
+        }
+
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .module-card {
+            background: var(--light);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 1px solid var(--light-gray);
+        }
+
+        .module-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .module-card input {
+            margin-right: 10px;
+        }
+
+        .additional-links {
+            text-align: center;
+            margin-top: 20px;
+            grid-column: span 2;
+            font-size: 0.9rem;
+        }
+
+        .link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .link:hover {
+            text-decoration: underline;
+            color: var(--secondary);
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            grid-column: span 2;
+            margin: 10px 0;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px solid var(--light-gray);
+        }
+
+        .divider span {
+            padding: 0 15px;
+            color: var(--gray);
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 768px) {
+            .registration-body {
+                padding: 20px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .module-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .registration-header {
+                padding: 20px;
+            }
+
+            .module-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="registration-container">
+        <div class="registration-header">
+            <img src="static/ctlogo.png" alt="Logo" class="logo">
+            <h2>Create Your Account</h2>
+            <p>Get started with our platform by completing your registration</p>
+        </div>
+
+        <div class="registration-body">
+            <form id="registration-form" method="post" action="{{ url_for('register') }}" class="form-section">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="fname" class="required">First Name</label>
+                        <input type="text" id="fname" name="fname" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lname" class="required">Last Name</label>
+                        <input type="text" id="lname" name="lname" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email" class="required">Email Address</label>
+                        <input type="email" id="email" name="email" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pwd" class="required">Password</label>
+                        <input type="password" id="pwd" name="pwd" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="app_name" class="required">App Name</label>
+                        <input type="text" id="app_name" name="app_name" class="form-control" required
+                            placeholder="e.g. mycompany-app">
+                        <small style="color: var(--gray); font-size: 0.85em;">
+                            Use only lowercase letters, numbers, underscores or hyphens. No spaces. Example:
+                            <b>my_company</b>
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="company_name" class="required">Company Name</label>
+                        <input type="text" id="company_name" name="company_name" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="position" class="required">Job Position</label>
+                        <input type="text" id="position" name="position" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="company_address">Company Address</label>
+                        <input type="text" id="company_address" name="company_address" class="form-control">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="currency" class="required">Operation Base Currency</label>
+                        <select class="form-control" id="currency" name="currency" required>
+                            <option value=""></option>
+                            <option value="USD">USD - United States Dollar</option>
+                            <option value="EUR">EUR - Euro</option>
+                            <option value="GBP">GBP - British Pound</option>
+                            <option value="JPY">JPY - Japanese Yen</option>
+                            <option value="AUD">AUD - Australian Dollar</option>
+                            <option value="CAD">CAD - Canadian Dollar</option>
+                            <option value="CHF">CHF - Swiss Franc</option>
+                            <option value="CNY">CNY - Chinese Yuan</option>
+                            <option value="SEK">SEK - Swedish Krona</option>
+                            <option value="NZD">NZD - New Zealand Dollar</option>
+                            <option value="AFN">AFN - Afghan Afghani</option>
+                            <option value="ALL">ALL - Albanian Lek</option>
+                            <option value="DZD">DZD - Algerian Dinar</option>
+                            <option value="AOA">AOA - Angolan Kwanza</option>
+                            <option value="ARS">ARS - Argentine Peso</option>
+                            <option value="AMD">AMD - Armenian Dram</option>
+                            <option value="AWG">AWG - Aruban Florin</option>
+                            <option value="AZN">AZN - Azerbaijani Manat</option>
+                            <option value="BSD">BSD - Bahamian Dollar</option>
+                            <option value="BHD">BHD - Bahraini Dinar</option>
+                            <option value="BDT">BDT - Bangladeshi Taka</option>
+                            <option value="BBD">BBD - Barbadian Dollar</option>
+                            <option value="BYN">BYN - Belarusian Ruble</option>
+                            <option value="BZD">BZD - Belize Dollar</option>
+                            <option value="BMD">BMD - Bermudian Dollar</option>
+                            <option value="BTN">BTN - Bhutanese Ngultrum</option>
+                            <option value="BOB">BOB - Bolivian Boliviano</option>
+                            <option value="BAM">BAM - Bosnia-Herzegovina Convertible Mark</option>
+                            <option value="BWP">BWP - Botswanan Pula</option>
+                            <option value="BRL">BRL - Brazilian Real</option>
+                            <option value="BND">BND - Brunei Dollar</option>
+                            <option value="BGN">BGN - Bulgarian Lev</option>
+                            <option value="BIF">BIF - Burundian Franc</option>
+                            <option value="KHR">KHR - Cambodian Riel</option>
+                            <option value="CVE">CVE - Cape Verdean Escudo</option>
+                            <option value="XAF">XAF - Central African CFA Franc</option>
+                            <option value="CLP">CLP - Chilean Peso</option>
+                            <option value="COP">COP - Colombian Peso</option>
+                            <option value="KMF">KMF - Comorian Franc</option>
+                            <option value="CDF">CDF - Congolese Franc</option>
+                            <option value="CRC">CRC - Costa Rican Colón</option>
+                            <option value="HRK">HRK - Croatian Kuna</option>
+                            <option value="CUP">CUP - Cuban Peso</option>
+                            <option value="CZK">CZK - Czech Republic Koruna</option>
+                            <option value="DKK">DKK - Danish Krone</option>
+                            <option value="DJF">DJF - Djiboutian Franc</option>
+                            <option value="DOP">DOP - Dominican Peso</option>
+                            <option value="EGP">EGP - Egyptian Pound</option>
+                            <option value="ERN">ERN - Eritrean Nakfa</option>
+                            <option value="ETB">ETB - Ethiopian Birr</option>
+                            <option value="FJD">FJD - Fijian Dollar</option>
+                            <option value="GMD">GMD - Gambian Dalasi</option>
+                            <option value="GEL">GEL - Georgian Lari</option>
+                            <option value="GHS">GHS - Ghanaian Cedi</option>
+                            <option value="GTQ">GTQ - Guatemalan Quetzal</option>
+                            <option value="GNF">GNF - Guinean Franc</option>
+                            <option value="GYD">GYD - Guyanaese Dollar</option>
+                            <option value="HTG">HTG - Haitian Gourde</option>
+                            <option value="HNL">HNL - Honduran Lempira</option>
+                            <option value="HKD">HKD - Hong Kong Dollar</option>
+                            <option value="HUF">HUF - Hungarian Forint</option>
+                            <option value="ISK">ISK - Icelandic Króna</option>
+                            <option value="INR">INR - Indian Rupee</option>
+                            <option value="IDR">IDR - Indonesian Rupiah</option>
+                            <option value="IRR">IRR - Iranian Rial</option>
+                            <option value="IQD">IQD - Iraqi Dinar</option>
+                            <option value="ILS">ILS - Israeli New Sheqel</option>
+                            <option value="JMD">JMD - Jamaican Dollar</option>
+                            <option value="JOD">JOD - Jordanian Dinar</option>
+                            <option value="KZT">KZT - Kazakhstani Tenge</option>
+                            <option value="KES">KES - Kenyan Shilling</option>
+                            <option value="KWD">KWD - Kuwaiti Dinar</option>
+                            <option value="KGS">KGS - Kyrgystani Som</option>
+                            <option value="LAK">LAK - Laotian Kip</option>
+                            <option value="LBP">LBP - Lebanese Pound</option>
+                            <option value="LSL">LSL - Lesotho Loti</option>
+                            <option value="LRD">LRD - Liberian Dollar</option>
+                            <option value="LYD">LYD - Libyan Dinar</option>
+                            <option value="MOP">MOP - Macanese Pataca</option>
+                            <option value="MKD">MKD - Macedonian Denar</option>
+                            <option value="MGA">MGA - Malagasy Ariary</option>
+                            <option value="MWK">MWK - Malawian Kwacha</option>
+                            <option value="MYR">MYR - Malaysian Ringgit</option>
+                            <option value="MVR">MVR - Maldivian Rufiyaa</option>
+                            <option value="MRU">MRU - Mauritanian Ouguiya</option>
+                            <option value="MUR">MUR - Mauritian Rupee</option>
+                            <option value="MXN">MXN - Mexican Peso</option>
+                            <option value="MDL">MDL - Moldovan Leu</option>
+                            <option value="MNT">MNT - Mongolian Tugrik</option>
+                            <option value="MAD">MAD - Moroccan Dirham</option>
+                            <option value="MZN">MZN - Mozambican Metical</option>
+                            <option value="MMK">MMK - Myanmar Kyat</option>
+                            <option value="NAD">NAD - Namibian Dollar</option>
+                            <option value="NPR">NPR - Nepalese Rupee</option>
+                            <option value="ANG">ANG - Netherlands Antillean Guilder</option>
+                            <option value="TWD">TWD - New Taiwan Dollar</option>
+                            <option value="NIO">NIO - Nicaraguan Córdoba</option>
+                            <option value="NGN">NGN - Nigerian Naira</option>
+                            <option value="KPW">KPW - North Korean Won</option>
+                            <option value="NOK">NOK - Norwegian Krone</option>
+                            <option value="OMR">OMR - Omani Rial</option>
+                            <option value="PKR">PKR - Pakistani Rupee</option>
+                            <option value="PAB">PAB - Panamanian Balboa</option>
+                            <option value="PGK">PGK - Papua New Guinean Kina</option>
+                            <option value="PYG">PYG - Paraguayan Guarani</option>
+                            <option value="PEN">PEN - Peruvian Nuevo Sol</option>
+                            <option value="PHP">PHP - Philippine Peso</option>
+                            <option value="PLN">PLN - Polish Zloty</option>
+                            <option value="QAR">QAR - Qatari Rial</option>
+                            <option value="RON">RON - Romanian Leu</option>
+                            <option value="RUB">RUB - Russian Ruble</option>
+                            <option value="RWF">RWF - Rwandan Franc</option>
+                            <option value="SHP">SHP - Saint Helena Pound</option>
+                            <option value="SVC">SVC - Salvadoran Colón</option>
+                            <option value="WST">WST - Samoan Tala</option>
+                            <option value="SAR">SAR - Saudi Riyal</option>
+                            <option value="RSD">RSD - Serbian Dinar</option>
+                            <option value="SCR">SCR - Seychellois Rupee</option>
+                            <option value="SLL">SLL - Sierra Leonean Leone</option>
+                            <option value="SGD">SGD - Singapore Dollar</option>
+                            <option value="SBD">SBD - Solomon Islands Dollar</option>
+                            <option value="SOS">SOS - Somali Shilling</option>
+                            <option value="ZAR">ZAR - South African Rand</option>
+                            <option value="KRW">KRW - South Korean Won</option>
+                            <option value="SSP">SSP - South Sudanese Pound</option>
+                            <option value="LKR">LKR - Sri Lankan Rupee</option>
+                            <option value="SDG">SDG - Sudanese Pound</option>
+                            <option value="SRD">SRD - Surinamese Dollar</option>
+                            <option value="SZL">SZL - Swazi Lilangeni</option>
+                            <option value="SYP">SYP - Syrian Pound</option>
+                            <option value="TJS">TJS - Tajikistani Somoni</option>
+                            <option value="TZS">TZS - Tanzanian Shilling</option>
+                            <option value="THB">THB - Thai Baht</option>
+                            <option value="TOP">TOP - Tongan Paʻanga</option>
+                            <option value="TTD">TTD - Trinidad and Tobago Dollar</option>
+                            <option value="TND">TND - Tunisian Dinar</option>
+                            <option value="TRY">TRY - Turkish Lira</option>
+                            <option value="TMT">TMT - Turkmenistani Manat</option>
+                            <option value="UGX">UGX - Ugandan Shilling</option>
+                            <option value="UAH">UAH - Ukrainian Hryvnia</option>
+                            <option value="AED">AED - United Arab Emirates Dirham</option>
+                            <option value="UYU">UYU - Uruguayan Peso</option>
+                            <option value="UZS">UZS - Uzbekistani Som</option>
+                            <option value="VUV">VUV - Vanuatu Vatu</option>
+                            <option value="VES">VES - Venezuelan Bolívar</option>
+                            <option value="VND">VND - Vietnamese Dong</option>
+                            <option value="XOF">XOF - West African CFA Franc</option>
+                            <option value="YER">YER - Yemeni Rial</option>
+                            <option value="ZMW">ZMW - Zambian Kwacha</option>
+                            <option value="ZWL">ZWL - Zimbabwean Dollar</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="module-section">
+                    <h3>Select Your Modules</h3>
+                    <div class="module-grid">
+                        <label class="module-card">
+                            <input type="checkbox" id="module_general_ledger" name="modules" value="General Ledger">
+                            General Ledger
+                        </label>
+
+                        <label class="module-card">
+                            <input type="checkbox" id="module_expenses" name="modules" value="Expenses">
+                            Expenses
+                        </label>
+
+                        <label class="module-card">
+                            <input type="checkbox" id="module_inventory" name="modules" value="Inventory">
+                            Inventory
+                        </label>
+
+                        <label class="module-card">
+                            <input type="checkbox" id="module_point_of_sale" name="modules" value="POS">
+                            Point of Sale
+                        </label>
+
+                        <label class="module-card">
+                            <input type="checkbox" id="module_sales" name="modules" value="Sales">
+                            Sales
+                        </label>
+                        <label class="module-card">
+                            <input type="checkbox" id="module_purchases" name="modules" value="Purchases">
+                            Purchases
+                        </label>
+                        <label class="module-card">
+                            <input type="checkbox" id="module_payroll" name="modules" value="Payroll">
+                            Payroll
+                        </label>
+                        <!-- aSSET -->
+                        <label class="module-card">
+                            <input type="checkbox" id="module_assets" name="modules" value="Assets">
+                            Assets
+                    </div>
+                </div>
+
+                <button type="submit" class="btn">Create Account</button>
+            </form>
+
+            <div class="additional-links">
+                <p>Already have an account? <a href="{{ url_for('login') }}" class="link">Sign In</a></p>
+            </div>
+        </div>
+    </div>
+</body>
+
+<script>
+    // Handle form submission with JavaScript
+    document.getElementById('registration-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        // Get form reference properly
+        const form = e.target;
+        const submitBtn = form.querySelector('button[type="submit"]');
+
+        // Disable button during submission
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+
+        try {
+            // Email validation
+            const email = document.getElementById('email').value.trim();
+            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailPattern.test(email)) {
+                showNotification('Please enter a valid email address.', 'error');
+                document.getElementById('email').focus();
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Account';
+                return;
+            }
+
+            // App name validation
+            const appName = document.getElementById('app_name').value.trim();
+            const appNamePattern = /^[a-z0-9_-]+$/;
+            if (!appNamePattern.test(appName)) {
+                showNotification('App Name must be in lowercase letters, numbers, underscores or hyphens, and contain no spaces.', 'error');
+                document.getElementById('app_name').focus();
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Account';
+                return;
+            }
+
+            // Prepare form data
+            const formData = new FormData(form);
+            const modules = [];
+            form.querySelectorAll('input[name="modules"]:checked').forEach(cb => modules.push(cb.value));
+            formData.delete('modules');
+            modules.forEach(m => formData.append('modules', m));
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            const response = await fetch(form.action || window.location.pathname, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                showNotification('Registration successful! Redirecting to login...', 'success');
+                setTimeout(() => {
+                    window.location.href = "{{ url_for('login') }}";
+                }, 2000);
+            } else {
+                throw new Error(data.message || 'Registration failed');
+            }
+        } catch (error) {
+            showNotification(error.message || 'Network error. Please try again.', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create Account';
+        }
+    });
+    // Notification function
+    function showNotification(message, type = 'success') {
+        // Remove any existing notifications first
+        const existingNotif = document.querySelector('.custom-notification');
+        if (existingNotif) existingNotif.remove();
+
+        const notif = document.createElement('div');
+        notif.className = `custom-notification ${type}`;
+        notif.textContent = message;
+
+        // Style the notification
+        notif.style.position = 'fixed';
+        notif.style.top = '30px';
+        notif.style.left = '50%';
+        notif.style.transform = 'translateX(-50%)';
+        notif.style.padding = '16px 32px';
+        notif.style.borderRadius = '8px';
+        notif.style.fontSize = '1.1em';
+        notif.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        notif.style.zIndex = '9999';
+        notif.style.color = '#fff';
+        notif.style.display = 'flex';
+        notif.style.alignItems = 'center';
+        notif.style.justifyContent = 'center';
+        notif.style.minWidth = '300px';
+        notif.style.maxWidth = '90%';
+        notif.style.textAlign = 'center';
+        notif.style.animation = 'fadeIn 0.3s ease-out';
+
+        // Different colors based on type
+        if (type === 'success') {
+            notif.style.background = '#4CAF50';
+        } else if (type === 'error') {
+            notif.style.background = '#F44336';
+        } else {
+            notif.style.background = '#2196F3';
+        }
+
+        // Add icon
+        const icon = document.createElement('i');
+        icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+        icon.style.marginRight = '10px';
+        notif.insertBefore(icon, notif.firstChild);
+
+        document.body.appendChild(notif);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            notif.style.animation = 'fadeOut 0.3s ease-out';
+            setTimeout(() => notif.remove(), 300);
+        }, 5000);
+    }
+
+    // Add CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translate(-50%, 0); }
+            to { opacity: 0; transform: translate(-50%, -20px); }
+        }
+    `;
+    document.head.appendChild(style);
+</script>
+
+</html>

@@ -1,0 +1,617 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        font-size: 0.9em;
+        text-align: left;
+    }
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 6px;
+    }
+
+    th {
+        background-color: #f4f4f4;
+    }
+
+    .category-row {
+        font-weight: bold;
+        background-color: #f9f9f9;
+    }
+
+    .subtotal-row,
+    .total-row {
+        font-style: italic;
+    }
+
+    .total-row {
+        font-weight: bold;
+    }
+
+    .total-row td {
+        text-align: right;
+    }
+
+    tfoot tr td {
+        border-top: 2px solid #ddd;
+    }
+
+    .description-column {
+        width: 80.66%;
+    }
+
+    .amount-column,
+    .amount {
+        width: 33.33%;
+        text-align: right;
+    }
+
+    .category-column {
+        width: 40%;
+    }
+
+    .subcategory-column {
+        width: 40%;
+    }
+
+    /* Filter toggle styles */
+    .filter-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 10px 0;
+        padding: 8px 12px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+    }
+
+    .filter-toggle label {
+        margin: 0;
+        font-weight: normal;
+        cursor: pointer;
+    }
+
+    .filter-toggle input[type="checkbox"] {
+        margin: 0;
+        cursor: pointer;
+    }
+
+    /* Loading spinner */
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    #loading-spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        border-left: 4px solid var(--primary-color);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Income and Expense Report</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('financial_reports.balance_sheet') }}">Balance Sheet</a></li>
+                    <li><a href="{{ url_for('financial_reports.trial_balance') }}">Trial Balance</a></li>
+                    <li><a href="{{ url_for('report_routes.receivable_accounts_report') }}">Accounts Receivable</a></li>
+                    <li><a href="{{ url_for('report_routes.payable_accounts_report') }}">Accounts Payable</a></li>
+                </ul>
+            </nav>
+        </div>
+        <!-- Header buttons and controls -->
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <!-- Shortcuts toggle button (for mobile sidebar) -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+            <!-- PDF Download button -->
+            <button class="button-outline" type="button" id="download-pdf">
+                <i class="fas fa-file-pdf"></i> PDF
+            </button>
+
+            <!-- Refresh button with tooltip -->
+            <div class="custom-tooltip-container">
+                <button class="refresh-btn" id="refreshBtn">
+                    <span class="icon">🔄</span>
+                </button>
+                <span class="custom-tooltip">Refresh Data</span>
+            </div>
+        </div>
+
+
+        <!-- Dashboard Shortcuts (horizontal links) -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                <li class="shortcut-item"><a href="{{ url_for('financial_reports.balance_sheet') }}">Balance Sheet</a>
+                </li>
+
+                <li class="shortcut-item"><a href="{{ url_for('financial_reports.trial_balance') }}">Trial Balance</a>
+                </li>
+                <li class="shortcut-item"><a href="{{ url_for('report_routes.receivable_accounts_report') }}">A/R</a>
+                </li>
+                <li class="shortcut-item"><a href="{{ url_for('report_routes.payable_accounts_report') }}">A/P</a></li>
+            </ol>
+        </nav>
+    </div>
+
+    <div id="loading-overlay">
+        <div id="loading-spinner"></div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section date-filter date-filter-form" id="filter-section">
+        <div class="filter-group">
+            <label for="start-date" class="filter-label">Start Date</label>
+            <input type="date" id="start-date" name="start-date" class="form-control">
+        </div>
+        <div class="filter-group">
+            <label for="end-date" class="filter-label">End Date</label>
+            <input type="date" id="end-date" name="end-date" class="form-control">
+        </div>
+        <div class="filter-toggle">
+            <input type="checkbox" id="hide-zero-values" name="hide_zero_values">
+            <label for="hide-zero-values">Hide Zero (0) Values</label>
+        </div>
+        <div class="filter-actions">
+            <button id="apply-filter" class="add-button">Apply Filter</button>
+            <a href="{{ url_for('income_expense_report') }}" class="btn reset-button">Reset</a>
+        </div>
+    </div>
+
+
+    <!-- Add this right after the filter section -->
+    <div class="report-period-display"
+        style="margin: 10px 0; font-size: 0.9rem; padding: 15px; background-color: #f8f9fa; border-radius: 4px; border-left: 4px solid #008c8a;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="font-weight: 500;">
+                <i class="fas fa-calendar-alt" style="margin-right: 8px;"></i>
+                Report Period: <span id="report-period-text">Loading...</span>
+            </div>
+            <div id="report-stats" style="font-size: 0.8em; color: #6c757d;">
+                <span id="income-count">0</span> income categories • <span id="expense-count">0</span> expense
+                categories
+            </div>
+        </div>
+    </div>
+
+    <h2 class="transaction-headings">Income</h2>
+    <table id="income-table">
+        <thead>
+            <tr>
+                <th class="category-column">Category</th>
+                <th class="subcategory-column">Subcategory</th>
+                <th class="amount-column">Amount ({{ base_currency }})</th>
+            </tr>
+        </thead>
+        <tbody id="income-table-body"></tbody>
+        <tfoot>
+            <tr id="total-income-row">
+                <td colspan="2"><strong>Total Income</strong></td>
+                <td class="amount"><strong id="total-income">0.00</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <h2 class="transaction-headings">Expense</h2>
+    <table id="expense-table">
+        <thead>
+            <tr>
+                <th class="category-column">Category</th>
+                <th class="subcategory-column">Subcategory</th>
+                <th class="amount-column">Amount ({{ base_currency }})</th>
+            </tr>
+        </thead>
+        <tbody id="expense-table-body"></tbody>
+        <tfoot>
+            <tr id="total-expenses-row">
+                <td colspan="2"><strong>Total Expenses</strong></td>
+                <td class="amount"><strong id="total-expenses">0.00</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <h2 class="transaction-headings">Net Income</h2>
+    <table id="net-income-table">
+        <thead>
+            <tr>
+                <th class="description-column">Description</th>
+                <th class="amount-column">Amount ({{ base_currency }})</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="description-column"><strong>Net Income</strong></td>
+                <td class="amount-column"><strong id="net-income">0.00</strong></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    const companyName = "{{ company.name }}";
+    const apiKey = "{{ api_key }}";
+    let hideZeroValues = false;
+    let currentData = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize with current month
+        initializeDates();
+
+        // Load initial data
+        fetchIncomeExpenseReport();
+
+        // Setup event listeners
+        setupEventListeners();
+
+
+        // Shortcuts sidebar toggle
+        $('#shortcutToggleBtn').on('click', () => $('#mobileShortcutsSidebar').toggleClass('open'));
+        $('#closeShortcutsBtn').on('click', () => $('#mobileShortcutsSidebar').removeClass('open'));
+
+        // Refresh button
+        $('#refreshBtn').on('click', () => fetchIncomeExpenseReport());
+
+    });
+
+    function formatNumber(number) {
+        return number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    }
+
+    function initializeDates() {
+        const today = new Date();
+        const firstDay = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
+        const lastDay = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 1, 0));
+
+        document.getElementById('start-date').value = firstDay.toISOString().split('T')[0];
+        document.getElementById('end-date').value = lastDay.toISOString().split('T')[0];
+
+        // Set max date to today
+        document.getElementById('end-date').max = today.toISOString().split('T')[0];
+
+        // Update period display immediately
+        updateReportPeriodDisplay();
+    }
+
+    function setupEventListeners() {
+        // Apply filter button
+        document.getElementById('apply-filter').addEventListener('click', () => {
+            hideZeroValues = document.getElementById('hide-zero-values').checked;
+            fetchIncomeExpenseReport();
+        });
+
+        // Hide zero values checkbox
+        document.getElementById('hide-zero-values').addEventListener('change', function () {
+            hideZeroValues = this.checked;
+            if (currentData) {
+                renderReport(currentData);
+            }
+        });
+
+        // Reset button
+        document.querySelector('a.reset-button').addEventListener('click', function (e) {
+            e.preventDefault();
+            initializeDates();
+            document.getElementById('hide-zero-values').checked = false;
+            hideZeroValues = false;
+            fetchIncomeExpenseReport();
+        });
+
+        // Download PDF button
+        document.getElementById('download-pdf').addEventListener('click', downloadPDF);
+
+        // Toggle filter section
+        document.getElementById('toggleFilterForm').addEventListener('click', function () {
+            const filterSection = document.getElementById('filter-section');
+            filterSection.classList.toggle('visible');
+        });
+
+        // Update period display when dates change
+        document.getElementById('start-date').addEventListener('change', updateReportPeriodDisplay);
+        document.getElementById('end-date').addEventListener('change', updateReportPeriodDisplay);
+    }
+
+    function updateReportPeriodDisplay() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        let periodText = '';
+
+        if (startDate && endDate) {
+            periodText = `${formatDate(startDate)} to ${formatDate(endDate)}`;
+        } else if (startDate) {
+            periodText = `From ${formatDate(startDate)} to present`;
+        } else if (endDate) {
+            periodText = `Up to ${formatDate(endDate)}`;
+        } else {
+            periodText = 'Current month';
+        }
+
+        document.getElementById('report-period-text').textContent = periodText;
+    }
+
+    function fetchIncomeExpenseReport() {
+        setLoadingState(true);
+
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        // Validate dates
+        if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+            alert('Start date cannot be after end date');
+            setLoadingState(false);
+            return;
+        }
+
+        // Build URL for new optimized endpoint
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        if (hideZeroValues) params.append('hide_zero', 'true');
+
+        const url = `/api/income_expense_summary?${params.toString()}`;
+
+        fetch(url, {
+            headers: {
+                'X-API-Key': apiKey,
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.error || `Error: ${response.status}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Fetched optimized report:', data);
+                currentData = data;
+                renderReport(data);
+            })
+            .catch(error => {
+                console.error('Error fetching report:', error);
+                setLoadingState(false);
+                alert('Error: ' + error.message);
+            });
+    }
+
+    function renderReport(data) {
+        // Update report period display
+        updateReportPeriodDisplay();
+
+        // Render income table
+        const incomeCount = renderTableSection('income', data.income, data.total_income);
+
+        // Render expense table
+        const expenseCount = renderTableSection('expense', data.expense, data.total_expense);
+
+        // Update net income
+        document.getElementById('net-income').textContent = formatNumber(data.net_income);
+
+        // Update totals
+        document.getElementById('total-income').textContent = formatNumber(data.total_income);
+        document.getElementById('total-expenses').textContent = formatNumber(data.total_expense);
+
+        // Update report stats
+        updateReportStats(incomeCount, expenseCount, data);
+
+        setLoadingState(false);
+    }
+
+    function renderTableSection(type, items, total) {
+        const tableId = type === 'income' ? 'income-table-body' : 'expense-table-body';
+        const totalElementId = type === 'income' ? 'total-income' : 'total-expenses';
+
+        const tableBody = document.getElementById(tableId);
+        const totalElement = document.getElementById(totalElementId);
+
+        tableBody.innerHTML = '';
+
+        if (!items || items.length === 0) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td colspan="3" class="empty-message">
+                    <i class="fas fa-chart-bar"></i>
+                    <div>No ${type} transactions found for the selected period</div>
+                    <div style="font-size: 0.85em; margin-top: 5px;">
+                        Try adjusting your date range or filters
+                    </div>
+                </td>
+            `;
+            tableBody.appendChild(row);
+            totalElement.textContent = '0.00';
+            return 0; // Return 0 count
+        }
+
+        // Group by category
+        const groupedByCategory = {};
+        items.forEach(item => {
+            const category = item.category || 'Uncategorized';
+            if (!groupedByCategory[category]) {
+                groupedByCategory[category] = [];
+            }
+            groupedByCategory[category].push(item);
+        });
+
+        // Sort categories
+        const sortedCategories = Object.keys(groupedByCategory).sort();
+
+        let visibleItemsCount = 0;
+
+        sortedCategories.forEach(category => {
+            const categoryItems = groupedByCategory[category];
+            const categoryTotal = categoryItems.reduce((sum, item) => sum + item.amount, 0);
+
+            // Skip if hiding zeros and total is zero
+            if (hideZeroValues && Math.abs(categoryTotal) < 0.01) {
+                return;
+            }
+
+            // Category header row
+            const categoryRow = document.createElement('tr');
+            categoryRow.classList.add('category-row');
+            categoryRow.innerHTML = `<td colspan="3"><strong>${category}</strong></td>`;
+            tableBody.appendChild(categoryRow);
+
+            // Subcategory rows
+            categoryItems.forEach(item => {
+                // Skip if hiding zeros and amount is zero
+                if (hideZeroValues && Math.abs(item.amount) < 0.01) {
+                    return;
+                }
+
+                const subcatRow = document.createElement('tr');
+                subcatRow.innerHTML = `
+                    <td></td>
+                    <td>${item.subcategory || 'Uncategorized'}</td>
+                    <td class="amount">${formatNumber(item.amount)}</td>
+                `;
+                tableBody.appendChild(subcatRow);
+                visibleItemsCount++;
+            });
+
+            // Category subtotal row
+            const subtotalRow = document.createElement('tr');
+            subtotalRow.classList.add('subtotal-row');
+            subtotalRow.innerHTML = `
+                <td></td>
+                <td><strong>Subtotal</strong></td>
+                <td class="amount"><strong>${formatNumber(categoryTotal)}</strong></td>
+            `;
+            tableBody.appendChild(subtotalRow);
+        });
+
+        totalElement.textContent = formatNumber(total);
+
+        // Return the count of visible items (after filtering zeros if needed)
+        return visibleItemsCount;
+    }
+
+    function updateReportStats(incomeCount, expenseCount, data) {
+        const statsElement = document.getElementById('report-stats');
+
+        if (incomeCount === 0 && expenseCount === 0) {
+            statsElement.innerHTML = `
+                <span style="color: #dc3545;">
+                    <i class="fas fa-exclamation-circle"></i> No data found for selected period
+                </span>
+            `;
+        } else {
+            // Show counts and net income
+            statsElement.innerHTML = `
+                <span id="income-count">${incomeCount}</span> income categories • 
+                <span id="expense-count">${expenseCount}</span> expense categories
+                <span style="margin-left: 15px; color: ${data.net_income >= 0 ? '#28a745' : '#dc3545'};">
+                    <i class="fas fa-chart-line"></i> Net: ${formatNumber(data.net_income)}
+                </span>
+            `;
+        }
+    }
+
+    function downloadPDF() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        const filters = {
+            start_date: startDate,
+            end_date: endDate,
+            hide_zero: hideZeroValues,
+            company_name: companyName
+        };
+
+        fetch("/download_income_expense_report", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(filters),
+        })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${companyName} - Income and Expense Report.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error("Error downloading PDF:", error);
+                alert('Error downloading PDF: ' + error.message);
+            });
+    }
+
+    function setLoadingState(isLoading) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (isLoading) {
+            loadingOverlay.style.display = 'flex';
+        } else {
+            loadingOverlay.style.display = 'none';
+        }
+    }
+
+
+
+</script>
+
+
+{% endblock %}

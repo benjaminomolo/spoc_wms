@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP Template</title>
+
+    <!-- External CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/2.2.2/css/jquery.dataTables.min.css">
+    <!-- Google Font CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet" />
+
+    <style>
+        /* General styles */
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        /* Header */
+        header {
+            background-color: #003366;
+            color: white;
+            padding: 20px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .header-left .company-name {
+            margin-right: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            margin-right: 30px;
+        }
+
+        .header-right .user-dropdown {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .header-right .user-dropdown .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: #00b5b8;
+            min-width: 160px;
+            z-index: 1;
+            border-radius: 5px;
+            overflow: hidden;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        .header-right .user-dropdown.active .dropdown-content {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .header-right .user-dropdown .dropdown-content a {
+            padding: 12px 16px;
+            color: white;
+            text-decoration: none;
+            display: block;
+            transition: background-color 0.3s;
+        }
+
+        .header-right .user-dropdown .dropdown-content a:hover {
+            background-color: #008c8a;
+        }
+
+        .header-right span {
+            margin-right: 10px;
+            font-size: 16px;
+        }
+
+        .toggle-sidebar {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            height: 100vh;
+            /* Full height */
+            width: 250px;
+            position: fixed;
+            top: 60px;
+            left: 0;
+            background-color: #2f4f4f;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            padding-top: 20px;
+            transition: transform 0.3s ease;
+            max-height: calc(100vh - 100px);
+            /* Allow scrolling if content exceeds viewport height */
+
+            overflow-y: auto;
+            /* Allow scrolling */
+        }
+
+        .sidebar.hidden {
+            transform: translateX(-250px);
+        }
+
+        .sidebar a {
+            padding: 15px 25px;
+            text-decoration: none;
+            font-size: 16px;
+            color: white;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.3s, padding-left 0.3s;
+            background-color: transparent;
+            border-radius: 5px;
+            margin: 5px 10px;
+        }
+
+        .sidebar a i {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .sidebar a:hover {
+            background-color: #00b5b8;
+            padding-left: 30px;
+        }
+
+        .sidebar .dropdown-content {
+            display: none;
+            background-color: rgba(0, 0, 0, 0.1);
+            padding-left: 20px;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            opacity: 0;
+            transform: translateY(-10px);
+            border-radius: 5px;
+            margin: 5px 10px;
+        }
+
+        .sidebar .dropdown.active .dropdown-content {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .sidebar .dropdown-content a {
+            padding: 12px 16px;
+            font-size: 14px;
+        }
+
+        .sidebar .dropdown-content a:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Rotate caret icon to the right initially */
+        .sidebar .dropdown .fa-caret-down {
+            transform: rotate(-90deg);
+            transition: transform 0.3s ease;
+        }
+
+        /* Rotate caret icon to the down position when dropdown is active */
+        .sidebar .dropdown.active .fa-caret-down {
+            transform: rotate(0deg);
+        }
+
+        /* Main Content Area */
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            margin-top: 60px;
+            transition: margin-left 0.3s ease;
+        }
+
+        .main-content.expanded {
+            margin-left: 50px;
+        }
+
+        /* Footer */
+        footer {
+            background-color: #003366;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            position: fixed;
+            width: 100%;
+            bottom: 0;
+        }
+
+        /* Container in content area */
+        .content-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Call-to-action buttons */
+        .cta-buttons {
+            margin-top: 30px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .cta-button {
+            background-color: #00b5b8;
+            color: white;
+            padding: 15px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: background-color 0.3s;
+        }
+
+        .cta-button:hover {
+            background-color: #008c8a;
+        }
+
+        .cta-button:active {
+            background-color: #007e7a;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 200px;
+                transform: translateX(-100%);
+                position: fixed;
+                left: 0;
+                top: 60px;
+                height: calc(100% - 60px);
+                transition: transform 0.3s ease;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar {
+                width: 100%;
+                transform: translateX(-100%);
+                position: fixed;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .cta-button {
+                padding: 8px 16px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="header-left">
+            <div class="company-name">Company Name</div>
+            <button class="toggle-sidebar" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+        </div>
+        <div class="header-right">
+            <span>Hi, John</span>
+            <div class="user-dropdown" onclick="toggleUserDropdown(event)">
+                <i class="fas fa-user"></i> <i class="fas fa-caret-down"></i>
+                <div class="dropdown-content">
+                    <a href="#">Profile</a>
+                    <a href="#">Settings</a>
+                    <a href="#">Log Out</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div style="padding: 15px 25px; font-size: 20px; font-weight: bold; color: #ffffff;">Dashboard</div>
+        <div class="dropdown" onclick="toggleDropdown(event)">
+            <a href="#"><i class="fas fa-th-large"></i> Modules <i class="fas fa-caret-down"></i></a>
+            <div class="dropdown-content">
+                <a href="#"><i class="fas fa-shopping-cart"></i> Sales</a>
+                <a href="#"><i class="fas fa-box"></i> Inventory</a>
+                <a href="#"><i class="fas fa-coins"></i> Finance</a>
+                <a href="#"><i class="fas fa-chart-line"></i> Reports</a>
+            </div>
+        </div>
+        <div class="dropdown" onclick="toggleDropdown(event)">
+            <a href="#"><i class="fas fa-cog"></i> Settings <i class="fas fa-caret-down"></i></a>
+            <div class="dropdown-content">
+                <a href="#"><i class="fas fa-user"></i> Profile</a>
+                <a href="#"><i class="fas fa-tools"></i> System Settings</a>
+                <a href="#"><i class="fas fa-sign-out-alt"></i> Log Out</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+        <div class="content-container">
+            <h2>Welcome to the ERP System</h2>
+            <p>This is a placeholder content for your ERP system. You can replace it with actual content based on your
+                system's needs.</p>
+
+            <!-- Call-to-action buttons -->
+            <div class="cta-buttons">
+                <a href="#" class="cta-button">Generate Report</a>
+                <a href="#" class="cta-button">Add New Item</a>
+                <a href="#" class="cta-button">Create Invoice</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2025 ERP System. All rights reserved.</p>
+    </footer>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+
+    <!-- External JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
+        crossorigin="anonymous"></script>
+    <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+    <!-- DataTables JS -->
+    <script type="text/javascript" charset="utf8"
+        src="https://cdn.datatables.net/2.2.2/js/jquery.dataTables.min.js"></script>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+
+            if (window.innerWidth > 768) {
+                sidebar.classList.toggle('hidden');
+                mainContent.classList.toggle('expanded');
+            } else {
+                sidebar.classList.toggle('active');
+            }
+        }
+
+        function toggleUserDropdown(event) {
+            event.stopPropagation();
+            const userDropdown = event.currentTarget;
+            userDropdown.classList.toggle('active');
+        }
+
+        function toggleDropdown(event) {
+            event.stopPropagation(); // Prevent click from bubbling up
+            const dropdown = event.currentTarget; // Get the clicked dropdown
+            dropdown.classList.toggle('active'); // Toggle the 'active' class for this dropdown
+        }
+
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function (event) {
+            const dropdowns = document.querySelectorAll('.dropdown, .user-dropdown');
+            dropdowns.forEach(dropdown => {
+                if (!dropdown.contains(event.target)) {
+                    dropdown.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

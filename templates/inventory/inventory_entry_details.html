@@ -1,0 +1,293 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .inventory-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+    }
+
+    .company-logo img {
+        max-width: 150px;
+        height: auto;
+    }
+
+    .inventory-meta h1 {
+        font-size: 28px;
+        margin: 0;
+    }
+
+    .status-badge {
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        color: #fff;
+        font-size: 12px;
+    }
+
+    .status-badge.posted {
+        background: #5cb85c;
+    }
+
+    .status-badge.not-posted {
+        background: #f0ad4e;
+    }
+
+    .source-badge {
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .source-purchase {
+        background-color: #cce5ff;
+        color: #004085;
+    }
+
+    .source-sale {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .source-transfer {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .source-adjustment {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .movement-badge {
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .movement-in {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .movement-out {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .movement-transfer {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .movement-adjustment {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+
+    .info-item strong {
+        display: block;
+        font-size: 12px;
+        color: #666;
+        text-transform: uppercase;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+
+    th,
+    td {
+        padding: 12px;
+        border: 1px solid #ddd !important;
+    }
+
+    th {
+        background-color: #f9f9f9;
+    }
+
+    .numeric {
+        text-align: right;
+    }
+
+    .grande {
+        font-weight: 600;
+        background-color: #f9f9f9;
+    }
+
+    .inventory-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+    }
+
+    .audit-info {
+        font-size: 12px;
+        color: #666;
+        margin-top: 20px;
+        padding-top: 10px;
+        border-top: 1px solid #eee;
+    }
+</style>
+
+<div class="content-container">
+    <!-- Header -->
+    <div class="inventory-header">
+        <div class="company-logo">
+            <div class="back-button-container">
+                <a href="javascript:void(0);" class="back-button" onclick="window.history.back();">
+                    <i class="fas fa-chevron-left"></i> Back
+                </a>
+            </div>
+            {% if company.logo %}
+            <img src="{{ url_for('serve_logo', filename=company.logo) }}" alt="Logo">
+            {% endif %}
+            <h2>{{ company.name }}</h2>
+        </div>
+
+        <div class="inventory-meta">
+            <h1>Inventory Entry #{{ entry.id }}</h1>
+            <p><strong>Reference:</strong> {{ entry.reference or 'N/A' }}</p>
+            <p><strong>Date:</strong> {{ entry.transaction_date.strftime('%Y-%m-%d') }}</p>
+            <p>
+                <span class="source-badge 
+                    {% if entry.source_type == 'purchase' %}source-purchase
+                    {% elif entry.source_type == 'sale' %}source-sale
+                    {% elif entry.source_type == 'transfer' %}source-transfer
+                    {% elif entry.source_type == 'adjustment' %}source-adjustment
+                    {% endif %}">
+                    {{ entry.source_type or 'manual' }}
+                </span>
+                <span class="movement-badge movement-{{ entry.stock_movement }}">
+                    {{ entry.stock_movement or 'N/A' }}
+                </span>
+                <span class="status-badge {{ 'posted' if entry.is_posted_to_ledger else 'not-posted' }}">
+                    {{ 'Posted' if entry.is_posted_to_ledger else 'Not Posted' }}
+                </span>
+            </p>
+            {% if entry.inventory_source %}
+            <p><small>Source: {{ entry.inventory_source }}</small></p>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!-- Key Info -->
+    <div class="info-grid">
+        <div class="info-item">
+            <strong>From Location</strong>
+            <span>{{ entry.from_inventory_location.location if entry.from_inventory_location else 'N/A' }}</span>
+        </div>
+        <div class="info-item">
+            <strong>To Location</strong>
+            <span>{{ entry.to_inventory_location.location if entry.to_inventory_location else 'N/A' }}</span>
+        </div>
+        <div class="info-item">
+            <strong>Currency</strong>
+            <span>{{ entry.currency.user_currency if entry.currency else 'N/A' }}</span>
+        </div>
+        {% if entry.vendor %}
+        <div class="info-item">
+            {%if entry.source_type == 'sale' %}
+            <strong>Customer</strong>
+            {%elif entry.source_type == 'purchase' %}
+            <strong>Vendor</strong>
+            {% else %}
+            <strong>Party</strong>
+            {% endif %}
+            <span>{{ entry.vendor.vendor_name }}</span>
+
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Line Items Table -->
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in entry.line_items %}
+                {% set variation_link = item.inventory_item_variation_link %}
+                <tr>
+                    <td>
+                        {{ variation_link.inventory_item.item_name }}
+                        {% if variation_link.inventory_item.item_code %}
+                        ({{ variation_link.inventory_item.item_code }})
+                        {% endif %}
+                        {% if variation_link.inventory_item_attributes or variation_link.inventory_item_variation %}
+                        <br><small>
+                            {% if variation_link.inventory_item_attributes %}
+                            {{ variation_link.inventory_item_attributes.attribute_name }}
+                            {% endif %}
+                            {% if variation_link.inventory_item_variation %}
+                            / {{ variation_link.inventory_item_variation.variation_name }}
+                            {% endif %}
+                        </small>
+                        {% endif %}
+                    </td>
+                    <td class="numeric">{{ item.quantity }} {{
+                        variation_link.inventory_item.unit_of_measurement.abbreviation }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+    </div>
+
+    <!-- Notes -->
+    {% if entry.notes %}
+    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+        <strong>Notes:</strong>
+        <p class="preserve-newlines" style="margin: 10px 0 0;">{{ entry.notes }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Audit -->
+    <div class="audit-info">
+        <span><strong>Created:</strong> {{ entry.date_added.strftime('%Y-%m-%d %H:%M') }} by {{ entry.created_user.name
+            if entry.created_user else 'Unknown' }}</span>
+        {% if entry.updated_user %}
+        | <span><strong>Updated:</strong> by {{
+            entry.updated_user.name }}</span>
+        {% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div class="inventory-actions">
+        {% if entry.inventory_source not in ['pos_sale', 'sales_invoice', 'direct_sale', 'goods_receipt',
+        'direct_purchase'] %}
+        <button class="button add-button"
+            onclick="window.location.href='/inventory/inventory_entry/{{ entry.id }}/edit'">
+            <i class="fas fa-edit"></i> Edit
+        </button>
+        {% endif %}
+        <button class="button closed" onclick="window.location.href='/inventory/stock_movement_history'">
+            <i class="fas fa-undo-alt"></i> Back
+        </button>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,2112 @@
+{% extends "transaction_base_template.html" %} {% block content %}
+<script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
+<!-- Add Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+
+<!-- Add Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+
+<style>
+    /* Base styling */
+
+
+    .container {
+        display: flex;
+        gap: 20px;
+        width: 100%;
+        max-width: 1200px;
+        margin: 20px auto;
+    }
+
+    .purchase_order_sidebar {
+        width: 350px;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 10px;
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+
+    }
+
+    .purchase_order-main-content {
+        flex: 1;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+
+
+    .form-section {
+        margin-bottom: 20px;
+    }
+
+    .form-section h2 {
+        font-size: 1.25rem;
+        color: #34495e;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .account-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-left: 2px solid #007bff;
+    }
+
+
+    .line-item {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        background-color: #f8f9fa;
+        border-left: 2px solid var(--highlight-color);
+    }
+
+    .line-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .line-item-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: #2c3e50;
+        font-weight: 600;
+    }
+
+    .line-item-header button {
+        background-color: #dc3545;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .line-item-header button:hover {
+        background-color: #c82333;
+    }
+
+    .add-line-item {
+        margin-bottom: 15px;
+    }
+
+    .add-line-item button {
+        background-color: #28a745;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .add-line-item button:hover {
+        background-color: #218838;
+    }
+
+    .discount-tax-section {
+        margin-top: 12px;
+    }
+
+    .discount-tax-section button {
+        background-color: #17a2b8;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        margin-right: 8px;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .discount-tax-section button:hover {
+        background-color: #138496;
+    }
+
+    .line-item-total {
+        font-weight: bold;
+        margin-top: 12px;
+        color: #2c3e50;
+        font-size: 0.9rem;
+    }
+
+    .general-total {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-top: 15px;
+        color: #007bff;
+    }
+
+    .file-upload-section {
+        margin-top: 15px;
+    }
+
+    .file-upload-section label {
+        font-weight: 500;
+        margin-bottom: 6px;
+        display: block;
+        color: #495057;
+    }
+
+    .file-upload-section input[type="file"] {
+        margin-bottom: 8px;
+    }
+
+    .notes-section {
+        margin-top: 12px;
+    }
+
+    .notes-section textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .inventory-dropdown {
+        display: none;
+    }
+
+    .inventory-dropdown.active {
+        display: block;
+    }
+
+    /* Confirmation Modal */
+    .confirmationModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+    }
+
+    .confirmationModal p {
+        margin-bottom: 15px;
+    }
+
+    .confirmationModal button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        margin-right: 10px;
+    }
+
+    .confirmDelete {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .cancelDelete {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    /* Summary Section Styling */
+    .summary-section {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        margin-top: 15px;
+    }
+
+    .summary-section h3 {
+        font-size: 1.1rem;
+        color: #2c3e50;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .summary-section p {
+        font-size: 0.9rem;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+
+    .summary-section p span {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+
+    /* Vendor Modal Styling */
+    #vendorModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        width: 600px;
+        /* Adjust width as needed */
+
+        /* Ensure it doesn't overflow on small screens */
+        overflow-y: auto;
+        /* Enable vertical scrolling */
+        overflow-x: hidden;
+    }
+
+    #vendorModal h3 {
+        font-size: 1.25rem;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    #vendorModal .form-group {
+        margin-bottom: 15px;
+    }
+
+    #vendorModal label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 6px;
+        color: #495057;
+    }
+
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        #vendorModal {
+            width: 95%;
+            /* Increase width for medium screens */
+            padding: 15px;
+            /* Reduce padding for smaller screens */
+        }
+
+        #vendorModal h3 {
+            font-size: 1.1rem;
+            /* Reduce font size for smaller screens */
+        }
+    }
+
+    @media (max-width: 480px) {
+        #vendorModal {
+            width: 100%;
+            /* Full width for very small screens */
+            padding: 10px;
+            /* Further reduce padding */
+            border-radius: 0;
+            /* Remove border radius for full-width modals */
+        }
+
+        #vendorModal h3 {
+            font-size: 1rem;
+            /* Further reduce font size */
+        }
+
+        #vendorModal .form-group {
+            margin-bottom: 10px;
+            /* Reduce margin for smaller screens */
+        }
+
+        #vendorModal label {
+            font-size: 0.9rem;
+            /* Reduce label font size */
+        }
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+            /* Stack sidebar and main content vertically */
+        }
+
+        .purchase_order_sidebar,
+        .purchase_order-main-content {
+            width: 100%;
+            /* Full width on mobile */
+        }
+
+        .purchase_order_sidebar {
+            position: static;
+            /* Ensure sidebar doesn't overlap main content */
+            margin-bottom: 20px;
+            /* Add space between sidebar and main content */
+        }
+    }
+
+    @media (max-width: 480px) {
+
+        .purchase_order_sidebar,
+        .purchase_order-main-content {
+            padding: 15px;
+            /* Reduce padding for smaller screens */
+        }
+
+        .purchase_order_sidebar h2,
+        .purchase_order-main-content h1 {
+            font-size: 1.1rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .form-section h2 {
+            font-size: 1rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .line-item-header h3 {
+            font-size: 0.9rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .summary-section h3 {
+            font-size: 1rem;
+            /* Reduce font size for smaller screens */
+        }
+    }
+
+    .summary-section .hidden-summary {
+        display: none;
+    }
+</style>
+
+<div class="content-container">
+
+    <div class="container">
+        <!-- purchase_order_sidebar -->
+        <div class="purchase_order_sidebar">
+            <h2>Quick Actions</h2>
+            <button type="button" id="addLineItem" class="add-line-item button add-button">
+                Add Line Item
+            </button>
+            <div class="summary-section">
+                <h3>Summary</h3>
+                <p>
+                    purchase_order Number:
+                    <span id="summarypurchase_orderNumber">{{ purchase_order.purchase_order_number }}</span>
+                </p>
+                <p>vendor: <span id="summaryvendor">{{ purchase_order.vendor.vendor_name }}</span></p>
+                <p>Currency: <span id="summaryCurrency">{{purchase_order.currencies.user_currency}}</span></p>
+                <p>Total Items: <span id="totalItems">{{ purchase_order.purchase_order_items|length }}</span></p>
+                <p>Total Line Subtotals: <span id="totalLineSubtotals">{{ purchase_order.total_line_subtotal}}</span>
+                </p>
+                <p>Total Discount: <span id="totalDiscount">0.00</span></p>
+                <p>Total Tax: <span id="totalTax">0.00</span></p>
+                <p>Total Shipping: <span id="shippingCost">0.00</span></p> <!-- Fixed typo -->
+                <p>Total Handling: <span id="handlingCost">0.00</span></p> <!-- Fixed typo -->
+                <p>General Total: <span id="generalTotal">0.00</span></p>
+
+                <p class="hidden-summary">Inventory Total: <span id="displayInventoryTotal">0.00</span></p>
+                <p class="hidden-summary">Non-Inventory Total: <span id="displayNonInventoryTotal">0.00</span></p>
+                <p class="hidden-summary">Expenses Total: <span id="displayExpensesTotal">0.00</span></p>
+                <p id="convertedTotalRow" style="display: none;">
+                    Converted Total: <span id="convertedTotal">0.00</span>
+                    <span id="convertedCurrency"></span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="purchase_order-main-content">
+            <h1>Create New Purchase Order</h1>
+            <form id="purchase_orderForm" method="POST"
+                action="{{ url_for('purchases.edit_purchase_order', purchase_order_id=purchase_order.id) }}"
+                enctype="multipart/form-data" autocomplete="off">
+
+                <input type="hidden" id="version" name="version" value="{{ purchase_order.version }}">
+
+                <input type="hidden" name="purchase_order_id" id="purchase_order_id" value="{{ purchase_order.id }}">
+                <!-- Basic Information Section -->
+                <div class="form-section">
+                    <h2>Basic Information</h2>
+                    <div class="form-group hidden">
+                        <label for="purchase_order_number">Purchase Order Number</label>
+                        <input type="text" id="purchase_order_number" name="purchase_order_number"
+                            value="{{ purchase_order.purchase_order_number }}" readonly />
+                    </div>
+
+                    <div class="form-grid">
+
+
+                        <div class="form-group">
+                            <label for="purchase_order_date">Purchase Order Date</label>
+                            <input type="date" id="purchase_order_date" name="purchase_order_date"
+                                value="{{ purchase_order.purchase_order_date }}" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="delivery_date">Delivery Date</label>
+                            <input type="date" id="delivery_date" name="delivery_date"
+                                value="{{ purchase_order.delivery_date }}" />
+                        </div>
+                    </div>
+
+
+                    <div class="form-grid">
+
+                        <div class="form-group">
+                            <label for="purchase_reference">Enter Purchase Reference</label>
+                            <input type="text" id="purchase_reference" name="purchase_reference"
+                                value="{{ purchase_order.purchase_order_reference or '' }}" />
+                        </div>
+
+
+                        <div class=" form-group">
+                            <label for="vendor_name">Vendor</label>
+                            <input type="text" id="vendor_name" name="vendor_name" list="vendor_list" required
+                                value="{{ purchase_order.vendor.vendor_name }}">
+                            <datalist id="vendor_list" auto-complete="off">
+                                {% for vendor in vendors %}
+                                <option value="{{ vendor.vendor_name }}" data-id="{{ vendor.id }}"></option>
+                                {% endfor %}
+                            </datalist>
+                            <input type="hidden" id="vendor_id" name="vendor_id" value="{{ purchase_order.vendor_id }}">
+                        </div>
+                    </div>
+
+
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="currency">Currency</label>
+                            <select id="currency" name="currency" required>
+                                <option value="{{purchase_order.currency}}">{{purchase_order.currencies.user_currency}}
+                                </option>
+                                {% for currency in currencies %}
+                                <option value="{{ currency.id }}" {% if purchase_order.currency_id==currency.id
+                                    %}selected{% endif %}>
+                                    {{ currency.user_currency }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+
+
+
+                        <div class="form-group">
+                            <label for="project">Project (Optional)</label>
+                            <select id="project" name="project">
+                                <option value="{{ purchase_order.project_id }}">{{ purchase_order.project.name if
+                                    purchase_order.project else 'Select Project' }}</option>
+                                {% for project in projects %}
+                                <option value="{{ project.id }}" {% if purchase_order.project_id==project.id
+                                    %}selected{% endif %}>
+                                    {{ project.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="form-group">
+                    <input type="hidden" id="is_one_time_hidden" name="is_one_time" value="0" />
+                </div>
+
+                <!-- Delivery Details Section -->
+                <div class="form-section">
+                    <h2>Delivery Details</h2>
+                    <div class="form-group">
+                        <label for="shipping_address">Shipping Address</label>
+                        <textarea id="shipping_address" name="shipping_address" rows="4"
+                            cols="50">{{ purchase_order.shipping_address or "" }}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="delivery_method">Delivery Method</label>
+                        <select id="delivery_method" name="delivery_method">
+                            <option value="Courier" {% if purchase_order.delivery_method=='Courier' %}selected{% endif
+                                %}>Courier</option>
+                            <option value="Self Pickup" {% if purchase_order.delivery_method=='Self Pickup' %}selected{%
+                                endif %}>Self Pickup</option>
+                            <option value="In-House Delivery" {% if purchase_order.delivery_method=='In-House Delivery'
+                                %}selected{% endif %}>In-House Delivery</option>
+                            <option value="Third-Party Logistics" {% if
+                                purchase_order.delivery_method=='Third-Party Logistics' %}selected{% endif %}>
+                                Third-Party
+                                Logistics</option>
+                            <option value="Drop Shipping" {% if purchase_order.delivery_method=='Drop Shipping'
+                                %}selected{% endif %}>Drop Shipping</option>
+                            <option value="Direct Store Delivery" {% if
+                                purchase_order.delivery_method=='Direct Store Delivery' %}selected{% endif %}>Direct
+                                Store Delivery</option>
+                            <option value="Freight" {% if purchase_order.delivery_method=='Freight' %}selected{% endif
+                                %}>Freight Shipping</option>
+                            <option value="Digital" {% if purchase_order.delivery_method=='Digital' %}selected{% endif
+                                %}>Digital Delivery</option>
+                        </select>
+                    </div>
+                </div>
+
+
+
+                <!-- Line Items Section -->
+                <div id="lineItemsContainer">
+                    {% for line_item in purchase_order.purchase_order_items %}
+                    <div class="line-item">
+                        <div class="line-item-header">
+                            <h3>Line Item {{ loop.index }}</h3>
+                            <button type="button" class="remove-line-item">Remove</button>
+                        </div>
+
+                        <div class="form-grid">
+
+                            <div class="form-group">
+                                <label for="item_type">Item Type</label>
+                                <select name="item_type[]" class="item-type-field" required>
+                                    <option value="">-- Select Item Type --</option>
+                                    <option value="inventory" {% if line_item.item_type=='inventory' %}selected{% endif
+                                        %}>
+                                        Inventory
+                                    </option>
+                                    <option value="non-inventory" {% if line_item.item_type=='non-inventory'
+                                        %}selected{% endif %}>
+                                        Non-Inventory
+                                    </option>
+                                    <option value="service" {% if line_item.item_type=='service' %}selected{% endif %}>
+                                        Service
+                                    </option>
+                                </select>
+                            </div>
+
+
+
+
+                            <div class="form-group">
+                                <label for="item">Item</label>
+                                <!-- Item Field (for non-inventory items) -->
+                                <input type="text" name="item[]" class="item-field"
+                                    value="{{ line_item.item_name if line_item.item_type != 'inventory' else '' }}" {%
+                                    if line_item.item_type=='inventory' %}style="display: none;" {% endif %}>
+
+                                <!-- Inventory Dropdown (for inventory items) -->
+                                <select name="inventory_item[]" class="inventory-dropdown searchable-dropdown" {% if
+                                    line_item.item_type !='inventory' %}style="display: none;" {% endif %}>
+                                    <option value="">-- Select Inventory Item --</option>
+                                    {% for item in inventory_items %}
+                                    <option value="{{ item.id }}"
+                                        data-uom-id="{{ item.inventory_item.uom_id if item.inventory_item.uom_id else '' }}"
+                                        data-uom-name="{{ item.inventory_item.unit_of_measurement.full_name if item.inventory_item.unit_of_measurement else '' }}{% if item.inventory_item.unit_of_measurement and item.inventory_item.unit_of_measurement.abbreviation %} ({{ item.inventory_item.unit_of_measurement.abbreviation }}){% endif %}"
+                                        {% if line_item.item_id==item.id %}selected{% endif %}>
+                                        {{ item.inventory_item.item_name }}
+                                        {% if item.inventory_item_variation and
+                                        item.inventory_item_variation.variation_name
+                                        %}
+                                        - ({{ item.inventory_item_variation.variation_name }})
+                                        {% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group item-description-group">
+                                <label for="item_description">Item Description</label>
+                                <textarea name="item_description[]"
+                                    class="item-description-field">{{ line_item.description or '' }}</textarea>
+                            </div>
+
+                            <div class="form-group warehouse-group" {% if line_item.item_type !='inventory'
+                                %}style="display: none;" {% endif %}>
+                                <label for="warehouse">Warehouse/Location</label>
+                                <select name="warehouse[]" class="warehouse-dropdown searchable-dropdown">
+                                    <option value="">-- Select Warehouse/Location --</option>
+                                    {% for warehouse in warehouses %}
+                                    <option value="{{ warehouse.id }}" {% if line_item.location_id==warehouse.id
+                                        %}selected{% endif %}>
+                                        {{ warehouse.location }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="stock-display"></div>
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="quantity">Quantity</label>
+                                <input type="text" name="quantity[]" value="{{ line_item.quantity }}" required>
+                            </div>
+
+
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="uom">Unit of Measurement</label>
+                                <!-- Readonly display field for inventory items -->
+                                <input type="text" class="uom-readonly" readonly
+                                    value="{% if line_item.item_type == 'inventory' and line_item.uom_name %}{{ line_item.uom_name }}{% endif %}"
+                                    {% if line_item.item_type !='inventory' %}style="display: none;" {% endif %}>
+                                <!-- Hidden field to store the actual UOM ID -->
+                                <input type="hidden" name="uom[]" class="uom-hidden" value="{{ line_item.uom }}">
+                                <!-- Regular dropdown for non-inventory items -->
+                                <select name="uom_select[]" class="uom-dropdown" {% if line_item.item_type=='inventory'
+                                    %}style="display: none;" {% endif %}>
+                                    <option value="">-- Select UOM --</option>
+                                    {% for uom in uoms %}
+                                    <option value="{{ uom.id }}" {% if line_item.uom==uom.id %}selected{% endif %}>
+                                        {{ uom.full_name }} ({{ uom.abbreviation }})
+                                    </option>
+                                    {% endfor %}
+                                    <option value="add_new_uom">Add new unit of measurement...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="unit_price">Unit Price</label>
+                                <input type="text" name="unit_price[]" value="{{ line_item.unit_price }}" required>
+                            </div>
+                        </div>
+
+                        <div class="discount-tax-fields">
+
+                            <div class="form-group discount-field">
+                                <label>Discount</label>
+                                <select name="discount_type[]">
+                                    <option value="amount" {% if line_item.discount_type !='percentage' %}selected{%
+                                        endif %}>Amount</option>
+                                    <option value="percentage" {% if line_item.discount_type=='percentage' %}selected{%
+                                        endif %}>Percentage</option>
+                                </select>
+                                <input type="text" class="line-discount" name="discount_value[]"
+                                    value="{{ line_item.discount_amount }}" placeholder="Value">
+                                <button type="button" class="remove-discount hidden">Remove</button>
+                            </div>
+
+                            <div class="form-group tax-field">
+                                <label>Tax (%)</label>
+                                <input type="text" name="tax[]" value="{{ line_item.tax_rate }}" placeholder="Tax (%)">
+                                <button type="button" class="remove-tax hidden">Remove</button>
+                            </div>
+                        </div>
+                        <div class="line-item-total">
+                            Line Item Total: <span class="line-item-total-amount">{{ line_item.total_price }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Overall Discount and Tax Section -->
+                <div class="form-section">
+                    <h2>Discounts & Taxes</h2>
+
+                    <div class="form-group">
+                        <label for="overall_discount_type">Discount Type</label>
+                        <select id="overall_discount_type" name="overall_discount_type">
+                            <option value="amount" {% if purchase_order.purchase_order_discount_type=='amount'
+                                %}selected{% endif %}>Amount</option>
+                            <option value="percentage" {% if purchase_order.purchase_order_discount_type=='percentage'
+                                %}selected{% endif %}>Percentage</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="overall_discount_value">Discount Value</label>
+                        <input type="text" id="overall_discount_value" name="overall_discount_value"
+                            value="{{ purchase_order.purchase_order_discount_value }}" />
+                    </div>
+                    <div class="form-group">
+                        <label for="overall_tax">Tax (%)</label>
+                        <input type="text" id="overall_tax" name="overall_tax"
+                            value="{{ purchase_order.purchase_order_tax_rate }}" />
+                    </div>
+                </div>
+
+
+                <!-- Other Costs Section (Shipping & Handling Costs) -->
+                <div class="form-section">
+                    <h2>Other Costs</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="shipping_cost">Shipping Cost</label>
+                            <input type="text" id="shipping_cost" name="shipping_cost"
+                                value="{{ purchase_order.shipping_cost }}" />
+                        </div>
+                        <div class="form-group">
+                            <label for="handling_cost">Handling Cost</label>
+                            <input type="text" id="handling_cost" name="handling_cost"
+                                value="{{ purchase_order.handling_cost }}" />
+                        </div>
+
+                    </div>
+                </div>
+
+
+                <!-- Accounting Details Section -->
+                <div class="form-section account-section">
+                    <h2>Accounting Details</h2>
+
+                    <!-- Accounts Payable Account -->
+                    <div class="form-group">
+                        <label for="accounts_payable" class="form-label">
+                            Accounts Payable Account <span class="required">*</span>
+                            <div class="custom-tooltip-container ms-2">
+                                <i class="fas fa-question-circle input-helper"></i>
+                                <span class="custom-tooltip">
+                                    Specify the accounts payable account that will be used to track this purchase
+                                    obligation
+                                </span>
+                            </div>
+                        </label>
+                        <select id="accounts_payable" name="accounts_payable" class="form-select form-select2" required>
+                            <option value="">Select Accounts Payable Account</option>
+                            {% for category, accounts in grouped_payable_accounts.items() %}
+                            <optgroup label="{{ category }}">
+                                {% for account in accounts %}
+                                <option value="{{ account.id }}" {{ 'selected' if
+                                    purchase_order.accounts_payable_id==account.id else '' }}>
+                                    {{ account.sub_category }} - {{ account.sub_category_id }}
+                                </option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+
+                    <!-- Non-Inventory Expense Account -->
+                    <div id="nonInventoryExpenseSection" style="display: none;">
+                        <div class="form-group">
+                            <label for="nonInventoryExpenseAccount" class="form-label">
+                                Non-Inventory Expense Account <span class="required">*</span>
+                                <div class="custom-tooltip-container ms-2">
+                                    <i class="fas fa-question-circle input-helper"></i>
+                                    <span class="custom-tooltip">
+                                        Specify the account where non-inventory items will be recorded
+                                    </span>
+                                </div>
+                            </label>
+                            <select id="nonInventoryExpenseAccount" name="nonInventoryExpenseAccount"
+                                class="form-select form-select2">
+                                <option value="">Select Non-Inventory Expense Account</option>
+                                {% for category, accounts in grouped_expense_accounts.items() %}
+                                <optgroup label="{{ category }}">
+                                    {% for account in accounts %}
+                                    <option value="{{ account.id }}" {{ 'selected' if
+                                        purchase_order.non_inventory_expense_account_id==account.id else '' }}>
+                                        {{ account.sub_category }} - {{ account.sub_category_id }}
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Service Item Expense Account -->
+                    <div id="serviceExpenseSection" style="display: none;">
+                        <div class="form-group">
+                            <label for="expenseAccount" class="form-label">
+                                Service Item Expense Account <span class="required">*</span>
+                                <div class="custom-tooltip-container ms-2">
+                                    <i class="fas fa-question-circle input-helper"></i>
+                                    <span class="custom-tooltip">
+                                        Specify the account where service items will be recorded
+                                    </span>
+                                </div>
+                            </label>
+                            <select id="expenseAccount" name="expenseAccount" class="form-select form-select2">
+                                <option value="">Select Service Expense Account</option>
+                                {% for category, accounts in grouped_expense_accounts.items() %}
+                                <optgroup label="{{ category }}">
+                                    {% for account in accounts %}
+                                    <option value="{{ account.id }}" {{ 'selected' if
+                                        purchase_order.service_expense_account_id==account.id else '' }}>
+                                        {{ account.sub_category }} - {{ account.sub_category_id }}
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Shipping & Handling Expense Account -->
+                    <div id="shippingHandlingSection" style="display: none;">
+                        <div class="form-group">
+                            <label for="shippingHandlingAccount" class="form-label">
+                                Shipping & Handling Account <span class="required">*</span>
+                                <div class="custom-tooltip-container ms-2">
+                                    <i class="fas fa-question-circle input-helper"></i>
+                                    <span class="custom-tooltip">
+                                        Specify the account where shipping and handling costs will be recorded
+                                    </span>
+                                </div>
+                            </label>
+                            <select id="shippingHandlingAccount" name="shippingHandlingAccount"
+                                class="form-select form-select2">
+                                <option value="">Select Shipping & Handling Account</option>
+                                {% for category, accounts in grouped_expense_accounts.items() %}
+                                <optgroup label="{{ category }}">
+                                    {% for account in accounts %}
+                                    <option value="{{ account.id }}" {{ 'selected' if
+                                        purchase_order.shipping_handling_account_id==account.id else '' }}>
+                                        {{ account.sub_category }} - {{ account.sub_category_id }}
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <!-- Terms and Conditions Section -->
+                <div class="form-section">
+                    <h2>Terms & Conditions</h2>
+                    <div class="form-group">
+                        <label for="terms_and_conditions">Enter Terms</label>
+                        <textarea id="terms_and_conditions"
+                            name="terms_and_conditions">{{ purchase_order.terms_and_conditions or ""}}</textarea>
+                    </div>
+                </div>
+
+
+
+
+                <!-- Hidden field for base currency ID -->
+                <input type="hidden" id="base_currency_id" name="base_currency_id"
+                    value="{{ base_currency.id if base_currency else '' }}">
+
+                <!-- Exchange Rate Field (Hidden by default) -->
+                <div id="exchange_rate_container"
+                    style="display: none; margin-top: 15px; padding: 12px; background-color: #f8f9fa; border-radius: 6px; margin-bottom: 15px;">
+                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                        <span style="font-weight: 500;">Exchange Rate</span>
+                        <span id="from_currency_display">1</span>
+                        <span>=</span>
+                        <input type="number" id="exchange_rate" name="exchange_rate" step="0.0000000001"
+                            min="0.0000000001" placeholder="Enter rate"
+                            value="{{ purchase_order.exchange_rate.rate if purchase_order.exchange_rate else '' }}"
+                            style="padding: 6px 10px; width: 150px; border-radius: 4px; border: 1px solid #ccc;">
+                        <span id="to_currency_display"></span>
+                        <small class="text-muted" style="color: #666; font-size: 0.85rem;">
+                            (Rate at transaction date)
+                        </small>
+                    </div>
+                    <div id="converted_amount_display" class="converted-amount" style="display: none;">
+                        Amount in <span id="converted_currency_code">{{ base_currency.user_currency if base_currency
+                            else '' }}</span>:
+                        <strong><span id="convertedAmountValue">0.00</span></strong>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="button" class="button remove-button" onclick="window.history.back()">Cancel</button>
+                    <button type="submit" class="button cta-button">Save Purchase Order</button>
+                </div>
+            </form>
+        </div>
+
+
+        <!-- Confirmation Modal -->
+        <div id="confirmationModal" class="confirmationModal">
+            <p>Are you sure you want to delete this line item?</p>
+            <button id="confirmDelete" class="confirmDelete">Yes, Delete</button>
+            <button id="cancelDelete" class="cancelDelete">Cancel</button>
+        </div>
+
+        <!-- Modal for New vendor -->
+        <div id="newvendorModal" class="confirmationModal">
+            <p>"<span id="enteredvendorName"></span>" is not in the database. Is this a one-time vendor?</p>
+            <div>
+                <button id="oneTimevendorBtn" class="confirmDelete">Yes, One-Time vendor</button>
+                <button id="addToDatabaseBtn" class="cancelDelete">No, Add to Database</button>
+            </div>
+        </div>
+
+
+        <!-- Vendor Modal -->
+        <div id="vendorModal" style="display: none">
+            <div style="
+      background: white;
+      padding: 15px;
+      border: 1px solid #ccc;
+      width: 95%;
+      margin-right: 40px;
+      max-height: 80vh;
+      overflow-y: auto;
+    ">
+                <h3>Add New Client/vendor</h3>
+                <form id="vendorDetailsForm" method="POST" action="{{ url_for('general_ledger.add_vendor') }}">
+                    <!-- Party Type -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="vendorType">Party Type:</label>
+                            <select id="vendorType" name="vendorType" required>
+                                <option value="vendor">vendor</option>
+                                <option value="vendor">Vendor</option>
+
+                                <option value="client">Client</option>
+                                <option value="partner">Partner</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Vendor Name -->
+                        <div class="form-group">
+                            <label for="vendorName">Name:</label>
+                            <input type="text" id="vendorName" name="vendorName" required />
+                        </div>
+
+                        <!-- Vendor ID -->
+                        <div class="form-group">
+                            <label for="vendorId">ID:</label>
+                            <input type="text" id="vendorId" name="vendorId" />
+                        </div>
+
+                        <!-- Designation -->
+                        <div class="form-group">
+                            <label for="designation">Designation:</label>
+                            <input type="text" id="designation" name="designation" />
+                        </div>
+
+                        <!-- Tel Contact -->
+                        <div class="form-group">
+                            <label for="telContact">Tel Contact:</label>
+                            <input type="text" id="telContact" name="telContact" />
+                        </div>
+
+                        <!-- Email Contact -->
+                        <div class="form-group">
+                            <label for="email">Email Contact:</label>
+                            <input type="text" id="email" name="email" />
+                        </div>
+
+                        <!-- Address -->
+                        <div class="form-group">
+                            <label for="address">Address:</label>
+                            <input type="text" id="address" name="address" />
+                        </div>
+
+                        <!-- City -->
+                        <div class="form-group">
+                            <label for="city">City:</label>
+                            <input type="text" id="city" name="city" />
+                        </div>
+
+                        <!-- State/Province -->
+                        <div class="form-group">
+                            <label for="stateProvince">State/Province:</label>
+                            <input type="text" id="stateProvince" name="stateProvince" />
+                        </div>
+
+                        <!-- Postal Code -->
+                        <div class="form-group">
+                            <label for="postalCode">Postal Code:</label>
+                            <input type="text" id="postalCode" name="postalCode" />
+                        </div>
+
+                        <!-- Country -->
+                        <div class="form-group">
+                            <label for="country">Country:</label>
+                            <select id="country" name="country">
+                                <option value="">Loading countries...</option>
+                            </select>
+                        </div>
+
+                        <!-- Website -->
+                        <div class="form-group">
+                            <label for="website">Website:</label>
+                            <input type="text" id="website" name="website" />
+                        </div>
+
+                        <!-- Payment Terms -->
+                        <div class="form-group">
+                            <label for="paymentTerms">Payment Terms:</label>
+                            <input type="text" id="paymentTerms" name="paymentTerms" />
+                        </div>
+
+                        <!-- Tax ID -->
+                        <div class="form-group">
+                            <label for="taxId">Tax ID:</label>
+                            <input type="text" id="taxId" name="taxId" />
+                        </div>
+
+                        <!-- Preferred Communication Method -->
+                        <div class="form-group">
+                            <label for="preferredCommunicationMethod">Preferred Communication Method:</label>
+                            <select id="preferredCommunicationMethod" name="preferredCommunicationMethod">
+                                <option value="Phone">Phone</option>
+                                <option value="Email">Email</option>
+                                <option value="Whatsapp">Whatsapp</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Primary Contact Person -->
+                        <div class="form-group">
+                            <label for="primaryContactPerson">Primary Contact Person:</label>
+                            <input type="text" id="primaryContactPerson" name="primaryContactPerson" />
+                        </div>
+
+                        <!-- Secondary Contact Person -->
+                        <div class="form-group">
+                            <label for="secondaryContactPerson">Secondary Contact Person:</label>
+                            <input type="text" id="secondaryContactPerson" name="secondaryContactPerson" />
+                        </div>
+
+                        <!-- Certifications -->
+                        <div class="form-group">
+                            <label for="certifications">Certifications:</label>
+                            <textarea id="certifications" name="certifications"></textarea>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="form-group">
+                            <label for="notes">Notes:</label>
+                            <textarea id="notes" name="notes"></textarea>
+                        </div>
+
+                        <!-- Submit and Close Buttons -->
+                        <div class="form-actions">
+                            <button type="submit" class="button cta-button">Save Client/vendor</button>
+                            <button type="button" class="button add-button" id="closeModal">Close</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add UOM Modal -->
+        <div class="modal fade" id="addUOMModal" tabindex="-1" aria-labelledby="addUOMModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addUOMModalLabel">
+                            Add New Unit of Measurement
+                        </h5>
+                        <button type="button " class="button add-button" data-bs-dismiss="modal" aria-label="Close"><i
+                                class="fas fa-times"></i></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="add-uom-form" method="POST" action="{{ url_for('add_uom') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="form-group mb-3">
+                                <label for="uom_full_name">Full Name: <span class="required-mark">*</span></label>
+                                <input type="text" id="uom_full_name" name="full_name" class="form-control" required />
+                            </div>
+                            <div class="form-group mb-3">
+                                <label for="uom_abbreviation">Abbreviation: <span class="required-mark">*</span></label>
+                                <input type="text" id="uom_abbreviation" name="abbreviation" class="form-control"
+                                    required />
+                            </div>
+                            <button type="button" class="button remove-button" data-bs-dismiss="modal">
+                                Cancel
+                            </button>
+                            <button type="submit" class="button cta-button">Add UOM</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<script>
+
+    // Debounce function to limit the rate at which the fetch function is called
+    let debounceTimeout;
+
+    // This variable will now hold multiple new UOM options
+    let newUOMOptions = [];
+
+    // Predefined list of units and their abbreviations
+    const uomSuggestions = [
+        { full_name: 'kilogram', abbreviation: 'kg' },
+        { full_name: 'liter', abbreviation: 'l' },
+        { full_name: 'piece', abbreviation: 'pcs' },
+        { full_name: 'box', abbreviation: 'box' },
+        { full_name: 'meter', abbreviation: 'm' },
+        { full_name: 'packet', abbreviation: 'pkt' },
+        { full_name: 'unit', abbreviation: 'unit' },
+        { full_name: 'gram', abbreviation: 'g' },
+        { full_name: 'ounce', abbreviation: 'oz' },
+        { full_name: 'pound', abbreviation: 'lb' },
+        { full_name: 'ton', abbreviation: 'ton' },
+        { full_name: 'milliliter', abbreviation: 'ml' },
+        { full_name: 'centimeter', abbreviation: 'cm' },
+        { full_name: 'inch', abbreviation: 'in' },
+        { full_name: 'foot', abbreviation: 'ft' },
+        { full_name: 'yard', abbreviation: 'yd' },
+        { full_name: 'mile', abbreviation: 'mi' },
+        { full_name: 'hour', abbreviation: 'hr' },
+        { full_name: 'minute', abbreviation: 'min' },
+        { full_name: 'second', abbreviation: 'sec' },
+        { full_name: 'day', abbreviation: 'd' },
+        { full_name: 'week', abbreviation: 'wk' },
+        { full_name: 'month', abbreviation: 'mo' },
+        { full_name: 'year', abbreviation: 'yr' }
+    ];
+
+    // Setup Fuse.js options
+    const fuseOptions = {
+        includeScore: true,
+        keys: ['full_name'] // We want to search the full_name field for matches
+    };
+
+    // Initialize Fuse.js
+    const fuse = new Fuse(uomSuggestions, fuseOptions);
+
+    const vendorInput = document.getElementById('vendor_name');
+
+
+    // Listen for input in the Full Name field using event delegation
+    $(document).on('input', '#uom_full_name', function () {
+        clearTimeout(debounceTimeout); // Clear previous timeout
+
+        let fullName = $(this).val(); // Get input value
+
+        debounceTimeout = setTimeout(function () {
+            // Perform fuzzy search using Fuse.js
+            let results = fuse.search(fullName);
+
+            if (results.length > 0) {
+                // If a match is found, suggest the abbreviation for the first result
+                let abbreviation = results[0].item.abbreviation;
+                $('#uom_abbreviation').val(abbreviation);
+            } else {
+                // If no match is found, clear the abbreviation field
+                $('#uom_abbreviation').val('');
+            }
+        }, 300); // Delay of 300ms after the last keystroke
+    });
+
+
+    // Inventory items (fetched from the backend)
+    const inventoryItems = [
+        {% for item in inventory_items %}
+    {
+        id: "{{ item.id }}",
+            name: "{{ item.inventory_item.item_name }}{% if item.inventory_item_variation and item.inventory_item_variation.variation_name %} - ({{ item.inventory_item_variation.variation_name }}){% endif %}"
+    },
+    {% endfor %}
+];
+
+
+    // Fetch countries from the REST Countries API
+    fetch('https://restcountries.com/v3.1/all')
+        .then(response => response.json())
+        .then(data => {
+            const countrySelect = document.getElementById('country');
+            countrySelect.innerHTML = '<option value="">Select a country</option>'; // Clear loading message
+            data.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country.name.common;
+                option.textContent = country.name.common;
+                countrySelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching countries:', error);
+            document.getElementById('country').innerHTML = '<option value="">Failed to load countries</option>';
+        });
+
+
+
+
+    // Add event listeners to the relevant fields
+    document.getElementById('shipping_cost').addEventListener('input', updateSummary);
+    document.getElementById('handling_cost').addEventListener('input', updateSummary);
+
+    // Also, add event listeners for other fields that trigger the summary update
+    document.querySelectorAll('.line-item input').forEach(input => {
+        input.addEventListener('input', updateSummary);
+    });
+
+    document.getElementById('overall_discount_type').addEventListener('change', updateSummary);
+    document.getElementById('overall_discount_value').addEventListener('input', updateSummary);
+    document.getElementById('overall_tax').addEventListener('input', updateSummary);
+    document.getElementById('vendor_name').addEventListener('input', updateSummary);
+    document.getElementById('currency').addEventListener('change', updateSummary);
+
+
+
+
+    // Add Line Item Functionality
+    document.getElementById('addLineItem').addEventListener('click', function () {
+        const lineItemsContainer = document.getElementById('lineItemsContainer');
+
+        // Calculate the new line item number (1-based)
+        const lineItemNumber = lineItemsContainer.querySelectorAll('.line-item').length + 1;
+
+
+        const lineItem = document.createElement('div');
+
+
+        lineItem.classList.add('line-item');
+
+        lineItem.innerHTML = `
+            <div class="line-item-header">
+                <h3>Line Item (${lineItemNumber})</h3>
+                <button type="button" class="remove-line-item button remove-button">Remove</button>
+            </div>
+
+               <div class="form-grid">
+            <div class="form-group">
+                    <label for="item_type">Item Type</label>
+                    <select name="item_type[]" class="item-type-field" required>
+                        <option value="">--Select Item Type --</option>
+                        {% if 'Inventory' in modules %}
+                        <option value="inventory" selected>Inventory</option>
+                        <option value="non-inventory">Non-Inventory</option>
+                        {% else %}
+                        <option value="non-inventory" selected>Non-Inventory</option>
+                        <option value="inventory">Inventory</option>
+                        {% endif %}
+                        <option value="service">Service</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="item">Item</label>
+                    <input type="text" name="item[]" class="item-field" required>
+                    <select name="inventory_item[]" class="inventory-dropdown searchable-dropdown">
+                        <option value="">-- Select Inventory Item --</option>
+                        ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom_id || ''}" data-uom-name="${item.uom_name || ''}">${item.name}</option>`).join('')}
+                    </select>
+
+                    
+
+                </div>
+
+                </div>
+
+
+                   <div class="form-grid">
+                        <div class="form-group item-description-group" style="display: block;">
+                            <label for="item_description">Item Description</label>
+                            <textarea name="item_description[]" class="item-description-field"></textarea>
+                        </div>
+
+                        <div class="form-group warehouse-group" style="display: none;">
+                    <label for="warehouse">Warehouse/Location</label>
+                    <select name="warehouse[]" class="warehouse-dropdown searchable-dropdown">
+                        <option value="">-- Select Warehouse/Location --</option>
+                        {% if not warehouses or warehouses|length == 0 %}
+                            <option value="">No warehouses available</option>
+                        {% endif %}
+                        {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.id }}">{{ warehouse.location }}</option>
+                        {% endfor %}
+                    
+                    </select>
+
+
+                <div class="stock-display"></div>
+                </div>
+
+      
+                <div class="form-group">
+                    <label for="quantity">Quantity</label>
+                    <input type="text" name="quantity[]" required>
+                </div>
+
+                </div>
+
+
+                   <div class="form-grid">
+                <div class="form-group">
+                    <label for="uom">Unit of Measurement</label>
+                    <!-- Readonly display field for inventory items -->
+                    <input type="text" class="uom-readonly" readonly placeholder="Select inventory item first" style="display: none;">
+                    <!-- Hidden field to store the actual UOM ID -->
+                    <input type="hidden" name="uom[]" class="uom-hidden">
+                    
+                    <!-- Regular dropdown for non-inventory items -->
+                    <select name="uom_select[]" class="uom-dropdown">
+                        <option value="">-- Select UOM --</option>
+                        {% for uom in uoms %}
+                            <option value="{{ uom.id }}">
+                                {{ uom.full_name }} ({{ uom.abbreviation }})
+                            </option>
+                        {% endfor %}
+                        <option value="add_new_uom">Add new unit of measurement...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="unit_price">Unit Price</label>
+                    <input type="text" name="unit_price[]" required>
+                </div>
+            </div>
+
+            <div class="discount-tax-section">
+                <button type="button" class="add-discount button-outline">Add Discount</button>
+                <button type="button" class="add-tax button-outline">Add Tax</button>
+            </div>
+            <div class="discount-tax-fields">
+                <!-- Discount and tax fields will be dynamically added here -->
+            </div>
+            <div class="line-item-total">
+                Line Item Total: <span class="line-item-total-amount">0.00</span>
+            </div>
+        `;
+
+        lineItemsContainer.appendChild(lineItem);
+
+        // UPDATE SUMMARY RIGHT AT THE TOP - before any DOM manipulation
+        updateSummary();
+
+        // Clear input fields after adding a line item
+        lineItem.querySelector('input[name="item[]"]').value = '';
+        lineItem.querySelector('textarea[name="item_description[]"]').value = '';
+        lineItem.querySelector('input[name="quantity[]"]').value = '';
+        lineItem.querySelector('input[name="unit_price[]"]').value = '';
+
+        // Add event listeners to quantity and unit price fields
+        lineItem.querySelector('input[name="quantity[]"]').addEventListener('input', function () {
+            updateLineItemTotal(lineItem);
+            updateSummary();
+        });
+        lineItem.querySelector('input[name="unit_price[]"]').addEventListener('input', function () {
+            updateLineItemTotal(lineItem);
+            updateSummary();
+
+
+        });
+        // Add event listener to the new item type field to toggle inventory dropdown
+        const itemTypeField = lineItem.querySelector('.item-type-field');
+        const itemField = lineItem.querySelector('.item-field');
+        const itemDescriptionField = lineItem.querySelector('.item-description-field');
+        const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
+        let row = lineItem; // FIXED: Use the lineItem we just created instead of event.target.closest
+
+        // Initialize based on current value (on load)
+        if (itemTypeField.value === 'inventory') {
+            showInventoryFields(lineItem);
+        } else {
+            showRegularFields(lineItem);
+        }
+        // Call updateRequiredAttributes after fields are shown/hidden
+        updateRequiredAttributes(row);
+
+        // Trigger the change event manually to initialize the UI state correctly
+        itemTypeField.dispatchEvent(new Event('change'));
+
+
+        // Ensure the new line item's UOM dropdown gets updated with the latest UOM options
+        // After the line item is added, append the new UOM options
+        $('#lineItemsContainer select[name="uom[]"]:last').each(function () {
+            $(this).append(newUOMOptions.join(''));  // Append all new UOMs to the last dropdown added
+        });
+    });
+
+
+
+    // Event delegation for discount/tax buttons
+    document.getElementById('lineItemsContainer').addEventListener('click', function (event) {
+        const lineItem = event.target.closest('.line-item');
+        if (!lineItem) return;
+
+        if (event.target.classList.contains('add-discount')) {
+            const addButton = event.target;
+            const container = lineItem.querySelector('.discount-tax-fields');
+            addDiscountField(lineItem, addButton, container);
+        }
+
+        if (event.target.classList.contains('add-tax')) {
+            const addButton = event.target;
+            const container = lineItem.querySelector('.discount-tax-fields');
+            addTaxField(lineItem, addButton, container);
+        }
+    });
+
+
+    // Apply the function to all existing line items on page load
+    document.addEventListener('DOMContentLoaded', function () {
+
+
+
+        // Initialize Exchange Rate Manager for Purchase Order Edit
+        if (typeof ExchangeRateManager !== 'undefined') {
+            window.rateManager = ExchangeRateManager.init({
+                currencySelectId: 'currency',
+                dateInputId: 'purchase_order_date',
+                exchangeRateInputId: 'exchange_rate',
+                containerId: 'exchange_rate_container',
+                fromDisplayId: 'from_currency_display',
+                toDisplayId: 'to_currency_display',
+                baseCurrencyId: 'base_currency_id',
+                appId: '{{ app_id }}',
+                apiEndpoint: '/multi_currency/api/get_exchange_rate',
+                csrfToken: csrfToken,
+                callbacks: {
+                    onRateChange: function (rate) {
+                        updateSummary();
+                    },
+                    onSuccess: function (rate, source) {
+                        console.log(`Rate ${rate} loaded from ${source}`);
+                        updateSummary();
+                    },
+                    onVisibilityChange: function (isVisible) {
+                        updateSummary();
+                    }
+                }
+            });
+        }
+
+
+        document.querySelectorAll('.line-item').forEach(lineItem => {
+            addDiscountAndTaxListeners(lineItem);
+            addQuantityAndPriceListeners(lineItem)
+        });
+    });
+
+
+    // Add event listeners to overall discount and tax fields
+    document.getElementById('overall_discount_type').addEventListener('change', updateSummary);
+    document.getElementById('overall_discount_value').addEventListener('input', updateSummary);
+    document.getElementById('overall_tax').addEventListener('input', updateSummary);
+
+    // Confirmation Modal for Deleting Line Items
+    let currentLineItemToDelete = null;
+
+    document.addEventListener('click', function (e) {
+        if (e.target.classList.contains('remove-line-item')) {
+            currentLineItemToDelete = e.target.closest('.line-item');
+            document.getElementById('confirmationModal').style.display = 'block';
+        }
+    });
+
+    document.getElementById('confirmDelete').addEventListener('click', function () {
+        if (currentLineItemToDelete) {
+            currentLineItemToDelete.remove(); // Remove the line item
+            updateSummary(); // Recalculate totals
+        }
+        document.getElementById('confirmationModal').style.display = 'none'; // Hide the modal
+    });
+
+    document.getElementById('cancelDelete').addEventListener('click', function () {
+        document.getElementById('confirmationModal').style.display = 'none';
+    });
+
+    // Set today's date as the default value for the purchase_order date field
+    document.addEventListener('DOMContentLoaded', function () {
+        // const today = new Date();
+        // const formattedDate = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        // document.getElementById('purchase_order_date').value = formattedDate;
+        updateSummary(); // Initial summary update
+    });
+
+
+
+    // Listen for changes on the UOM select dropdown using event delegation
+    document.getElementById('lineItemsContainer').addEventListener('change', function (event) {
+        // Check if the change is happening in a UOM select dropdown
+        if (event.target.name === 'uom[]' && event.target.value === 'add_new_uom') {
+            // Show the modal
+            $('#addUOMModal').modal('show');
+
+            // Reset the select value to empty after triggering the modal
+            event.target.value = ''; // Clear the selection
+        }
+    });
+
+    // Handle the form submission via AJAX
+    $('#add-uom-form').submit(function (event) {
+        event.preventDefault(); // Prevent the form from submitting normally
+
+        $.ajax({
+            type: 'POST',
+            url: $(this).attr('action'),  // Use the form's action attribute
+            data: $(this).serialize(),    // Send the form data
+            success: function (response) {
+                // Assuming the backend response is a single UOM object
+                if (response && response.id) {
+                    // Construct a new UOM option HTML string
+                    newUOMOptions.push(`<option value="${response.id}">${response.full_name} (${response.abbreviation})</option>`);
+
+                    // Add the new UOM to the main UOM dropdown
+                    $('#uom').append(newUOMOptions.join(''));
+
+                    // Update all line items' UOM dropdowns after the new UOM is successfully added
+                    $('#lineItemsContainer select[name="uom[]"]').each(function () {
+                        $(this).append(newUOMOptions.join(''));  // Append the new UOM to each line item's UOM dropdown
+                    });
+
+                    // Close the modal
+                    $('#addUOMModal').modal('hide');
+
+                    // Reset the modal form
+                    $('#add-uom-form')[0].reset();
+
+                    // Optionally, set the new UOM as selected in the main dropdown
+                    $('#uom').val(response.id);
+                } else {
+                    // If the response is not as expected
+                    console.error('Error: Missing or invalid UOM data.');
+                    alert('There was an error adding the UOM. Please try again.');
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error('Error adding UOM:', error);
+                alert('An unexpected error occurred. Please try again later.');
+            }
+        });
+    });
+
+
+
+
+    // Close modal event
+    document.getElementById('closeModal').addEventListener('click', function () {
+        vendorModal.style.display = 'none';
+    });
+
+
+    // Handle form submission for adding new vendors
+    document.getElementById('vendorDetailsForm').addEventListener('submit', function (e) {
+        e.preventDefault(); // Prevent default form submission
+        const vendorformData = new FormData(e.target);
+        const hiddenvendorId = document.getElementById('vendor_id');
+        const vendorInput = document.getElementById('vendor_name');
+
+        fetch('/general_ledger/add_vendor', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: vendorformData,
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                return response.json(); // Ensure server returns JSON
+            })
+            .then(data => {
+                if (data.success) {
+                    showNotification('Vendor added successfully!', 'success');
+
+                    // Add new option to the datalist dynamically
+                    let newOption = document.createElement('option');
+                    newOption.value = data.vendorName; // Ensure vendorName exists
+                    newOption.setAttribute('data-id', data.vendorId); // Assign data-id
+                    console.log('Vendor ID:', vendorformData.get('vendorId')); // Print the vendor ID
+                    document.getElementById('vendor_list').appendChild(newOption);
+
+                    console.log('New option added:', newOption.value);
+
+                    // Pre-fill the input field with the new vendor name
+                    vendorInput.value = newOption.value;
+                    hiddenvendorId.value = data.vendorId; // Ensure hidden value also has the new ID
+                    console.log('Hidden vendor ID:', hiddenvendorId.value);
+                    updateSummary(); // Update summary after adding new vendor
+                    // Hide modal & reset form
+                    vendorModal.style.display = 'none';
+                    e.target.reset();
+                } else {
+                    showNotification('Failed to add vendor: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while adding the vendor: ' + error.message);
+            });
+    });
+
+
+    /**
+     * vendor hanling logic
+     */
+    document.addEventListener('DOMContentLoaded', function () {
+        const vendorInput = document.getElementById('vendor_name');
+        const hiddenvendorId = document.getElementById('vendor_id');
+        const vendorList = document.getElementById('vendor_list').options;
+
+        // Update hidden vendor_id based on user input
+        vendorInput.addEventListener('input', function () {
+            const enteredValue = this.value.trim();
+            hiddenvendorId.value = ''; // Clear hidden input initially
+            console.log(`vendor input: ${enteredValue}`); // Log entered value
+
+            // Check if the entered value matches a datalist option
+            for (let option of vendorList) {
+                if (option.value.toLowerCase() === enteredValue.toLowerCase()) {
+                    hiddenvendorId.value = option.getAttribute('data-id'); // Set vendor_id if match found
+                    console.log(`Match found: ${option.value}, ID: ${hiddenvendorId.value}`); // Log match
+                    break;
+                }
+            }
+        });
+
+        // Handle blur event to check if the vendor is new
+        // Handle blur event to check if the vendor is new
+        vendorInput.addEventListener('blur', function () {
+            const enteredValue = this.value.trim();
+            console.log(`vendor input blur: ${enteredValue}`); // Log blur event
+
+            if (enteredValue === '') return; // Skip if empty
+
+            if (!hiddenvendorId.value) {
+                // Handle new vendor case
+                const modal = document.getElementById('newvendorModal');
+                const enteredvendorNameSpan = document.getElementById('enteredvendorName');
+                const oneTimevendorBtn = document.getElementById('oneTimevendorBtn');
+                const addToDatabaseBtn = document.getElementById('addToDatabaseBtn');
+
+                // Set the entered vendor name in the modal
+                enteredvendorNameSpan.textContent = enteredValue;
+
+                // Show the modal
+                modal.style.display = 'block';
+
+                // Handle "One-Time vendor" button click
+                oneTimevendorBtn.addEventListener('click', function () {
+                    // Mark as one-time vendor
+                    document.getElementById('is_one_time_hidden').value = '1';
+                    console.log('Marked as one-time vendor'); // Log one-time vendor
+
+                    // Close the modal
+                    modal.style.display = 'none';
+                });
+
+                // Handle "Add to Database" button click
+                addToDatabaseBtn.addEventListener('click', function () {
+                    // Open modal to add new vendor
+                    document.getElementById('vendorName').value = enteredValue;
+                    document.getElementById('vendorModal').style.display = 'block';
+                    console.log('Opened modal to add new vendor'); // Log modal opening
+
+                    // Close this modal
+                    modal.style.display = 'none';
+                });
+
+                // Close modal if user clicks outside of it
+                window.addEventListener('click', function (event) {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            }
+        });
+    });
+
+
+
+    // Toggle functions for expense sections
+    function toggleShippingHandlingSection() {
+        const shippingCost = parseFloat(document.getElementById('shipping_cost').value) || 0;
+        const handlingCost = parseFloat(document.getElementById('handling_cost').value) || 0;
+        const shippingHandlingSection = document.getElementById('shippingHandlingSection');
+        const shippingHandlingAccount = document.getElementById('shippingHandlingAccount');
+
+        if (shippingCost > 0 || handlingCost > 0) {
+            shippingHandlingSection.style.display = 'block';
+            shippingHandlingAccount.setAttribute('required', 'required');
+        } else {
+            shippingHandlingSection.style.display = 'none';
+            shippingHandlingAccount.value = '';
+            shippingHandlingAccount.removeAttribute('required');
+        }
+    }
+
+    function toggleNonInventoryExpenseSection() {
+        const nonInventoryExpenseSection = document.getElementById('nonInventoryExpenseSection');
+        const nonInventoryExpenseAccount = document.getElementById('nonInventoryExpenseAccount');
+        const hasNonInventoryItems = checkForNonInventoryItems();
+
+        if (hasNonInventoryItems) {
+            nonInventoryExpenseSection.style.display = 'block';
+            nonInventoryExpenseAccount.setAttribute('required', 'required');
+        } else {
+            nonInventoryExpenseSection.style.display = 'none';
+            nonInventoryExpenseAccount.value = '';
+            nonInventoryExpenseAccount.removeAttribute('required');
+        }
+    }
+
+    function toggleServiceExpenseSection() {
+        const serviceExpenseSection = document.getElementById('serviceExpenseSection');
+        const expenseAccount = document.getElementById('expenseAccount');
+        const hasServiceItems = checkForServiceItems();
+
+        if (hasServiceItems) {
+            serviceExpenseSection.style.display = 'block';
+            expenseAccount.setAttribute('required', 'required');
+        } else {
+            serviceExpenseSection.style.display = 'none';
+            expenseAccount.value = '';
+            expenseAccount.removeAttribute('required');
+        }
+    }
+
+    function checkForNonInventoryItems() {
+        const lineItems = document.querySelectorAll('.line-item');
+        for (let lineItem of lineItems) {
+            const itemType = lineItem.querySelector('.item-type-field');
+            if (itemType && itemType.value === 'non-inventory') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function checkForServiceItems() {
+        const lineItems = document.querySelectorAll('.line-item');
+        for (let lineItem of lineItems) {
+            const itemType = lineItem.querySelector('.item-type-field');
+            if (itemType && itemType.value === 'service') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Event listeners for shipping and handling costs
+    document.getElementById('shipping_cost').addEventListener('input', function () {
+        toggleShippingHandlingSection();
+        updateSummary();
+    });
+
+    document.getElementById('handling_cost').addEventListener('input', function () {
+        toggleShippingHandlingSection();
+        updateSummary();
+    });
+
+
+    // Event listener for line item changes to detect item types
+    document.addEventListener('change', function (event) {
+        if (event.target.classList.contains('item-type-field')) {
+            toggleNonInventoryExpenseSection();
+            toggleServiceExpenseSection();
+        }
+    });
+
+    // Event listener for when line items are added or removed
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize the sections on page load
+        toggleShippingHandlingSection();
+        toggleNonInventoryExpenseSection();
+        toggleServiceExpenseSection();
+
+        // Also check when line items are dynamically added/removed
+        const observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                if (mutation.type === 'childList') {
+                    toggleNonInventoryExpenseSection();
+                    toggleServiceExpenseSection();
+                }
+            });
+        });
+
+        const lineItemsContainer = document.getElementById('lineItemsContainer');
+        if (lineItemsContainer) {
+            observer.observe(lineItemsContainer, {
+                childList: true,
+                subtree: false
+            });
+        }
+    });
+
+
+
+
+    // Initialize required attributes for existing line items on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize required attributes for all existing line items
+        document.querySelectorAll('.line-item').forEach(row => {
+            updateRequiredAttributes(row);
+        });
+
+        // Set up event delegation for item type changes
+        document.getElementById('lineItemsContainer').addEventListener('change', function (event) {
+            if (event.target.classList.contains('item-type-field')) {
+                const row = event.target.closest('.line-item');
+                updateRequiredAttributes(row);
+            }
+        });
+    });
+
+
+
+
+    // Form submission
+    document.getElementById('purchase_orderForm').addEventListener('submit', function (event) {
+        console.log("Form submission intercepted"); // Debugging line
+        event.preventDefault(); // Prevent form submission
+
+        // Event delegation to handle dynamically added line items
+        document.addEventListener('change', function (event) {
+            if (event.target.classList.contains('item-type-field')) {
+                let row = event.target.closest('.line-item');
+                updateRequiredAttributes(row);
+            }
+        });
+
+        // Ensure validation for initially loaded items
+        document.querySelectorAll('.line-item').forEach(updateRequiredAttributes);
+
+        // Prepare form data manually (do not initialize from the form)
+        const formData = new FormData();
+
+
+        // If vendor_id is empty, ensure vendor_name is included
+        const hiddenvendorId = document.getElementById('vendor_id');
+        const vendorInput = document.getElementById('vendor_name');
+        if (!hiddenvendorId.value) {
+            formData.append('vendor_name', vendorInput.value.trim());
+            hiddenvendorId.value = vendorInput.value.trim(); // Ensure vendor_id is set to vendorInput value
+            console.log(`Appended vendor_name: ${vendorInput.value.trim()}`);
+        }
+
+
+
+        // Append static form fields
+        const staticFields = [
+            'purchase_order_number', 'purchase_order_date', 'delivery_date',
+            'vendor_id', 'currency', 'overall_discount_type',
+            'overall_discount_value', 'overall_tax', 'shipping_cost', 'handling_cost',
+            'terms_and_conditions', 'shipping_address', 'delivery_method', 'project', 'accounts_payable',
+            'nonInventoryExpenseAccount', 'shippingHandlingAccount', 'expenseAccount', 'purchase_reference', 'exchange_rate', 'base_currency_id', 'version'
+        ];
+
+
+
+        staticFields.forEach(field => {
+            const element = document.getElementById(field);
+            if (element) {
+                let value = element.value.trim();  // Remove extra spaces
+                formData.append(field, value || "");  // Ensure empty string instead of null/undefined
+                console.log(`Appended ${field}: ${value || ""}`);
+            }
+        });
+
+
+
+
+        // Get the total line subtotals from the span
+        let overall_line_subtotal = document.getElementById('totalLineSubtotals').textContent;
+
+        // Check if the value is valid and convert it to a float
+        if (overall_line_subtotal && !isNaN(overall_line_subtotal)) {
+            overall_line_subtotal = parseFloat(overall_line_subtotal);
+        } else {
+            overall_line_subtotal = 0.00; // Set a default value if invalid
+        }
+
+
+        // Append overall line subtotal
+        formData.append('overall_line_subtotal', overall_line_subtotal.toFixed(2));
+
+        // Append dynamically calculated values
+        const totals = calculateTotals(); // Assuming this function returns an object with totals
+        console.log("Calculated Totals:", totals); // Debugging line
+        formData.append('total_amount', totals.generalTotal);
+        formData.append('total_discount', totals.totalDiscount);
+        formData.append('total_tax', totals.totalTax);
+        formData.append('net_inventory_total', totals.netInventoryTotal);
+        formData.append('net_non_inventory_total', totals.netNonInventoryTotal);
+        formData.append('total_expenses', totals.totalExpenses);
+
+
+
+
+
+        // Process each line item and store the data in the array
+        let lineItems = [];
+
+        document.querySelectorAll('.line-item').forEach((row, index) => {
+            try {
+                console.log(`Processing Line Item ${index + 1}:`, row);
+
+                const itemType = row.querySelector('.item-type-field').value;
+                console.log(`Item Type: ${itemType}`);
+
+                const itemName = row.querySelector('.item-field').value || '';
+                console.log(`Item Name: ${itemName}`);
+
+                const inventoryItem = row.querySelector('.inventory-dropdown').value || '';
+                console.log(`Inventory Item: ${inventoryItem}`);
+
+                const description = row.querySelector('textarea[name="item_description[]"]').value || '';
+                const warehouse = row.querySelector('select[name="warehouse[]"]').value || '';
+
+                const quantity = parseFloat(row.querySelector('input[name="quantity[]"]').value) || 0;
+                console.log(`Quantity: ${quantity}`);
+                let uom = '';
+                if (itemType === 'inventory') {
+                    // For inventory items, get from hidden field
+                    uom = row.querySelector('.uom-hidden').value || '';
+                } else {
+                    // For non-inventory items, get from dropdown
+                    uom = row.querySelector('.uom-dropdown').value || '';
+                }
+
+                const unitPrice = parseFloat(row.querySelector('input[name="unit_price[]"]').value) || 0;
+                console.log(`Unit Price: ${unitPrice}`);
+
+                // Check if discount and tax fields exist
+                const discountInput = row.querySelector('input[name="discount_value[]"]');
+                const discountTypeSelect = row.querySelector('select[name="discount_type[]"]'); // Get the discount type select element
+                const taxInput = row.querySelector('input[name="tax[]"]');
+
+                // Default values
+                let discountAmount = 0;
+                let discountType = 'amount'; // Default to 'amount' if discount type is not provided
+
+                // Check if discount type select exists and get its value
+                if (discountTypeSelect) {
+                    discountType = discountTypeSelect.value; // Get the selected discount type
+                    console.log(`Discount Type: ${discountType}`);
+                } else {
+                    console.log("Discount type select not found. Defaulting to 'amount'.");
+                }
+
+                // Calculate discount amount based on discount type
+                if (discountInput && discountInput.value.trim() !== '') {
+                    const discountValue = parseFloat(discountInput.value) || 0; // Ensure discount value is a number
+                    if (discountType === 'amount') {
+                        discountAmount = discountValue; // Use the discount value as-is for 'amount' type
+                    } else if (discountType === 'percentage') {
+                        discountAmount = (quantity * unitPrice * discountValue) / 100; // Calculate percentage discount
+                    }
+                }
+                console.log(`Discount Amount: ${discountAmount}`);
+
+                // Calculate tax amount
+                const taxAmount = taxInput ? parseFloat(taxInput.value) / 100 * (quantity * unitPrice - discountAmount) : 0;
+                console.log(`Tax Amount: ${taxAmount}`);
+
+                // Calculate total price
+                const totalPrice = quantity * unitPrice - discountAmount + taxAmount; // Adjust total to account for discount/tax
+                console.log(`Total Price: ${totalPrice}`);
+
+                // Append line item data to the FormData object
+                formData.append(`item_type[]`, itemType);
+                formData.append(`item_name[]`, itemName);
+                formData.append(`inventory_item[]`, inventoryItem);
+                formData.append(`warehouse[]`, warehouse);
+                formData.append('item_description[]', description);
+                formData.append(`quantity[]`, quantity);
+                formData.append(`uom[]`, uom);
+                formData.append(`unit_price[]`, unitPrice);
+                formData.append(`total_price[]`, totalPrice);
+                formData.append(`discount_value[]`, discountAmount);
+                formData.append(`tax_value[]`, taxAmount);
+
+                console.log(`Line Item ${index + 1} Data:`, {
+                    itemType,
+                    itemName,
+                    inventoryItem,
+                    description,
+                    quantity,
+                    uom,
+                    unitPrice,
+                    discountAmount,
+                    taxAmount,
+                    totalPrice
+                });
+            } catch (error) {
+                console.error(`Error processing Line Item ${index + 1}:`, error);
+            }
+        });
+
+
+
+        // Log FormData for debugging
+        console.log("🚀 Final FormData before submission:");
+        for (let pair of formData.entries()) {
+            console.log(`${pair[0]}: ${pair[1]}`);
+        }
+
+        // Send the form data to the server
+        const purchase_orderId = document.getElementById('purchase_order_id').value;
+        fetch(`/purchases/edit_purchase_order/${purchase_orderId}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+            },
+            body: formData,
+        })
+            .then(response => {
+                console.log("Response received:", response); // Debugging line
+                return response.json();
+            })
+            .then(data => {
+                console.log("Data received:", data); // Debugging line
+                if (data.success) {
+                    showNotification('Purchase order updated successfully!', 'success');
+                    window.location.href = '/purchases/purchase_orders';
+                } else {
+                    showNotification('Error updating purchases order: ' + data.message, 'error');
+                    enableAllSubmitButtons(); // Re-enable submit buttons if there was an error
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error); // Debugging line
+                alert('There was an issue updating your purchase_order. Please try again later.');
+            });
+    });
+
+
+
+
+
+    document.getElementById('purchase_reference').addEventListener('blur', function () {
+
+
+        const ref = this.value.trim();
+        if (!ref) return;
+
+        fetch(`/purchases/api/check_purchase_order_reference?reference=${encodeURIComponent(ref)}`)
+            .then(res => {
+                if (!res.ok) throw new Error('Network response was not ok');
+                return res.json();
+            })
+            .then(data => {
+
+                console.log('Reference check data:', data); // Debugging line
+                if (data.exists) {
+                    // Show SweetAlert warning if reference exists
+                    Swal.fire({
+                        title: 'Reference Exists',
+                        text: `Reference "${ref}" already exists. You can still use it.`,
+                        icon: 'warning',
+                        confirmButtonColor: '#3085d6',
+                        confirmButtonText: 'OK',
+                        customClass: {
+                            popup: 'custom-swal-popup',
+                            title: 'custom-swal-title',
+                            content: 'custom-swal-content',
+                            confirmButton: 'custom-swal-confirm-btn',
+                            icon: 'custom-swal-icon'
+                        }
+                    });
+                }
+            })
+            .catch(err => {
+                console.error('Error checking reference:', err);
+                // Silently ignore errors, since reference is just a guidance
+            });
+    });
+
+</script>
+
+{% endblock %}

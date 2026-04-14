@@ -1,0 +1,1323 @@
+{% extends "transaction_base_template.html" %} {% block content %}
+<script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
+<!-- Add Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+
+<!-- Add Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+
+<style>
+    /* Base styling */
+
+
+    .container {
+        display: flex;
+        gap: 20px;
+        width: 100%;
+        max-width: 1200px;
+        margin: 20px auto;
+    }
+
+    .backorder_sidebar {
+        width: 350px;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 10px;
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+
+    }
+
+    .backorder-main-content {
+        flex: 1;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+
+
+    .form-section {
+        margin-bottom: 20px;
+    }
+
+    .form-section h2 {
+        font-size: 1.25rem;
+        color: #34495e;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+
+
+    .line-item {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        background-color: #f8f9fa;
+    }
+
+    .line-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .line-item-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: #2c3e50;
+        font-weight: 600;
+    }
+
+    .line-item-header button {
+        background-color: #dc3545;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .line-item-header button:hover {
+        background-color: #c82333;
+    }
+
+    .add-line-item {
+        margin-bottom: 15px;
+    }
+
+    .add-line-item button {
+        background-color: #28a745;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .add-line-item button:hover {
+        background-color: #218838;
+    }
+
+    .discount-tax-section {
+        margin-top: 12px;
+    }
+
+    .discount-tax-section button {
+        background-color: #17a2b8;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        margin-right: 8px;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .discount-tax-section button:hover {
+        background-color: #138496;
+    }
+
+    .line-item-total {
+        font-weight: bold;
+        margin-top: 12px;
+        color: #2c3e50;
+        font-size: 0.9rem;
+    }
+
+    .general-total {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-top: 15px;
+        color: #007bff;
+    }
+
+    .file-upload-section {
+        margin-top: 15px;
+    }
+
+    .file-upload-section label {
+        font-weight: 500;
+        margin-bottom: 6px;
+        display: block;
+        color: #495057;
+    }
+
+    .file-upload-section input[type="file"] {
+        margin-bottom: 8px;
+    }
+
+    .notes-section {
+        margin-top: 12px;
+    }
+
+    .notes-section textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .inventory-dropdown {
+        display: block;
+    }
+
+    .inventory-dropdown.active {
+        display: block;
+    }
+
+    /* Confirmation Modal */
+    #confirmationModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+    }
+
+    #confirmationModal p {
+        margin-bottom: 15px;
+    }
+
+    #confirmationModal button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        margin-right: 10px;
+    }
+
+    #confirmDelete {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    #cancelDelete {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    /* Summary Section Styling */
+    .summary-section {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        margin-top: 15px;
+    }
+
+    .summary-section h3 {
+        font-size: 1.1rem;
+        color: #2c3e50;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .summary-section p {
+        font-size: 0.9rem;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+
+    .summary-section p span {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+
+    /* Vendor Modal Styling */
+    #vendorModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        width: 600px;
+        /* Adjust width as needed */
+
+        /* Ensure it doesn't overflow on small screens */
+        overflow-y: auto;
+        /* Enable vertical scrolling */
+        overflow-x: hidden;
+    }
+
+    #vendorModal h3 {
+        font-size: 1.25rem;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    #vendorModal .form-group {
+        margin-bottom: 15px;
+    }
+
+    #vendorModal label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 6px;
+        color: #495057;
+    }
+
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        #vendorModal {
+            width: 95%;
+            /* Increase width for medium screens */
+            padding: 15px;
+            /* Reduce padding for smaller screens */
+        }
+
+        #vendorModal h3 {
+            font-size: 1.1rem;
+            /* Reduce font size for smaller screens */
+        }
+    }
+
+    @media (max-width: 480px) {
+        #vendorModal {
+            width: 100%;
+            /* Full width for very small screens */
+            padding: 10px;
+            /* Further reduce padding */
+            border-radius: 0;
+            /* Remove border radius for full-width modals */
+        }
+
+        #vendorModal h3 {
+            font-size: 1rem;
+            /* Further reduce font size */
+        }
+
+        #vendorModal .form-group {
+            margin-bottom: 10px;
+            /* Reduce margin for smaller screens */
+        }
+
+        #vendorModal label {
+            font-size: 0.9rem;
+            /* Reduce label font size */
+        }
+    }
+
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+            /* Stack sidebar and main content vertically */
+        }
+
+        .backorder_sidebar,
+        .backorder-main-content {
+            width: 90%;
+            /* Full width on mobile */
+        }
+
+        .backorder_sidebar {
+            position: static;
+            /* Ensure sidebar doesn't overlap main content */
+            margin-bottom: 20px;
+            /* Add space between sidebar and main content */
+        }
+    }
+
+    @media (max-width: 480px) {
+
+        .backorder_sidebar,
+        .backorder-main-content {
+            padding: 15px;
+            /* Reduce padding for smaller screens */
+        }
+
+        .backorder_sidebar h2,
+        .backorder-main-content h1 {
+            font-size: 1.1rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .form-section h2 {
+            font-size: 1rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .line-item-header h3 {
+            font-size: 0.9rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .summary-section h3 {
+            font-size: 1rem;
+            /* Reduce font size for smaller screens */
+        }
+    }
+</style>
+
+<div class="content-container">
+
+    <div class="container">
+        <!-- backorder_sidebar -->
+        <div class="backorder_sidebar">
+            <h2>Quick Actions</h2>
+            <button type="button" id="addLineItem" class="add-line-item button add-button">
+                Add Line Item
+            </button>
+            <div class="summary-section">
+                <h3>Summary</h3>
+                <p style="display: none;">
+                    Backorder Number:
+                    <span id="summarybackorderNumber">{{ backorder_number }}</span>
+                </p>
+
+                <p>Customer: <span id="summaryCustomer">-</span></p>
+
+                <p>Total Items: <span id="totalItems">0</span></p>
+
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="backorder-main-content">
+            <h1>Create New backorder</h1>
+            <form id="backorderForm" method="post" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <!-- Basic Information Section -->
+                <div class="form-section">
+                    <h2>Basic Information</h2>
+                    <div class="form-group" style="display: none;">
+                        <label for="backorder_number">Backorder Number</label>
+                        <input type="text" id="backorder_number" name="backorder_number" value="{{ backorder_number }}"
+                            readonly />
+                    </div>
+                    <div class="form-group">
+                        <label for="backorder_date">BackOrder Date</label>
+                        <input type="date" id="backorder_date" name="backorder_date" required />
+                    </div>
+
+
+
+                    <div class="form-group">
+                        <label for="customer_name">Customer</label>
+                        <input type="text" id="customer_name" name="customer_name" list="customer_list" required
+                            placeholder="Select or type customer name">
+
+                        <datalist id="customer_list" auto-complete="off">
+                            {% for customer in customers %}
+                            <option value="{{ customer.vendor_name }}" data-id="{{ customer.id }}"></option>
+                            {% endfor %}
+                        </datalist>
+
+                        <!-- Hidden input to store the customer ID -->
+                        <input type="hidden" id="customer_id" name="customer_id">
+                    </div>
+
+
+
+
+                    <div class="form-group">
+                        <input type="hidden" id="is_one_time_hidden" name="is_one_time" value="0" />
+                    </div>
+
+                </div>
+
+
+
+
+
+
+                <!-- Line Items Section -->
+                <div class="form-section">
+                    <h2>Line Items</h2>
+                    <div id="lineItemsContainer">
+                        <!-- Line items will be dynamically added here -->
+                    </div>
+                </div>
+
+
+
+                <!-- Priority Section -->
+                <div class="form-section">
+                    <h2>Priority</h2>
+                    <div class="form-group">
+                        <label for="priority_level">Priority Level</label>
+                        <select id="priority_level" name="priority_level">
+                            <option value="4">Low</option>
+                            <option value="3" selected>Medium</option>
+                            <option value="2">High</option>
+                            <option value="1">Urgent</option>
+                        </select>
+                    </div>
+                </div>
+
+
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="button" class="button remove-button" onclick="window.history.back()">Cancel</button>
+                    <button type="submit" class="button cta-button">Save Backorder</button>
+                </div>
+            </form>
+        </div>
+
+
+        <!-- Confirmation Modal -->
+        <div id="confirmationModal">
+            <p>Are you sure you want to delete this line item?</p>
+            <button id="confirmDelete">Yes, Delete</button>
+            <button id="cancelDelete">Cancel</button>
+        </div>
+
+        <!-- Modal for New Customer -->
+        <div id="newCustomerModal" class="confirmationModal">
+            <p>"<span id="enteredCustomerName"></span>" is not in the database. Is this a one-time customer?</p>
+            <div>
+                <button id="oneTimeCustomerBtn" class="confirmDelete">Yes, One-Time Customer</button>
+                <button id="addToDatabaseBtn" class="cancelDelete">No, Add to Database</button>
+            </div>
+        </div>
+
+        <!-- Vendor Modal -->
+        <div id="vendorModal" style="display: none">
+            <div style="
+      background: white;
+      padding: 15px;
+      border: 1px solid #ccc;
+      width: 95%;
+      margin-right: 40px;
+      max-height: 80vh;
+      overflow-y: auto;
+    ">
+                <h3>Add New Client/Customer</h3>
+                <form id="vendorDetailsForm" method="POST" action="{{ url_for('general_ledger.add_vendor') }}">
+                    <!-- Party Type -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="vendorType">Party Type:</label>
+                            <select id="vendorType" name="vendorType" required>
+                                <option value="customer">Customer</option>
+                                <option value="vendor">Vendor</option>
+
+                                <option value="client">Client</option>
+                                <option value="partner">Partner</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Vendor Name -->
+                        <div class="form-group">
+                            <label for="vendorName">Name:</label>
+                            <input type="text" id="vendorName" name="vendorName" required />
+                        </div>
+
+                        <!-- Vendor ID -->
+                        <div class="form-group">
+                            <label for="vendorId">ID:</label>
+                            <input type="text" id="vendorId" name="vendorId" />
+                        </div>
+
+                        <!-- Designation -->
+                        <div class="form-group">
+                            <label for="designation">Designation:</label>
+                            <input type="text" id="designation" name="designation" />
+                        </div>
+
+                        <!-- Tel Contact -->
+                        <div class="form-group">
+                            <label for="telContact">Tel Contact:</label>
+                            <input type="text" id="telContact" name="telContact" />
+                        </div>
+
+                        <!-- Email Contact -->
+                        <div class="form-group">
+                            <label for="email">Email Contact:</label>
+                            <input type="text" id="email" name="email" />
+                        </div>
+
+                        <!-- Address -->
+                        <div class="form-group">
+                            <label for="address">Address:</label>
+                            <input type="text" id="address" name="address" />
+                        </div>
+
+                        <!-- City -->
+                        <div class="form-group">
+                            <label for="city">City:</label>
+                            <input type="text" id="city" name="city" />
+                        </div>
+
+                        <!-- State/Province -->
+                        <div class="form-group">
+                            <label for="stateProvince">State/Province:</label>
+                            <input type="text" id="stateProvince" name="stateProvince" />
+                        </div>
+
+                        <!-- Postal Code -->
+                        <div class="form-group">
+                            <label for="postalCode">Postal Code:</label>
+                            <input type="text" id="postalCode" name="postalCode" />
+                        </div>
+
+                        <!-- Country -->
+                        <div class="form-group">
+                            <label for="country">Country:</label>
+                            <select id="country" name="country">
+                                <option value="">Loading countries...</option>
+                            </select>
+                        </div>
+
+                        <!-- Website -->
+                        <div class="form-group">
+                            <label for="website">Website:</label>
+                            <input type="text" id="website" name="website" />
+                        </div>
+
+                        <!-- Payment Terms -->
+                        <div class="form-group">
+                            <label for="paymentTerms">Payment Terms:</label>
+                            <input type="text" id="paymentTerms" name="paymentTerms" />
+                        </div>
+
+                        <!-- Tax ID -->
+                        <div class="form-group">
+                            <label for="taxId">Tax ID:</label>
+                            <input type="text" id="taxId" name="taxId" />
+                        </div>
+
+                        <!-- Preferred Communication Method -->
+                        <div class="form-group">
+                            <label for="preferredCommunicationMethod">Preferred Communication Method:</label>
+                            <select id="preferredCommunicationMethod" name="preferredCommunicationMethod">
+                                <option value="Phone">Phone</option>
+                                <option value="Email">Email</option>
+                                <option value="Whatsapp">Whatsapp</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Primary Contact Person -->
+                        <div class="form-group">
+                            <label for="primaryContactPerson">Primary Contact Person:</label>
+                            <input type="text" id="primaryContactPerson" name="primaryContactPerson" />
+                        </div>
+
+                        <!-- Secondary Contact Person -->
+                        <div class="form-group">
+                            <label for="secondaryContactPerson">Secondary Contact Person:</label>
+                            <input type="text" id="secondaryContactPerson" name="secondaryContactPerson" />
+                        </div>
+
+                        <!-- Certifications -->
+                        <div class="form-group">
+                            <label for="certifications">Certifications:</label>
+                            <textarea id="certifications" name="certifications"></textarea>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="form-group">
+                            <label for="notes">Notes:</label>
+                            <textarea id="notes" name="notes"></textarea>
+                        </div>
+
+                        <!-- Submit and Close Buttons -->
+                        <div class="form-actions">
+                            <button type="submit" class="button cta-button">Save Client/Customer</button>
+                            <button type="button" class="button add-button" id="closeModal">Close</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add UOM Modal -->
+        <div class="modal fade" id="addUOMModal" tabindex="-1" aria-labelledby="addUOMModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addUOMModalLabel">
+                            Add New Unit of Measurement
+                        </h5>
+                        <button type="button " class="button add-button" data-bs-dismiss="modal" aria-label="Close"><i
+                                class="fas fa-times"></i></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="add-uom-form" method="POST" action="{{ url_for('add_uom') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="form-group mb-3">
+                                <label for="uom_full_name">Full Name: <span class="required-mark">*</span></label>
+                                <input type="text" id="uom_full_name" name="full_name" class="form-control" required />
+                            </div>
+                            <div class="form-group mb-3">
+                                <label for="uom_abbreviation">Abbreviation: <span class="required-mark">*</span></label>
+                                <input type="text" id="uom_abbreviation" name="abbreviation" class="form-control"
+                                    required />
+                            </div>
+                            <button type="button" class="button remove-button" data-bs-dismiss="modal">
+                                Cancel
+                            </button>
+                            <button type="submit" class="button cta-button">Add UOM</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<script>
+    // Debounce function to limit the rate at which the fetch function is called
+    let debounceTimeout;
+
+    // This variable will now hold multiple new UOM options
+    let newUOMOptions = [];
+
+    // Predefined list of units and their abbreviations
+    const uomSuggestions = [
+        { full_name: 'kilogram', abbreviation: 'kg' },
+        { full_name: 'liter', abbreviation: 'l' },
+        { full_name: 'piece', abbreviation: 'pcs' },
+        { full_name: 'box', abbreviation: 'box' },
+        { full_name: 'meter', abbreviation: 'm' },
+        { full_name: 'packet', abbreviation: 'pkt' },
+        { full_name: 'unit', abbreviation: 'unit' },
+        { full_name: 'gram', abbreviation: 'g' },
+        { full_name: 'ounce', abbreviation: 'oz' },
+        { full_name: 'pound', abbreviation: 'lb' },
+        { full_name: 'ton', abbreviation: 'ton' },
+        { full_name: 'milliliter', abbreviation: 'ml' },
+        { full_name: 'centimeter', abbreviation: 'cm' },
+        { full_name: 'inch', abbreviation: 'in' },
+        { full_name: 'foot', abbreviation: 'ft' },
+        { full_name: 'yard', abbreviation: 'yd' },
+        { full_name: 'mile', abbreviation: 'mi' },
+        { full_name: 'hour', abbreviation: 'hr' },
+        { full_name: 'minute', abbreviation: 'min' },
+        { full_name: 'second', abbreviation: 'sec' },
+        { full_name: 'day', abbreviation: 'd' },
+        { full_name: 'week', abbreviation: 'wk' },
+        { full_name: 'month', abbreviation: 'mo' },
+        { full_name: 'year', abbreviation: 'yr' }
+    ];
+
+    // Setup Fuse.js options
+    const fuseOptions = {
+        includeScore: true,
+        keys: ['full_name'] // We want to search the full_name field for matches
+    };
+
+    // Initialize Fuse.js
+    const fuse = new Fuse(uomSuggestions, fuseOptions);
+
+    const customerInput = document.getElementById('customer_id');
+
+    // Listen for input in the Full Name field using event delegation
+    $(document).on('input', '#uom_full_name', function () {
+        clearTimeout(debounceTimeout); // Clear previous timeout
+
+        let fullName = $(this).val(); // Get input value
+
+        debounceTimeout = setTimeout(function () {
+            // Perform fuzzy search using Fuse.js
+            let results = fuse.search(fullName);
+
+            if (results.length > 0) {
+                // If a match is found, suggest the abbreviation for the first result
+                let abbreviation = results[0].item.abbreviation;
+                $('#uom_abbreviation').val(abbreviation);
+            } else {
+                // If no match is found, clear the abbreviation field
+                $('#uom_abbreviation').val('');
+            }
+        }, 300); // Delay of 300ms after the last keystroke
+    });
+
+    // Inventory items (fetched from the backend)
+    const inventoryItems = [
+        {% for item in inventory_items %}
+    {
+        id: "{{ item.id }}",
+            name: "{{ item.inventory_item.item_name }}{% if item.inventory_item_variation and item.inventory_item_variation.variation_name %} - ({{ item.inventory_item_variation.variation_name }}){% endif %}"
+    },
+    {% endfor %}
+    ];
+
+    // Fetch countries from the REST Countries API
+    fetch('https://restcountries.com/v3.1/all')
+        .then(response => response.json())
+        .then(data => {
+            const countrySelect = document.getElementById('country');
+            countrySelect.innerHTML = '<option value="">Select a country</option>'; // Clear loading message
+            data.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country.name.common;
+                option.textContent = country.name.common;
+                countrySelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching countries:', error);
+            document.getElementById('country').innerHTML = '<option value="">Failed to load countries</option>';
+        });
+
+
+
+    // Function to update summary section
+    function updateSummary() {
+
+
+        // Update totals in the summary
+        document.getElementById('totalItems').textContent = document.querySelectorAll('.line-item').length;
+
+
+        // Optionally, update the customer and currency section
+        const customerInput = document.getElementById('customer_name');
+
+        const customerName = customerInput.value.trim();
+        document.getElementById('summaryCustomer').textContent = customerName || '-';
+
+    }
+
+
+
+    // Also, add event listeners for other fields that trigger the summary update
+    document.querySelectorAll('.line-item input').forEach(input => {
+        input.addEventListener('input', updateSummary);
+    });
+
+
+    document.getElementById('customer_id').addEventListener('input', updateSummary);
+    document.getElementById('customer_name').addEventListener('input', updateSummary);
+    // Add Line Item Functionality 
+    document.getElementById('addLineItem').addEventListener('click', function () {
+        const lineItemsContainer = document.getElementById('lineItemsContainer');
+
+        // Calculate the new line item number (1-based)
+        const lineItemNumber = lineItemsContainer.querySelectorAll('.line-item').length + 1;
+
+        const lineItem = document.createElement('div');
+        lineItem.classList.add('line-item');
+
+        lineItem.innerHTML = `
+            <div class="line-item-header">
+                <h3>Line Item (${lineItemNumber})</h3>
+                <button type="button" class="remove-line-item button remove-button">Remove</button>
+            </div>
+  
+            <div class="form-group">
+                <label for="item">Item</label>
+                
+                <select name="inventory_item[]" class="inventory-dropdown searchable-dropdown form-select2">
+                    <option value="">Select Inventory Item</option>
+                    ${inventoryItems.map(item => `<option value="${item.id}">${item.name}</option>`).join('')}
+                </select>
+            </div>
+            
+            <div class="form-row">
+            
+                <div class="form-group">
+                    <label for="quantity_ordered">Quantity</label>
+                    <input type="text" name="quantity_ordered[]" required>
+                </div>
+                <div class="form-group">
+                    <label for="uom">Unit of Measurement</label>
+                    <select name="uom[]" required>
+                        <!-- Populate UOM dropdown using Jinja2 -->
+                        {% for uom in uoms %}
+                            <option value="{{ uom.id }}">{{ uom.full_name }}({{uom.abbreviation}})</option>
+                        {% endfor %}
+                        <!-- Option for adding a new UOM -->
+                        <option value="add_new_uom">Add new unit of measurement...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                        <label for="item_expected_fulfillment_date">Expected Fulfillment Date</label>
+                        <input type="date" id="item_expected_fulfillment_date[]" name="item_expected_fulfillment_date[]"  required/>
+                    </div>
+                
+
+                
+        `;
+
+        lineItemsContainer.appendChild(lineItem);
+
+        // Clear input fields after adding a line item
+
+        lineItem.querySelector('input[name="quantity_ordered[]"]').value = '';
+
+
+        // Reinitialize Select2 for the newly added dropdown
+        $(lineItem).find('.searchable-dropdown').select2({
+            placeholder: 'Search inventory...',
+            allowClear: true,
+            width: '100%'
+        });
+
+
+        // Add event listener to the new item type field to toggle inventory dropdown   
+
+        const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
+
+
+
+        // Update summary section immediately after adding a new line item
+        updateSummary();
+
+        // Ensure the new line item's UOM dropdown gets updated with the latest UOM options
+        // After the line item is added, append the new UOM options
+        $('#lineItemsContainer select[name="uom[]"]:last').each(function () {
+            $(this).append(newUOMOptions.join(''));  // Append all new UOMs to the last dropdown added
+        });
+    });
+
+
+
+    // Confirmation Modal for Deleting Line Items
+    let currentLineItemToDelete = null;
+
+    document.addEventListener('click', function (e) {
+        if (e.target.classList.contains('remove-line-item')) {
+            currentLineItemToDelete = e.target.closest('.line-item');
+            document.getElementById('confirmationModal').style.display = 'block';
+        }
+    });
+
+    document.getElementById('confirmDelete').addEventListener('click', function () {
+        if (currentLineItemToDelete) {
+            currentLineItemToDelete.remove(); // Remove the line item
+
+            // Renumber remaining line items
+            const lineItems = document.querySelectorAll('.line-item');
+            lineItems.forEach((item, idx) => {
+                const header = item.querySelector('.line-item-header h3');
+                if (header) {
+                    header.textContent = `Line Item (${idx + 1})`;
+                }
+            });
+
+            updateSummary(); // Recalculate totals
+        }
+        document.getElementById('confirmationModal').style.display = 'none'; // Hide the modal
+    });
+
+    document.getElementById('cancelDelete').addEventListener('click', function () {
+        document.getElementById('confirmationModal').style.display = 'none';
+    });
+
+    // Set today's date as the default value for the backorder date field
+    document.addEventListener('DOMContentLoaded', function () {
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        document.getElementById('backorder_date').value = formattedDate;
+    });
+
+
+
+
+    // Listen for changes on the UOM select dropdown using event delegation
+    document.getElementById('lineItemsContainer').addEventListener('change', function (event) {
+        // Check if the change is happening in a UOM select dropdown
+        if (event.target.name === 'uom[]' && event.target.value === 'add_new_uom') {
+            // Show the modal
+            $('#addUOMModal').modal('show');
+
+            // Reset the select value to empty after triggering the modal
+            event.target.value = ''; // Clear the selection
+        }
+    });
+
+    // Handle the form submission via AJAX
+    $('#add-uom-form').submit(function (event) {
+        event.preventDefault(); // Prevent the form from submitting normally
+
+        $.ajax({
+            type: 'POST',
+            url: $(this).attr('action'),  // Use the form's action attribute
+            data: $(this).serialize(),    // Send the form data
+            success: function (response) {
+                // Assuming the backend response is a single UOM object
+                if (response && response.id) {
+                    // Construct a new UOM option HTML string
+                    newUOMOptions.push(`<option value="${response.id}">${response.full_name} (${response.abbreviation})</option>`);
+
+                    // Add the new UOM to the main UOM dropdown
+                    $('#uom').append(newUOMOptions.join(''));
+
+                    // Update all line items' UOM dropdowns after the new UOM is successfully added
+                    $('#lineItemsContainer select[name="uom[]"]').each(function () {
+                        $(this).append(newUOMOptions.join(''));  // Append the new UOM to each line item's UOM dropdown
+                    });
+
+                    // Close the modal
+                    $('#addUOMModal').modal('hide');
+
+                    // Reset the modal form
+                    $('#add-uom-form')[0].reset();
+
+                    // Optionally, set the new UOM as selected in the main dropdown
+                    $('#uom').val(response.id);
+                } else {
+                    // If the response is not as expected
+                    console.error('Error: Missing or invalid UOM data.');
+                    alert('There was an error adding the UOM. Please try again.');
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error('Error adding UOM:', error);
+                alert('An unexpected error occurred. Please try again later.');
+            }
+        });
+    });
+
+
+
+
+    // Close modal event
+    document.getElementById('closeModal').addEventListener('click', function () {
+        vendorModal.style.display = 'none';
+    });
+
+
+    // Handle form submission for adding new vendors
+    document.getElementById('vendorDetailsForm').addEventListener('submit', function (e) {
+        e.preventDefault(); // Prevent default form submission
+        const vendorformData = new FormData(e.target);
+        const hiddenCustomerId = document.getElementById('customer_id');
+        const customerInput = document.getElementById('customer_name');
+
+        fetch('/general_ledger/add_vendor', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: vendorformData,
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                return response.json(); // Ensure server returns JSON
+            })
+            .then(data => {
+                if (data.success) {
+                    showNotification('Vendor added successfully!', 'success');
+
+                    // Add new option to the datalist dynamically
+                    let newOption = document.createElement('option');
+                    newOption.value = data.vendorName; // Ensure vendorName exists
+                    newOption.setAttribute('data-id', data.vendorId); // Assign data-id
+                    console.log('Vendor ID:', vendorformData.get('vendorId')); // Print the vendor ID
+                    document.getElementById('customer_list').appendChild(newOption);
+
+                    console.log('New option added:', newOption.value);
+
+                    // Pre-fill the input field with the new vendor name
+                    customerInput.value = newOption.value;
+                    hiddenCustomerId.value = data.vendorId; // Ensure hidden value also has the new ID
+                    console.log('Hidden Customer ID:', hiddenCustomerId.value);
+                    updateSummary(); // Update summary after adding new vendor
+                    // Hide modal & reset form
+                    vendorModal.style.display = 'none';
+                    e.target.reset();
+                } else {
+                    showNotification('Failed to add vendor: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while adding the vendor: ' + error.message);
+            });
+    });
+
+
+    /**
+     * Customer hanling logic
+     */
+    document.addEventListener('DOMContentLoaded', function () {
+        const customerInput = document.getElementById('customer_name');
+        const hiddenCustomerId = document.getElementById('customer_id');
+        const customerList = document.getElementById('customer_list').options;
+
+        // Update hidden customer_id based on user input
+        customerInput.addEventListener('input', function () {
+            const enteredValue = this.value.trim();
+            hiddenCustomerId.value = ''; // Clear hidden input initially
+            console.log(`Customer input: ${enteredValue}`); // Log entered value
+
+            // Check if the entered value matches a datalist option
+            for (let option of customerList) {
+                if (option.value.toLowerCase() === enteredValue.toLowerCase()) {
+                    hiddenCustomerId.value = option.getAttribute('data-id'); // Set customer_id if match found
+                    console.log(`Match found: ${option.value}, ID: ${hiddenCustomerId.value}`); // Log match
+                    break;
+                }
+            }
+        });
+
+        // Handle blur event to check if the customer is new
+        // Handle blur event to check if the customer is new
+        customerInput.addEventListener('blur', function () {
+            const enteredValue = this.value.trim();
+            console.log(`Customer input blur: ${enteredValue}`); // Log blur event
+
+            if (enteredValue === '') return; // Skip if empty
+
+            if (!hiddenCustomerId.value) {
+                // Handle new customer case
+                const modal = document.getElementById('newCustomerModal');
+                const enteredCustomerNameSpan = document.getElementById('enteredCustomerName');
+                const oneTimeCustomerBtn = document.getElementById('oneTimeCustomerBtn');
+                const addToDatabaseBtn = document.getElementById('addToDatabaseBtn');
+
+                // Set the entered customer name in the modal
+                enteredCustomerNameSpan.textContent = enteredValue;
+
+                // Show the modal
+                modal.style.display = 'block';
+
+                // Handle "One-Time Customer" button click
+                oneTimeCustomerBtn.addEventListener('click', function () {
+                    // Mark as one-time customer
+                    document.getElementById('is_one_time_hidden').value = '1';
+                    console.log('Marked as one-time customer'); // Log one-time customer
+
+                    // Close the modal
+                    modal.style.display = 'none';
+                });
+
+                // Handle "Add to Database" button click
+                addToDatabaseBtn.addEventListener('click', function () {
+                    // Open modal to add new customer
+                    document.getElementById('vendorName').value = enteredValue;
+                    document.getElementById('vendorModal').style.display = 'block';
+                    console.log('Opened modal to add new customer'); // Log modal opening
+
+                    // Close this modal
+                    modal.style.display = 'none';
+                });
+
+                // Close modal if user clicks outside of it
+                window.addEventListener('click', function (event) {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            }
+        });
+    });
+
+
+
+
+    // Handle the backorder form submission via AJAX
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log("DOM fully loaded and parsed.");
+
+
+        // Ensure validation for initially loaded items
+        document.querySelectorAll('.line-item').forEach(updateRequiredAttributes);
+
+        // Customer ID validation logic
+        let customerInput = document.getElementById('customer_id');
+        let customerDatalist = document.getElementById('customer_list');
+
+        customerInput.addEventListener('input', function () {
+            let selectedValue = this.value;
+            let optionExists = Array.from(customerDatalist.options).some(option => option.value === selectedValue);
+
+            console.log(`Customer input changed: ${selectedValue}`);
+            console.log(`Option exists in datalist: ${optionExists}`);
+
+            if (optionExists) {
+                console.log("Customer selected from the list, removing required attribute.");
+                customerInput.removeAttribute('required');
+            } else {
+                console.log("Customer manually entered or not selected from the list, making it required.");
+                customerInput.setAttribute('required', 'required');
+            }
+        });
+
+        // Handle the backorder form submission via AJAX
+        document.getElementById('backorderForm').addEventListener('submit', function (event) {
+            event.preventDefault(); // Prevent form submission
+            console.log('Submit button clicked!'); // Log when the submit button is clicked
+
+            let formIsValid = true; // Flag to track validation status
+            let invalidFields = []; // Array to track invalid field names
+
+            // Check for required fields and highlight any that are missing
+            const requiredFields = document.querySelectorAll('#backorderForm [required]');
+            requiredFields.forEach(function (field) {
+                if (!field.value.trim()) {
+                    formIsValid = false;
+                    field.style.border = '2px solid red';
+                    invalidFields.push(field.closest('.form-group').querySelector('label').textContent);
+                    console.log(`Missing required field: ${field.closest('.form-group').querySelector('label').textContent}`);
+                } else {
+                    field.style.border = '';
+                }
+            });
+
+            if (!formIsValid) {
+                console.log('Form contains invalid fields.');
+                let errorMessage = 'Please fill in all required fields: ' + invalidFields.join(', ');
+                alert(errorMessage);
+                return;
+            }
+
+            // Prepare form data manually (do not initialize from the form)
+            formData = new FormData();
+
+
+            // If customer_id is empty, ensure customer_name is included
+            const hiddenCustomerId = document.getElementById('customer_id');
+            const customerInput = document.getElementById('customer_name');
+            if (!hiddenCustomerId.value) {
+                formData.append('customer_name', customerInput.value.trim());
+                hiddenCustomerId.value = customerInput.value.trim(); // Ensure customer_id is set to customerInput value
+                console.log(`Appended customer_name: ${customerInput.value.trim()}`);
+            }
+
+
+            // Append static form fields
+            const staticFields = ['customer_id', 'backorder_date', 'priority_level'];
+            ;
+
+            staticFields.forEach(field => {
+                const element = document.getElementById(field);
+                if (element) {
+                    formData.append(field, element.value);
+                    console.log(`Appended ${field}: ${element.value}`);
+                }
+            });
+
+
+            // Process and log line items before sending
+            let lineItems = [];
+
+            document.querySelectorAll('.line-item').forEach((row, index) => {
+                try {
+                    console.log(`Processing Line Item ${index + 1}:`, row);
+
+
+                    const inventoryItem = row.querySelector('.inventory-dropdown').value || '';
+                    console.log(`Inventory Item: ${inventoryItem}`);
+
+
+                    const quantity = parseFloat(row.querySelector('input[name="quantity_ordered[]"]').value) || 0;
+                    console.log(`Quantity: ${quantity}`);
+
+                    const uom = row.querySelector('select[name="uom[]"]').value || '';
+                    console.log(`UOM: ${uom}`);
+
+                    // ✅ FIX THIS - Use input, not select (and use optional chaining)
+                    const expectedDateInput = row.querySelector('input[name="item_expected_fulfillment_date[]"]');
+
+
+                    const item_expected_fulfillment_date = expectedDateInput ? expectedDateInput.value : '';
+
+                    // Validate and sanitize line item data
+
+                    const validatedInventoryItem = inventoryItem !== 'None' ? inventoryItem : '';
+
+                    const validatedQuantity = quantity !== 'None' ? quantity : 0;
+                    const validatedUOM = uom !== 'None' ? uom : '';
+                    const validateExpectedFulfillmentDate = item_expected_fulfillment_date !== 'None' ? item_expected_fulfillment_date : '';
+
+                    // Append validated line item data to the FormData object
+
+                    formData.append(`quantity_ordered[]`, validatedQuantity);
+                    formData.append(`uom[]`, validatedUOM);
+                    formData.append(`inventory_item[]`, validatedInventoryItem);
+                    formData.append(`item_expected_fulfillment_date[]`, validateExpectedFulfillmentDate);
+
+                    console.log(`Line Item ${index + 1} Data:`, {
+
+                        validatedInventoryItem,
+
+                        validatedQuantity,
+                        validatedUOM
+                    });
+
+                } catch (error) {
+                    console.error(`Error processing Line Item ${index + 1}:`, error);
+                }
+            });
+
+
+
+            console.log("🚀 Final FormData before submission:");
+            for (let pair of formData.entries()) {
+                console.log(`${pair[0]}: ${pair[1]}`);
+            }
+
+
+            console.log("Sending form data to server...");
+
+            fetch("{{ url_for('inventory.add_backorder') }}", {
+                method: "POST",
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                },
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Server Response:", data);
+                    if (data.success) {
+                        showNotification("backorder submitted successfully!", 'success');
+                        window.location.href = "/inventory/backorders";
+                    } else {
+                        showNotification("Error submitting backorder: " + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("There was an issue submitting your backorder. Please try again later.");
+                });
+        });
+    });
+
+    // Searchable Dropdown for Inventory Items
+    // Initialize Select2 for all searchable dropdowns
+    document.addEventListener('DOMContentLoaded', function () {
+        $('.searchable-dropdown').select2({
+            placeholder: 'Search inventory...',
+            allowClear: true,
+            width: '100%' // Ensure it takes the full width of the container
+        });
+    });
+
+    // Update Summary Section on initial load
+    updateSummary();
+</script>
+{% endblock %}

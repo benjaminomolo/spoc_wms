@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="description" content="SPOC Warehouse Management System - Track your stock and equipment efficiently">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>SPOC WMS - Warehouse Management System</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        .spoc-logo {
+            max-width: 80px;
+            height: 80px;
+            width: 80px;
+            object-fit: cover;
+            border-radius: 50%;
+            margin-bottom: 16px;
+            border: 3px solid var(--primary-color);
+            padding: 3px;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        @media (max-width: 768px) {
+            .spoc-logo {
+                max-width: 60px;
+                height: 60px;
+                width: 60px;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #00b5b8;
+            --secondary-color: #003366;
+            --highlight-color: #008c8a;
+            --highlight-color-darker: #006666;
+            --white: #ffffff;
+            --gray-50: #f8f9fa;
+            --gray-100: #f1f3f5;
+            --gray-200: #e9ecef;
+            --gray-300: #dee2e6;
+            --gray-400: #ced4da;
+            --gray-500: #adb5bd;
+            --gray-600: #6c757d;
+            --gray-700: #495057;
+            --gray-800: #343a40;
+            --gray-900: #212529;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+        }
+
+        body {
+            font-family: 'Roboto', 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--secondary-color) 0%, var(--highlight-color) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 16px;
+        }
+
+        /* Main Container */
+        .wms-container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Card Layout */
+        .login-card {
+            background: var(--white);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        /* Left Side - Branding */
+        .brand-side {
+            flex: 1;
+            min-width: 260px;
+            background: linear-gradient(135deg, var(--secondary-color) 0%, var(--highlight-color) 100%);
+            padding: 40px 28px;
+            color: var(--white);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .logo-area {
+            margin-bottom: 32px;
+        }
+
+        .logo-icon {
+            font-size: 48px;
+            color: var(--primary-color);
+            margin-bottom: 16px;
+        }
+
+        .logo-area h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .logo-area p {
+            font-size: 14px;
+            opacity: 0.85;
+        }
+
+        .warehouse-features {
+            margin: 32px 0;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .feature-item i {
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .feature-item span {
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .brand-footer {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 32px;
+        }
+
+        /* Right Side - Login Form */
+        .form-side {
+            flex: 1;
+            min-width: 300px;
+            padding: 48px 40px;
+            background: var(--white);
+        }
+
+        .form-header {
+            margin-bottom: 32px;
+        }
+
+        .form-header h2 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--secondary-color);
+            margin-bottom: 8px;
+        }
+
+        .form-header p {
+            color: var(--gray-500);
+            font-size: 14px;
+        }
+
+        /* Form Styles */
+        .input-group {
+            margin-bottom: 24px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--gray-700);
+            margin-bottom: 8px;
+        }
+
+        .input-group .input-wrapper {
+            position: relative;
+        }
+
+        .input-group i:first-child {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+            font-size: 16px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px 14px 14px 44px;
+            border: 1.5px solid var(--gray-200);
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: 'Roboto', sans-serif;
+            transition: all 0.2s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 181, 184, 0.1);
+        }
+
+        /* Password Toggle */
+        .password-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: var(--gray-400);
+            z-index: 2;
+        }
+
+        .password-toggle:hover {
+            color: var(--gray-600);
+        }
+
+        /* Options Row */
+        .options-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            font-size: 13px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .remember-me input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .forgot-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .forgot-link:hover {
+            color: var(--highlight-color-darker);
+            text-decoration: underline;
+        }
+
+        /* Login Button */
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary-color);
+            color: var(--white);
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .login-btn:hover {
+            background: var(--highlight-color-darker);
+            transform: translateY(-1px);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Divider */
+        .divider {
+            text-align: center;
+            margin: 28px 0;
+            position: relative;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--gray-200);
+        }
+
+        .divider span {
+            background: var(--white);
+            padding: 0 16px;
+            position: relative;
+            color: var(--gray-400);
+            font-size: 13px;
+        }
+
+        /* Register Section */
+        .register-section {
+            text-align: center;
+        }
+
+        .register-btn {
+            width: 100%;
+            padding: 14px;
+            background: transparent;
+            color: var(--primary-color);
+            border: 1.5px solid var(--primary-color);
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .register-btn:hover {
+            background: rgba(0, 181, 184, 0.05);
+            border-color: var(--highlight-color-darker);
+            color: var(--highlight-color-darker);
+        }
+
+        .register-note {
+            font-size: 12px;
+            color: var(--gray-400);
+            margin-top: 16px;
+        }
+
+        /* Notification */
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .notification {
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .notification.success {
+            background: var(--success);
+            color: white;
+        }
+
+        .notification.error {
+            background: var(--danger);
+            color: white;
+        }
+
+        .notification.info {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Loader */
+        .loader {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            z-index: 2000;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        @keyframes spin {
+            to {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+
+        /* Overlay */
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1999;
+        }
+
+        /* Popup */
+        .popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+        }
+
+        .popup-content {
+            background: var(--white);
+            padding: 28px;
+            border-radius: 20px;
+            max-width: 380px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .popup-content i {
+            color: var(--primary-color);
+        }
+
+        .popup-content h3 {
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: var(--secondary-color);
+        }
+
+        .popup-content ul {
+            list-style: none;
+            text-align: left;
+            margin: 20px 0;
+        }
+
+        .popup-content li {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .popup-content input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .popup-content button {
+            background: var(--primary-color);
+            color: var(--white);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        .popup-content button:hover {
+            background: var(--highlight-color-darker);
+        }
+
+        /* ==================== MOBILE RESPONSIVE ==================== */
+
+        /* Tablet */
+        @media (max-width: 900px) {
+            .brand-side {
+                padding: 32px 24px;
+            }
+
+            .form-side {
+                padding: 40px 32px;
+            }
+
+            .feature-item span {
+                font-size: 12px;
+            }
+        }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            body {
+                padding: 12px;
+                align-items: flex-start;
+                padding-top: 40px;
+            }
+
+            .login-card {
+                flex-direction: column;
+                border-radius: 20px;
+            }
+
+            .brand-side {
+                text-align: center;
+                padding: 32px 24px;
+            }
+
+            .logo-icon {
+                font-size: 40px;
+            }
+
+            .logo-area h1 {
+                font-size: 24px;
+            }
+
+            .warehouse-features {
+                margin: 24px 0;
+            }
+
+            .feature-item {
+                justify-content: center;
+                margin-bottom: 16px;
+            }
+
+            .feature-item i {
+                width: 28px;
+                height: 28px;
+                font-size: 12px;
+            }
+
+            .feature-item span {
+                font-size: 12px;
+            }
+
+            .brand-footer {
+                font-size: 10px;
+            }
+
+            .form-side {
+                padding: 32px 24px;
+            }
+
+            .form-header h2 {
+                font-size: 24px;
+            }
+
+            .form-header p {
+                font-size: 13px;
+            }
+
+            .input-group input {
+                padding: 12px 12px 12px 42px;
+                font-size: 14px;
+            }
+
+            .login-btn,
+            .register-btn {
+                padding: 12px;
+                font-size: 15px;
+            }
+
+            .notification-container {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+            }
+
+            .notification {
+                font-size: 13px;
+                padding: 10px 16px;
+            }
+        }
+
+        /* Small Mobile */
+        @media (max-width: 480px) {
+            body {
+                padding: 8px;
+                padding-top: 20px;
+            }
+
+            .brand-side {
+                padding: 24px 20px;
+            }
+
+            .logo-icon {
+                font-size: 36px;
+            }
+
+            .logo-area h1 {
+                font-size: 20px;
+            }
+
+            .logo-area p {
+                font-size: 11px;
+            }
+
+            .feature-item {
+                gap: 10px;
+            }
+
+            .feature-item i {
+                width: 24px;
+                height: 24px;
+                font-size: 11px;
+            }
+
+            .feature-item span {
+                font-size: 11px;
+            }
+
+            .form-side {
+                padding: 24px 20px;
+            }
+
+            .form-header h2 {
+                font-size: 22px;
+            }
+
+            .options-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .login-btn,
+            .register-btn {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            .popup-content {
+                padding: 24px 20px;
+            }
+
+            .popup-content h3 {
+                font-size: 18px;
+            }
+        }
+
+        /* Touch-friendly adjustments */
+        @media (hover: none) and (pointer: coarse) {
+
+            .login-btn,
+            .register-btn,
+            .password-toggle,
+            .forgot-link {
+                cursor: default;
+            }
+
+            input,
+            button,
+            a {
+                font-size: 16px !important;
+                /* Prevents zoom on iOS */
+            }
+
+            .input-group input {
+                font-size: 16px;
+            }
+        }
+
+        /* Landscape mode on mobile */
+        @media (max-width: 768px) and (orientation: landscape) {
+            body {
+                padding: 12px;
+                align-items: center;
+            }
+
+            .brand-side {
+                padding: 20px;
+            }
+
+            .warehouse-features {
+                display: none;
+            }
+
+            .form-side {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="loader" id="loader"></div>
+    <div class="overlay" id="overlay"></div>
+    <div class="notification-container" id="notificationContainer"></div>
+
+    <div class="wms-container">
+        <div class="login-card">
+
+            <!-- Left Side - Branding -->
+            <div class="brand-side">
+                <div class="logo-area">
+                    <img src="{{ url_for('static', filename='spoc-logo.png') }}" alt="SPOC Logo" class="spoc-logo">
+                    <h1>SPOC WMS</h1>
+                    <p>Warehouse Management System</p>
+                </div>
+
+                <div class="warehouse-features">
+                    <div class="feature-item">
+                        <i class="fas fa-boxes"></i>
+                        <span>Track stock by quantity and location</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-microchip"></i>
+                        <span>Track individual items by serial number</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>Know exactly where everything is</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Real-time stock visibility</span>
+                    </div>
+                </div>
+
+                <div class="brand-footer">
+                    <i class="fas fa-shield-alt"></i> Secure & Reliable
+                </div>
+            </div>
+
+            <!-- Right Side - Login Form -->
+            <div class="form-side">
+                <div class="form-header">
+                    <h2>Welcome back</h2>
+                    <p>Login to manage your warehouse</p>
+                </div>
+
+                <form id="loginForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="input-group">
+                        <label>Email or Username</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-envelope"></i>
+                            <input type="text" id="email" name="email" placeholder="Enter your email" required
+                                autocomplete="email">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Password</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="password" name="password" placeholder="Enter your password"
+                                required autocomplete="current-password">
+                            <i class="fas fa-eye-slash password-toggle" id="togglePassword"></i>
+                        </div>
+                    </div>
+
+                    <div class="options-row">
+                        <label class="remember-me">
+                            <input type="checkbox" id="rememberMe"> Remember me
+                        </label>
+                        <a href="{{ url_for('forgot_password') }}" class="forgot-link">Forgot password?</a>
+                    </div>
+
+                    <button type="submit" class="login-btn">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </form>
+
+                <div class="divider">
+                    <span>New to SPOC WMS?</span>
+                </div>
+
+                <div class="register-section">
+                    <a href="{{ url_for('register') }}" class="register-btn">
+                        <i class="fas fa-user-plus"></i> Create an account
+                    </a>
+                    <div class="register-note">
+                        First time? Register to set up your warehouse
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Selection Popup -->
+    <div class="popup-overlay" id="appSelectionPopup">
+        <div class="popup-content">
+            <i class="fas fa-building" style="font-size: 48px;"></i>
+            <h3>Select Company</h3>
+            <p style="color: var(--gray-500); font-size: 14px; margin-bottom: 20px;">Choose which company to access</p>
+            <form action="{{ url_for('select_app') }}" method="POST" id="appSelectionForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <ul id="appSelectionList">
+                    <!-- App selection options populated by JavaScript -->
+                </ul>
+                <button type="submit">Continue <i class="fas fa-arrow-right"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfTokenValue = csrfTokenMeta ? csrfTokenMeta.getAttribute('content') : '';
+        const loginForm = document.getElementById('loginForm');
+        const loader = document.getElementById('loader');
+        const overlay = document.getElementById('overlay');
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+
+        // Toggle Password Visibility
+        if (togglePassword && passwordInput) {
+            togglePassword.addEventListener('click', function () {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                this.classList.toggle('fa-eye');
+                this.classList.toggle('fa-eye-slash');
+            });
+        }
+
+        // Show Notification
+        function showNotification(message, type = 'success') {
+            const container = document.getElementById('notificationContainer');
+            if (!container) return;
+
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+
+            let icon = 'fa-check-circle';
+            if (type === 'error') icon = 'fa-exclamation-circle';
+            if (type === 'info') icon = 'fa-info-circle';
+
+            notification.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
+            container.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 5000);
+        }
+
+        // Show/Hide Loader
+        function showLoader(show) {
+            if (loader) loader.style.display = show ? 'block' : 'none';
+            if (overlay) overlay.style.display = show ? 'block' : 'none';
+        }
+
+        // Refresh CSRF Token
+        async function refreshCSRFToken() {
+            try {
+                const response = await fetch('/refresh-csrf', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                if (!response.ok) throw new Error('Failed to refresh token');
+
+                const data = await response.json();
+                const metaTag = document.querySelector('meta[name="csrf-token"]');
+                const formInput = document.querySelector('#loginForm input[name="csrf_token"]');
+
+                if (metaTag) metaTag.setAttribute('content', data.csrf_token);
+                if (formInput) formInput.value = data.csrf_token;
+
+                return data.csrf_token;
+            } catch (err) {
+                console.error('CSRF refresh failed:', err);
+                return null;
+            }
+        }
+
+        // Handle Login
+        async function handleLogin(email, password, csrfToken) {
+            const response = await fetch('/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken
+                },
+                body: `email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}&csrf_token=${encodeURIComponent(csrfToken)}`,
+                credentials: 'include'
+            });
+
+            return await response.json();
+        }
+
+        // Handle Login Response
+        function handleLoginResponse(data) {
+            if (data.success) {
+                if (data.users && data.users.length > 1) {
+                    // Multiple companies - show selection popup
+                    const appSelectionList = document.getElementById('appSelectionList');
+                    if (appSelectionList) {
+                        appSelectionList.innerHTML = '';
+                        data.users.forEach(user => {
+                            const listItem = document.createElement('li');
+                            listItem.innerHTML = `
+                                <input type="radio" id="user_${user.id}" name="selected_user_id" value="${user.id}" required>
+                                <label for="user_${user.id}">${user.app_name} (${user.role})</label>
+                            `;
+                            appSelectionList.appendChild(listItem);
+                        });
+                        document.getElementById('appSelectionPopup').style.display = 'flex';
+                    }
+                } else {
+                    showNotification('Login successful! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url || '/dashboard';
+                    }, 1500);
+                }
+            } else {
+                showNotification(data.message || 'Login failed. Please check your credentials.', 'error');
+            }
+        }
+
+        // Form Submit Handler
+        if (loginForm) {
+            loginForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
+                const email = document.getElementById('email')?.value.trim();
+                const password = document.getElementById('password')?.value;
+
+                if (!email || !password) {
+                    showNotification('Please enter both email and password', 'error');
+                    return;
+                }
+
+                showLoader(true);
+
+                try {
+                    const freshToken = await refreshCSRFToken();
+                    if (!freshToken) {
+                        throw new Error('Could not refresh security token');
+                    }
+
+                    const formToken = document.querySelector('#loginForm input[name="csrf_token"]')?.value;
+                    if (!formToken) {
+                        throw new Error('Security token missing');
+                    }
+
+                    const data = await handleLogin(email, password, formToken);
+                    handleLoginResponse(data);
+
+                } catch (err) {
+                    console.error('Login error:', err);
+                    showNotification(err.message || 'An error occurred. Please try again.', 'error');
+                } finally {
+                    showLoader(false);
+                }
+            });
+        }
+
+        // Enter key submit
+        document.querySelectorAll('#loginForm input').forEach(input => {
+            input.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (loginForm) {
+                        loginForm.dispatchEvent(new Event('submit'));
+                    }
+                }
+            });
+        });
+
+        // Prevent right-click on images
+        document.querySelectorAll('img').forEach(img => {
+            img.addEventListener('contextmenu', (e) => e.preventDefault());
+        });
+
+        console.log('SPOC WMS Login Page Loaded');
+    </script>
+</body>
+
+</html>

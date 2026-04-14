@@ -1,0 +1,41 @@
+h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.standalone-form label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.standalone-form input,
+.standalone-form select {
+  width: 100%;
+  padding: 5px;
+  border: 2px solid #ccc;
+  border-radius: 3px;
+}
+
+.form-table {
+  margin-top: 5%;
+  font-size: 13px;
+  overflow-x: auto; /* Enable horizontal scrolling on small screens */
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12%;
+}
+
+th,
+td {
+  padding: 8px;
+  border: 1px solid #ccc;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: normal;
+  font-size: 16px;
+}

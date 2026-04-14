@@ -1,0 +1,585 @@
+{% extends "transaction_base_template.html" %}
+{% block content %}
+<div class="content-container">
+    <!-- Employee Profile Header -->
+    <div class="profile-header">
+        <h1 class="profile-title">
+            Employee Profile
+
+            <div class="view-toggle-buttons">
+
+                <!-- Edit Profile -->
+                <div class="custom-tooltip-container">
+                    <button type="button" class="button cta-button link-buttons"
+                        onclick="window.location.href='/payroll/edit_employee/{{ employee.id }}'">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <span class="custom-tooltip left">Edit Profile</span>
+                </div>
+
+                <!-- View Employees -->
+                <div class="custom-tooltip-container" style="margin-left: 10px;">
+                    <button type="button" class="button cta-button link-buttons"
+                        onclick="window.location.href='/payroll/add_employee'">
+                        <i class="fas fa-list"></i>
+                    </button>
+                    <span class="custom-tooltip left">View Employees</span>
+                </div>
+
+            </div>
+
+
+
+
+
+
+        </h1>
+        <p class="profile-subtitle">Detailed information about {{ employee.first_name }} {{ employee.last_name }}</p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+        <button class="tab-button active" data-tab="personal">Personal Details</button>
+        <button class="tab-button" data-tab="employment">Employment Details</button>
+        <button class="tab-button" data-tab="payroll">Payroll & Financial</button>
+        <button class="tab-button" data-tab="performance">Performance & Skills</button>
+        <button class="tab-button" data-tab="transactions">Payroll Transactions</button>
+        <button class="tab-button" data-tab="deductions">Deductions</button>
+        <button class="tab-button" data-tab="benefits">Benefits</button>
+        <button class="tab-button" data-tab="notes">Additional Notes</button>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+        <!-- Personal Details Tab -->
+        <!-- Personal Details Tab -->
+        <div id="personal" class="tab-pane active">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-user-circle"></i> Personal Details</h2>
+                </div>
+                <ul class="details-list">
+                    <li><strong>Employee ID:</strong> {{ employee.employee_id or 'N/A' }}</li>
+                    <li><strong>Name:</strong> {{ employee.first_name }} {{ employee.middle_name or '' }} {{
+                        employee.last_name }}</li>
+                    <li><strong>Date of Birth:</strong> {{ employee.date_of_birth or 'N/A' }}</li>
+                    <li><strong>Gender:</strong> {{ employee.gender or 'N/A' }}</li>
+                    <li><strong>Email:</strong> {{ employee.email or 'N/A' }}</li>
+                    <li><strong>Address:</strong> {{ employee.address or 'N/A' }}</li>
+                    <li><strong>Emergency Contact Person:</strong> {{ employee.emergency_contact_name or 'N/A' }}</li>
+                    <li><strong>Emergency Contact:</strong> {{ employee.emergency_contact_phone or 'N/A' }}</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Employment Details Tab -->
+        <div id="employment" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-briefcase"></i> Employment Details</h2>
+                </div>
+                <ul class="details-list">
+                    <li><strong>Department:</strong> {{ employee.department.department_name or 'N/A' }}</li>
+                    <li><strong>Job Title:</strong> {{ employee.job_title or 'N/A' }}</li>
+                    <li><strong>Employment Status:</strong> {{ employee.employment_status or 'N/A' }}</li>
+                    <li><strong>Hire Date:</strong> {{ employee.hire_date or 'N/A' }}</li>
+                    <li><strong>Termination Date:</strong> {{ employee.termination_date or 'N/A' }}</li>
+                    <li><strong>Last Promotion Date:</strong> {{ employee.last_promotion_date or 'N/A' }}</li>
+                    <li><strong>Work Location:</strong> {{ employee.work_location or 'N/A' }}</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Payroll & Financial Tab -->
+        <div id="payroll" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-money-bill-wave"></i> Payroll Details</h2>
+
+                </div>
+                <ul class="details-list">
+                    <li><strong>Salary Type:</strong>{{
+                        employee.salary_type or 'N/A' }}</li>
+                    <li>
+                        <strong>Base Salary:</strong>
+                        {% if employee.base_salary %}
+                        {{ "{:,.2f}".format(employee.base_salary) }} {{ employee.currency.user_currency or 'N/A' }}
+                        {% else %}
+                        N/A
+                        {% endif %}
+                    </li>
+
+                    <li><strong>Paymentk Account Number:</strong> {{
+                        employee.payment_account_number or 'N/A' }}</li>
+                    <li><strong>Payment Account Name:</strong> {{
+                        employee.payment_account_name or 'N/A' }}</li>
+                    <li><strong>Payment Platform / Entity:</strong> {{
+                        employee.payment_platform or 'N/A' }}</li>
+
+
+
+                    <li><strong>Tax ID:</strong>{{ employee.tax_id or 'N/A'
+                        }}</li>
+
+                    <!-- Current Benefits Section -->
+                    <li><strong>Current Benefits:</strong>
+                        <ul>
+                            {% if employee.employee_benefits %}
+                            {% for employee_benefit in employee.employee_benefits %}
+                            <li>
+                                {{ employee_benefit.benefit_types.name or "N/A" }} :
+                                {{ employee_benefit.benefit_types.description or "No description available" }}
+
+                                {% if employee_benefit.benefit_types.fixed_amount %}
+                                - Fixed Amount:
+                                {{ "{:,.2f}".format(employee_benefit.benefit_types.fixed_amount) }}
+                                {{ employee_benefit.benefit_types.currency.user_currency }}
+                                {% elif employee_benefit.benefit_types.percentage %}
+                                {# Nothing to display here if no rate? #}
+                                {% elif employee_benefit.benefit_types.rate %}
+                                - Rate: {{ employee_benefit.benefit_types.rate }}%
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                            {% else %}
+                            <li>No current benefits available.</li>
+                            {% endif %}
+                        </ul>
+                    </li>
+
+
+
+                    <!-- Current Deductions Section -->
+                    <li><strong>Current Deductions:</strong>
+                        <ul>
+                            {% if employee.employee_deductions %}
+                            {% for employee_deduction_type in employee.employee_deductions %}
+                            <li>
+                                {{ employee_deduction_type.deduction_type.name }} :
+                                {{ employee_deduction_type.deduction_type.description or "No description available" }}
+
+                                {% if employee_deduction_type.deduction_type.fixed_amount %}
+                                - Fixed Amount:
+                                {{ "{:,.2f}".format(employee_deduction_type.deduction_type.fixed_amount) }}
+                                {{ employee_deduction_type.deduction_type.currency.user_currency }}
+                                {% elif employee_deduction_type.deduction_type.percentage %}
+                                {# If you want to display percentage, can add here #}
+                                {% elif employee_deduction_type.deduction_type.rate %}
+                                - Rate: {{ employee_deduction_type.deduction_type.rate }}%
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                            {% else %}
+                            <li>No current deductions available.</li>
+                            {% endif %}
+                        </ul>
+                    </li>
+
+
+                </ul>
+            </div>
+        </div>
+
+
+        <!-- Performance & Skills Tab -->
+        <div id="performance" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-chart-line"></i> Performance & Skills</h2>
+
+                </div>
+                <ul class="details-list">
+                    <li><strong>Performance Rating:</strong> {{
+                        employee.performance_rating or 'N/A' }}</li>
+                    <li><strong>Skills:</strong> {{ employee.skills or 'N/A'
+                        }}</li>
+                    <li><strong>Certifications:</strong>{{
+                        employee.certifications or 'N/A' }}</li>
+                    <li><strong>Notes:</strong>{{ employee.notes or 'N/A'
+                        }}</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Payroll Transactions Tab -->
+        <div id="transactions" class="tab-pane">
+            <div class="card">
+                <h2><i class="fas fa-file-invoice-dollar"></i> Payroll Transactions</h2>
+                <div class="table-container">
+                    <!-- Payroll Transactions Table -->
+                    <table id="payroll-transactions-table">
+                        <thead>
+                            <tr>
+                                <th>Payroll Period</th>
+                                <th>Gross Salary</th>
+                                <th>Net Salary</th>
+                                <th>Payment Status</th>
+                                <th>Paid Amount</th>
+                                <th>Balance</th>
+                                <th>Currency</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in employee.payroll_transactions %}
+                            {% if transaction.payment_status.name != "CANCELLED" %}
+                            <tr>
+                                <td>{{ transaction.payroll_period.start_date }} - {{ transaction.payroll_period.end_date
+                                    }}</td>
+                                <td>{{ "{:,.2f}".format(transaction.gross_salary) if transaction.gross_salary else
+                                    "0.00" }}</td>
+                                <td>{{ "{:,.2f}".format(transaction.net_salary) if transaction.net_salary else "0.00" }}
+                                </td>
+                                <td>
+                                    <span class="status
+                    {% if transaction.payment_status.name == 'PENDING' %} pending
+                    {% elif transaction.payment_status.name == 'PARTLY_PAID' %} in-progress
+                    {% elif transaction.payment_status.name == 'PAID' %} success
+                    {% elif transaction.payment_status.name == 'CANCELLED' %} cancelled
+                    {% endif %}">
+                                        {{ transaction.payment_status.value }}
+                                    </span>
+                                </td>
+                                <td>{{ "{:,.2f}".format(transaction.paid_amount) if transaction.paid_amount else "0.00"
+                                    }}</td>
+                                <td>{{ "{:,.2f}".format(transaction.balance_due) if transaction.balance_due else "0.00"
+                                    }}</td>
+                                <td>{{ employee.currency.user_currency }}</td>
+                            </tr>
+                            {% endif %}
+                            {% else %}
+                            <tr>
+                                <td colspan="7">No payroll transactions found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th><input type="text" placeholder="Search Payroll Period"
+                                        class="form-control search-input" /></th>
+                                <th>Total: <span id="total-gross-salary">0</span></th>
+                                <th>Total: <span id="total-net-salary">0</span></th>
+                                <th><input type="text" placeholder="Search Payment Date"
+                                        class="form-control search-input" /></th>
+                                <th>Total: <span id="total-amount-paid">0</span></th>
+                                <th>Total: <span id="total-balance-due">0</span></th>
+                                <th></th> <!-- No search input for Currency -->
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deductions Tab -->
+        <div id="deductions" class="tab-pane">
+            <div class="card">
+                <h2><i class="fas fa-minus-circle"></i> Deductions</h2>
+                <div class="table-container">
+                    <!-- Deductions Table -->
+                    <table id="deductions-table">
+                        <thead>
+                            <tr>
+                                <th>Payroll Period Name</th>
+                                <th>Payroll Period</th>
+                                <th>Deduction Type</th>
+                                <th>Amount</th>
+                                <th>Payment Status</th>
+                                <th>Amount Paid</th>
+                                <th>Balance Due</th> <!-- Fixed typo -->
+                                <th>Currency</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for deduction in deductions %}
+                            <tr>
+                                <td>{{ deduction.payroll_periods.payroll_period_name }}</td>
+                                <td>{{ deduction.payroll_periods.start_date }} - {{ deduction.payroll_periods.end_date
+                                    }}</td>
+                                <td>{{ deduction.deduction_type.name }}</td>
+                                <td>{{ "{:,.2f}".format(deduction.amount) if deduction.amount else "0.00" }}</td>
+                                <!-- Format with thousands separators -->
+                                <td>
+                                    <span class="status
+                                        {% if deduction.payment_status.name == 'PENDING' %} pending
+                                        {% elif deduction.payment_status.name == 'PARTLY_PAID' %} in-progress
+                                        {% elif deduction.payment_status.name == 'PAID' %} success
+                                        {% endif %}">
+                                        {{ deduction.payment_status.value }}
+                                    </span>
+                                </td>
+                                <td>{{ "{:,.2f}".format(deduction.paid_amount) if deduction.paid_amount else "0.00" }}
+                                </td>
+                                <!-- Format with thousands separators -->
+                                <td>{{ "{:,.2f}".format(deduction.balance_due) if deduction.balance_due else "0.00" }}
+                                </td>
+                                <!-- Format with thousands separators -->
+                                <td>{{ employee.currency.user_currency }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8">No deductions found.</td> <!-- Updated colspan to 8 -->
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th><input type="text" placeholder="Search Payroll Period Name"
+                                        class="form-control search-input" /></th>
+                                <th><input type="text" placeholder="Search Payroll Period"
+                                        class="form-control search-input" /></th>
+                                <th><input type="text" placeholder="Search Deduction Type"
+                                        class="form-control search-input" /></th>
+                                <th>Total: <span id="total-deductions">0</span></th>
+                                <th><input type="text" placeholder="Search Payment Status"
+                                        class="form-control search-input" /></th>
+                                <th>Total: <span id="total-deductions-paid">0</span></th>
+                                <th>Total: <span id="total-deductions-balance">0</span></th>
+                                <th></th> <!-- No search input for Currency -->
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- Benefits Tab -->
+        <div id="benefits" class="tab-pane">
+            <div class="card">
+                <h2><i class="fas fa-gift"></i> Employee Benefits</h2>
+                <div class="table-container">
+                    <!-- Benefits Table -->
+                    <table id="benefits-table">
+                        <thead>
+                            <tr>
+                                <th>Payroll Period Name</th>
+                                <th>Payroll Period</th>
+                                <th>Benefit Type</th>
+                                <th>Amount</th>
+
+                                <th>Currency</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for benefit in benefits %}
+                            <tr>
+                                <td>{{ benefit.payroll_periods.payroll_period_name }}</td>
+                                <td>{{ benefit.payroll_periods.start_date }} - {{ benefit.payroll_periods.end_date }}
+                                </td>
+                                <td>{{ benefit.benefit_type.name }}</td>
+                                <td>{{ "{:,.2f}".format(benefit.amount) if benefit.amount else "0.00" }}</td>
+                                <td>{{ employee.currency.user_currency }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5">No benefits found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th><input type="text" placeholder="Search Payroll Period Name"
+                                        class="form-control search-input" /></th>
+                                <th><input type="text" placeholder="Search Payroll Period"
+                                        class="form-control search-input" /></th>
+                                <th><input type="text" placeholder="Search Benefit Type"
+                                        class="form-control search-input" /></th>
+                                <th>Total: <span id="total-benefits">0</span></th>
+                                <th></th> <!-- No search input for Currency -->
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Notes Tab -->
+        <!-- Additional Notes Tab -->
+        <div id="notes" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-sticky-note"></i> Additional Notes</h2>
+
+                </div>
+                <ul class="details-list">
+                    <li><strong>Notes:{{ employee.notes if
+                            employee.notes else 'No additional notes available.' }}</li>
+                </ul>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+
+<!-- Custom CSS -->
+
+
+<!-- JavaScript for Tabs, Edit, and Update Functionality -->
+<script>
+
+    $(document).ready(function () {
+        // Initialize DataTables for Payroll Transactions
+        var payrollTable = $('#payroll-transactions-table').DataTable({
+            "paging": true,
+            "lengthMenu": [10, 25, 50, 100],
+            "autoWidth": true,
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                // Calculate total Gross Salary
+                var totalGross = api
+                    .column(1, { page: 'current' }) // Column index 1 is Gross Salary
+                    .data()
+                    .reduce(function (a, b) {
+                        return a + parseFloat(b.replace(/,/g, '')) || 0; // Remove commas before parsing
+                    }, 0);
+
+                // Calculate total Net Salary
+                var totalNet = api
+                    .column(2, { page: 'current' }) // Column index 2 is Net Salary
+                    .data()
+                    .reduce(function (a, b) {
+                        return a + parseFloat(b.replace(/,/g, '')) || 0; // Remove commas before parsing
+                    }, 0);
+
+                // Calculate total Amount paid
+                var totalAmountPaid = api
+                    .column(4, { page: 'current' }) // Column index 1 is Gross Salary
+                    .data()
+                    .reduce(function (a, b) {
+                        return a + parseFloat(b.replace(/,/g, '')) || 0; // Remove commas before parsing
+                    }, 0);
+
+                // Calculate total Balance Due
+                var totalBalanceDue = api
+                    .column(5, { page: 'current' }) // Column index 1 is Gross Salary
+                    .data()
+                    .reduce(function (a, b) {
+                        return a + parseFloat(b.replace(/,/g, '')) || 0; // Remove commas before parsing
+                    }, 0);
+
+                // Update footer with totals
+                $('#total-gross-salary').html(totalGross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                $('#total-net-salary').html(totalNet.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                $('#total-amount-paid').html(totalAmountPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                $('#total-balance-due').html(totalBalanceDue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            }
+        });
+
+        // Add search functionality for Payroll Transactions
+        $('#payroll-transactions-table tfoot th').each(function (index) {
+            if (index !== 1 && index !== 2 && index !== 4 && index !== 5) { // Exclude Gross Salary, Net Salary, and Currency columns
+                var title = $(this).text();
+                $(this).html('<input type="text" placeholder="Search ' + title + '" class="form-control search-input" />');
+                $('input', this).on('keyup change', function () {
+                    payrollTable.column(index).search(this.value).draw();
+                });
+            }
+        });
+
+        // Initialize DataTables for Deductions
+        var deductionsTable = $('#deductions-table').DataTable({
+            "paging": true,
+            "lengthMenu": [10, 25, 50, 100],
+            "autoWidth": true,
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                // Calculate total Deductions
+                var totalDeductions = api
+                    .column(3, { page: 'current' }) // Column index 3 is Amount
+                    .data()
+                    .reduce(function (a, b) {
+                        return a + parseFloat(b.replace(/,/g, '')) || 0; // Remove commas before parsing
+                    }, 0);
+
+                // Calculate total Deductions
+                var totalDeductionsPaid = api
+                    .column(5, { page: 'current' }) // Column index 3 is Amount
+                    .data()
+                    .reduce(function (a, b) {
+                        return a + parseFloat(b.replace(/,/g, '')) || 0; // Remove commas before parsing
+                    }, 0);
+                // Calculate total Deductions
+                var totalDeductionsBalance = api
+                    .column(6, { page: 'current' }) // Column index 3 is Amount
+                    .data()
+                    .reduce(function (a, b) {
+                        return a + parseFloat(b.replace(/,/g, '')) || 0; // Remove commas before parsing
+                    }, 0);
+
+                // Update footer with totals (unformatted)
+                $('#total-deductions').html(totalDeductions.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                $('#total-deductions-paid').html(totalDeductionsPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                $('#total-deductions-balance').html(totalDeductionsBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            }
+        });
+
+        // Add search functionality for Deductions
+        $('#deductions-table tfoot th').each(function (index) {
+            if (index !== 3 && index !== 5 && index !== 6) { // Exclude Amount and Currency columns
+                var title = $(this).text();
+                $(this).html('<input type="text" placeholder="Search ' + title + '" class="form-control search-input" />');
+                $('input', this).on('keyup change', function () {
+                    deductionsTable.column(index).search(this.value).draw();
+                });
+            }
+        });
+
+        // Initialize DataTables for Benefits
+        var benefitsTable = $('#benefits-table').DataTable({
+            "paging": true,
+            "lengthMenu": [10, 25, 50, 100],
+            "autoWidth": true,
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                // Calculate total Benefits
+                var totalBenefits = api
+                    .column(3, { page: 'current' }) // Column index 3 is Amount
+                    .data()
+                    .reduce(function (a, b) {
+                        return a + parseFloat(b.replace(/,/g, '')) || 0; // Remove commas before parsing
+                    }, 0);
+
+                // Update footer with total
+                $('#total-benefits').html(totalBenefits.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            }
+        });
+
+        // Add search functionality for Benefits
+        $('#benefits-table tfoot th').each(function (index) {
+            if (index !== 3) { // Exclude Amount and Currency columns
+                var title = $(this).text();
+                $(this).html('<input type="text" placeholder="Search ' + title + '" class="form-control search-input" />');
+                $('input', this).on('keyup change', function () {
+                    benefitsTable.column(index).search(this.value).draw();
+                });
+            }
+        });
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabPanes = document.querySelectorAll('.tab-pane');
+
+
+
+        // Tab Switching Logic
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const targetTab = button.getAttribute('data-tab');
+
+                // Remove active class from all buttons and panes
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabPanes.forEach(pane => pane.classList.remove('active'));
+
+                // Add active class to the clicked button and corresponding pane
+                button.classList.add('active');
+                document.getElementById(targetTab).classList.add('active');
+            });
+        });
+
+    });
+</script>
+
+{% endblock %}

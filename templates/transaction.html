@@ -1,0 +1,387 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <h1>Transaction Details</h1>
+
+    <form method="post" action="{{ url_for('update_transaction', transaction_id=transaction.id) }}">
+
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <!-- Standalone forms -->
+        <div class="form-grid">
+
+            <div class="form-group">
+                <input type="date" id="date" name="date" value="{{transaction.date}}" required>
+                <label for="date">Date <span style="color: red;">*</span></label>
+            </div>
+
+            <div class="form-group">
+                <select id="project_name" name="project_name" onchange="handleProjectChange(this.value)">
+                    <option selected value="{{ transaction.project.id if transaction.project else '' }}">
+                        {{ transaction.project.name if transaction.project else ' ' }}
+                    </option>
+                    {% for project in project_names %}
+                    <option value="{{ project.id }}">{{ project.name }} - {{ project.project_id }}</option>
+                    {% endfor %}
+                    <option value="add_new_project" class="add-new-link">+ Add New Project</option>
+                </select>
+                <label for="project_name">
+                    {{ 'Site' if app_id == 1 else 'Project' }} Name
+                    <span class="input-helper" data-toggle="tooltip"
+                        data-tooltip="Project/Company/Business affiliated to the transaction otherwise leave it blank.">
+                        <i class="fas fa-question-circle"></i>
+                    </span>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <select id="payment_to_vendor" name="payment_to_vendor" class="form-control form-control-sm"
+                    onchange="handleVendorChange(this.value)">
+                    <option value="{{ transaction.vendor.id if transaction.vendor else '' }}" selected>
+                        {{ transaction.vendor.vendor_name if transaction.vendor else '' }}
+                    </option>
+                    {% for vendor in vendors %}
+                    <option value="{{ vendor.id }}">{{ vendor.vendor_name }}</option>
+                    {% endfor %}
+
+                    {% for vendor in vendors %}
+                    <option value="{{ vendor.id }}"
+                        title="{{ vendor.designation }} | {{ vendor.address }} | {{ vendor.email }} | {{ vendor.city }} | {{ vendor.country }}">
+                        {{ vendor.vendor_name }} - {{ vendor.vendor_id }}
+                        {% if vendor.designation or vendor.address or vendor.email or vendor.city or vendor.country %}
+                        <small>({{ vendor.designation }}{% if vendor.city %}, {{ vendor.city }}{% endif %})</small>
+                        {% endif %}
+                    </option>
+                    {% endfor %}
+                    <option value="add_new_vendor" class="add-new-link">+ Add New Payee/Payer</option>
+                </select>
+                <label for="payment_to_vendor">
+                    Payment To / Payment From
+                    <span class="input-helper" data-toggle="tooltip"
+                        data-tooltip="Organisation / Company/ Person to whom payment is being made to otherwise leave it blank">
+                        <i class="fas fa-question-circle"></i>
+                    </span>
+                </label>
+            </div>
+
+
+            <div class="form-group">
+                <select id="payment_mode" name="payment_mode" class="form-control form-control-sm"
+                    onchange="handlePaymentModeChange(this.value)">
+                    <option selected value="{{ transaction.payment_mode.id if transaction.payment_mode else '' }}">
+                        {{ transaction.payment_mode.payment_mode if transaction.payment_mode else '' }}
+                    </option>
+                    <option value="add_payment_mode" class="add-new-link">+ Add Payment Mode</option>
+                </select>
+                <label for="payment_mode">
+                    Payment Mode
+                    <span class="input-helper" data-toggle="tooltip"
+                        data-tooltip="Select the mode of payment for the transaction.">
+                        <i class="fas fa-question-circle"></i>
+                    </span>
+                </label>
+            </div>
+        </div>
+
+
+
+        <!-- Form table -->
+        <div class="form-table">
+            <table class="table table-bordered table-sm">
+                <thead>
+                    <tr>
+                        <th class="text-nowrap">Account Type <span class="required">*</span></th>
+                        <th class="text-nowrap">Category <span class="required">*</span></th>
+                        <th class="text-nowrap">Subcategory <span class="required">*</span></th>
+                        <th class="text-nowrap">Amount <span class="required">*</span></th>
+                        <th class="text-nowrap">D/C <span class="required">*</span></th>
+                        <th class="text-nowrap">Description <span class="required">*</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td data-label="Account Type">
+                            <select name="account_type" class="form-control form-control-sm">
+                                <option selected value="{{transaction.transaction_type}}">
+                                    {{transaction.transaction_type}}
+                                </option>
+                                <option value="Expense">Expense</option>
+                                <option value="Income">Income</option>
+                                <option value="Liability">Liability</option>
+                                <option value="Asset">Asset</option>
+                                <option value="Equity">Equity</option>
+                            </select>
+                        </td>
+                        <td data-label="Category">
+                            <select name="category" id="category" onchange="updateSubcategories(this)"
+                                class="form-control form-control-sm" required>
+                                <option selected
+                                    value="{{ transaction.category.id if transaction.category else 'N/A' }}">
+                                    {{ transaction.category.category if transaction.category else 'N/A' }}
+                                </option>
+                                {% for category in transaction_categories %}
+                                <option value="{{ category.id }}">{{ category.category }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td data-label="Subcategory">
+                            <select class="form-control form-control-sm" id="subcategory" name="subcategory" required>
+                                <option selected value="{{ transaction.chart_of_accounts.id }}">
+                                    {{ transaction.chart_of_accounts.sub_category }}
+                                </option>
+                                <!-- Subcategories will be populated here by JavaScript -->
+                            </select>
+                        </td>
+                        <td data-label="Amount">
+                            <div class="input-group">
+                                <select id="currency" name="currency" class="form-control form-control-sm" required>
+                                    <option selected value="{{transaction.currency}}" class="input-group-text">
+                                        {{transaction.currencies.user_currency}}</option>
+                                    {% for currency in currencies %}
+                                    <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                                    {% endfor %}
+                                </select>
+
+                                <input value="{{ '{0:.2f}'.format(transaction.amount) if transaction.amount else '' }}"
+                                    type="text" class="form-control form-control-sm" id="amount" name="amount"
+                                    placeholder="Enter amount" required pattern="\d+(\.\d{1,2})?"
+                                    title="Please enter a valid amount (e.g., 123456789012345678.99)">
+                            </div>
+                        </td>
+                        <td data-label="D/C">
+                            <select class="form-control form-control-sm" id="debit_credit" name="debit_credit" required>
+                                <option selected value="{{transaction.dr_cr}}">{{transaction.dr_cr}}</option>
+                                <option value="D">D</option>
+                                <option value="C">C</option>
+                            </select>
+                        </td>
+                        <td data-label="Description">
+                            <textarea class="form-control form-control-sm"
+                                name="description">{{transaction.description}}</textarea>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+            <!-- Update-->
+            <button type="submit" class="cta-button">Update</button>
+            <!-- Submit button -->
+        </div>
+
+    </form>
+</div>
+
+
+<style>
+    /* Pure Responsive Table CSS - No Visual Styling Changes */
+
+    /* Base responsive container */
+    .form-table {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        /* Smooth scrolling on iOS */
+    }
+
+    /* Minimum table width to maintain structure */
+    .form-table table {
+        min-width: 800px;
+        width: 100%;
+    }
+
+    /* Mobile responsiveness - stacked layout */
+    @media (max-width: 768px) {
+        .form-table {
+            overflow-x: visible;
+            /* Allow natural stacking */
+        }
+
+        .form-table table {
+            min-width: 100%;
+            display: block;
+        }
+
+        .form-table thead {
+            display: none;
+            /* Hide headers on mobile */
+        }
+
+        .form-table tbody {
+            display: block;
+        }
+
+        .form-table tr {
+            display: block;
+            margin-bottom: 1rem;
+            position: relative;
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+
+        .form-table td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100% !important;
+            text-align: right;
+            padding: 0.5rem;
+            box-sizing: border-box;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* Add labels using data-label attributes */
+        .form-table td[data-label]::before {
+            content: attr(data-label);
+            font-weight: bold;
+            margin-right: 1rem;
+            text-align: left;
+            flex: 0 0 30%;
+        }
+
+        /* Form elements full width */
+        .form-table select,
+        .form-table input,
+        .form-table textarea {
+            width: 100% !important;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Special handling for amount input group */
+        .form-table .input-group {
+            display: flex;
+            width: 100%;
+            gap: 5px;
+        }
+
+        .form-table .input-group select {
+            flex: 0 0 30%;
+        }
+
+        .form-table .input-group input {
+            flex: 1;
+        }
+
+        /* Position remove button */
+        .form-table .remove-button {
+            margin-left: auto;
+        }
+    }
+
+    /* Small mobile adjustments */
+    @media (max-width: 480px) {
+        .form-table td {
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+        }
+
+        .form-table td[data-label]::before {
+            margin-bottom: 0.25rem;
+            flex: 0 0 100%;
+        }
+
+        .form-table .input-group {
+            flex-direction: column;
+        }
+
+        .form-table .input-group select,
+        .form-table .input-group input {
+            width: 100% !important;
+        }
+    }
+</style>
+
+
+
+<script>
+
+    function handleVendorChange(value) {
+        if (value === 'add_new_vendor') {
+            window.location.href = "{{url_for('add_vendor_form')}}";
+        }
+    }
+
+
+    function handleProjectChange(value) {
+        if (value === 'add_new_project') {
+            window.location.href = "{{url_for('manage_projects')}}";
+        }
+    }
+
+    function handlePaymentModeChange(value) {
+        if (value === 'add_payment_mode') {
+            window.location.href = "{{url_for('add_payment_mode_form')}}";
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const formTableBody = document.querySelector('.form-table tbody');
+
+        // Function to update categories based on the selected account type
+        function updateCategories(selectElement) {
+            const accountType = selectElement.value;
+            const categorySelect = selectElement.closest('tr').querySelector('#category');
+
+            fetch(`/get_categories/${accountType}`)
+                .then(response => response.json())
+                .then(categories => {
+                    categorySelect.innerHTML = '<option value="" disabled selected>Select Category</option>';
+                    categories.forEach(category => {
+                        const option = document.createElement('option');
+                        option.value = category.id; // Use category.id as value
+                        option.textContent = category.category_name;
+                        categorySelect.appendChild(option);
+                    });
+
+                })
+                .catch(error => console.error('Error fetching categories:', error));
+        }
+
+        // Function to update subcategories based on the selected category
+        function updateSubcategories(selectElement) {
+            const categoryId = selectElement.value;
+            const subcategorySelect = selectElement.closest('tr').querySelector('#subcategory');
+            subcategorySelect.innerHTML = '<option value="" disabled selected>Select Subcategory</option>';
+
+            if (categoryId) {
+                fetch(`/subcategories/${categoryId}`)
+                    .then(response => response.json())
+                    .then(subcategories => {
+                        console.log('Fetched subcategories:', subcategories); // Debugging line
+                        subcategories.forEach(subcategory => {
+                            const option = document.createElement('option');
+                            option.value = subcategory.id; // Use subcategory.id as value
+                            option.textContent = subcategory.name;
+                            subcategorySelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error('Error fetching subcategories:', error));
+            }
+        }
+
+
+        // Event listener to update categories when account type changes
+        formTableBody.addEventListener('change', function (event) {
+            if (event.target.name === 'account_type') {
+                updateCategories(event.target);
+            }
+        });
+
+        // Event listener to update subcategories when category changes
+        formTableBody.addEventListener('change', function (event) {
+            if (event.target.id === 'category') {
+                updateSubcategories(event.target);
+            }
+        });
+
+
+
+
+
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="" />
+    <meta name="author" content="" />
+    <title>All Transactions</title>
+    <link href="/static/mystyles.css" rel="stylesheet" />
+    <link href="/static/transaction_entries.css" rel="stylesheet" />
+    <link href="/static/styles.css" rel="stylesheet" />
+    <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+    <link href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.min.css" rel="stylesheet" />
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
+    <style>
+        .container-table {
+            overflow-x: auto;
+            margin-top: 5px;
+            font-size: 14px;
+            font-family: Lato, sans-serif;
+        }
+
+        table {
+            width: 100%;
+            table-layout: auto;
+        }
+
+        th,
+        td {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .dataTables_filter input {
+            width: 200px;
+            max-width: 100%;
+            border-radius: 4px;
+
+        }
+
+        .action-icons a {
+            color: #007bff;
+            margin-right: 5px;
+        }
+
+        .action-icons a.delete {
+            color: #dc3545;
+        }
+
+        .action-icons a:hover {
+            color: #0056b3;
+            text-decoration: none;
+        }
+
+        .action-icons a.delete:hover {
+            color: #c82333;
+        }
+
+        @media (max-width: 768px) {
+
+            th,
+            td {
+                white-space: normal;
+                word-wrap: break-word;
+            }
+        }
+    </style>
+</head>
+
+<body class="sb-nav-fixed">
+    <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
+        <a class="navbar-brand ps-3" href="#">My APP</a>
+        <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle"><i
+                class="fas fa-bars"></i></button>
+        <form class="d-none d-md-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0"></form>
+        <ul class="navbar-nav ms-auto ms-md-0 me-3 me-lg-4">
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown"
+                    aria-expanded="false"><i class="fas fa-user fa-fw"></i></a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                    {% if session['role'] == 'Admin' %}
+                    <li><a class="dropdown-item" href="/settings">Settings</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('activity_logs') }}">Activity Logs</a></li>
+                    <li>
+                        <hr class="dropdown-divider" />
+                    </li>
+                    {% endif %}
+                    <li><a class="dropdown-item" href="/logout">Logout</a></li>
+                </ul>
+            </li>
+        </ul>
+    </nav>
+    <div id="layoutSidenav">
+        <div id="layoutSidenav_nav">
+            <nav class="sb-sidenav accordion sb-sidenav-light" id="sidenavAccordion">
+                <div class="sb-sidenav-menu">
+                    <div class="nav">
+                        <div class="sb-sidenav-menu-heading">Core</div>
+                        <a class="nav-link" href="{{ url_for('dashboard') }}">
+                            <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
+                            Dashboard
+                        </a>
+                        <div class="sb-sidenav-menu-heading">Interfaces</div>
+                        <a class="nav-link collapsed" href="#" data-bs-toggle="collapse"
+                            data-bs-target="#collapseLayouts" aria-expanded="false" aria-controls="collapseLayouts">
+                            <div class="sb-nav-link-icon"><i class="fa-solid fa-money-check-dollar"></i></div>
+                            Transactions
+                            <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
+                        </a>
+                        <div class="collapse" id="collapseLayouts" aria-labelledby="headingOne"
+                            data-bs-parent="#sidenavAccordion">
+                            <nav class="sb-sidenav-menu-nested nav">
+                                <h6
+                                    class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                                    <span>Transactions</span>
+                                </h6>
+                                <ul class="nav flex-column">
+                                    <li class="nav-item"><a class="nav-link" href="/add_transaction">New transaction</a>
+                                    </li>
+                                    <li class="nav-item"><a class="nav-link" href="/all_transactions">All
+                                            Transactions</a></li>
+                                </ul>
+                                <h6
+                                    class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                                    <span>Categories</span>
+                                </h6>
+                                <ul class="nav flex-column">
+                                    <li class="nav-item"><a class="nav-link" href="{{ url_for('new_category') }}">Add
+                                            Parent category</a></li>
+                                    <li class="nav-item"><a class="nav-link"
+                                            href="{{ url_for('add_chart_of_accounts') }}">Add Chart of Accounts</a></li>
+                                </ul>
+                                <h6
+                                    class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                                    <span>Management</span>
+                                </h6>
+                                <ul class="nav flex-column">
+                                    <li class="nav-item"><a class="nav-link"
+                                            href="{{ url_for('manage_projects') }}">Manage Project</a></li>
+                                    <li class="nav-item"><a class="nav-link"
+                                            href="{{ url_for('add_vendor_form') }}">Manage Vendors</a></li>
+                                    <li class="nav-item"><a class="nav-link"
+                                            href="{{ url_for('add_payment_mode_form') }}">Manage Payment Modes</a></li>
+                                </ul>
+                            </nav>
+                        </div>
+
+                        <!-- Loans Menu -->
+                        {% if company_name == "Creditrust" %}
+                        <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseLoans"
+                            aria-expanded="false" aria-controls="collapseLoans">
+                            <div class="sb-nav-link-icon"><i class="fa-solid fa-credit-card"></i></div>
+                            Loans
+                            <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
+                        </a>
+                        <div class="collapse" id="collapseLoans" aria-labelledby="headingLoans"
+                            data-bs-parent="#sidenavAccordion">
+                            <nav class="sb-sidenav-menu-nested nav">
+                                <h6
+                                    class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                                    <span>Loans</span>
+                                </h6>
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('loans_dashboard') }}">Dashboard</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('applicant_details') }}">Applicant
+                                            Details</a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                        {% endif %}
+                        <!-- End Loans Menu -->
+
+
+                        <!-- Payroll Module -->
+                        {% if 'Payroll' in modules %}
+
+                        <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapsePages"
+                            aria-expanded="false" aria-controls="collapsePages">
+                            <div class="sb-nav-link-icon"><i class="fa-solid fa-wallet"></i></div>
+                            Payroll
+                            <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
+                        </a>
+                        <div class="collapse" id="collapsePages" aria-labelledby="headingTwo"
+                            data-bs-parent="#sidenavAccordion">
+                            <nav class="sb-sidenav-menu-nested nav accordion" id="sidenavAccordionPages">
+                                <div class="nav-icon-group">
+                                    <i class="fas fa-plus-circle nav-icon"></i>
+                                    <div class="nav-icon-links">
+                                        <a class="nav-link" href="{{ url_for('payroll_transaction') }}">Transaction</a>
+                                        <a class="nav-link" href="{{ url_for('add_employee') }}">Employee</a>
+                                    </div>
+                                </div>
+                                <div class="nav-icon-group">
+                                    <i class="fas fa-list nav-icon"></i>
+                                    <div class="nav-icon-links">
+                                        <a class="nav-link" href="{{ url_for('payroll_transactions_list') }}">Payroll
+                                            Entries</a>
+                                        <a class="nav-link" href="{{ url_for('employee_list') }}">Employee List</a>
+                                    </div>
+                                </div>
+
+
+                            </nav>
+
+                        </div>
+                        {% endif %}
+                        <div class="sb-sidenav-menu-heading">Addons</div>
+                        <a class="nav-link collapsed" href="#" data-bs-toggle="collapse"
+                            data-bs-target="#collapseReports" aria-expanded="false" aria-controls="collapseReports">
+                            <div class="sb-nav-link-icon"><i class="fas fa-table"></i></div>
+                            Reports
+                            <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
+                        </a>
+                        <div class="collapse" id="collapseReports" aria-labelledby="headingReports"
+                            data-bs-parent="#sidenavAccordion">
+                            <nav class="sb-sidenav-menu-nested nav">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{url_for('income_expense_report')}}">
+                                            <div class="sb-nav-link-icon"><i class="fas fa-file-invoice-dollar"></i>
+                                            </div>
+                                            Income and Expense
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{url_for('balance_sheet')}}">
+                                            <div class="sb-nav-link-icon"><i class="fas fa-balance-scale"></i></div>
+                                            Balance Sheet
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('equity_report') }}">
+                                            <div class="sb-nav-link-icon"><i class="fas fa-balance-scale"></i></div>
+                                            Equity
+                                        </a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+                <div class="sb-sidenav-footer">
+                    <div class="small">Logged in as:</div>
+                    {{company_name}} {{role}}
+                </div>
+            </nav>
+        </div>
+
+        <div id="layoutSidenav_content">
+            <div class="container" style="width: 98%;">
+                <main>
+                    <div class="container-table">
+                        <h2>Transactions</h2>
+                        <table id="transactions-table" class="display stripe table-responsive">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Account Type</th>
+                                    <th>Category</th>
+                                    <th>Subcategory</th>
+                                    <th>Currency</th>
+                                    <th>Amount</th>
+                                    <th>D/C</th>
+                                    <th>Description</th>
+                                    <th>Payment Mode</th>
+                                    <th>Payment To</th>
+                                    <th>Project Name</th>
+                                    <th>Date Added</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in transactions %}
+                                <tr>
+                                    <td>{{ transaction.date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ transaction.transaction_type }}</td>
+                                    <td>{{ transaction.category.category if transaction.category else 'N/A' }}</td>
+                                    <td>{{ transaction.chart_of_accounts.sub_category }}</td>
+                                    <td>{{ transaction.currency }}</td>
+                                    <td>{{ "{:,.0f}".format(transaction.amount) }}</td>
+                                    <td>{{ transaction.dr_cr }}</td>
+                                    <td>{{ transaction.description }}</td>
+                                    <td>{{ transaction.payment_mode.payment_mode if transaction.payment_mode else 'N/A'
+                                        }}</td>
+                                    <td>{{ transaction.vendor.vendor_name if transaction.vendor else 'N/A' }}</td>
+                                    <td>{{ transaction.project.name if transaction.project else 'N/A' }}</td>
+                                    <td>{{ transaction.date_added }}</td>
+                                    <td class="action-icons">
+                                        <a href="/transaction/{{ transaction.id }}" class="btn  btn-sm" title="View"><i
+                                                class="fas fa-eye"></i></a>
+                                        <a href="#" class="btn btn-sm delete" title="Delete"
+                                            data-id="{{ transaction.id }}"
+                                            onclick="deleteTransaction(event, {{ transaction.id }})"><i
+                                                class="fas fa-trash-alt"></i></a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Account Type</th>
+                                    <th>Category</th>
+                                    <th>Subcategory</th>
+                                    <th>Currency</th>
+                                    <th>Amount</th>
+                                    <th>D/C</th>
+                                    <th>Description</th>
+                                    <th>Payment Mode</th>
+                                    <th>Payment To</th>
+                                    <th>Project Name</th>
+                                    <th>Date Added</th>
+                                    <th>Action</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            var table = $('#transactions-table').DataTable({
+                "lengthMenu": [
+                    [10, 25, 50, 100, -1],
+                    [10, 25, 50, 100, 'All']
+                ],
+                "aaSorting": [],
+                "initComplete": function () {
+                    this.api().columns().every(function () {
+                        let column = this;
+                        let index = column.index();
+                        let title = $(column.footer()).text();
+
+                        // Only add search input to specific columns (excluding Action column)
+                        if (index !== 12) { // Index 12 is the Action column
+                            let input = $('<input>').attr('placeholder', 'Search ' + title).addClass('form-control form-control-sm search-input');
+                            input.prepend('<i class="fas fa-search"></i>');
+                            $(column.footer()).empty().append(input);
+
+                            input.on('keyup change', function () {
+                                column.search($(this).val()).draw();
+                            });
+                        } else {
+                            // Remove any existing search input for Action column
+                            $(column.footer()).empty();
+                        }
+                    });
+                },
+                "footerCallback": function (row, data, start, end, display) {
+                    var api = this.api();
+
+                    // Function to format numbers with thousands separators
+                    function formatNumber(num) {
+                        return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    }
+
+                    // Calculate total for Amount column
+                    var intVal = function (i) {
+                        return typeof i === 'string' ?
+                            i.replace(/[\$,]/g, '') * 1 :
+                            typeof i === 'number' ?
+                                i : 0;
+                    };
+
+                    var total_amount = api
+                        .column(5, { page: 'current' })
+                        .data()
+                        .reduce(function (a, b) {
+                            return intVal(a) + intVal(b);
+                        }, 0);
+
+                    // Update footer with formatted total
+                    $(api.column(5).footer()).html(
+                        'Total: ' + formatNumber(total_amount)
+                    );
+                }
+            });
+
+            // Trigger initial update of footer totals
+            table.draw();
+        });
+
+
+        // Function to delete a transaction
+        window.deleteTransaction = function (event, transactionId) {
+            event.preventDefault(); // Prevent default link behavior
+
+            if (confirm('Are you sure you want to delete this transaction?')) {
+                $.ajax({
+                    url: '/delete_transaction/' + transactionId,
+                    type: 'POST',
+                    success: function (response) {
+                        if (response.success) {
+
+                            const row = $(`a[data-id="${transactionId}"]`).closest('tr');
+                            alert('Transaction has been deleted successfully.');
+                            table.row(row).remove().draw();
+                            // Optionally refresh the DataTable (if you want to ensure it's updated with server data)
+                            table.ajax.reload(null, false); // false keeps the current page
+
+                        } else {
+                            alert('Failed to delete transaction: ' + response.error);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        alert('Failed to delete transaction. Transaction does not exist.');
+                    }
+                });
+            }
+        };
+
+    </script>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
+        crossorigin="anonymous"></script>
+    <script src="static/scripts.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js" crossorigin="anonymous"></script>
+
+</body>
+
+</html>

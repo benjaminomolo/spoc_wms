@@ -1,0 +1,2387 @@
+{% extends "transaction_base_template.html" %}
+
+
+{% block content %}
+
+
+<style>
+    .account-balances-card {
+        background: #f5f5f5;
+        border-radius: 8px;
+        margin: 15px 0;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow: visible;
+        z-index: 1;
+        /* Simple fade-in on load */
+        animation: simpleFadeIn 0.8s ease forwards;
+
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+
+    }
+
+    .account-balances-card:hover {
+        box-shadow: 0 8px 16px rgba(5, 29, 55, 0.3);
+        transform: translateY(-5px);
+    }
+
+    @keyframes simpleFadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+
+
+    /* Main Grid Layout */
+    .account-balances-grid {
+        display: flex;
+        justify-content: space-between;
+        position: relative;
+        flex-wrap: wrap;
+    }
+
+    /* Balance Totals Container */
+    .balance-totals {
+        display: flex;
+        width: 100%;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        min-width: 0;
+        /* Crucial for text overflow */
+    }
+
+    /* Individual Balance Items */
+    .balance-total {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        position: relative;
+        flex-grow: 1;
+        min-width: 120px;
+    }
+
+    .balance-total.left {
+        justify-content: flex-start;
+        flex: 2;
+    }
+
+    .balance-total.right {
+        justify-content: flex-end;
+    }
+
+    /* Text Elements */
+    .balance-total-title {
+        font-size: 14px;
+        color: #666;
+        white-space: nowrap;
+    }
+
+    .balance-total-amount {
+        font-size: 20px;
+        font-weight: bold;
+        color: #333;
+        white-space: nowrap;
+    }
+
+    /* Change Indicator */
+    .balance-change {
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+    }
+
+    .balance-change.up {
+        color: #008c8a;
+    }
+
+    .balance-change.down {
+        color: #F44336;
+    }
+
+    .balance-change.neutral {
+        color: #666;
+    }
+
+    .change-arrow {
+        margin-right: 3px;
+        font-size: 10px;
+    }
+
+    /* Breakdown Panel */
+    .balance-breakdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        z-index: 9999;
+        display: none;
+        margin-top: 5px;
+    }
+
+    .account-balances-grid:hover .balance-breakdown {
+        display: block;
+    }
+
+    .balance-breakdown-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #f5f5f5;
+    }
+
+    .balance-breakdown-title {
+        font-size: 14px;
+        color: #666;
+    }
+
+    .balance-breakdown-amount {
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    /* Responsive Breakpoints */
+    @media (max-width: 768px) {
+        .account-balances-card {
+            padding: 5px;
+            width: 94%;
+            margin-top: -20px;
+        }
+
+        .balance-totals {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 5px;
+        }
+
+        .balance-total {
+            justify-content: space-between !important;
+            padding: 6px;
+            min-width: 95%;
+        }
+
+        .balance-total-amount {
+            font-size: 18px;
+        }
+
+        .balance-change {
+            font-size: 11px;
+        }
+
+        .balance-breakdown {
+            position: relative;
+            top: auto;
+            margin-top: 15px;
+            box-shadow: none;
+            border: 1px solid #eee;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .account-balances-card {
+            padding: 10px;
+        }
+
+        .balance-total-title {
+            font-size: 13px;
+        }
+
+        .balance-total-amount {
+            font-size: 18px;
+        }
+
+        .balance-breakdown {
+            padding: 10px;
+        }
+
+        .balance-breakdown-title,
+        .balance-breakdown-amount {
+            font-size: 13px;
+        }
+    }
+
+    /* Animation for hover effect */
+    .balance-breakdown {
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    .account-balances-grid:hover .balance-breakdown {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+
+    /* Desktop: show everything */
+    .balance-change .change-amount {
+        display: inline;
+    }
+
+    /* Mobile – hide the numeric change amount */
+    @media (max-width: 768px) {
+        .balance-change .change-amount {
+            display: none;
+        }
+
+        /* Optionally adjust spacing */
+        .balance-change .change-percent {
+            margin-left: 2px;
+        }
+    }
+
+
+
+    /* Filter Controls */
+    .filter-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 5px;
+        align-items: flex-end;
+        margin-top: -20px;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        min-width: 150px;
+    }
+
+    .filter-group label {
+        font-size: 10px;
+        margin-bottom: 4px;
+        color: #555;
+    }
+
+    .form-select {
+        padding: 5px 8px;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+        background-color: white;
+        font-size: 10px;
+        color: #555;
+    }
+</style>
+
+<div class="content-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+
+
+        <div class="header-top-row">
+            <h1>Accounting Dashboard</h1>
+            <!-- New mobile filter button -->
+            <button class="mobile-filter-btn" id="mobileFilterBtn">
+                <svg class="filter-icon" viewBox="0 0 24 24">
+                    <path d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+                <span class="filter-text">Filters</span>
+            </button>
+        </div>
+
+        <!-- Account Balances Section -->
+        <!-- Account Balances Section -->
+        <div class="account-balances-card">
+
+            <div id="accountBalancesList" class="account-balances-grid"
+                data-company-has-multiple-currencies="{{ company.has_multiple_currencies | lower }}"
+                data-currency-rates-url="{{ url_for('view_exchange_rates') }}">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Time Period Controls -->
+        <div class="dashboard-controls">
+            <div class="dashboard-dropdown">
+                <button class="button add-button" id="timePeriodDropdown">
+                    <span class="icon">📅</span>This Month
+                </button>
+                <div class="dashboard-dropdown-menu">
+                    <a class="dashboard-dropdown-item time-filter" data-value="today">Today</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="yesterday">Yesterday</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="week">This Week</a>
+                    <a class="dashboard-dropdown-item time-filter active" data-value="month">This Month</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="last_month">Last Month</a>
+                    <!-- <a class="dashboard-dropdown-item time-filter" data-value="quarter">This Quarter</a> -->
+                    <a class="dashboard-dropdown-item time-filter" data-value="year">This Year</a>
+                    <div class="dashboard-dropdown-divider"></div>
+                    <a class="dashboard-dropdown-item time-filter" data-value="custom">Custom Range</a>
+                </div>
+            </div>
+            <div id="customRangePicker" class="hidden">
+                <div class="date-range-picker">
+                    <input type="date" id="startDate">
+                    <span>to</span>
+                    <input type="date" id="endDate">
+                    <button id="applyDateRange">Apply</button>
+                </div>
+            </div>
+            <button class="refresh-btn" id="refreshData">
+                <span class="icon">🔄</span>
+            </button>
+        </div>
+
+        <!-- Filter Controls -->
+
+        <div class="filter-wrapper">
+            <div class="filter-controls">
+                <!-- Currency Filter -->
+                <div class="filter-group">
+                    <label for="currency-select">Currency</label>
+                    <!-- Currency Filter -->
+                    <select id="currency-select" class="form-select">
+                        <option value="">Base Currency ({{base_currency_code}})</option>
+                        {% for currency in currencies %}
+                        <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+
+
+
+
+                <!-- Category Filter -->
+                <div class="filter-group">
+                    <label for="category-select">Category</label>
+                    <select id="category-select" class="form-select">
+                        <option value="">All Categories</option>
+                        {% for category in categories %}
+                        <option value="{{ category.id }}">{{ category.category }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+
+                <!-- Subcategory Filter -->
+                <div class="filter-group">
+                    <label for="subcategory-select">Subcategory</label>
+                    <select id="subcategory-select" class="form-select">
+                        <option value="">All Subcategories</option>
+                        {% for subcategory in subcategories %}
+                        <option value="{{ subcategory.id }}">{{ subcategory.sub_category }}</option>
+                        {% endfor %}
+
+                    </select>
+                </div>
+
+                <!-- Payment Mode Filter -->
+                <div class="filter-group">
+                    <label for="payment-mode-select">Payment Mode</label>
+                    <select id="payment-mode-select" class="form-select">
+                        <option value="">All Payment Modes</option>
+                        {% for mode in payment_modes %}
+                        <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Vendor Filter -->
+                <div class="filter-group">
+                    <label for="vendor-select">Vendor/Customer</label>
+                    <select id="vendor-select" class="form-select">
+                        <option value="">All Vendors/Customers</option>
+                        {% for vendor in vendors %}
+                        <option value="{{ vendor.id }}" {% if vendor.designation or vendor.address or vendor.email or
+                            vendor.city or vendor.country %}
+                            title="{{ vendor.designation }} | {{ vendor.address }} | {{ vendor.email }} | {{ vendor.city }} | {{ vendor.country }}"
+                            {% endif %}>
+                            {{ vendor.vendor_name }}
+
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                </div>
+
+                <!-- Project Filter -->
+                <div class="filter-group">
+                    <label for="project-select">Project</label>
+                    <select id="project-select" class="form-select">
+                        <option value="">All Projects</option>
+                        {% for project in projects %}
+                        <option value="{{ project.id }}">{{ project.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+
+    <!-- Summary Cards -->
+    <div class="metrics-grid">
+        <div class="metric-card revenue">
+            <div class="metric-content">
+                <div>
+                    <h3>Total Income (<span class="currency-symbol">{{ base_currency_code }}</span>)</h3>
+                    <p class="metric-value" id="totalIncome">0.00</p>
+                </div>
+                <div class="metric-icon">💰</div>
+            </div>
+            <div class="metric-trend">
+                <span class="trend-badge positive" id="incomeChange">
+                    ↑ 0%
+                </span>
+                <span class="trend-label">vs previous period</span>
+            </div>
+        </div>
+
+        <div class="metric-card expenses">
+            <div class="metric-content">
+                <div>
+                    <h3>Total Expenses (<span id="baseCurrencySymbol" class="currency-symbol">{{ base_currency_code
+                            }}</span>)</h3>
+                    <p class="metric-value" id="totalExpenses">0.00</p>
+                </div>
+                <div class="metric-icon">💸</div>
+            </div>
+            <div class="metric-trend">
+                <span class="trend-badge negative" id="expensesChange">
+                    ↑ 0%
+                </span>
+                <span class="trend-label">vs previous period</span>
+            </div>
+        </div>
+
+
+        <div class="metric-card balance">
+            <div class="metric-content">
+                <div>
+                    <h3>Net Profit (<span id="baseCurrencySymbol" class="currency-symbol">{{ base_currency_code
+                            }}</span>)
+                    </h3>
+                    <p class="metric-value" id="netProfit">0.00</p>
+                </div>
+                <div class="metric-icon">📈</div>
+            </div>
+            <div class="metric-trend">
+                <span class="trend-badge positive" id="profitChange">
+                    ↑ 0%
+                </span>
+                <span class="trend-label">vs previous period</span>
+            </div>
+        </div>
+
+        <div class="metric-card transactions">
+            <div class="metric-content">
+                <div>
+                    <h3>Total Transactions</h3>
+                    <p class="metric-value" id="totalTransactions">0</p>
+                </div>
+                <div class="metric-icon">🧾</div>
+            </div>
+            <div class="metric-trend">
+                <span class="trend-badge neutral" id="transactionsChange">
+                    ↑ 0%
+                </span>
+                <span class="trend-label">vs previous period</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <!-- First Row: Income vs Expenses + Transactions by Category -->
+    <div class="dashboards-charts-container">
+        <div class="chart-card main-chart">
+            <div class="chart-header">
+                <h3>Income vs Expenses Trend</h3>
+                <div class="chart-period-selector">
+                    <button class="period-btn active" data-value="daily">Daily</button>
+                    <button class="period-btn" data-value="weekly">Weekly</button>
+                    <button class="period-btn" data-value="monthly">Monthly</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="incomeExpensesChart" height="300"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card secondary-chart">
+            <div class="chart-header">
+                <h3>Cash Position</h3>
+                <!-- Remove the period selector since we're showing current position only -->
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="cashFlowChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Second Row: Expenses Breakdown + Payables/Receivables -->
+    <div class="secondary-metrics dashboards-charts-container">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Expenses Breakdown</h3>
+                <div class="chart-period-selector">
+                    <button class="period-btn active" data-value="category">By Category</button>
+                    <button class="period-btn" data-value="subcategory">By Subcategory</button>
+                    <button class="period-btn" data-value="vendor">By Vendor</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="expensesBreakdownChart" height="250"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Payables & Receivables</h3>
+                <div class="chart-period-selector">
+                    <button class="period-btn active" data-value="payables">Payables</button>
+                    <button class="period-btn" data-value="receivables">Receivables</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="payablesReceivablesChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Third Row: Top Transactions -->
+    <div class="top-transactions-section">
+        <div class="table-card" style="box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);">
+            <div class="table-header">
+                <h3 style="margin-bottom: -5px;">Top 10 Transactions</h3>
+                <div class="table-filter">
+                    <button class="filter-btn active cta-button" data-value="income">Income</button>
+                    <button class="filter-btn cta-button" data-value="expenses">Expenses</button>
+                    <button class="filter-btn cta-button" data-value="payables">Payables</button>
+                    <button class="filter-btn cta-button" data-value="receivables">Receivables</button>
+                    <button class="filter-btn cta-button" data-value="all">All</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table id="topTransactionsTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Subcategory</th>
+                            <th>Debit/Credit</th>
+                            <th>Amount</th>
+                            <th>Payment Mode</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+
+
+<style>
+    /* Add specific accounting dashboard styles here */
+
+
+    .metric-card.expenses .metric-icon {
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .dr-cr-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    /* Asset */
+    .dr-cr-badge.asset,
+    .dr-cr-badge.Asset {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: #4361ee;
+    }
+
+    /* Equity */
+    .dr-cr-badge.equity,
+    .dr-cr-badge.Equity {
+        background-color: rgba(111, 30, 81, 0.1);
+        color: #6f1e51;
+    }
+
+    /* Income */
+    .dr-cr-badge.income,
+    .dr-cr-badge.Income {
+        background-color: rgba(76, 201, 240, 0.1);
+        color: #4cc9f0;
+    }
+
+    /* Expense */
+    .dr-cr-badge.expense,
+    .dr-cr-badge.Expense {
+        background-color: rgba(255, 107, 107, 0.1);
+        color: #ff6b6b;
+    }
+
+    /* Liability */
+    .dr-cr-badge.liability,
+    .dr-cr-badge.Liability {
+        background-color: rgba(248, 150, 30, 0.1);
+        color: #f8961e;
+    }
+
+    .dashboards-charts-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+        margin-top: -5px;
+
+    }
+
+    @media (max-width: 1024px) {
+        .dashboards-charts-container {
+            grid-template-columns: 1fr;
+        }
+    }
+
+
+    .chart-card {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        padding: 1.0rem;
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .chart-header h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .chart-period-selector {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .chart-wrapper {
+        position: relative;
+        height: 300px;
+    }
+
+
+
+
+    @media (max-width: 768px) {
+        .secondary-metrics {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Table Cards */
+    .table-card {
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.5rem;
+    }
+
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .table-header h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .table-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+
+    /* Tables */
+    .table-responsive {
+        overflow-x: auto;
+        width: 100%;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th,
+    td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--text-light);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    td {
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+
+    .text-end {
+        text-align: right;
+    }
+
+    /* Status Badges */
+    .badge {
+        display: inline-block;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border-radius: 4px;
+    }
+
+    .badge.primary {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: var(--primary-color);
+    }
+
+    .badge.success {
+        background-color: rgba(76, 201, 240, 0.1);
+        color: var(--success-color);
+    }
+
+    .badge.warning {
+        background-color: rgba(248, 150, 30, 0.1);
+        color: var(--warning-color);
+    }
+
+    .badge.info {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: var(--primary-color);
+    }
+
+    /* Action Buttons */
+    .action-btn {
+        background-color: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 0.4rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+    }
+
+    .action-btn:hover {
+        background-color: #f5f5f5;
+    }
+
+    /* Table Footer */
+    .table-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .table-info {
+        font-size: 0.85rem;
+        color: var(--text-light);
+    }
+
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .dashboard-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .dashboard-controls {
+            width: 100%;
+        }
+
+        .dashboard-dropdown-toggle {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .date-range-picker {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        th,
+        td {
+            padding: 0.75rem 0.5rem;
+        }
+
+        .table-footer {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .pagination {
+            justify-content: center;
+        }
+    }
+
+    /* Utility Classes */
+    .text-success {
+        color: var(--success-color);
+    }
+
+    .text-warning {
+        color: var(--warning-color);
+    }
+
+    .text-danger {
+        color: var(--danger-color);
+    }
+
+    .text-muted {
+        color: var(--text-lighter);
+    }
+</style>
+
+<script>
+    const apiKey = "{{ api_key }}";
+    const baseCurrency = "{{    base_currency_code }}";
+
+
+
+    // Add this at the top of your script
+    function debounce(func, wait) {
+        let timeout;
+        return function (...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+    // Main Dashboard Controller
+    class AccountingDashboard {
+        constructor() {
+
+
+            this.currentData = [];
+            this.filteredData = [];
+            this.currentPage = 1;
+            this.itemsPerPage = 10;
+            this.currentTimeFilter = 'month';
+            this.chartPeriod = 'daily';
+            this.expensesBreakdownBy = 'category';
+            this.topTransactionsFilter = 'income';
+            this.transactionFilter = 'all';
+            this.categoryFilter = 'all';
+            this.paymentModeFilter = 'all';
+            // Add to initElements method
+            this.cashFlowChart = this.createChart('cashFlowChart', 'bar');
+            this.cashFlowBreakdownBy = 'all';
+
+            this.initElements();
+            this.initEventListeners();
+            this.loadData();
+
+
+        }
+
+        async initElements() {
+            // Charts
+            this.incomeExpensesChart = this.createChart('incomeExpensesChart', 'line');
+
+            this.expensesBreakdownChart = this.createChart('expensesBreakdownChart', 'bar');
+            this.payablesReceivablesChart = this.createChart('payablesReceivablesChart', 'bar');
+
+            // Tables
+            this.topTransactionsTable = document.getElementById('topTransactionsTable').querySelector('tbody');
+
+            // Initialize breakdown filter
+            this.payablesReceivablesBreakdownBy = 'payables';
+        }
+
+
+
+
+        initEventListeners() {
+            // Time filters dropdown
+            const timeDropdown = document.querySelector('.dashboard-dropdown');
+            const timeDropdownToggle = document.getElementById('timePeriodDropdown');
+
+            timeDropdownToggle.addEventListener('click', () => {
+                document.querySelector('.dashboard-dropdown-menu').classList.toggle('show');
+            });
+
+            document.querySelectorAll('.time-filter').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelector('.time-filter.active').classList.remove('active');
+                    item.classList.add('active');
+                    this.currentTimeFilter = item.dataset.value;
+                    timeDropdownToggle.innerHTML = `<span class="icon">📅</span>${item.textContent}`;
+                    document.querySelector('.dashboard-dropdown-menu').classList.remove('show');
+
+                    if (this.currentTimeFilter === 'custom') {
+                        document.getElementById('customRangePicker').classList.remove('hidden');
+                    } else {
+                        document.getElementById('customRangePicker').classList.add('hidden');
+                        this.loadData();
+                    }
+                });
+            });
+
+            // Apply custom date range
+            document.getElementById('applyDateRange').addEventListener('click', () => {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+
+                if (startDate && endDate) {
+                    // Clear any time filter when using custom dates
+                    this.currentTimeFilter = 'custom';
+                    this.loadData(startDate, endDate);
+                } else {
+                    alert('Please select both start and end dates');
+                }
+            });
+
+            // Update the event listener for cash flow period buttons
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const parentHeader = btn.closest('.chart-header');
+                    const chartTitle = parentHeader.querySelector('h3').textContent;
+
+
+
+                    if (chartTitle === 'Income vs Expenses Trend') {
+                        document.querySelectorAll('.chart-period-selector .period-btn').forEach(b => {
+                            if (b.closest('.chart-header').querySelector('h3').textContent === 'Income vs Expenses Trend') {
+                                b.classList.remove('active');
+                            }
+                        });
+                        btn.classList.add('active');
+                        this.chartPeriod = btn.dataset.value;
+                        this.updateCharts();
+                    } else if (chartTitle === 'Expenses Breakdown') {
+                        document.querySelectorAll('.chart-period-selector .period-btn').forEach(b => {
+                            if (b.closest('.chart-header').querySelector('h3').textContent === 'Expenses Breakdown') {
+                                b.classList.remove('active');
+                            }
+                        });
+                        btn.classList.add('active');
+                        this.expensesBreakdownBy = btn.dataset.value;
+                        this.updateExpensesBreakdownChart();
+                    } else if (chartTitle === 'Payables & Receivables') {
+                        document.querySelectorAll('.chart-period-selector .period-btn').forEach(b => {
+                            if (b.closest('.chart-header').querySelector('h3').textContent === 'Payables & Receivables') {
+                                b.classList.remove('active');
+                            }
+                        });
+                        btn.classList.add('active');
+                        this.payablesReceivablesBreakdownBy = btn.dataset.value;
+                        this.updatePayablesReceivablesChart();
+                    }
+                });
+            });
+
+
+
+            // Initialize debounced loadData
+            const debouncedLoadData = debounce(() => this.loadData(), 500);
+
+            // Filter change listeners with debounce
+            ['currency-select', 'category-select', 'subcategory-select',
+                'payment-mode-select', 'vendor-select', 'project-select'].forEach(id => {
+                    document.getElementById(id).addEventListener('change', debouncedLoadData);
+                });
+
+
+
+            // Top transactions filter
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (btn.closest('.table-filter')) {
+                        document.querySelectorAll('.table-filter .filter-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.topTransactionsFilter = btn.dataset.value;
+                        this.updateTopTransactionsTable();
+                    }
+                });
+            });
+
+
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!timeDropdown.contains(e.target)) {
+                    document.querySelector('.dashboard-dropdown-menu').classList.remove('show');
+                }
+
+            });
+
+
+
+            // Refresh button
+            document.getElementById('refreshData').addEventListener('click', () => {
+                this.loadData();
+            });
+
+
+
+        }
+
+
+        calculatePayablesReceivablesBreakdown() {
+            const payables = {};
+            const receivables = {};
+
+            this.currentData.forEach(tx => {
+                const amount = parseFloat(tx.amount_in_base_currency || 0);
+                const vendor = tx.payment_to_vendor || 'Unknown';
+
+                if (tx.is_payable === true) {
+                    // For payables: Credits increase, Debits decrease
+                    if (tx.dr_cr === 'C') {
+                        payables[vendor] = (payables[vendor] || 0) + amount;
+                    } else {
+                        payables[vendor] = (payables[vendor] || 0) - amount;
+                    }
+                } else if (tx.is_receivable === true) {
+                    // For receivables: Debits increase, Credits decrease
+                    if (tx.dr_cr === 'D') {
+                        receivables[vendor] = (receivables[vendor] || 0) + amount;
+                    } else {
+                        receivables[vendor] = (receivables[vendor] || 0) - amount;
+                    }
+                }
+            });
+
+            return { payables, receivables };
+        }
+
+        updatePayablesReceivablesChart() {
+            const { payables, receivables } = this.calculatePayablesReceivablesBreakdown();
+
+            let dataToShow;
+            let chartLabel;
+            let backgroundColor;
+            let borderColor;
+
+            if (this.payablesReceivablesBreakdownBy === 'payables') {
+                // Show payables breakdown
+                dataToShow = Object.entries(payables)
+                    .filter(([_, amount]) => amount > 0) // Only show positive balances
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10);
+                chartLabel = 'Accounts Payable';
+                backgroundColor = '#f8961e';
+                borderColor = '#e07c0e';
+            } else {
+                // Show receivables breakdown
+                dataToShow = Object.entries(receivables)
+                    .filter(([_, amount]) => amount > 0) // Only show positive balances
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10);
+                chartLabel = 'Accounts Receivable';
+                backgroundColor = '#4cc9f0';
+                borderColor = '#3aa8d0';
+            }
+
+            if (dataToShow.length > 0) {
+                this.payablesReceivablesChart.data.labels = dataToShow.map(item => {
+                    // Truncate long vendor names
+                    const vendor = item[0];
+                    return vendor.length > 20 ? vendor.substring(0, 20) + '...' : vendor;
+                });
+                this.payablesReceivablesChart.data.datasets = [{
+                    label: chartLabel,
+                    data: dataToShow.map(item => item[1]),
+                    backgroundColor: backgroundColor,
+                    borderColor: borderColor,
+                    borderWidth: 1
+                }];
+            } else {
+                this.payablesReceivablesChart.data.labels = ['No Data'];
+                this.payablesReceivablesChart.data.datasets = [{
+                    label: chartLabel,
+                    data: [0],
+                    backgroundColor: backgroundColor,
+                    borderColor: borderColor,
+                    borderWidth: 1
+                }];
+            }
+
+            this.payablesReceivablesChart.update();
+        }
+
+
+
+
+        // Calculate cash balance trend over time
+        calculateCashBalanceTrend() {
+            const cashBalances = {};
+
+            // Filter for cash and bank account transactions
+            const cashTransactions = this.currentData.filter(tx =>
+                tx.is_cash === true || tx.is_bank === true ||
+                (tx.category && (tx.category.toLowerCase().includes('cash') ||
+                    tx.category.toLowerCase().includes('bank')))
+            );
+
+            // Group by period (daily, weekly, monthly)
+            const periodFormat = this.cashFlowPeriod === 'daily' ? 'yyyy-MM-dd' :
+                this.cashFlowPeriod === 'weekly' ? 'yyyy-MM-WW' : 'yyyy-MM';
+
+            cashTransactions.forEach(tx => {
+                if (!tx.date) return;
+
+                const date = luxon.DateTime.fromISO(tx.date);
+                if (!date.isValid) return;
+
+                const period = date.toFormat(periodFormat);
+
+                if (!cashBalances[period]) {
+                    cashBalances[period] = {
+                        date: date.startOf('day').toJSDate(),
+                        balance: 0
+                    };
+                }
+
+                // Calculate net effect on cash
+                // Credits increase cash, Debits decrease cash
+                const amount = parseFloat(tx.amount_in_base_currency || 0);
+                if (tx.dr_cr === 'C') {
+                    cashBalances[period].balance += amount;
+                } else {
+                    cashBalances[period].balance -= amount;
+                }
+            });
+
+            // Sort by date and calculate running balance
+            const sortedPeriods = Object.values(cashBalances).sort((a, b) => a.date - b.date);
+
+            let runningBalance = 0;
+            const result = {
+                dates: [],
+                balances: []
+            };
+
+            sortedPeriods.forEach(period => {
+                runningBalance += period.balance;
+                result.dates.push(period.date);
+                result.balances.push(runningBalance);
+            });
+
+            return result;
+        }
+
+
+        // Add this debug method to see what cash balance data we have
+        debugCashBalances() {
+            console.log('=== CASH BALANCES DEBUG ===');
+            console.log('Total Cash Balance:', this.currentTotalCashBalance);
+            console.log('Cash Balances Array:', this.currentCashBalances);
+
+            if (this.currentCashBalances && this.currentCashBalances.length > 0) {
+                console.log('Individual Accounts:');
+                this.currentCashBalances.forEach((account, index) => {
+                    console.log(`  ${index + 1}. ${account.subcategory || account.category}: ${account.amount}`);
+                });
+            }
+        }
+
+        // Simple cash position display
+        updateCashFlowChart() {
+            if (!this.currentCashBalances || this.currentCashBalances.length === 0) {
+                this.cashFlowChart.data = {
+                    labels: ['No cash balances found'],
+                    datasets: [{
+                        label: 'Balance',
+                        data: [0],
+                        backgroundColor: ['#dddddd'],
+                        borderColor: ['#cccccc'],
+                        borderWidth: 1
+                    }]
+                };
+                // Remove title when no data
+                if (this.cashFlowChart.options.plugins.title) {
+                    this.cashFlowChart.options.plugins.title.display = false;
+                }
+                this.cashFlowChart.update();
+                return;
+            }
+
+            // Use the actual cash balances data
+            const accounts = this.currentCashBalances;
+
+            // Prepare data for chart
+            const labels = accounts.map(account =>
+                account.subcategory || account.category || 'Cash Account'
+            );
+
+            const balances = accounts.map(account =>
+                parseFloat(account.amount || 0)
+            );
+
+            const backgroundColors = balances.map(balance =>
+                balance >= 0 ? '#4c6fa1' : '#ff6b6b'
+            );
+
+            this.cashFlowChart.data = {
+                labels: labels,
+                datasets: [{
+                    label: 'Account Balance',
+                    data: balances,
+                    backgroundColor: backgroundColors,
+                    borderColor: backgroundColors,
+                    borderWidth: 2,
+                    borderRadius: 4,
+                    borderSkipped: false,
+                }]
+            };
+
+            // Update the chart options with current data
+            this.cashFlowChart.options = this.getChartOptions('cashFlowChart', 'bar');
+            this.cashFlowChart.update();
+        }
+        createChart(elementId, type) {
+            const ctx = document.getElementById(elementId).getContext('2d');
+            return new Chart(ctx, {
+                type: type,
+                data: { labels: [], datasets: [] },
+                options: this.getChartOptions(elementId, type)
+            });
+        }
+
+
+        getChartOptions(chartId, type) {
+            const baseOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: chartId !== 'cashFlowChart', // Show legend for all charts except cash flow
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                label += this.formatCurrency(context.raw, this.getSelectedCurrency());
+                                return label;
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Add percentage display for bar charts
+            if (chartId === 'expensesBreakdownChart' || chartId === 'payablesReceivablesChart' || chartId === 'cashFlowChart') {
+                baseOptions.plugins.datalabels = {
+                    display: true,
+                    color: '#fff',
+                    font: {
+                        weight: 'bold',
+                        size: 11
+                    },
+                    formatter: (value, context) => {
+                        // Calculate percentage for the current value relative to total
+                        const dataset = context.chart.data.datasets[0].data;
+                        const total = dataset.reduce((a, b) => a + b, 0);
+                        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                        return percentage;
+                    },
+                    anchor: 'end',
+                    align: 'end',
+                    offset: 5
+                };
+            }
+
+            // Specific options for cash position chart
+            if (chartId === 'cashFlowChart') {
+                // Add title ONLY for cash flow chart
+                baseOptions.plugins.title = {
+                    display: true,
+                    text: `Total Cash: ${this.formatCurrency(this.currentTotalCashBalance || 0, this.getSelectedCurrency())}`,
+                    position: 'top',
+                    font: {
+                        size: 14,
+                        weight: 'bold'
+                    },
+                    color: '#333',
+                    padding: {
+                        top: 10,
+                        bottom: 20
+                    }
+                };
+
+                baseOptions.indexAxis = 'y'; // Horizontal bars
+                baseOptions.scales = {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: (value) => this.formatCurrency(value, this.getSelectedCurrency(), false)
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Balance Amount',
+                            color: '#666',
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            autoSkip: false,
+                            maxRotation: 45,
+                            minRotation: 0
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                };
+
+                // Custom data labels for cash flow chart (horizontal bars)
+                baseOptions.plugins.datalabels = {
+                    display: true,
+                    color: (context) => {
+                        const value = context.dataset.data[context.dataIndex];
+                        return Math.abs(value) > 0 ? '#fff' : '#666';
+                    },
+                    font: {
+                        weight: 'bold',
+                        size: 11
+                    },
+                    formatter: (value, context) => {
+                        const dataset = context.chart.data.datasets[0].data;
+                        const total = dataset.reduce((a, b) => a + Math.abs(b), 0);
+                        const percentage = total > 0 ? ((Math.abs(value) / total) * 100).toFixed(1) + '%' : '0%';
+                        return percentage;
+                    },
+                    anchor: 'center',
+                    align: 'center'
+                };
+            }
+
+            // Configure tooltips based on chart type
+            if (chartId === 'incomeExpensesChart') {
+                baseOptions.plugins.tooltip = {
+                    callbacks: {
+                        title: (context) => {
+                            const date = new Date(context[0].label);
+                            return date.toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                            });
+                        },
+                        label: (context) => {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            label += this.formatCurrency(context.raw, this.getSelectedCurrency());
+                            return label;
+                        }
+                    }
+                };
+
+                // Line chart specific configurations for income vs expenses
+                baseOptions.scales = {
+                    x: {
+                        type: 'category',
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            callback: (value, index, values) => {
+                                const date = new Date(this.incomeExpensesChart.data.labels[index]);
+                                if (this.chartPeriod === 'daily') {
+                                    return date.toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric'
+                                    });
+                                } else if (this.chartPeriod === 'weekly') {
+                                    return date.toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric'
+                                    });
+                                } else {
+                                    return date.toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        year: 'numeric'
+                                    });
+                                }
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: (value) => this.formatCurrency(value, this.getSelectedCurrency(), false)
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    }
+                };
+
+                baseOptions.interaction = {
+                    intersect: false,
+                    mode: 'index'
+                };
+
+                baseOptions.elements = {
+                    line: {
+                        tension: 0.4
+                    },
+                    point: {
+                        hoverRadius: 8,
+                        radius: 6
+                    }
+                };
+            } else if (chartId === 'expensesBreakdownChart' || chartId === 'payablesReceivablesChart') {
+                // For other bar charts
+                baseOptions.plugins.tooltip = {
+                    callbacks: {
+                        title: (context) => {
+                            return context[0].label; // Use label directly (category names)
+                        },
+                        label: (context) => {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            label += this.formatCurrency(context.raw, this.getSelectedCurrency());
+
+                            // Add percentage to tooltip
+                            const dataset = context.chart.data.datasets[0].data;
+                            const total = dataset.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((context.raw / total) * 100).toFixed(1) + '%' : '0%';
+                            label += ` (${percentage})`;
+
+                            return label;
+                        }
+                    }
+                };
+
+                // Standard bar chart options for expenses and payables/receivables
+                baseOptions.scales = {
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: (value) => this.formatCurrency(value, this.getSelectedCurrency(), false)
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    }
+                };
+            }
+
+            return baseOptions;
+        }
+
+
+
+        // Replace the loadData method with progressive loading
+        async loadData(startDate, endDate) {
+            try {
+                setLoadingState(true);
+
+                // Reset previous period data immediately when loading new data
+                this.previousPeriodData = null;
+                this.updateTrendIndicatorsLoading();
+
+                // Always get the latest values from the date pickers if custom range is selected
+                let actualStartDate = startDate;
+                let actualEndDate = endDate;
+
+                if (this.currentTimeFilter === 'custom') {
+                    actualStartDate = document.getElementById('startDate')?.value || startDate;
+                    actualEndDate = document.getElementById('endDate')?.value || endDate;
+                }
+
+                // STEP 1: Load current period data first (highest priority)
+                const currentData = await this.fetchData(actualStartDate, actualEndDate, false);
+                this.currentData = currentData.transactions || [];
+                this.currentCashBalances = currentData.cashBalances || [];
+                this.currentTotalCashBalance = currentData.totalCashBalance || 0;
+                this.filteredData = [...this.currentData];
+
+                // STEP 2: Immediately update the dashboard with current data only
+                this.updateDashboardImmediate();
+                this.updateCharts();
+                this.updateTopTransactionsTable();
+                this.updateCashBalanceDisplay();
+
+                // STEP 3: Load previous period data in the background (lower priority)
+                // Only load if we have current data
+                if (this.currentData.length > 0) {
+                    this.loadPreviousPeriodData(actualStartDate, actualEndDate);
+                } else {
+                    // If no current data, set trends to "No data"
+                    this.updateTrendIndicatorsNew();
+                }
+
+            } catch (error) {
+                console.error('Error loading current data:', error);
+                alert('Failed to load data. Please try again.');
+                // Ensure trends show error state
+                this.updateTrendIndicatorsNew();
+            } finally {
+                setLoadingState(false);
+            }
+        }
+        // New method to load previous period data in background
+        // Replace your loadPreviousPeriodData method with this:
+        async loadPreviousPeriodData(startDate, endDate) {
+            try {
+                console.log('Loading previous period data in background...');
+
+                // Add timeout to prevent hanging
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Previous period data loading timeout')), 30000); // 30 second timeout
+                });
+
+                const previousPeriod = this.getPreviousPeriod(startDate, endDate);
+
+                // Race between the fetch and timeout
+                const previousData = await Promise.race([
+                    this.fetchData(previousPeriod.startDate, previousPeriod.endDate, true),
+                    timeoutPromise
+                ]);
+
+                // Validate the data structure
+                if (!previousData || !Array.isArray(previousData.transactions)) {
+                    throw new Error('Invalid previous period data structure');
+                }
+
+                this.previousPeriodData = previousData.transactions;
+
+                // STEP 4: Update dashboard with trend data once previous period is loaded
+                this.updateDashboardWithTrends();
+
+                console.log('Previous period data loaded successfully');
+
+            } catch (error) {
+                console.error('Error loading previous period data:', error);
+
+                // Set previous period data to empty array to avoid undefined errors
+                this.previousPeriodData = [];
+
+                // Update trends to show "No data" instead of "Loading..."
+                this.updateTrendIndicatorsNew();
+            }
+        }
+
+
+        // Add this new method to handle no previous data case
+        // Replace your updateTrendIndicatorsNew method with this:
+        updateTrendIndicatorsNew() {
+            const trendElements = [
+                'incomeChange', 'expensesChange', 'profitChange', 'transactionsChange'
+            ];
+
+            trendElements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = 'New';
+                    element.className = 'trend-badge positive';
+                    element.title = 'First time tracking this period - no previous data available for comparison';
+                }
+            });
+        }
+        // Update dashboard immediately with current data only
+        updateDashboardImmediate() {
+            if (this.currentData.length === 0) {
+                this.resetMetrics();
+                return;
+            }
+
+            const currentMetrics = this.calculateMetrics(this.currentData);
+
+            // Update metric values immediately
+            this.updateMetricValues(currentMetrics);
+
+            // Show loading state for trend indicators
+            this.updateTrendIndicatorsLoading();
+        }
+
+        // Update dashboard with trend data once previous period is available
+        // Also update your updateDashboardWithTrends method to handle empty data:
+        updateDashboardWithTrends() {
+            if (!this.previousPeriodData || this.previousPeriodData.length === 0) {
+                console.log('No previous period data available for trends');
+                this.updateTrendIndicatorsNew();
+                return;
+            }
+
+            const currentMetrics = this.calculateMetrics(this.currentData);
+            const previousMetrics = this.calculateMetrics(this.previousPeriodData);
+
+            // Update trend indicators with actual data
+            this.updateTrendIndicators(currentMetrics, previousMetrics);
+
+            // Optional: Add a subtle visual indicator that trends are now available
+            this.showTrendsLoadedIndicator();
+        }
+
+        // Show loading state for trend indicators
+        updateTrendIndicatorsLoading() {
+            const trendElements = [
+                'incomeChange', 'expensesChange', 'profitChange', 'transactionsChange'
+            ];
+
+            trendElements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = 'Loading...';
+                    element.className = 'trend-badge neutral';
+                }
+            });
+        }
+
+        // Optional: Visual indicator that trends are loaded
+        showTrendsLoadedIndicator() {
+            // You can add a subtle animation or tooltip to indicate trends are now available
+            const trendElements = document.querySelectorAll('.trend-badge');
+            trendElements.forEach(element => {
+                element.style.transition = 'all 0.3s ease';
+                element.style.opacity = '1';
+            });
+
+        }
+
+
+
+        getPreviousPeriod(startDate, endDate) {
+            // If custom dates are provided, calculate based on the same calendar days previous month
+            if (startDate && endDate) {
+                const start = luxon.DateTime.fromISO(startDate);
+                const end = luxon.DateTime.fromISO(endDate);
+
+                return {
+                    startDate: start.minus({ months: 1 }).toISODate(),
+                    endDate: end.minus({ months: 1 }).toISODate()
+                };
+            }
+
+            // Handle standard time periods
+            const now = luxon.DateTime.now();
+            let previousStart, previousEnd;
+
+            switch (this.currentTimeFilter) {
+                case 'today':
+                    previousStart = now.minus({ days: 1 }).startOf('day');
+                    previousEnd = now.minus({ days: 1 }).endOf('day');
+                    break;
+                case 'yesterday':
+                    previousStart = now.minus({ days: 2 }).startOf('day');
+                    previousEnd = now.minus({ days: 2 }).endOf('day');
+                    break;
+                case 'week':
+                    previousStart = now.minus({ weeks: 1 }).startOf('week');
+                    previousEnd = now.minus({ weeks: 1 }).endOf('week');
+                    break;
+                case 'month':
+                    previousStart = now.minus({ months: 1 }).startOf('month');
+                    previousEnd = now.minus({ months: 1 }).endOf('month');
+                    break;
+                case 'last_month':
+                    previousStart = now.minus({ months: 2 }).startOf('month');
+                    previousEnd = now.minus({ months: 2 }).endOf('month');
+                    break;
+                case 'year':
+                    previousStart = now.minus({ years: 1 }).startOf('year');
+                    previousEnd = now.minus({ years: 1 }).endOf('year');
+                    break;
+                default: // Default to month if no filter is set
+                    previousStart = now.minus({ months: 1 }).startOf('month');
+                    previousEnd = now.minus({ months: 1 }).endOf('month');
+            }
+
+            return {
+                startDate: previousStart.toISODate(),
+                endDate: previousEnd.toISODate()
+            };
+        }
+
+        async fetchData(startDate, endDate, isPreviousPeriod = false) {
+
+            let url = '/general_ledger/api/transactions';
+            const params = new URLSearchParams();
+
+            if (startDate && endDate) {
+                params.append('start_date', startDate);
+                params.append('end_date', endDate);
+            } else if (this.currentTimeFilter !== 'all' && this.currentTimeFilter !== 'custom') {
+                params.append('time_filter', this.currentTimeFilter);
+            } else {
+                console.log('No date filter applied');
+            }
+
+            // ✅ Add this parameter to skip cash balances for previous period
+            if (isPreviousPeriod) {
+                params.append('include_cash_balances', 'false');
+            }
+
+            // Add other filters
+            const filters = {
+                category: document.getElementById('category-select')?.value,
+                subcategory: document.getElementById('subcategory-select')?.value,
+                payment_mode: document.getElementById('payment-mode-select')?.value,
+                vendor: document.getElementById('vendor-select')?.value,
+                project: document.getElementById('project-select')?.value,
+                currency: document.getElementById('currency-select')?.value
+            };
+
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value) params.append(key, value);
+            });
+
+            const fullUrl = url + (params.toString() ? `?${params.toString()}` : '');
+
+
+            const response = await fetch(fullUrl, {
+                headers: { 'X-API-Key': apiKey }
+            });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            const data = await response.json();
+
+            return {
+                transactions: data[0],
+                cashBalances: data[1],
+                totalCashBalance: data[2]
+            };
+        }
+
+
+        updateCashBalanceDisplay() {
+            const container = document.getElementById('accountBalancesList');
+            if (!container) return;
+
+            // Get company data from data attributes
+            const hasMultipleCurrencies = container.dataset.companyHasMultipleCurrencies === 'true';
+            const currencyRatesUrl = container.dataset.currencyRatesUrl;
+
+            // Clear existing content
+            container.innerHTML = '';
+
+            // Calculate total balance
+            const totalBalance = this.totalCashBalance || this.currentTotalCashBalance || 0;
+
+            // Determine if balance is positive or negative
+            const balanceClass = totalBalance >= 0 ? 'positive-color' : 'negative-color';
+
+            // Create the HTML structure
+            container.innerHTML = `
+        <div class="balance-totals">
+            <div class="balance-total left">
+                <span class="balance-total-title">Cash Balance</span>
+                <span class="balance-total-amount ${balanceClass}">${this.formatCurrency(totalBalance, baseCurrency, false)}</span>
+            </div>
+            <div class="balance-total right">
+                <span class="balance-total-title">Accounts</span>
+                <span class="balance-total-amount">${this.currentCashBalances.length}</span>
+            </div>
+        </div>
+        <div class="balance-breakdown">
+            <h4>Account Balances</h4>
+            
+            ${this.currentCashBalances.map(account => {
+                const accountBalanceClass = account.amount >= 0 ? 'positive-color' : 'negative-color';
+                return `
+                <div class="balance-breakdown-item">
+                    <span class="balance-breakdown-title">${account.subcategory || account.category}</span>
+                    <span class="balance-breakdown-amount ${accountBalanceClass}">
+                        ${this.formatCurrency(account.amount, baseCurrency, false)}
+                    </span>
+                </div>
+                `;
+            }).join('')}
+
+            ${hasMultipleCurrencies ? `
+                <div class="currency-notice alert alert-info" style="font-size:10px; padding:5px">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Balances shown use the <a href="${currencyRatesUrl}" class="alert-link">latest available exchange rates</a>.
+                    <span class="d-block text-muted mt-1">Rates may vary from real-time market values.</span>
+                </div>
+            ` : ''}
+        </div>
+    `;
+        }
+
+
+        getCurrentPeriodDates() {
+            const now = luxon.DateTime.now();
+            let startDate, endDate;
+
+            switch (this.currentTimeFilter) {
+                case 'today':
+                    startDate = now.startOf('day');
+                    endDate = now.endOf('day');
+                    break;
+                case 'week':
+                    startDate = now.startOf('week');
+                    endDate = now.endOf('week');
+                    break;
+                case 'month':
+                    startDate = now.startOf('month');
+                    endDate = now.endOf('month');
+                    break;
+                case 'quarter':
+                    startDate = now.startOf('quarter');
+                    endDate = now.endOf('quarter');
+                    break;
+                case 'year':
+                    startDate = now.startOf('year');
+                    endDate = now.endOf('year');
+                    break;
+                default:
+                    startDate = now.startOf('month');
+                    endDate = now.endOf('month');
+            }
+
+            return {
+                startDate: startDate.toISODate(),
+                endDate: endDate.toISODate()
+            };
+        }
+
+
+        // Update the dashboard metrics and charts
+        updateDashboard() {
+            if (this.currentData.length === 0) {
+                this.resetMetrics();
+                return;
+            }
+
+            const currentMetrics = this.calculateMetrics(this.currentData);
+            const previousMetrics = this.calculateMetrics(this.previousPeriodData || []);
+
+            this.updateMetricValues(currentMetrics);
+            this.updateTrendIndicators(currentMetrics, previousMetrics);
+
+
+        }
+
+        calculateMetrics(data) {
+            let totalIncome = 0;
+            let totalExpenses = 0;
+
+            data.forEach(tx => {
+                const amount = parseFloat(tx.amount_in_base_currency || 0);
+
+                if (tx.transaction_type === "Income") {
+                    // For income: Credits increase income, Debits decrease income
+                    if (tx.dr_cr === 'C') {
+                        totalIncome += amount;
+                    } else {
+                        totalIncome -= amount;
+                    }
+                } else if (tx.transaction_type === "Expense") {
+                    // For expenses: Debits increase expenses, Credits decrease expenses
+                    if (tx.dr_cr === 'D') {
+                        totalExpenses += amount;
+                    } else {
+                        totalExpenses -= amount;
+                    }
+                }
+            });
+
+            // Don't force non-negative - negative values might indicate data issues
+            return {
+                income: totalIncome,
+                expenses: totalExpenses,
+                netProfit: totalIncome - totalExpenses,
+                totalTransactions: data.length
+            };
+        }
+
+        // Rest of your methods remain unchanged
+        updateMetricValues(metrics) { /* ... */ }
+        updateTrendIndicators(current, previous) { /* ... */ }
+        resetMetrics() { /* ... */ }
+
+        updateMetricValues(metrics) {
+            document.getElementById('totalIncome').textContent = this.formatCurrency(metrics.income, baseCurrency, false);
+            document.getElementById('totalExpenses').textContent = this.formatCurrency(metrics.expenses, baseCurrency, false);
+            document.getElementById('netProfit').textContent = this.formatCurrency(metrics.netProfit, baseCurrency, false);
+            document.getElementById('totalTransactions').textContent = metrics.totalTransactions.toLocaleString();
+        }
+
+        updateTrendIndicators(current, previous) {
+            const indicators = [
+                { id: 'incomeChange', current: current.income, previous: previous.income, positiveIsGood: true },
+                { id: 'expensesChange', current: current.expenses, previous: previous.expenses, positiveIsGood: false },
+                { id: 'profitChange', current: current.netProfit, previous: previous.netProfit, positiveIsGood: true },
+                { id: 'transactionsChange', current: current.totalTransactions, previous: previous.totalTransactions, positiveIsGood: null }
+            ];
+
+            indicators.forEach(({ id, current, previous, positiveIsGood }) => {
+                const element = document.getElementById(id);
+                if (!element) return;
+
+                // Handle edge cases
+                if (previous === 0) {
+                    if (current > 0) {
+                        element.textContent = "New";
+                        element.className = positiveIsGood === false ? "trend-badge negative" : "trend-badge positive";
+                    } else if (current < 0) {
+                        element.textContent = "Negative";
+                        element.className = "trend-badge negative";
+                    } else {
+                        element.textContent = "-";
+                        element.className = "trend-badge neutral";
+                    }
+                    return;
+                }
+
+                // Calculate percentage with bounds
+                let percentage = ((current - previous) / previous) * 100;
+                percentage = Math.max(Math.min(percentage, 999), -999); // Cap at ±999%
+
+                const absoluteValue = Math.abs(percentage).toFixed(1);
+                const isIncrease = percentage >= 0;
+
+                // Determine if good/bad/neutral
+                let trendClass;
+                if (positiveIsGood === null) {
+                    trendClass = "neutral";
+                } else if (positiveIsGood) {
+                    trendClass = isIncrease ? "positive" : "negative";
+                } else {
+                    trendClass = isIncrease ? "negative" : "positive";
+                }
+
+                element.textContent = `${isIncrease ? '↑' : '↓'} ${absoluteValue}%`;
+                element.className = `trend-badge ${trendClass}`;
+
+                // Add tooltip for more context
+                element.title = `Current: ${this.formatCurrency(current, this.getSelectedCurrency())} | Previous: ${this.formatCurrency(previous, this.getSelectedCurrency())}`;
+            });
+        }
+
+
+        resetMetrics() {
+            document.getElementById('totalIncome').textContent = this.formatCurrency(0);
+            document.getElementById('totalExpenses').textContent = this.formatCurrency(0);
+            document.getElementById('netProfit').textContent = this.formatCurrency(0);
+            document.getElementById('totalTransactions').textContent = '0';
+
+            // Reset all trend indicators
+            document.querySelectorAll('.trend-badge').forEach(el => {
+                el.textContent = '-';
+                el.className = 'trend-badge neutral';
+            });
+        }
+
+
+        // 
+        // Add this method to your class
+        debugChartData() {
+            console.log('=== CHART DEBUG ===');
+            const incomeData = this.groupNetDataByPeriod("Income");
+            const expensesData = this.groupNetDataByPeriod("Expense");
+
+            console.log('Income data:', {
+                labels: incomeData.labels,
+                values: incomeData.values
+            });
+            console.log('Expenses data:', {
+                labels: expensesData.labels,
+                values: expensesData.values
+            });
+
+            // Check if we have any income transactions at all
+            const incomeTransactions = this.currentData.filter(tx => tx.transaction_type === "Income");
+            console.log('Income transactions count:', incomeTransactions.length);
+            if (incomeTransactions.length > 0) {
+                console.log('Sample income transactions:', incomeTransactions.slice(0, 3));
+            }
+        }
+
+        // Then modify your updateCharts method to call the debug:
+        updateCharts() {
+            if (this.currentData.length === 0) {
+                this.clearCharts();
+                return;
+            }
+
+            // DEBUG: Check what data we have
+            this.debugChartData();
+
+            // DEBUG: Check what cash data we have
+            this.debugCashBalances();
+
+
+            // Update Income vs Expenses Chart
+            const incomeData = this.groupNetDataByPeriod("Income");
+            const expensesData = this.groupNetDataByPeriod("Expense");
+
+            // Combine and sort all unique dates
+            const allDatesSet = new Set([
+                ...incomeData.labels.map(d => d.getTime()),
+                ...expensesData.labels.map(d => d.getTime())
+            ]);
+            const allDatesSorted = Array.from(allDatesSet)
+                .sort((a, b) => a - b)
+                .map(timestamp => new Date(timestamp));
+
+            // Create lookup maps
+            const incomeMap = new Map(incomeData.labels.map((d, i) => [d.getTime(), incomeData.values[i]]));
+            const expensesMap = new Map(expensesData.labels.map((d, i) => [d.getTime(), expensesData.values[i]]));
+
+            // Generate values matching sorted labels
+            const incomeValues = allDatesSorted.map(d => incomeMap.get(d.getTime()) || 0);
+            const expensesValues = allDatesSorted.map(d => expensesMap.get(d.getTime()) || 0);
+
+
+            // FIX: Use simple data structure without complex objects
+            this.incomeExpensesChart.data = {
+                labels: allDatesSorted,
+                datasets: [
+                    {
+                        label: 'Income',
+                        data: incomeValues,
+                        borderColor: '#4361ee',
+                        backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                        borderWidth: 2,
+                        // pointBackgroundColor: '#4361ee',
+                        // pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4, // Increased for better visibility
+                        pointHoverRadius: 4,
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Expenses',
+                        data: expensesValues,
+                        borderColor: '#ff6b6b',
+                        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                        borderWidth: 2,
+                        // pointBackgroundColor: '#ff6b6b',
+                        // pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4, // Increased for better visibility
+                        pointHoverRadius: 5,
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            };
+
+            // Update chart and force redraw
+            this.incomeExpensesChart.update('active');
+            // Update Cash Flow Chart
+            this.updateCashFlowChart();
+
+            // Rest of your code for other charts...
+            const categories = {};
+            this.currentData.forEach(tx => {
+                const category = tx.category || 'Uncategorized';
+                categories[category] = (categories[category] || 0) + parseFloat(tx.amount_in_base_currency);
+            });
+
+
+
+            this.updateExpensesBreakdownChart();
+
+
+            // Update Payables & Receivables Chart
+            this.updatePayablesReceivablesChart();
+        }
+
+
+
+        // Also update clearCharts to include cash flow chart
+        clearCharts() {
+            const emptyData = { labels: [], datasets: [] };
+
+            if (this.incomeExpensesChart) {
+                this.incomeExpensesChart.data = emptyData;
+                this.incomeExpensesChart.update('none');
+            }
+            if (this.cashFlowChart) {
+                this.cashFlowChart.data = emptyData;
+                this.cashFlowChart.update('none');
+            }
+            if (this.expensesBreakdownChart) {
+                this.expensesBreakdownChart.data = emptyData;
+                this.expensesBreakdownChart.update('none');
+            }
+            if (this.payablesReceivablesChart) {
+                this.payablesReceivablesChart.data = emptyData;
+                this.payablesReceivablesChart.update('none');
+            }
+        }
+
+
+        // Group net data by period for Income and Expenses
+        groupNetDataByPeriod(transactionType) {
+            const groupedData = {};
+
+            const periodFormat = this.chartPeriod === 'daily' ? 'yyyy-MM-dd' :
+                this.chartPeriod === 'weekly' ? 'yyyy-MM-WW' : 'yyyy-MM';
+
+            this.currentData.forEach(tx => {
+                if (!tx.date || tx.transaction_type !== transactionType) return;
+
+                const date = luxon.DateTime.fromISO(tx.date);
+                if (!date.isValid) return;
+
+                const period = date.toFormat(periodFormat);
+
+                if (!groupedData[period]) {
+                    groupedData[period] = {
+                        date: date.startOf('day').toJSDate(),
+                        total: 0
+                    };
+                }
+
+                const amount = parseFloat(tx.amount_in_base_currency || 0);
+
+                // FIX: Handle income and expenses differently based on dr_cr
+                if (transactionType === "Income") {
+                    // For Income: Credits increase income, Debits decrease income
+                    if (tx.dr_cr === 'C') {
+                        groupedData[period].total += amount;
+                    } else if (tx.dr_cr === 'D') {
+                        groupedData[period].total -= amount;
+                    }
+                } else if (transactionType === "Expense") {
+                    // For Expenses: Debits increase expenses, Credits decrease expenses
+                    if (tx.dr_cr === 'D') {
+                        groupedData[period].total += amount;
+                    } else if (tx.dr_cr === 'C') {
+                        groupedData[period].total -= amount;
+                    }
+                }
+            });
+
+            const sortedPeriods = Object.values(groupedData).sort((a, b) => a.date - b.date);
+
+            // Ensure values are non-negative for chart display
+            return {
+                labels: sortedPeriods.map(p => p.date),
+                values: sortedPeriods.map(p => Math.max(0, p.total)) // Ensure non-negative
+            };
+        }
+
+        // updateExpensesBreakdownChart remains unchanged
+        updateExpensesBreakdownChart() {
+            const expensesData = this.currentData.filter(tx => tx.transaction_type === 'Expense');
+
+            if (expensesData.length === 0) {
+                this.expensesBreakdownChart.data.labels = [];
+                this.expensesBreakdownChart.data.datasets = [];
+                this.expensesBreakdownChart.update();
+                return;
+            }
+
+            const breakdown = {};
+
+            expensesData.forEach(tx => {
+                let key;
+                switch (this.expensesBreakdownBy) {
+                    case 'category':
+                        key = tx.category || 'Uncategorized';
+                        break;
+                    case 'subcategory':
+                        key = tx.subcategory || (tx.category || 'Uncategorized');
+                        break;
+                    case 'vendor':
+                        key = tx.payment_to_vendor || 'No Vendor';
+                        break;
+                    default:
+                        key = tx.category || 'Uncategorized';
+                }
+
+                breakdown[key] = (breakdown[key] || 0) + parseFloat(tx.amount_in_base_currency);
+            });
+
+            const sortedBreakdown = Object.entries(breakdown)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+            this.expensesBreakdownChart.data.labels = sortedBreakdown.map(item => item[0]);
+            this.expensesBreakdownChart.data.datasets = [{
+                label: 'Expenses Breakdown',
+                data: sortedBreakdown.map(item => item[1]),
+                backgroundColor: '#ff6b6b',
+                borderColor: '#ff4757',
+                borderWidth: 1
+            }];
+            this.expensesBreakdownChart.update();
+        }
+
+        getSelectedCurrency() {
+            const currencySelect = document.getElementById('currency-select');
+            const selectedOption = currencySelect.options[currencySelect.selectedIndex];
+
+            if (currencySelect.value === "") {
+                // If "Base Currency" is selected, return the base currency
+                return baseCurrency;
+            } else {
+                // Return the selected currency code
+                return selectedOption.textContent;
+            }
+        }
+
+
+        //    Update top transactions table
+
+        updateTopTransactionsTable() {
+            if (this.currentData.length === 0) {
+                this.topTransactionsTable.innerHTML = '<tr><td colspan="8" class="text-center">No data available</td></tr>';
+                return;
+            }
+
+            let topTransactions = [...this.currentData];
+
+            // Enhanced filtering for all types including payables/receivables
+            if (this.topTransactionsFilter === 'income') {
+                topTransactions = topTransactions.filter(tx => tx.transaction_type === 'Income');
+            } else if (this.topTransactionsFilter === 'expenses') {
+                topTransactions = topTransactions.filter(tx => tx.transaction_type === 'Expense');
+            } else if (this.topTransactionsFilter === 'payables') {
+                topTransactions = topTransactions.filter(tx => tx.is_payable === true);
+            } else if (this.topTransactionsFilter === 'receivables') {
+                topTransactions = topTransactions.filter(tx => tx.is_receivable === true);
+            }
+            // "all" shows all transactions (no filter)
+
+            // Sort by amount (largest first)
+            topTransactions.sort((a, b) => parseFloat(b.amount_in_base_currency) - parseFloat(a.amount_in_base_currency));
+
+            // Limit to top 10
+            topTransactions = topTransactions.slice(0, 10);
+
+            // Update table
+            this.topTransactionsTable.innerHTML = topTransactions.length > 0 ?
+                topTransactions.map(tx => {
+                    // Determine display type and badge class
+                    let displayType = tx.transaction_type;
+                    let badgeClass = tx.transaction_type.toLowerCase();
+
+                    // Override for payables/receivables
+                    if (tx.is_payable === true) {
+                        displayType = 'Payable';
+                        badgeClass = 'liability';
+                    } else if (tx.is_receivable === true) {
+                        displayType = 'Receivable';
+                        badgeClass = 'asset';
+                    }
+
+                    // Determine Debit/Credit badge
+                    const drCrBadgeClass = tx.dr_cr === 'D' ? 'badge warning' : 'badge success';
+                    const drCrDisplay = tx.dr_cr === 'D' ? 'Debit' : 'Credit';
+
+                    return `
+            <tr>
+                <td>${luxon.DateTime.fromISO(tx.date).toFormat('MMM dd, yyyy')}</td>
+                <td>
+                    <span class="dr-cr-badge ${badgeClass}">
+                        ${displayType}
+                    </span>
+                </td>
+                <td>${tx.category || 'Uncategorized'}</td>
+                <td>${tx.subcategory || '—'}</td>
+                <td>
+                    <span class="${drCrBadgeClass}">
+                        ${drCrDisplay}
+                    </span>
+                </td>
+                <td class="text-end">${this.formatCurrency(tx.amount_in_base_currency, this.getSelectedCurrency())}</td>
+                <td>${tx.payment_mode || 'N/A'}</td>
+                <td>${tx.description || ''}</td>
+            </tr>
+        `;
+                }).join('') :
+                '<tr><td colspan="8" class="text-center">No transactions found</td></tr>';
+        }
+        formatCurrency(amount, currency = baseCurrency, includeSymbol = true) {
+            const value = parseFloat(amount || 0);
+            const options = {
+                style: includeSymbol ? 'currency' : 'decimal',
+                currency: currency,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            };
+
+            try {
+                return new Intl.NumberFormat(navigator.language, options).format(value);
+            } catch (e) {
+                // Fallback if currency is not supported
+                return `${currency} ${value.toFixed(2)}`;
+            }
+        }
+    }
+
+
+
+
+    document.getElementById('currency-select').addEventListener('change', function () {
+        // Get the selected option text (USD, UGX, etc.)
+        const selectedCurrency = this.options[this.selectedIndex].textContent;
+
+        console.log('Selected currency:', selectedCurrency);
+
+        // If "Base Currency" is selected, use the template value
+        const currencyToShow = this.value ? selectedCurrency : "{{ base_currency }}";
+
+        // Update all currency displays
+        document.querySelectorAll('.currency-symbol').forEach(el => {
+            el.textContent = currencyToShow;
+        });
+    });
+
+    // Initialize the dashboard when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+        new AccountingDashboard();
+    });
+
+</script>
+{% endblock %}

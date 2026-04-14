@@ -1,0 +1,875 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <!-- HEADER SECTION -->
+    <div class="header-section">
+        <h1>Payment History</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li><a href="{{ url_for('sales.add_sales_transaction') }}">Quick Sale</a></li>
+                    <li><a href="{{ url_for('sales.invoice_management') }}">Sales Invoices</a></li>
+                    <li><a href="{{ url_for('sales.receive_payment') }}">Receive Payment</a></li>
+                    {% endif %}
+                    <li><a href="{{ url_for('sales.view_sales_transactions') }}">Sales Transactions</a></li>
+                    <li><a href="{{ url_for('sales.quotation_management') }}">Quotations</a></li>
+                    <li><a href="{{ url_for('sales.sales_order_management') }}">Sales Orders</a></li>
+                    <li><a href="{{ url_for('sales.delivery_note_management') }}">Delivery Notes</a></li>
+                    <li><a href="{{ url_for('sales.payment_receipts') }}">All Receipts</a></li>
+                    <li><a href="{{ url_for('sales.view_customer_credits') }}">Customer Credits</a></li>
+                    <li><a href="{{ url_for('general_ledger.add_vendor_form') }}">Customers</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Header buttons and controls -->
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+            <!-- Multi-select button -->
+            <button class="btn button-outline" type="button" id="toggleMultiSelect">
+                <i class="fas fa-check-square"></i> Select
+            </button>
+
+            <button class="btn button-outline" type="button" id="hideMultiSelect" style="display: none;">
+                <i class="fas fa-eye-slash"></i> Hide
+            </button>
+
+            <!-- Bulk delete button -->
+            <div class="bulk-actions" id="bulkActions" style="display: none;">
+                <button class="button-outline" type="button" id="bulkDelete">
+                    <i class="fas fa-trash"></i> Delete Selected
+                </button>
+            </div>
+
+            <!-- Export button -->
+            <button class="button-outline" type="button" id="exportBtn">
+                <i class="fas fa-download"></i> Export
+            </button>
+
+            <!-- View selector -->
+            <div style="display: flex; align-items: center;">
+                <select id="viewSelector" class="form-select" style="width: 180px;"
+                    onchange="window.location.href=this.value;">
+                    <option value="{{ url_for('sales.view_sales_transactions') }}">📄 Invoice & Direct</option>
+                    <option value="{{ url_for('sales.payment_history') }}" selected>💰 Payment History</option>
+                    <option value="{{ url_for('sales.view_customer_credits') }}">💳 Customer Credits</option>
+                </select>
+            </div>
+
+            <div class="custom-tooltip-container">
+                <button class="refresh-btn" id="refreshCacheBtn">
+                    <span class="icon">🔄</span>
+                </button>
+                <span class="custom-tooltip">Refresh Page</span>
+            </div>
+        </div>
+
+        <!-- Dashboard Shortcuts -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{ url_for('sales.add_sales_transaction') }}">Quick Sale</a></li>
+
+                <li class="shortcut-item"><a href="{{ url_for('sales.receive_payment') }}">Receive Payment</a></li>
+                {% endif %}
+
+
+
+                <!-- In your shortcuts sidebar -->
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" id="moreOptionsDropdown" onclick="toggleDropdown(event)">
+                        <span>More Options </span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+
+                            <a href="{{ url_for('sales.view_sales_transactions') }}">Sales Transactions</a>
+
+                            {% if role == 'Admin' or role == 'Contributor' %}
+                            <a href="{{ url_for('sales.invoice_management') }}">Sales Invoices</a>
+                            {% endif %}
+
+                            <!-- Quotations -->
+                            <a href="{{ url_for('sales.quotation_management') }}">Quotations</a>
+
+                            <!-- Sales Orders -->
+                            <a href="{{ url_for('sales.sales_order_management') }}">Sales Orders</a>
+
+                            <!-- Delivery Notes -->
+                            <a href="{{ url_for('sales.delivery_note_management') }}">Delivery Notes</a>
+
+                            <!-- Payment Receipts -->
+                            <a href="{{ url_for('sales.payment_receipts') }}">All Receipts</a>
+
+                            <!-- Customer Credits -->
+                            <a href="{{ url_for('sales.view_customer_credits') }}">Customer Credits</a>
+
+                            <!-- Customers -->
+                            <a href="{{ url_for('general_ledger.add_vendor_form') }}">Customers</a>
+                        </div>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- FILTER SECTION -->
+    <!-- FILTER SECTION -->
+    <div class="filter-section" id="filter-section">
+        <form class="date-filter-form" id="filter-form">
+            <!-- Customer Filter -->
+            <div class="filter-group">
+                <label for="customer" class="filter-label">Customer</label>
+                <select id="customer" name="customer" class="form-select select2">
+                    <option value="">All Customers</option>
+                    {% for customer in customers %}
+                    <option value="{{ customer.id }}">{{ customer.vendor_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Payment Mode Filter -->
+            <div class="filter-group">
+                <label for="payment_mode" class="filter-label">Payment Mode</label>
+                <select id="payment_mode" name="payment_mode" class="form-select">
+                    <option value="">All Payment Modes</option>
+                    {% for mode in payment_modes %}
+                    <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- 👇 NEW: Payment Account Filter -->
+            <div class="filter-group">
+                <label for="payment_account" class="filter-label">Payment Account</label>
+                <select id="payment_account" name="payment_account" class="form-select select2">
+                    <option value="">All Accounts</option>
+                    {% for account in payment_accounts %}
+                    <option value="{{ account.id }}">{{ account.sub_category }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- 👇 NEW: Project Filter -->
+            <div class="filter-group">
+                <label for="project" class="filter-label">Project</label>
+                <select id="project" name="project" class="form-select select2">
+                    <option value="">All Projects</option>
+                    {% for project in projects %}
+                    <option value="{{ project.id }}">{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Currency Filter -->
+            <div class="filter-group">
+                <label for="currency" class="filter-label">Currency</label>
+                <select id="currency" name="currency" class="form-select">
+                    <option value="">All Currencies</option>
+                    {% for currency in currencies %}
+                    <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+            <!-- Source Type Filter -->
+            <div class="filter-group">
+                <label for="source_type" class="filter-label">Source Type</label>
+                <select id="source_type" name="source_type" class="form-select">
+                    <option value="">All Types</option>
+                    <option value="bulk">Payment Receipts</option>
+                    <option value="invoice_payment">Invoice Payments</option>
+                    <option value="direct_sale">Direct Sales</option>
+                </select>
+            </div>
+
+
+            <!-- Date Range Filter -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control">
+            </div>
+
+            <!-- Reference Filter -->
+            <div class="filter-group">
+                <label for="reference" class="filter-label">Reference</label>
+                <input type="text" id="reference" name="reference" class="form-control"
+                    placeholder="Search reference...">
+            </div>
+
+            <!-- Items Per Page -->
+            <div class="filter-group">
+                <label for="per_page" class="filter-label">Items Per Page</label>
+                <select id="per_page" name="per_page" class="form-select">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="button" class="filter-section-button filter" id="applyFilter">Apply Filter</button>
+                <button type="button" class="filter-section-button reset" id="resetFilters">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- PAYMENTS TABLE -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" id="paymentsTable">
+            <thead class="table-light">
+                <tr>
+                    <th id="selectAllHeader" style="display: none; width: 40px;">
+                        <input type="checkbox" id="selectAll">
+                    </th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Document</th>
+                    <th>Customer</th>
+                    <th>Amount</th>
+                    <th>Currency</th>
+                    <th>Reference</th>
+                    <th>Payment Mode</th>
+                    <th>Deposited To</th>
+                    <th>Project</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="paymentsBody">
+                <!-- Content loaded via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAGINATION -->
+    <nav>
+        <ul class="pagination" id="pagination"></ul>
+        <div id="paginationInfo" class="mt-2"></div>
+    </nav>
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Initialize Select2
+        $('#customer').select2({ placeholder: 'Select Customer', allowClear: true, width: '100%' });
+
+        // ========== STATE VARIABLES ==========
+        let currentPage = 1;
+        let perPage = 20;
+        let customerId = '';
+        let paymentModeId = '';
+        let reference = '';
+        let project = '';
+        let paymentAccount = '';
+        let currencyId = '';
+        let sourceType = '';
+        let startDate = '';
+        let endDate = '';
+        let isMultiSelectMode = false;
+        let selectedPayments = new Set();
+        let currentPayments = [];
+
+        // ========== DOM ELEMENTS ==========
+        const paymentsBody = document.getElementById('paymentsBody');
+        const paginationElement = document.getElementById('pagination');
+        const paginationInfoElement = document.getElementById('paginationInfo');
+        const applyFilterBtn = document.getElementById('applyFilter');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+        const toggleMultiSelectBtn = document.getElementById('toggleMultiSelect');
+        const hideMultiSelectBtn = document.getElementById('hideMultiSelect');
+        const bulkActionsDiv = document.getElementById('bulkActions');
+        const bulkDeleteBtn = document.getElementById('bulkDelete');
+        const selectAllHeader = document.getElementById('selectAllHeader');
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const filterButton = document.getElementById('toggleFilterForm');
+        const dashboardShortcuts = document.querySelector('.dashboard-shortcuts');
+        const searchInput = document.getElementById('search');
+
+        // ========== EVENT LISTENERS ==========
+        $('#toggleFilterForm').on('click', () => $('#filter-section').toggleClass('visible'));
+        $('#shortcutToggleBtn').on('click', () => $('#mobileShortcutsSidebar').toggleClass('open'));
+        $('#closeShortcutsBtn').on('click', () => $('#mobileShortcutsSidebar').removeClass('open'));
+        $('#refreshCacheBtn').on('click', () => location.reload());
+
+        // Multi-select toggle
+        toggleMultiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = !isMultiSelectMode;
+            updateMultiSelectUI();
+        });
+
+        hideMultiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = false;
+            selectedPayments.clear();
+            updateMultiSelectUI();
+            loadPayments();
+        });
+
+        // Select all
+        // Update select all to only affect enabled checkboxes
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.payment-checkbox:not(:disabled)');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+                const paymentId = checkbox.value;
+                if (e.target.checked) {
+                    selectedPayments.add(paymentId);
+                } else {
+                    selectedPayments.delete(paymentId);
+                }
+            });
+            updateBulkActionButtons();
+        });
+
+        // Apply filter
+        applyFilterBtn.addEventListener('click', () => {
+            currentPage = 1;
+            customerId = $('#customer').val();
+            paymentModeId = $('#payment_mode').val();
+            reference = $('#reference').val();
+            project = $('#project').val();
+            paymentAccount = $('#payment_account').val();
+            currencyId = $('#currency').val();
+            sourceType = $('#source_type').val();
+            startDate = $('#start_date').val();
+            endDate = $('#end_date').val();
+            perPage = $('#per_page').val();
+            loadPayments();
+        });
+
+        // Reset filters
+        resetFiltersBtn.addEventListener('click', () => {
+            $('#filter-form')[0].reset();
+            $('#customer').val(null).trigger('change');
+            currentPage = 1;
+            customerId = '';
+            paymentModeId = '';
+            reference = '';
+            project = '';
+            paymentAccount = '';
+            currencyId = '';
+            sourceType = '';
+            startDate = '';
+            endDate = '';
+            perPage = '20';
+            loadPayments();
+        });
+
+        // Quick search - client-side filtering
+        $('#search').on('keyup', function () {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#paymentsBody tr');
+
+            rows.forEach(row => {
+                if (row.cells.length < 2) return;
+                const rowText = Array.from(row.cells)
+                    .slice(1) // Skip checkbox column
+                    .map(cell => cell.textContent.toLowerCase())
+                    .join(' ');
+
+                if (rowText.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+        // Bulk delete
+        bulkDeleteBtn.addEventListener('click', () => {
+            if (selectedPayments.size === 0) return;
+
+            Swal.fire({
+                title: 'Delete Payments?',
+                text: `Are you sure you want to delete ${selectedPayments.size} payment(s)?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete them!',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    deletePayments(Array.from(selectedPayments));
+                }
+            });
+        });
+
+        // ========== FUNCTIONS ==========
+        function loadPayments(page = 1) {
+            currentPage = page;
+            paymentsBody.innerHTML = '<tr><td colspan="11" class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Loading payments...</td></tr>';
+
+            const params = new URLSearchParams({
+                page: currentPage,
+                per_page: perPage,
+                customer: customerId,
+                payment_mode: paymentModeId,
+                currency: currencyId,
+                reference: reference,
+                project: project,
+                payment_account: paymentAccount,
+                source_type: sourceType,
+                start_date: startDate,
+                end_date: endDate
+            });
+
+            fetch(`/sales/api/payment-history?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentPayments = data.payments;
+                        console.log('Loaded payments:', currentPayments);
+                        renderPayments(data.payments);
+                        renderPagination(data.pagination);
+                    } else {
+                        paymentsBody.innerHTML = `<tr><td colspan="11" class="text-center text-danger py-3">${data.message}</td></tr>`;
+                    }
+                })
+                .catch(err => {
+                    paymentsBody.innerHTML = '<tr><td colspan="11" class="text-center text-danger py-3">Error loading payments</td></tr>';
+                    console.error(err);
+                });
+        }
+
+        function renderPayments(payments) {
+            if (!payments || payments.length === 0) {
+                paymentsBody.innerHTML = '<tr><td colspan="12" class="text-center py-3">No payments found</td></tr>';
+                return;
+            }
+
+            let html = '';
+            payments.forEach(payment => {
+                // Skip if payment is invalid or missing ID
+                if (!payment || !payment.id) {
+                    console.warn('Skipping invalid payment:', payment);
+                    return;
+                }
+
+                const isChecked = selectedPayments.has(payment.id.toString());
+
+                // Determine type badge with safe defaults
+                let typeBadgeClass = 'bg-secondary';
+                let typeIcon = '💰';
+                let typeText = payment.display_name || payment.source_type || 'Unknown';
+
+                if (payment.source_type === 'bulk') {
+                    typeBadgeClass = 'bg-info';
+                    typeIcon = '📦';
+                } else if (payment.source_type === 'invoice_payment') {
+                    typeBadgeClass = 'bg-primary';
+                    typeIcon = '📄';
+                } else if (payment.source_type === 'direct_sale') {
+                    typeBadgeClass = 'bg-success';
+                    typeIcon = '🛒';
+                }
+
+                // Status badge with safe defaults
+                let statusClass = 'bg-secondary';
+                let statusText = payment.status || 'unknown';
+
+                if (payment.status === 'completed' || payment.status === 'Paid' || payment.status === 'fully_allocated') {
+                    statusClass = 'bg-success';
+                    statusText = 'Completed';
+                } else if (payment.status === 'Cancelled') {
+                    statusClass = 'bg-danger';
+                    statusText = 'Cancelled';
+                } else if (payment.status === 'Draft') {
+                    statusClass = 'bg-info';
+                    statusText = 'Draft';
+                } else if (payment.status === 'partial' || payment.status === 'partially_allocated') {
+                    statusClass = 'bg-warning';
+                    statusText = 'Partial';
+                } else if (payment.status === 'unallocated') {
+                    statusClass = 'bg-info';
+                    statusText = 'Unallocated';
+                }
+
+                // Format date safely
+                const date = payment.date || '-';
+                const customerName = payment.customer_name || '-';
+                const amount = payment.amount || 0;
+                const currency = payment.currency || '-';
+                const ref = payment.reference || '-';
+                const paymentMode = payment.payment_mode || '-';
+                const documentNumber = payment.document_number || '-';
+                const paymentNumber = documentNumber !== '-' ? documentNumber : `PAY-${payment.id}`;
+
+                // Determine the correct link based on source type
+                let viewLink = '#';
+                let editLink = '#';
+
+                if (payment.source_type === 'bulk') {
+                    viewLink = `/sales/receipt/${payment.id}`;
+                    editLink = `/sales/edit_receipt/${payment.id}`;  // 👈 Add edit link for bulk payments
+                } else if (payment.source_type === 'invoice_payment') {
+                    viewLink = `/sales/transaction/${payment.id}`;
+                    editLink = `/sales/edit_transaction/${payment.id}`;  // 👈 Add edit link for invoice payments
+                } else if (payment.source_type === 'direct_sale') {
+                    viewLink = `/sales/direct_sales_transaction_details/${payment.id}`;
+                    editLink = `/sales/edit_direct_sale/${payment.id}`;  // 👈 Add edit link for direct sales
+                }
+
+                html += `
+        <tr>
+            <td style="display: ${isMultiSelectMode ? '' : 'none'}; width: 30px;">
+                ${payment.source_type === 'bulk' ?
+                        `<input type="checkbox" class="payment-checkbox" value="${payment.id}" ${isChecked ? 'checked' : ''}>` :
+                        `<input type="checkbox" disabled class="payment-checkbox" title="Only Payment Receipts can be deleted">`
+                    }
+            </td>
+            <td>${date}</td>
+            <td>
+       
+                <span class="badge ${typeBadgeClass}">
+                    ${typeIcon} ${typeText}
+                </span>
+            </td>
+
+            <td class="reference-link">
+                <a href="${viewLink}" class="${viewLink === '#' ? 'disabled-link' : ''}">
+                    ${paymentNumber}
+                </a>
+            </td>
+            <td>${customerName}</td>
+            <td class="text-end">${formatAmount(amount)}</td>
+            <td>${currency}</td>
+            <td>${ref}</td>
+            <td>${paymentMode}</td>
+            <td>${payment.deposited_to || '-'}</td>
+            <td>${payment.project_name || '-'}</td>
+            <td>
+                <div class="action-icons-clean" style="display: flex; gap: 5px;">
+                    <div class="custom-tooltip-container">
+                        <a href="${viewLink}" class="view-icon ${viewLink === '#' ? 'disabled' : ''}">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <span class="custom-tooltip left">View Details</span>
+                    </div>
+                    ${payment.source_type === 'bulk' ? `
+                    <div class="custom-tooltip-container" style="display:none;">
+                        <a href="${editLink}" class="edit-icon">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <span class="custom-tooltip left">Edit Receipt</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </td>
+        </tr>
+        `;
+            });
+
+            // If all payments were skipped, show message
+            if (html === '') {
+                paymentsBody.innerHTML = '<tr><td colspan="12" class="text-center py-3">No valid payments found</td></tr>';
+            } else {
+                paymentsBody.innerHTML = html;
+            }
+
+            // Add checkbox listeners
+            document.querySelectorAll('.payment-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const paymentId = e.target.value;
+                    if (e.target.checked) {
+                        selectedPayments.add(paymentId);
+                    } else {
+                        selectedPayments.delete(paymentId);
+                        selectAllCheckbox.checked = false;
+                    }
+                    updateBulkActionButtons();
+                });
+            });
+        }
+
+        function renderPagination(pagination) {
+            const { page, per_page, total_pages, total_items, has_next, has_prev } = pagination;
+
+            paginationInfoElement.textContent = `Showing ${(page - 1) * per_page + 1} to ${Math.min(page * per_page, total_items)} of ${total_items} entries`;
+
+            let html = '';
+
+            // Previous button
+            if (has_prev) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page - 1}">‹ Previous</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">‹ Previous</a></li>`;
+            }
+
+            // Page numbers
+            for (let i = 1; i <= total_pages; i++) {
+                if (i === 1 || i === total_pages || (i >= page - 2 && i <= page + 2)) {
+                    html += `<li class="page-item ${i === page ? 'active' : ''}">
+                        <a class="page-link" href="#" data-page="${i}">${i}</a>
+                    </li>`;
+                } else if (i === page - 3 || i === page + 3) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+
+            // Next button
+            if (has_next) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page + 1}">Next ›</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">Next ›</a></li>`;
+            }
+
+            paginationElement.innerHTML = html;
+
+            // Add event listeners
+            document.querySelectorAll('.page-link[data-page]').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const newPage = parseInt(el.getAttribute('data-page'));
+                    loadPayments(newPage);
+                });
+            });
+        }
+
+        function updateMultiSelectUI() {
+            if (isMultiSelectMode) {
+                filterButton.style.display = 'none';
+                dashboardShortcuts.style.display = 'none';
+                toggleMultiSelectBtn.style.display = 'none';
+                hideMultiSelectBtn.style.display = '';
+                selectAllHeader.style.display = '';
+
+                document.querySelectorAll('#paymentsBody tr td:first-child').forEach(td => {
+                    td.style.display = '';
+                });
+            } else {
+                filterButton.style.display = '';
+                dashboardShortcuts.style.display = '';
+                toggleMultiSelectBtn.style.display = '';
+                hideMultiSelectBtn.style.display = 'none';
+                selectAllHeader.style.display = 'none';
+
+                document.querySelectorAll('#paymentsBody tr td:first-child').forEach(td => {
+                    td.style.display = 'none';
+                });
+                bulkActionsDiv.style.display = 'none';
+            }
+
+            updateBulkActionButtons();
+        }
+
+        function updateBulkActionButtons() {
+            if (selectedPayments.size > 0 && isMultiSelectMode) {
+                bulkActionsDiv.style.display = 'flex';
+                bulkDeleteBtn.textContent = `Delete (${selectedPayments.size})`;
+            } else {
+                bulkActionsDiv.style.display = 'none';
+            }
+        }
+
+        function deletePayments(ids) {
+            // Separate IDs by type
+            const bulkIds = [];
+            const invoicePaymentIds = [];
+            const directSaleIds = [];
+
+            // Use currentPayments array to look up each ID's type
+            ids.forEach(id => {
+                const payment = currentPayments.find(p => p.id.toString() === id.toString());
+                if (payment) {
+                    if (payment.source_type === 'bulk') {
+                        bulkIds.push(id);
+                    } else if (payment.source_type === 'invoice_payment') {
+                        invoicePaymentIds.push(id);
+                    } else if (payment.source_type === 'direct_sale') {
+                        directSaleIds.push(id);
+                    }
+                }
+            });
+
+            // If nothing to delete
+            if (bulkIds.length === 0 && invoicePaymentIds.length === 0 && directSaleIds.length === 0) {
+                showNotification('No valid payments to delete', 'warning');
+                return;
+            }
+
+            // Build confirmation message
+            let messageParts = [];
+            if (bulkIds.length > 0) messageParts.push(`${bulkIds.length} payment receipt(s)`);
+            if (invoicePaymentIds.length > 0) messageParts.push(`${invoicePaymentIds.length} invoice payment(s)`);
+            if (directSaleIds.length > 0) messageParts.push(`${directSaleIds.length} direct sale(s)`);
+
+            Swal.fire({
+                title: 'Delete Items?',
+                text: `Are you sure you want to delete ${messageParts.join(', ')}?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete them!',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    icon: 'custom-swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading
+                    Swal.fire({
+                        title: 'Deleting...',
+                        allowOutsideClick: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+
+                    // Make separate API calls for each type
+                    const promises = [];
+                    let successCount = 0;
+                    let failCount = 0;
+
+                    if (bulkIds.length > 0) {
+                        promises.push(
+                            fetch('/sales/api/payments/bulk-delete', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': '{{ csrf_token() }}'
+                                },
+                                body: JSON.stringify({ ids: bulkIds })
+                            })
+                                .then(res => res.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        successCount += (data.deleted_count || bulkIds.length);
+                                    } else {
+                                        failCount += bulkIds.length;
+                                    }
+                                    return data;
+                                })
+                        );
+                    }
+
+                    if (invoicePaymentIds.length > 0) {
+                        promises.push(
+                            fetch('/sales/transactions/bulk_delete', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': '{{ csrf_token() }}'
+                                },
+                                body: JSON.stringify({
+                                    invoice_transaction_ids: invoicePaymentIds,
+                                    direct_sale_ids: []
+                                })
+                            })
+                                .then(res => res.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        successCount += (data.deleted_invoice_transactions || invoicePaymentIds.length);
+                                    } else {
+                                        failCount += invoicePaymentIds.length;
+                                    }
+                                    return data;
+                                })
+                        );
+                    }
+
+                    if (directSaleIds.length > 0) {
+                        promises.push(
+                            fetch('/sales/transactions/bulk_delete', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': '{{ csrf_token() }}'
+                                },
+                                body: JSON.stringify({
+                                    direct_sale_ids: directSaleIds,
+                                    invoice_transaction_ids: []
+                                })
+                            })
+                                .then(res => res.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        successCount += (data.deleted_direct_sales || directSaleIds.length);
+                                    } else {
+                                        failCount += directSaleIds.length;
+                                    }
+                                    return data;
+                                })
+                        );
+                    }
+
+                    // Execute all delete operations
+                    Promise.all(promises)
+                        .then(results => {
+                            Swal.close();
+
+                            const totalSelected = ids.length;
+
+                            if (failCount === 0) {
+                                showNotification(`${successCount} items deleted successfully`, 'success');
+                                selectedPayments.clear();
+                                isMultiSelectMode = false;
+                                updateMultiSelectUI();
+                                loadPayments(currentPage);
+                            } else if (successCount > 0) {
+                                showNotification(`${successCount} items deleted, ${failCount} failed`, 'warning');
+                                selectedPayments.clear();
+                                isMultiSelectMode = false;
+                                updateMultiSelectUI();
+                                loadPayments(currentPage);
+                            } else {
+                                showNotification('Failed to delete items', 'error');
+                            }
+                        })
+                        .catch(err => {
+                            Swal.close();
+                            showNotification('Error deleting items', 'error');
+                            console.error(err);
+                        });
+                }
+            });
+        }
+        // Helper function for notifications
+        function showNotification(message, type) {
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(message, type);
+            } else {
+                alert(message);
+            }
+        }
+
+        // Initial load
+        loadPayments();
+    });
+
+    // Helper function to format amounts
+    function formatAmount(amount) {
+        return new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(amount);
+    }
+</script>
+{% endblock %}

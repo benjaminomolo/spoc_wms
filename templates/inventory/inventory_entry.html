@@ -1,0 +1,3009 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
+<!-- Add Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+
+<!-- Add Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+
+<style>
+    /* Base styling */
+
+
+    .container {
+        display: flex;
+        gap: 20px;
+        width: 100%;
+        max-width: 1200px;
+        margin: 20px auto;
+    }
+
+    .inventory_sidebar {
+        width: 350px;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 10px;
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+
+    }
+
+    .inventory-main-content {
+        flex: 1;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+
+
+    .form-section {
+        margin-bottom: 20px;
+    }
+
+    .form-section h2 {
+        font-size: 1.25rem;
+        color: #34495e;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+
+
+    .line-item {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        background-color: #f8f9fa;
+        border-left: 2px solid var(--highlight-color);
+
+    }
+
+    .line-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .line-item-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: #2c3e50;
+        font-weight: 600;
+    }
+
+    .line-item-header button {
+        background-color: #dc3545;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .line-item-header button:hover {
+        background-color: #c82333;
+    }
+
+    .add-line-item {
+        margin-bottom: 15px;
+    }
+
+
+
+    .discount-tax-section {
+        margin-top: 12px;
+    }
+
+    .discount-tax-section button {
+        background-color: #17a2b8;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        margin-right: 8px;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .discount-tax-section button:hover {
+        background-color: #138496;
+    }
+
+    .line-item-total {
+        font-weight: bold;
+        margin-top: 12px;
+        color: #2c3e50;
+        font-size: 0.9rem;
+    }
+
+    .general-total {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-top: 15px;
+        color: #007bff;
+    }
+
+    .file-upload-section {
+        margin-top: 15px;
+    }
+
+    .file-upload-section label {
+        font-weight: 500;
+        margin-bottom: 6px;
+        display: block;
+        color: #495057;
+    }
+
+    .file-upload-section input[type="file"] {
+        margin-bottom: 8px;
+    }
+
+    .notes-section {
+        margin-top: 12px;
+    }
+
+    .notes-section textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .inventory-dropdown {
+        display: block;
+    }
+
+    .inventory-dropdown.active {
+        display: block;
+    }
+
+    /* Confirmation Modal */
+    #confirmationModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+    }
+
+    #confirmationModal p {
+        margin-bottom: 15px;
+    }
+
+    #confirmationModal button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        margin-right: 10px;
+    }
+
+    #confirmDelete {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    #cancelDelete {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    /* Summary Section Styling */
+    .summary-section {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        margin-top: 15px;
+    }
+
+    .summary-section h3 {
+        font-size: 1.1rem;
+        color: #2c3e50;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .summary-section p {
+        font-size: 0.9rem;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+
+    .summary-section p span {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+
+    /* Vendor Modal Styling */
+    #vendorModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        width: 600px;
+        /* Adjust width as needed */
+
+        /* Ensure it doesn't overflow on small screens */
+        overflow-y: auto;
+        /* Enable vertical scrolling */
+        overflow-x: hidden;
+    }
+
+    #vendorModal h3 {
+        font-size: 1.25rem;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    #vendorModal .form-group {
+        margin-bottom: 15px;
+    }
+
+    #vendorModal label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 6px;
+        color: #495057;
+    }
+
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        #vendorModal {
+            width: 95%;
+            /* Increase width for medium screens */
+            padding: 15px;
+            /* Reduce padding for smaller screens */
+        }
+
+        #vendorModal h3 {
+            font-size: 1.1rem;
+            /* Reduce font size for smaller screens */
+        }
+    }
+
+    @media (max-width: 480px) {
+        #vendorModal {
+            width: 100%;
+            /* Full width for very small screens */
+            padding: 10px;
+            /* Further reduce padding */
+            border-radius: 0;
+            /* Remove border radius for full-width modals */
+        }
+
+        #vendorModal h3 {
+            font-size: 1rem;
+            /* Further reduce font size */
+        }
+
+        #vendorModal .form-group {
+            margin-bottom: 10px;
+            /* Reduce margin for smaller screens */
+        }
+
+        #vendorModal label {
+            font-size: 0.9rem;
+            /* Reduce label font size */
+        }
+    }
+
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+            /* Stack sidebar and main content vertically */
+        }
+
+        .inventory_sidebar,
+        .inventory-main-content {
+            width: 90%;
+            /* Full width on mobile */
+        }
+
+        .inventory_sidebar {
+            position: static;
+            /* Ensure sidebar doesn't overlap main content */
+            margin-bottom: 20px;
+            /* Add space between sidebar and main content */
+        }
+    }
+
+    @media (max-width: 480px) {
+
+        .inventory_sidebar,
+        .inventory-main-content {
+            padding: 15px;
+            /* Reduce padding for smaller screens */
+        }
+
+        .inventory_sidebar h2,
+        .inventory-main-content h1 {
+            font-size: 1.1rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .form-section h2 {
+            font-size: 1rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .line-item-header h3 {
+            font-size: 0.9rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .summary-section h3 {
+            font-size: 1rem;
+            /* Reduce font size for smaller screens */
+        }
+    }
+
+    /* Add new styles for account sections */
+    .account-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-left: 2px solid #007bff;
+    }
+
+    .account-section h4 {
+        margin-top: 0;
+        color: #2c3e50;
+        font-size: 1.1rem;
+        margin-bottom: 12px;
+    }
+
+    .conditional-field {
+        display: none;
+    }
+
+    .conditional-field.visible {
+        display: block;
+    }
+
+
+
+    .payable-section {
+        background-color: #fff3cd;
+        border-left-color: #ffc107;
+    }
+
+    .adjustment-section {
+        background-color: #e7f3ff;
+        border-left-color: #17a2b8;
+    }
+</style>
+
+<div class="content-container">
+
+    <div class="container">
+        <!-- inventory_sidebar -->
+        <div class="inventory_sidebar">
+            <h2>Quick Actions</h2>
+            <button type="button" id="addLineItem" class="add-line-item button add-button">
+                Add Line Item
+            </button>
+            <div class="summary-section">
+                <h3>Summary</h3>
+                <p>Movement Type: <span id="summaryMovementType">-</span></p>
+
+
+                <div class="party-section" id="party-section" style="display: block;">
+                    <p>Party: <span id="summarysupplier">-</span></p>
+                </div>
+
+                <div class="currency-section" style="display: none;">
+                    <p>Currency: <span id="summaryCurrency">-</span></p>
+                </div>
+
+                <p>Total Items: <span id="totalItems">0</span></p>
+                <div class="summary-details" style="display: none;">
+                    <p style="display: none;>Total Line Subtotals: <span id=" totalLineSubtotals">0.00</span></p>
+                    <p style="display: none;>General Total: <span id=" generalTotal">0.00</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="inventory-main-content">
+            <h1>Record Stock Movement</h1>
+            <form id="inventoryForm" method="post" autocomplete="off">
+                <!-- Basic Information Section -->
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-section">
+                    <h2>Basic Information</h2>
+
+
+                    <div class="form-group" {% if movement_type %}style="display: none;" {% endif %}>
+                        <label for="movement_type">Movement Type: <span class="required">*</span></label>
+                        <select id="movement_type" name="movement_type" required>
+                            <option value="in" {% if movement_type=='in' %}selected{% endif %}>Receive Stock (Incoming)
+                            </option>
+                            <option value="stock_out_sale" {% if movement_type=='stock_out_sale' %}selected{% endif %}>
+                                Dispatch Stock (Outgoing)</option>
+                            <option value="stock_out_write_off" {% if movement_type=='stock_out_write_off' %}selected{%
+                                endif %}>Write Off Stock (Loss)</option>
+                            <option value="transfer" {% if movement_type=='transfer' %}selected{% endif %}>Transfer
+                                Stock (Between Bins/Locations)</option>
+                            <option value="adjustment" {% if movement_type=='adjustment' %}selected{% endif %}>Adjust
+                                Stock (Count Correction)</option>
+                            <option value="missing" {% if movement_type=='missing' %}selected{% endif %}>Missing Stock
+                                (Unaccounted)</option>
+                            <option value="expired" {% if movement_type=='expired' %}selected{% endif %}>Expired Stock
+                                (Past Date)</option>
+                            <option value="damaged" {% if movement_type=='damaged' %}selected{% endif %}>Damaged Stock
+                                (Unusable)</option>
+                            <option value="opening_balance" {% if movement_type=='opening_balance' %}selected{% endif
+                                %}>Opening Balance (Initial Stock)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group conditional-field" id="write_off_reason_group">
+                        <label for="write_off_reason">Write-Off Reason: <span class="required">*</span></label>
+                        <input type="text" id="write_off_reason" name="write_off_reason" maxlength="50"
+                            placeholder="Enter reason for write-off" />
+                    </div>
+
+
+                    <div class="form-grid">
+
+                        <div class="form-group">
+                            <label for="transaction_date">Transaction Date:</label>
+                            <input type="date" id="transaction_date" name="transaction_date" required />
+                        </div>
+
+                        <!-- Reference  -->
+                        <div class="form-group">
+
+                            <input type="text" id="reference" name="reference">
+                            <label for="reference">Reference:</label>
+
+                        </div>
+
+                    </div>
+
+                    <!-- Inventory Source -->
+                    <!-- Source Type (only shown for certain movement types) -->
+                    <div class="form-group conditional-field" id="source_type_group" style="display: none;">
+                        <label for="source_type">Source Type:</label>
+                        <select id="source_type" name="source_type">
+                            <option value="purchase">Purchase</option>
+                            <option value="manufacture">Manufacture</option>
+                            <option value="donation">Donation</option>
+                            <option value="return">Return</option>
+                            <option value="manual">Manual Entry</option>
+                        </select>
+                    </div>
+
+                    <div class="form-grid">
+
+
+                        <!-- Supplier Section (only for purchases) -->
+                        <div class="form-group conditional-field" id="supplier_group">
+                            <label for="supplier_name_label">Supplier: <span class="required">*</span></label>
+                            <input type="text" id="supplier_name" name="supplier_name" list="supplier_list"
+                                placeholder="Select or type party name">
+                            <datalist id="supplier_list" auto-complete="off">
+                                {% for supplier in suppliers %}
+                                <option value="{{ supplier.vendor_name }}" data-id="{{ supplier.id }}"></option>
+                                {% endfor %}
+                            </datalist>
+                            <input type="hidden" id="supplier_id" name="supplier_id">
+                        </div>
+
+                        <div class="form-group">
+
+                            <select id="location" name="location" required>
+                                <option value=""></option>
+                                {% for location in locations %}
+                                <option value="{{ location.id }}">{{ location.location }}</option>
+                                {% endfor %}
+                                <option value="add_new_location">Add new location...</option>
+                            </select>
+                            <label for="location">Location / Warehouse:</label>
+
+                        </div>
+
+
+                        <!-- To Location (for transfers) -->
+                        <div class="form-group conditional-field" id="to_location_group">
+                            <label for="to_location">To Location:</label>
+                            <select id="to_location" name="to_location">
+                                <option value=""></option>
+                                {% for location in locations %}
+                                <option value="{{ location.id }}">{{ location.location }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="display: none;">
+                        <div class="form-group">
+                            <input type="hidden" id="is_one_time_hidden" name="is_one_time" value="0" />
+                        </div>
+                        <div class="form-group conditional-field currency-section" id="currency_section">
+                            <label for="currency">Currency <span class="required">*</span></label>
+                            <select id="currency" name="currency" required disabled>
+                                <option value="">Select Currency</option>
+                                {% for currency in currencies %}
+                                {% if currency.currency_index == 1 %}
+                                <option value="{{ currency.id }}" selected>
+                                    {{ currency.user_currency }}
+                                </option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                            <input type="hidden" name="currency" value="{{ base_currency_id }}" />
+                        </div>
+                    </div>
+
+
+
+                    <!-- Line Items Section -->
+                    <div class="form-section">
+                        <h2>Line Items</h2>
+                        <div id="lineItemsContainer" class="line-items-container">
+                            <!-- Line items will be dynamically added here -->
+                        </div>
+                    </div>
+
+
+
+                    <!-- Additional Details Section -->
+                    <div class="form-section">
+                        <h2>Additional Details (Optional)</h2>
+
+                        <div class="form-group">
+
+                            <select id="project_id" name="project_id">
+                                <option value=""></option>
+                                {% for project in projects %}
+                                <option value="{{ project.id }}">{{ project.name }} - {{ project.project_id }}</option>
+                                {% endfor %}
+                            </select>
+                            <label for="project">Project:</label>
+                        </div>
+
+
+                        <!-- Payment Mode (only for purchases) -->
+                        <div class="form-group conditional-field" id="payment_mode_group" style="display: none;">
+                            <label for="payment_mode">Payment Mode:</label>
+                            <select id="payment_mode" name="payment_mode">
+                                {% for mode in payment_modes %}
+                                <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+
+
+
+
+                        <div class="form-group d-none hidden">
+
+                            <input type="date" id="expiration_date" name="expiration_date">
+                            <label for="expiration_date">Expiration Date:</label>
+
+                        </div>
+
+
+                    </div>
+                </div>
+
+
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="button" class="button remove-button" onclick="window.history.back()">Cancel</button>
+
+                    <button type="button" id="saveAndNewBtn" class="button add-button">Save and New</button>
+
+                    <button type="button" id="saveAndExitBtn" class="button cta-button">Save and Exit</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Add Location Modal -->
+        <div class="modal fade" id="addLocationModal" tabindex="-1" aria-labelledby="addLocationModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addLocationModalLabel">Add New Inventory Location</h5>
+                        <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close"><i
+                                class="fas fa-times"></i></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="add-location-form" method="POST" action="{{ url_for('add_inventory_location') }}">
+                            <div class="form-group mb-3">
+                                <label for="location_name">Location Name: <span class="required">*</span></label>
+                                <input type="text" id="location_name" name="location" class="form-control"
+                                    maxlength="100" required>
+                            </div>
+                            <div class="form-group mb-3">
+                                <label for="location_description">Location Description:</label>
+                                <textarea id="location_description" name="description" class="form-control"
+                                    maxlength="300" rows="3"></textarea>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="button remove-button"
+                                    data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="button cta-button">Add Location</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Confirmation Modal -->
+        <div id="confirmationModal">
+            <p>Are you sure you want to delete this line item?</p>
+            <button id="confirmDelete">Yes, Delete</button>
+            <button id="cancelDelete">Cancel</button>
+        </div>
+
+        <!-- Modal for New supplier -->
+        <div id="newsupplierModal" class="confirmationModal">
+            <p>"<span id="enteredsupplierName"></span>" is not in the database. Is this a one-time supplier?</p>
+            <div>
+                <button id="oneTimesupplierBtn" class="confirmDelete">Yes, One-Time supplier</button>
+                <button id="addToDatabaseBtn" class="cancelDelete">No, Add to Database</button>
+            </div>
+        </div>
+
+
+        <!-- Vendor Modal -->
+        <div id="vendorModal" style="display: none">
+            <div style="
+                background: white;
+                padding: 15px;
+                border: 1px solid #ccc;
+                width: 95%;
+                margin-right: 40px;
+                max-height: 80vh;
+                overflow-y: auto;
+                ">
+                <h3>Add New Client/supplier</h3>
+                <form id="vendorDetailsForm" method="POST" action="{{ url_for('general_ledger.add_vendor') }}">
+                    <!-- Party Type -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="vendorType">Party Type:</label>
+                            <select id="vendorType" name="vendorType" required>
+                                <option value="supplier">Recipient</option>
+                                <option value="vendor">Sender</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Vendor Name -->
+                        <div class="form-group">
+                            <label for="vendorName">Name:</label>
+                            <input type="text" id="vendorName" name="vendorName" required />
+                        </div>
+
+                        <!-- Vendor ID -->
+                        <div class="form-group">
+                            <label for="vendorId">ID:</label>
+                            <input type="text" id="vendorId" name="vendorId" />
+                        </div>
+
+                        <!-- Designation -->
+                        <div class="form-group">
+                            <label for="designation">Designation:</label>
+                            <input type="text" id="designation" name="designation" />
+                        </div>
+
+                        <!-- Tel Contact -->
+                        <div class="form-group">
+                            <label for="telContact">Tel Contact:</label>
+                            <input type="text" id="telContact" name="telContact" />
+                        </div>
+
+                        <!-- Email Contact -->
+                        <div class="form-group">
+                            <label for="email">Email Contact:</label>
+                            <input type="text" id="email" name="email" />
+                        </div>
+
+                        <!-- Address -->
+                        <div class="form-group">
+                            <label for="address">Address:</label>
+                            <input type="text" id="address" name="address" />
+                        </div>
+
+                        <!-- City -->
+                        <div class="form-group">
+                            <label for="city">City:</label>
+                            <input type="text" id="city" name="city" />
+                        </div>
+
+                        <!-- State/Province -->
+                        <div class="form-group">
+                            <label for="stateProvince">State/Province:</label>
+                            <input type="text" id="stateProvince" name="stateProvince" />
+                        </div>
+
+                        <!-- Postal Code -->
+                        <div class="form-group">
+                            <label for="postalCode">Postal Code:</label>
+                            <input type="text" id="postalCode" name="postalCode" />
+                        </div>
+
+                        <!-- Country -->
+                        <div class="form-group">
+                            <label for="country">Country:</label>
+                            <select id="country" name="country">
+                                <option value="">Loading countries...</option>
+                            </select>
+                        </div>
+
+                        <!-- Website -->
+                        <div class="form-group">
+                            <label for="website">Website:</label>
+                            <input type="text" id="website" name="website" />
+                        </div>
+
+                        <!-- Payment Terms -->
+                        <div class="form-group">
+                            <label for="paymentTerms">Payment Terms:</label>
+                            <input type="text" id="paymentTerms" name="paymentTerms" />
+                        </div>
+
+                        <!-- Tax ID -->
+                        <div class="form-group">
+                            <label for="taxId">Tax ID:</label>
+                            <input type="text" id="taxId" name="taxId" />
+                        </div>
+
+                        <!-- Preferred Communication Method -->
+                        <div class="form-group">
+                            <label for="preferredCommunicationMethod">Preferred Communication Method:</label>
+                            <select id="preferredCommunicationMethod" name="preferredCommunicationMethod">
+                                <option value="Phone">Phone</option>
+                                <option value="Email">Email</option>
+                                <option value="Whatsapp">Whatsapp</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Primary Contact Person -->
+                        <div class="form-group">
+                            <label for="primaryContactPerson">Primary Contact Person:</label>
+                            <input type="text" id="primaryContactPerson" name="primaryContactPerson" />
+                        </div>
+
+                        <!-- Secondary Contact Person -->
+                        <div class="form-group">
+                            <label for="secondaryContactPerson">Secondary Contact Person:</label>
+                            <input type="text" id="secondaryContactPerson" name="secondaryContactPerson" />
+                        </div>
+
+                        <!-- Certifications -->
+                        <div class="form-group">
+                            <label for="certifications">Certifications:</label>
+                            <textarea id="certifications" name="certifications"></textarea>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="form-group">
+                            <label for="notes">Notes:</label>
+                            <textarea id="notes" name="notes"></textarea>
+                        </div>
+
+                        <!-- Submit and Close Buttons -->
+                        <div class="form-actions">
+                            <button type="submit" class="button cta-button">Save Client/supplier</button>
+                            <button type="button" class="button add-button" id="closeModal">Close</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+
+
+    </div>
+    <!-- End of Main Content -->
+
+</div>
+<script>
+    // Debounce function to limit the rate at which the fetch function is called
+    let debounceTimeout;
+
+    // This variable will now hold multiple new UOM options
+    let newUOMOptions = [];
+
+    // Predefined list of units and their abbreviations
+    const uomSuggestions = [
+        { full_name: 'kilogram', abbreviation: 'kg' },
+        { full_name: 'liter', abbreviation: 'l' },
+        { full_name: 'piece', abbreviation: 'pcs' },
+        { full_name: 'box', abbreviation: 'box' },
+        { full_name: 'meter', abbreviation: 'm' },
+        { full_name: 'packet', abbreviation: 'pkt' },
+        { full_name: 'unit', abbreviation: 'unit' },
+        { full_name: 'gram', abbreviation: 'g' },
+        { full_name: 'ounce', abbreviation: 'oz' },
+        { full_name: 'pound', abbreviation: 'lb' },
+        { full_name: 'ton', abbreviation: 'ton' },
+        { full_name: 'milliliter', abbreviation: 'ml' },
+        { full_name: 'centimeter', abbreviation: 'cm' },
+        { full_name: 'inch', abbreviation: 'in' },
+        { full_name: 'foot', abbreviation: 'ft' },
+        { full_name: 'yard', abbreviation: 'yd' },
+        { full_name: 'mile', abbreviation: 'mi' },
+        { full_name: 'hour', abbreviation: 'hr' },
+        { full_name: 'minute', abbreviation: 'min' },
+        { full_name: 'second', abbreviation: 'sec' },
+        { full_name: 'day', abbreviation: 'd' },
+        { full_name: 'week', abbreviation: 'wk' },
+        { full_name: 'month', abbreviation: 'mo' },
+        { full_name: 'year', abbreviation: 'yr' }
+    ];
+
+    // Setup Fuse.js options
+    const fuseOptions = {
+        includeScore: true,
+        keys: ['full_name'] // We want to search the full_name field for matches
+    };
+
+    // Initialize Fuse.js
+    const fuse = new Fuse(uomSuggestions, fuseOptions);
+
+    const supplierInput = document.getElementById('supplier_id');
+
+    // Define element groups to toggle
+    const priceElements = ['.price-container', '.line-item-total.conditional-field', '.summary-details', '.party-section'];
+
+    const fromLocationSelect = document.getElementById('location');
+    const toLocationSelect = document.getElementById('to_location');
+
+    const suggestReferenceEndpoint = "{{ url_for('inventory.suggest_inventory_reference') }}";
+
+
+    const supplierLabel = document.querySelector('label[for="supplier_name_label"]');
+    const supplierSummary = document.getElementById('summarysupplier');
+
+    const partySummary = document.getElementById('party-section');
+
+    const writeOff = document.getElementById('write_off_reason_group');
+
+    // Listen for input in the Full Name field using event delegation
+    $(document).on('input', '#uom_full_name', function () {
+        clearTimeout(debounceTimeout); // Clear previous timeout
+
+        let fullName = $(this).val(); // Get input value
+
+        debounceTimeout = setTimeout(function () {
+            // Perform fuzzy search using Fuse.js
+            let results = fuse.search(fullName);
+
+            if (results.length > 0) {
+                // If a match is found, suggest the abbreviation for the first result
+                let abbreviation = results[0].item.abbreviation;
+                $('#uom_abbreviation').val(abbreviation);
+            } else {
+                // If no match is found, clear the abbreviation field
+                $('#uom_abbreviation').val('');
+            }
+        }, 300); // Delay of 300ms after the last keystroke
+    });
+
+    // Inventory items (fetched from the backend)
+
+    const inventoryItems = [
+        {% for item in inventory_items %}
+    {
+        id: "{{ item.id }}",
+            name: "{{ item.inventory_item.item_name }}{% if item.inventory_item_variation and item.inventory_item_variation.variation_name %} - ({{ item.inventory_item_variation.variation_name }}){% endif %}",
+                uom_id: "{{ item.inventory_item.uom_id if item.inventory_item.uom_id else '' }}",
+                    uom_name: "{{ item.inventory_item.unit_of_measurement.full_name if item.inventory_item.unit_of_measurement else '' }}{% if item.inventory_item.unit_of_measurement and item.inventory_item.unit_of_measurement.abbreviation %} ({{ item.inventory_item.unit_of_measurement.abbreviation }}){% endif %}"
+    },
+    {% endfor %}
+];
+
+    // Fetch countries from the REST Countries API
+    fetch('https://restcountries.com/v3.1/all')
+        .then(response => response.json())
+        .then(data => {
+            const countrySelect = document.getElementById('country');
+            countrySelect.innerHTML = '<option value="">Select a country</option>'; // Clear loading message
+            data.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country.name.common;
+                option.textContent = country.name.common;
+                countrySelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching countries:', error);
+            document.getElementById('country').innerHTML = '<option value="">Failed to load countries</option>';
+        });
+
+
+
+
+
+
+    // Movement type change handler
+    document.getElementById('movement_type').addEventListener('change', function () {
+        const movementType = this.value;
+
+        // Clear all form fields including Select2 dropdowns
+        document.querySelectorAll('input, select, textarea').forEach(field => {
+            if (
+                field.id !== 'movement_type' &&
+                field.id !== 'reference' &&
+                field.id !== 'transaction_date' &&
+                field.id !== 'currency'
+            ) {
+
+                if (field.tagName.toLowerCase() === 'select') {
+                    // Check if it's a Select2 dropdown
+                    if ($(field).hasClass('select2-hidden-accessible')) {
+                        $(field).val(null).trigger('change'); // Proper Select2 clearing
+                    } else {
+                        field.selectedIndex = 0; // reset to first option for regular selects
+                    }
+                } else if (field.type === 'checkbox' || field.type === 'radio') {
+                    field.checked = false;
+                } else {
+                    field.value = '';
+                }
+            }
+        });
+
+        // Specifically clear Select2 dropdowns that might not be caught above
+        const select2Dropdowns = ['location', 'to_location', 'from_location', 'supplier_id', 'project_id'];
+        select2Dropdowns.forEach(selectId => {
+            const select = document.getElementById(selectId);
+            if (select && $(select).hasClass('select2-hidden-accessible')) {
+                $(select).val(null).trigger('change');
+            }
+        });
+
+        // Clear line items container
+        const lineItemsContainer = document.getElementById('lineItems');
+        if (lineItemsContainer) {
+            lineItemsContainer.innerHTML = '';
+        }
+
+        // // Add back the first line item
+        // addLineItem();
+
+        updateFormVisibility(movementType);
+        updateSummary();
+
+        // Update adjustment calculations for all line items
+        if (movementType === 'adjustment') {
+            // Wait a bit for the new line items to be rendered
+            setTimeout(() => {
+                document.querySelectorAll('.line-item').forEach(lineItem => {
+                    updateAdjustmentCalculation(lineItem);
+                });
+            }, 200);
+        }
+    });
+
+
+    function validateLocations() {
+        const fromLocation = document.getElementById('location').value;
+        const toLocation = document.getElementById('to_location').value;
+
+        if (fromLocation && toLocation && fromLocation === toLocation) {
+            showNotification("From Location and To Location cannot be the same!", "warning");
+            document.getElementById('to_location').value = "";
+        }
+    }
+
+
+
+    // Helper function to format Select2 options with tooltips
+    function formatAccountOption(account) {
+        if (!account.id) {
+            return account.text;
+        }
+
+        const $option = $(
+            '<span title="' + account.title + '">' + account.text + '</span>'
+        );
+        return $option;
+    }
+
+    // Helper function to format selected option
+    function formatAccountSelection(account) {
+        if (!account.id) {
+            return account.text;
+        }
+        return account.text;
+    }
+
+
+
+    // Add this function to update adjustment account description based on movement type
+    async function updateAdjustmentCalculation(lineItem) {
+        const movementType = document.getElementById('movement_type').value;
+        const adjustmentDisplay = lineItem.querySelector('.adjustment-display');
+
+        if (movementType !== 'adjustment') {
+            adjustmentDisplay.style.display = 'none';
+            return;
+        }
+
+        const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
+        const quantityInput = lineItem.querySelector('input[name="quantity[]"]');
+        const locationSelect = document.getElementById('location');
+
+        const inventoryItemId = $(inventoryDropdown).val();
+        const locationId = locationSelect.value;
+        const userQuantity = parseFloat(quantityInput.value) || 0;
+
+        if (!inventoryItemId || !locationId) {
+            adjustmentDisplay.style.display = 'none';
+            return;
+        }
+
+        try {
+            // Fetch current system quantity
+            const response = await fetch(`/api/inventory/available?item_id=${inventoryItemId}&location_id=${locationId}`);
+            const data = await response.json();
+
+            const systemQuantity = data.available_quantity || 0;
+            const adjustment = userQuantity - systemQuantity;
+
+            // Store system quantity and adjustment in data attributes for later retrieval
+            lineItem.dataset.systemQuantity = systemQuantity;
+            lineItem.dataset.adjustment = adjustment;
+
+            // Show adjustment display
+            adjustmentDisplay.style.display = 'block';
+
+            // Update adjustment info
+            const adjustmentInfo = adjustmentDisplay.querySelector('.adjustment-info');
+            adjustmentInfo.textContent = `System: ${systemQuantity} | Adjustment: ${adjustment}`;
+
+            // Color code based on adjustment type
+            if (adjustment > 0) {
+                adjustmentDisplay.style.borderLeftColor = '#28a745'; // Green for positive adjustment
+                adjustmentDisplay.style.backgroundColor = '#e8f5e8';
+            } else if (adjustment < 0) {
+                adjustmentDisplay.style.borderLeftColor = '#dc3545'; // Red for negative adjustment
+                adjustmentDisplay.style.backgroundColor = '#fff5f5';
+            } else {
+                adjustmentDisplay.style.borderLeftColor = '#17a2b8'; // Blue for no change
+                adjustmentDisplay.style.backgroundColor = '#e7f3ff';
+            }
+
+        } catch (error) {
+            console.error("Error fetching system quantity:", error);
+            adjustmentDisplay.innerHTML = '<div class="badge bg-danger">Error loading system quantity</div>';
+            adjustmentDisplay.style.display = 'block';
+        }
+    }
+
+
+
+
+
+
+    function updateFormVisibility(movementType) {
+        const sourceType = document.getElementById('source_type').value;
+        const isDonation = sourceType === 'donation';
+
+        // Reset all conditional fields
+        document.querySelectorAll('.conditional-field').forEach(field => {
+            field.classList.remove('visible');
+        });
+
+
+
+
+        // Show specific fields based on movement type
+        switch (movementType) {
+            case 'in':
+                document.getElementById('source_type_group').classList.add('visible');
+                document.getElementById('supplier_group').classList.add('visible');
+                document.getElementById('payment_mode_group').classList.add('visible');
+                document.getElementById('currency_section').classList.add('visible');
+                document.getElementById('write_off_reason_group').classList.remove('visible');
+                // Unit price and selling price to be displayed
+
+                // Show price containers for all line items
+                toggleElementGroups('block', priceElements);
+                // Only show accounting-related fields if not donation
+
+
+                // Hide price elements for donations
+                if (isDonation) {
+                    toggleElementGroups('none', priceElements);
+                } else {
+                    toggleElementGroups('block', priceElements);
+                }
+
+                document.querySelectorAll('.selling-price-group').forEach(container => {
+                    container.style.display = 'block';
+
+                });
+
+                if (supplierLabel) {
+                    supplierLabel.textContent = 'Sender:';
+                }
+
+
+                break;
+
+            case 'stock_out_sale':
+                // Sales/usage might need different accounting treatment
+                document.getElementById('supplier_group').classList.add('visible');
+                document.getElementById('write_off_reason_group').classList.remove('visible');
+                toggleElementGroups('block', priceElements);
+
+                // Hide Unit Price price containers for all line items
+                document.querySelectorAll('.selling-price-group').forEach(container => {
+                    container.style.display = 'none';
+
+                });
+
+                if (supplierLabel) {
+                    supplierLabel.textContent = 'Recipient:';
+                }
+
+                break;
+
+            case 'stock_out_write_off':
+                // Sales/usage might need different accounting treatment
+
+                toggleElementGroups('none', priceElements);
+
+                // 🆕 FIX THIS LINE - use classList instead of style
+                document.getElementById('write_off_reason_group').classList.add('visible');
+
+
+
+                break;
+
+
+            case 'transfer':
+
+
+                document.getElementById('to_location_group').classList.add('visible');
+                document.getElementById('write_off_reason_group').classList.remove('visible');
+
+                // Show price-related elements for sales/usage
+                toggleElementGroups('none', priceElements);
+                break;
+
+            case 'adjustment':
+
+                toggleElementGroups('none', priceElements);
+                break;
+
+            case 'missing':
+            case 'damaged':
+            case 'expired':
+                // Missing items might need write-off accounting
+                // Show adjustment account for missing items (write-off)
+
+                document.getElementById('write_off_reason_group').classList.remove('visible');
+                toggleElementGroups('none', priceElements);
+                break;
+
+            case 'opening_balance':
+
+                toggleElementGroups('block', priceElements);
+
+                if (partySummary) {
+                    partySummary.style.display = 'none';
+                }
+
+
+                break;
+        }
+
+
+        // After updating visibility, update required attributes
+        setTimeout(updateRequiredAttributes, 100);
+    }
+
+
+
+
+
+
+
+    function updateLineItemsForMovementType(movementType) {
+        const lineItems = document.querySelectorAll('.line-item');
+        const sourceType = document.getElementById('source_type').value;
+        const isDonation = sourceType === 'donation';
+
+        lineItems.forEach(lineItem => {
+            const quantityInput = lineItem.querySelector('input[name="quantity[]"]');
+            const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
+            const sellingPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
+            const sellingPriceLabel = lineItem.querySelector('label[for="unit_price"]');
+            const quantityLabel = lineItem.querySelector('label[for="quantity"]');
+
+
+
+            const adjustmentDisplay = lineItem.querySelector('.adjustment-display');
+
+
+            console.log('Movement ytpe in update line item is ', movementType, sellingPriceLabel)
+
+            switch (movementType) {
+                case 'adjustment':
+
+
+                    if (quantityLabel) {
+                        quantityLabel.textContent = 'Current Quantity';
+                    }
+
+
+
+
+
+                    // Hide unit price and selling price for adjustments
+
+                    toggleElementGroups('none', priceElements);
+
+                    if (adjustmentDisplay) {
+                        adjustmentDisplay.style.display = 'block';
+                        // Trigger calculation when switching to adjustment
+                        updateAdjustmentCalculation(lineItem);
+                    }
+                    break;
+
+                case 'in':
+
+                    // Show price containers for all line items
+                    toggleElementGroups('block', priceElements);
+
+                    if (quantityLabel) {
+                        quantityLabel.textContent = 'Quantity:';
+                    }
+                    if (adjustmentDisplay) {
+                        adjustmentDisplay.style.display = 'none';
+                    }
+
+                    if (sellingPriceLabel) {
+                        sellingPriceLabel.textContent = 'Unit Price:';
+                    }
+
+
+                    if (supplierLabel) {
+                        supplierLabel.textContent = 'Supplier:';
+                    }
+
+
+
+
+                    // Hide price elements for donations
+                    if (isDonation) {
+                        toggleElementGroups('none', priceElements);
+                    }
+
+                    break;
+
+                case 'stock_out_sale':
+
+
+                    if (quantityLabel) {
+                        quantityLabel.textContent = 'Quantity:';
+                    }
+
+                    if (sellingPriceLabel) {
+                        sellingPriceLabel.textContent = 'Outgoing/Selling Price (Required):';
+                    }
+
+                    if (supplierLabel) {
+                        supplierLabel.textContent = 'Customer:';
+                    }
+
+
+
+                    // Hide price container for adjustments
+                    toggleElementGroups('block', priceElements);
+
+                    if (adjustmentDisplay) {
+                        adjustmentDisplay.style.display = 'none';
+                    }
+
+
+                    // Hide Unit Price price containers for all line items
+                    document.querySelectorAll('.selling-price-group').forEach(container => {
+                        container.style.display = 'none';
+                    });
+
+                    break;
+
+                case 'stock_out_write_off':
+
+
+                    if (quantityLabel) {
+                        quantityLabel.textContent = 'Quantity:';
+                    }
+
+
+
+
+
+                    // Hide price container for adjustments
+                    toggleElementGroups('none', priceElements);
+
+                    if (adjustmentDisplay) {
+                        adjustmentDisplay.style.display = 'none';
+                    }
+
+
+
+
+                    break;
+
+
+                case 'opening_balance':
+
+                    toggleElementGroups('block', priceElements);
+
+                    if (sellingPriceLabel) {
+                        sellingPriceLabel.textContent = 'Unit Price:';
+                    }
+
+                    // Hide pricing fields for opening balances
+                    if (quantityLabel) {
+                        quantityLabel.textContent = 'Quantity';
+                    }
+
+                    if (adjustmentDisplay) {
+                        adjustmentDisplay.style.display = 'none';
+                    }
+
+                    console.log('Party summary is ')
+                    console.log('Party summary is ', partySummary)
+
+                    if (partySummary) {
+                        partySummary.style.display = 'none';
+                    }
+
+
+                    break;
+
+
+                case 'transfer':
+                    toggleElementGroups('none', priceElements);
+
+                    if (quantityLabel) {
+                        quantityLabel.textContent = 'Quantity to Transfer';
+                    }
+                    if (adjustmentDisplay) {
+                        adjustmentDisplay.style.display = 'none';
+                    }
+                    break;
+
+                case 'missing':
+
+                    toggleElementGroups('none', priceElements);
+
+                    if (quantityLabel) {
+                        quantityLabel.textContent = 'Quantity missing';
+                    }
+                    if (adjustmentDisplay) {
+                        adjustmentDisplay.style.display = 'none';
+                    }
+                    break;
+
+                case 'damaged':
+                    toggleElementGroups('none', priceElements);
+
+                    if (quantityLabel) {
+                        quantityLabel.textContent = 'Quantity Damaged';
+                    }
+                    if (adjustmentDisplay) {
+                        adjustmentDisplay.style.display = 'none';
+                    }
+                    break;
+                case 'expired':
+                    toggleElementGroups('none', priceElements);
+
+                    if (quantityLabel) {
+                        quantityLabel.textContent = 'Quantity Expired';
+                    }
+                    if (adjustmentDisplay) {
+                        adjustmentDisplay.style.display = 'none';
+                    }
+                    break;
+
+
+                default:
+                    // Show all fields for other movement types
+
+                    console.log('it is default')
+
+                    if (quantityLabel) {
+                        quantityLabel.textContent = 'Quantity';
+                    }
+
+                    if (sellingPriceLabel) {
+                        sellingPriceLabel.textContent = 'Selling Price (Optional)';
+                    }
+
+                    // Hide price container for adjustments
+                    toggleElementGroups('block', priceElements);
+
+                    if (adjustmentDisplay) {
+                        adjustmentDisplay.style.display = 'none';
+                    }
+                    break;
+            }
+        });
+    }
+
+
+    // Function to update summary section
+    // Function to update summary section
+    function updateSummary() {
+        const movementTypeSelect = document.getElementById('movement_type');
+        const movementTypeText = movementTypeSelect.options[movementTypeSelect.selectedIndex].text;
+        document.getElementById('summaryMovementType').textContent = movementTypeText;
+
+        // Count total quantity across all line items
+        let totalQuantity = 0;
+        document.querySelectorAll('.line-item input[name="quantity[]"]').forEach(quantityInput => {
+            const qty = parseFloat(quantityInput.value) || 0;
+            totalQuantity += qty;
+        });
+
+        // Update summary
+        document.getElementById('totalItems').textContent = document.querySelectorAll('.line-item').length;
+
+        // Update supplier/customer name
+        const supplierInput = document.getElementById('supplier_name');
+        const supplierName = supplierInput.value.trim();
+        document.getElementById('summarysupplier').textContent = supplierName || '-';
+
+
+    }
+
+    // Helper function to toggle multiple element groups
+    function toggleElementGroups(displayStyle, selectors) {
+        selectors.forEach(selector => {
+            document.querySelectorAll(selector).forEach(element => {
+                element.style.display = displayStyle;
+            });
+        });
+    }
+
+
+
+
+    // Enhanced validation function that considers field visibility
+    function validateForm() {
+        const movementType = document.getElementById('movement_type').value;
+        let isValid = true;
+        let errorMessages = [];
+
+        // Get all required fields that are currently visible
+        const visibleRequiredFields = Array.from(document.querySelectorAll('#inventoryForm [required]')).filter(field => {
+            return isFieldVisible(field);
+        });
+
+        // Validate visible required fields
+        visibleRequiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                isValid = false;
+                field.style.border = '2px solid red';
+                const fieldLabel = field.closest('.form-group')?.querySelector('label')?.textContent || 'Field';
+                errorMessages.push(`${fieldLabel} is required`);
+            } else {
+                field.style.border = '';
+            }
+        });
+
+        // Movement-specific validations
+        switch (movementType) {
+            case 'in':
+                // Check if supplier group is visible
+                if (isFieldVisible(document.getElementById('supplier_group'))) {
+                    const supplierId = document.getElementById('supplier_id').value;
+                    const supplierName = document.getElementById('supplier_name').value.trim();
+
+                    if (!supplierId && !supplierName) {
+                        isValid = false;
+                        document.getElementById('supplier_name').style.border = '2px solid red';
+                        errorMessages.push('Supplier/Sender is required for stock in movements');
+                    }
+                }
+                break;
+
+
+            case 'stock_out_sale':
+                if (isFieldVisible(document.getElementById('supplier_group'))) {
+                    const supplierId = document.getElementById('supplier_id').value;
+                    const supplierName = document.getElementById('supplier_name').value.trim();
+
+                    if (!supplierId && !supplierName) {
+                        isValid = false;
+                        document.getElementById('supplier_name').style.border = '2px solid red';
+                        errorMessages.push('Recipient is required for stock out movements');
+                    }
+                }
+                break;
+
+
+
+
+            case 'transfer':
+                // Validate to_location for transfers
+                if (isFieldVisible(document.getElementById('to_location_group')) && !document.getElementById('to_location').value) {
+                    isValid = false;
+                    document.getElementById('to_location').style.border = '2px solid red';
+                    errorMessages.push('To Location is required for transfers');
+                }
+                break;
+        }
+
+        // Validate line items
+        const lineItems = document.querySelectorAll('.line-item');
+        if (lineItems.length === 0) {
+            isValid = false;
+            errorMessages.push('At least one line item is required');
+            enableAllSubmitButtons();
+        }
+
+        // Validate line item details
+        lineItems.forEach((lineItem, index) => {
+            const itemSelect = lineItem.querySelector('.inventory-dropdown');
+            const quantityInput = lineItem.querySelector('input[name="quantity[]"]');
+            const uomSelect = lineItem.querySelector('input[name="uom[]"]');
+
+
+            // Check if price fields should be validated based on visibility
+            const priceContainer = lineItem.querySelector('.price-container');
+            const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
+            const shouldValidatePrice = priceContainer && priceContainer.style.display !== 'none';
+
+            if (!itemSelect?.value) {
+                isValid = false;
+                itemSelect.style.border = '2px solid red';
+                errorMessages.push(`Item is required for line item ${index + 1}`);
+            }
+
+            if (!quantityInput?.value || parseFloat(quantityInput.value) <= 0) {
+                isValid = false;
+                quantityInput.style.border = '2px solid red';
+                errorMessages.push(`Valid quantity is required for line item ${index + 1}`);
+            }
+
+
+        });
+
+        // Show error messages if any
+        if (!isValid && errorMessages.length > 0) {
+            showNotification(errorMessages.join('<br>'), 'error');
+        }
+
+        return isValid;
+    }
+
+    // Helper function to check if a field is visible
+    function isFieldVisible(field) {
+        if (!field) return false;
+
+        // Check if the field itself is hidden
+        if (field.offsetParent === null) {
+            return false;
+        }
+
+        // Check if any parent element is hidden
+        let parent = field.parentElement;
+        while (parent) {
+            // Check if parent has conditional-field class and is not visible
+            if (parent.classList.contains('conditional-field') &&
+                !parent.classList.contains('visible')) {
+                return false;
+            }
+
+            const style = window.getComputedStyle(parent);
+            if (style.display === 'none' || style.visibility === 'hidden') {
+                return false;
+            }
+            parent = parent.parentElement;
+        }
+
+        return true;
+    }
+
+
+    // Helper function to dynamically update required attributes based on visibility
+    // Helper function to dynamically update required attributes based on visibility
+    function updateRequiredAttributes() {
+        const movementType = document.getElementById('movement_type').value;
+
+        // Fields that should be required only when visible
+        const conditionalRequiredFields = [
+            '#supplier_name',
+            '#to_location',
+            '#currency',
+            '#write_off_reason'  // 🆕 ADD THIS LINE
+
+        ];
+
+        conditionalRequiredFields.forEach(selector => {
+            const field = document.querySelector(selector);
+            if (field) {
+                if (isFieldVisible(field)) {
+                    field.setAttribute('required', 'required');
+                } else {
+                    field.removeAttribute('required');
+                }
+            }
+        });
+
+        // Handle line item required fields
+        document.querySelectorAll('.line-item').forEach(lineItem => {
+            const priceContainer = lineItem.querySelector('.price-container');
+            const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
+            const sellingPriceInput = lineItem.querySelector('input[name="selling_price[]"]');
+
+            // For adjustment and transfer movements, remove required attribute from price fields
+            if (movementType === 'adjustment' || movementType === 'transfer') {
+                if (unitPriceInput) {
+                    unitPriceInput.removeAttribute('required');
+                }
+                if (sellingPriceInput) {
+                    sellingPriceInput.removeAttribute('required');
+                }
+            } else {
+                // For other movements, set required based on visibility
+                if (unitPriceInput) {
+                    if (priceContainer && priceContainer.style.display !== 'none') {
+                        unitPriceInput.setAttribute('required', 'required');
+                    } else {
+                        unitPriceInput.removeAttribute('required');
+                    }
+                }
+                if (sellingPriceInput) {
+                    if (priceContainer && priceContainer.style.display !== 'none') {
+                        sellingPriceInput.setAttribute('required', 'required');
+                    } else {
+                        sellingPriceInput.removeAttribute('required');
+                    }
+                }
+            }
+        });
+    }
+
+    // Add event listeners for quantity changes on adjustment items
+    function setupAdjustmentEventListeners(lineItem) {
+        const quantityInput = lineItem.querySelector('input[name="quantity[]"]');
+        const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
+
+        quantityInput.addEventListener('input', function () {
+            const movementType = document.getElementById('movement_type').value;
+            if (movementType === 'adjustment') {
+                updateAdjustmentCalculation(lineItem);
+            }
+        });
+
+        inventoryDropdown.addEventListener('change', function () {
+            const movementType = document.getElementById('movement_type').value;
+            if (movementType === 'adjustment') {
+                updateAdjustmentCalculation(lineItem);
+            }
+        });
+    }
+
+
+    // Advanced reference suggestion function with callback support
+    function fetchSuggestedReferenceAdvanced(options = {}) {
+        const {
+            endpoint = suggestReferenceEndpoint, // Use the Flask-provided URL,
+            referenceFieldId = 'reference',
+            defaultReference = 'INV-1',
+            triggerEvents = true,
+            onSuccess = null,
+            onError = null,
+            onComplete = null
+        } = options;
+
+        fetch(endpoint)
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                const referenceInput = document.getElementById(referenceFieldId);
+
+                if (referenceInput) {
+                    const previousValue = referenceInput.value;
+
+                    if (data.suggested_reference && !referenceInput.value) {
+                        referenceInput.value = data.suggested_reference;
+
+                        // Trigger events if specified
+                        if (triggerEvents) {
+                            referenceInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            referenceInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+
+                        // Call success callback
+                        if (onSuccess && typeof onSuccess === 'function') {
+                            onSuccess(data.suggested_reference, previousValue);
+                        }
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching suggested reference:', error);
+
+                const referenceInput = document.getElementById(referenceFieldId);
+                if (referenceInput && !referenceInput.value) {
+                    const previousValue = referenceInput.value;
+                    referenceInput.value = defaultReference;
+
+                    // Call error callback
+                    if (onError && typeof onError === 'function') {
+                        onError(error, defaultReference, previousValue);
+                    }
+                }
+            })
+            .finally(() => {
+                // Call complete callback
+                if (onComplete && typeof onComplete === 'function') {
+                    onComplete();
+                }
+            });
+    }
+
+    // Manual refresh function - FIXED VERSION
+    function refreshReferenceWithFeedback() {
+        fetchSuggestedReferenceAdvanced({
+            onSuccess: (newReference) => {
+                showNotification(`Reference refreshed: ${newReference}`, 'success');
+            },
+            onError: (error, defaultReference) => {
+                showNotification(`Could not refresh reference. Using: ${defaultReference}`, 'error');
+            }
+        });
+    }
+
+
+    // Add event listener for source type changes
+    document.getElementById('source_type').addEventListener('change', function () {
+        const movementType = document.getElementById('movement_type').value;
+        updateFormVisibility(movementType);
+
+        // Also update line items to handle donation-specific behavior
+        updateLineItemsForMovementType(movementType);
+    });
+
+    // Initialize form visibility on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        const initialMovementType = document.getElementById('movement_type').value;
+        updateFormVisibility(initialMovementType);
+
+        // Set today's date as default
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0];
+        document.getElementById('transaction_date').value = formattedDate;
+        updateRequiredAttributes(); // Update required attributes when movement type changes
+
+        updateSummary();
+
+
+    });
+
+
+    document.getElementById('currency').addEventListener('change', function () {
+        updateSummary();
+        updateRequiredAttributes(); // Add this line to update required status when currency changes
+    });
+
+
+
+    // Initialize required attributes on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(updateRequiredAttributes, 500); // Wait for initial rendering
+    });
+
+    // Add CSS for error states
+    const errorStyles = document.createElement('style');
+    errorStyles.textContent = `
+    .field-error {
+        border: 2px solid #dc3545 !important;
+        background-color: #fff5f5;
+    }
+    
+    .error-message {
+        color: #dc3545;
+        font-size: 0.8rem;
+        margin-top: 4px;
+        display: block;
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+`;
+    document.head.appendChild(errorStyles);
+
+
+    // Also, add event listeners for other fields that trigger the summary update
+    document.querySelectorAll('.line-item input').forEach(input => {
+        input.addEventListener('input', updateSummary);
+    });
+
+
+    document.getElementById('supplier_name').addEventListener('input', updateSummary);
+    document.getElementById('currency').addEventListener('change', updateSummary);
+
+    // Also, add event listeners for other fields that trigger the summary update
+    document.querySelectorAll('.line-item input').forEach(input => {
+        input.addEventListener('input', updateSummary);
+    });
+
+    document.getElementById('supplier_id').addEventListener('input', updateSummary);
+    document.getElementById('currency').addEventListener('change', updateSummary);
+
+    // Add Line Item Functionality 
+    document.getElementById('addLineItem').addEventListener('click', function () {
+        const lineItemsContainer = document.getElementById('lineItemsContainer');
+
+        // Calculate the new line item number (1-based)
+        const lineItemNumber = lineItemsContainer.querySelectorAll('.line-item').length + 1;
+
+
+        const lineItem = document.createElement('div');
+        lineItem.classList.add('line-item');
+
+        lineItem.innerHTML = `
+            <div class="line-item-header">
+               <h3>Line Item (${lineItemNumber})</h3>
+                <button type="button" class="remove-line-item button remove-button">Remove</button>
+            </div>
+
+
+                <!-- Hidden input for item type -->
+    <input type="hidden" name="item_type[]" value="inventory">
+
+            <div class="form-group">
+                <label for="item">Item</label>
+
+                <select name="inventory_item[]" class="inventory-dropdown searchable-dropdown">
+                    <option value="">Select Inventory Item</option>
+                   // Added data-uom-id attribute to each option
+                    // In your addLineItem function, update the inventory dropdown options:
+${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom_id || ''}" data-uom-name="${item.uom_name || ''}">${item.name}</option>`).join('')}
+                </select>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="quantity">Quantity</label>
+                    <input type="text" name="quantity[]" required auto-complete="off">
+
+                        <!-- Adjustment display -->
+            <div class="adjustment-display conditional-field" style="display: none;">
+                <div class="badge bg-info">
+                    <span class="adjustment-info">System: 0 | Adjustment: 0</span>
+                </div>
+            </div>
+            
+
+                    <div class="stock-display"></div>
+
+                </div>
+
+
+
+
+                <div class="form-group">
+                    <label for="uom">Unit of Measurement</label>
+                    <div class="uom-display">
+                        <input type="text" class="uom-readonly" readonly placeholder="Select an item first">
+                        <input type="hidden" name="uom[]" class="uom-hidden">
+                    </div>
+                </div>
+                        
+                            
+
+                            <div class="conditional-field price-container">
+                    <div class="form-group unit-price-group" style="display: none;">
+                        <label for="unit_price">Unit Price</label>
+                        <input type="text" name="unit_price[]" required autocomplete="off">
+                    </div>
+                    <div class="form-group selling-price-group" style="display: none;">
+                        <label for="selling_price">Selling Price (Optional)</label>
+                        <input type="text" name="selling_price[]" autocomplete="off">
+                    </div>
+                </div>
+
+
+            </div>
+          
+  
+        `;
+
+        lineItemsContainer.appendChild(lineItem);
+
+        // Clear input fields after adding a line item
+        lineItem.querySelector('input[name="quantity[]"]').value = '';
+        lineItem.querySelector('input[name="unit_price[]"]').value = '';
+        lineItem.querySelector('input[name="selling_price[]"]').value = '';
+
+        // Add event listeners to quantity and unit price fields
+        lineItem.querySelector('input[name="quantity[]"]').addEventListener('input', function () {
+
+            updateSummary();
+        });
+        lineItem.querySelector('input[name="unit_price[]"]').addEventListener('input', function () {
+
+            updateSummary();
+
+        });
+
+
+        const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
+
+        // Reinitialize select2
+        $(inventoryDropdown).select2({ width: '100%' });
+
+
+
+
+        // Update summary section immediately after adding a new line item
+        updateSummary();
+
+        // Ensure the new line item's UOM dropdown gets updated with the latest UOM options
+        // After the line item is added, append the new UOM options
+        $('#lineItemsContainer select[name="uom[]"]:last').each(function () {
+            $(this).append(newUOMOptions.join(''));  // Append all new UOMs to the last dropdown added
+        });
+
+
+        const movementTypeSelect = document.getElementById('movement_type');
+
+        const movementType = movementTypeSelect.value;
+        console.log('Add item line movement type is', movementType);
+
+        // Update line items based on movement type
+        updateLineItemsForMovementType(movementType);
+
+        // After appending the line item, add this:
+        const newLineItem = lineItemsContainer.lastElementChild;
+        setupAdjustmentEventListeners(newLineItem);
+
+        // If current movement type is adjustment, show adjustment display
+        if (movementType === 'adjustment') {
+            const adjustmentDisplay = newLineItem.querySelector('.adjustment-display');
+            adjustmentDisplay.style.display = 'block';
+
+
+            const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
+            const sellingPriceInput = lineItem.querySelector('input[name="selling_price[]"]');
+
+            if (unitPriceInput) {
+                unitPriceInput.value = '0';
+                unitPriceInput.readOnly = true;
+                unitPriceInput.removeAttribute('required');
+            }
+            if (sellingPriceInput) {
+                sellingPriceInput.value = '0';
+                sellingPriceInput.readOnly = true;
+                sellingPriceInput.removeAttribute('required');
+            }
+
+        }
+
+        // If current movement type is adjustment, show adjustment display
+        if (movementType === 'transfer') {
+
+
+            const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
+            const sellingPriceInput = lineItem.querySelector('input[name="selling_price[]"]');
+
+            if (unitPriceInput) {
+                unitPriceInput.value = '0';
+                unitPriceInput.readOnly = true;
+                unitPriceInput.removeAttribute('required');
+            }
+            if (sellingPriceInput) {
+                sellingPriceInput.value = '0';
+                sellingPriceInput.readOnly = true;
+                sellingPriceInput.removeAttribute('required');
+            }
+
+        }
+
+    });
+
+
+
+    // Single event delegation handler for all inventory dropdowns
+    // Use jQuery delegated event for Select2
+    $(document).on('select2:select', '.inventory-dropdown', function (e) {
+        const inventoryDropdown = e.target;
+        const lineItem = inventoryDropdown.closest('.line-item');
+
+        const selectedOption = inventoryDropdown.options[inventoryDropdown.selectedIndex];
+        const uomId = selectedOption.getAttribute('data-uom-id');
+        const uomName = selectedOption.getAttribute('data-uom-name');
+
+        console.log('Selected Inventory:', selectedOption.text);
+        console.log('UOM ID:', uomId, 'UOM Name:', uomName);
+
+        // These target the input fields inside the same line item
+        const uomDisplay = lineItem.querySelector('.uom-readonly');
+        const uomHidden = lineItem.querySelector('.uom-hidden');
+
+        // Set values
+        if (uomId && uomName) {
+            uomDisplay.value = uomName;
+            uomHidden.value = uomId;
+        } else {
+            uomDisplay.value = '';
+            uomHidden.value = '';
+            uomDisplay.placeholder = 'No UOM assigned to this item';
+        }
+
+        // Optional: call other logic
+        updateAvailableQuantity(lineItem);
+    });
+
+
+
+
+    // Confirmation Modal for Deleting Line Items
+    let currentLineItemToDelete = null;
+
+    document.addEventListener('click', function (e) {
+        if (e.target.classList.contains('remove-line-item')) {
+            currentLineItemToDelete = e.target.closest('.line-item');
+            document.getElementById('confirmationModal').style.display = 'block';
+        }
+    });
+
+    document.getElementById('confirmDelete').addEventListener('click', function () {
+        if (currentLineItemToDelete) {
+            currentLineItemToDelete.remove(); // Remove the line item
+
+            // Renumber remaining line items
+            const lineItems = document.querySelectorAll('.line-item');
+            lineItems.forEach((item, idx) => {
+                const header = item.querySelector('.line-item-header h3');
+                if (header) {
+                    header.textContent = `Line Item (${idx + 1})`;
+                }
+            });
+
+            updateSummary(); // Recalculate totals
+        }
+        document.getElementById('confirmationModal').style.display = 'none'; // Hide the modal
+    });
+
+    document.getElementById('cancelDelete').addEventListener('click', function () {
+        document.getElementById('confirmationModal').style.display = 'none';
+    });
+
+    // Set today's date as the default value for the inventory date field
+    document.addEventListener('DOMContentLoaded', function () {
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        document.getElementById('transaction_date').value = formattedDate;
+    });
+
+
+
+
+    // Close modal event
+    document.getElementById('closeModal').addEventListener('click', function () {
+        vendorModal.style.display = 'none';
+    });
+
+
+    // Handle form submission for adding new vendors
+    document.getElementById('vendorDetailsForm').addEventListener('submit', function (e) {
+        e.preventDefault(); // Prevent default form submission
+        const formData = new FormData(e.target);
+        const hiddensupplierId = document.getElementById('supplier_id');
+        const supplierInput = document.getElementById('supplier_name');
+
+        fetch('/general_ledger/add_vendor', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData,
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                return response.json(); // Ensure server returns JSON
+            })
+            .then(data => {
+                if (data.success) {
+                    showNotification('Party added successfully!', 'success');
+
+                    // Add new option to the datalist dynamically
+                    let newOption = document.createElement('option');
+                    newOption.value = data.vendorName; // Ensure vendorName exists
+                    newOption.setAttribute('data-id', data.vendorId); // Assign data-id
+                    console.log('Vendor ID:', formData.get('vendorId')); // Print the vendor ID
+                    document.getElementById('supplier_list').appendChild(newOption);
+
+                    console.log('New option added:', newOption.value);
+
+                    // Pre-fill the input field with the new vendor name
+                    supplierInput.value = newOption.value;
+                    hiddensupplierId.value = data.vendorId; // Ensure hidden value also has the new ID
+                    console.log('Hidden supplier ID:', hiddensupplierId.value);
+                    updateSummary(); // Update summary after adding new vendor
+                    // Hide modal & reset form
+                    vendorModal.style.display = 'none';
+                    e.target.reset();
+                } else {
+                    showNotification('Failed to add vendor: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred while adding the vendor: ' + error.message, 'error');
+            });
+    });
+
+
+    /**
+     * supplier hanling logic
+     */
+    document.addEventListener('DOMContentLoaded', function () {
+        const supplierInput = document.getElementById('supplier_name');
+        const hiddensupplierId = document.getElementById('supplier_id');
+        const supplierList = document.getElementById('supplier_list').options;
+
+        // Update hidden supplier_id based on user input
+        supplierInput.addEventListener('input', function () {
+            const enteredValue = this.value.trim();
+            hiddensupplierId.value = ''; // Clear hidden input initially
+            console.log(`supplier input: ${enteredValue}`); // Log entered value
+
+            // Check if the entered value matches a datalist option
+            for (let option of supplierList) {
+                if (option.value.toLowerCase() === enteredValue.toLowerCase()) {
+                    hiddensupplierId.value = option.getAttribute('data-id'); // Set supplier_id if match found
+                    console.log(`Match found: ${option.value}, ID: ${hiddensupplierId.value}`); // Log match
+                    break;
+                }
+            }
+        });
+
+        // Handle blur event to check if the supplier is new
+        supplierInput.addEventListener('blur', function () {
+            const enteredValue = this.value.trim();
+            console.log(`supplier input blur: ${enteredValue}`); // Log blur event
+
+            if (enteredValue === '') return; // Skip if empty
+
+            if (!hiddensupplierId.value) {
+                // Handle new supplier case
+                const modal = document.getElementById('newsupplierModal');
+                const enteredsupplierNameSpan = document.getElementById('enteredsupplierName');
+                const oneTimesupplierBtn = document.getElementById('oneTimesupplierBtn');
+                const addToDatabaseBtn = document.getElementById('addToDatabaseBtn');
+
+                // Set the entered supplier name in the modal
+                enteredsupplierNameSpan.textContent = enteredValue;
+
+                // Show the modal
+                modal.style.display = 'block';
+
+                // Handle "One-Time supplier" button click
+                oneTimesupplierBtn.addEventListener('click', function () {
+                    // Mark as one-time supplier
+                    document.getElementById('is_one_time_hidden').value = '1';
+                    console.log('Marked as one-time supplier'); // Log one-time supplier
+
+                    // Close the modal
+                    modal.style.display = 'none';
+                });
+
+                // Handle "Add to Database" button click
+                addToDatabaseBtn.addEventListener('click', function () {
+                    // Open modal to add new supplier
+                    document.getElementById('vendorName').value = enteredValue;
+                    document.getElementById('vendorModal').style.display = 'block';
+                    console.log('Opened modal to add new supplier'); // Log modal opening
+
+                    // Close this modal
+                    modal.style.display = 'none';
+                });
+
+                // Close modal if user clicks outside of it
+                window.addEventListener('click', function (event) {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            }
+        });
+    });
+
+
+    // Form submission for inventorys 
+
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log("DOM fully loaded and parsed.");
+
+        fetchSuggestedReferenceAdvanced();
+
+        // supplier ID validation logic
+        let supplierInput = document.getElementById('supplier_id');
+        let supplierDatalist = document.getElementById('supplier_list');
+
+        supplierInput.addEventListener('input', function () {
+            let selectedValue = this.value;
+            let optionExists = Array.from(supplierDatalist.options).some(option => option.value === selectedValue);
+
+            console.log(`supplier input changed: ${selectedValue}`);
+            console.log(`Option exists in datalist: ${optionExists}`);
+
+            if (optionExists) {
+                console.log("supplier selected from the list, removing required attribute.");
+                supplierInput.removeAttribute('required');
+            } else {
+                console.log("supplier manually entered or not selected from the list, making it required.");
+                supplierInput.setAttribute('required', 'required');
+            }
+        });
+
+
+        // Modify your existing form submission handler
+        document.getElementById('inventoryForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const action = this.getAttribute('data-action') || 'save-exit'; // Default to save-exit
+
+            // Your existing validation and form processing code...
+            if (!validateForm()) {
+                return;
+            }
+
+            // Process the form based on the action
+            processFormSubmission(action);
+        });
+
+
+        // New function to handle form submission with different actions
+        function processFormSubmission(action) {
+            const movementType = document.getElementById('movement_type').value;
+            const form = document.getElementById('inventoryForm');
+
+            // Disable buttons immediately when form submission starts
+            disableSubmitButtonsWithTimeout(form);
+
+            // Update required attributes based on current visibility
+            updateRequiredAttributes();
+
+            // Validate the form
+            if (!validateForm()) {
+                enableAllSubmitButtons(); // Re-enable if validation fails
+                return;
+            }
+
+
+            // Prepare form data manually (do not initialize from the form)
+            const formData = new FormData();
+
+
+            // If supplier_id is empty, ensure supplier_name is included
+            const hiddensupplierId = document.getElementById('supplier_id');
+            const supplierInput = document.getElementById('supplier_name');
+
+            if (!hiddensupplierId.value) {
+                formData.append('supplier_name', supplierInput.value.trim());
+                hiddensupplierId.value = supplierInput.value.trim(); // Ensure supplier_id is set to supplierInput value
+                console.log(`Appended supplier_name: ${supplierInput.value.trim()}`);
+            }
+
+
+            // Append static form fields
+            const staticFields = [
+                // Basic Information
+                'reference',
+                'transaction_date',
+                'movement_type',
+                'source_type',
+                'write_off_reason',
+
+                // Supplier Information
+                'supplier_id',
+                'is_one_time',
+
+                // Location Information
+                'location',
+                'to_location',             // For transfers
+
+                // Currency and Payment
+                'currency',
+                'payment_mode',
+
+
+                // Additional Details
+                'project_id',
+                'expiration_date',
+
+
+            ];
+
+            staticFields.forEach(field => {
+                const element = document.getElementById(field);
+                if (element) {
+                    formData.append(field, element.value);
+                    console.log(`Appended ${field}: ${element.value}`);
+                }
+            });
+
+
+
+
+            // Process each line item and store the data in the array
+            let lineItems = [];
+
+            document.querySelectorAll('.line-item').forEach((row, index) => {
+                try {
+                    console.log(`Processing Line Item ${index + 1}:`, row);
+
+
+
+                    const inventoryItem = row.querySelector('.inventory-dropdown').value || '';
+                    console.log(`Inventory Item: ${inventoryItem}`);
+
+
+                    const quantity = parseFloat(row.querySelector('input[name="quantity[]"]').value) || 0;
+                    console.log(`Quantity: ${quantity}`);
+
+                    const uom = row.querySelector('input[name="uom[]"]').value || '';
+
+
+
+                    const unitPrice = parseFloat(row.querySelector('input[name="unit_price[]"]').value) || 0;
+                    console.log(`Unit Price: ${unitPrice}`);
+
+
+                    const sellingPrice = parseFloat(row.querySelector('input[name="selling_price[]"]').value) || 0;
+                    console.log(`Selling Price: ${sellingPrice}`);
+
+
+
+                    // Append line item data to the FormData object
+
+                    formData.append(`inventory_item[]`, inventoryItem);
+
+                    formData.append(`quantity[]`, quantity);
+                    formData.append(`uom[]`, uom);
+                    formData.append(`unit_price[]`, unitPrice);
+                    formData.append(`selling_price[]`, sellingPrice);
+
+                    // In your form submission logic, you can add:
+                    // In your form submission logic:
+                    if (movementType === 'adjustment') {
+                        const systemQuantity = row.dataset.systemQuantity || 0;
+                        const adjustment = row.dataset.adjustment || 0;
+
+                        console.log(`Line ${index + 1} - System: ${systemQuantity}, Adjustment: ${adjustment}`);
+
+                        formData.append(`adjustment[]`, adjustment);
+                        formData.append(`system_quantity[]`, systemQuantity);
+                    }
+
+
+                } catch (error) {
+                    console.error(`Error processing Line Item ${index + 1}:`, error);
+                }
+            });
+
+            // Log FormData for debugging
+            console.log("🚀 Final FormData before submission:");
+            for (let pair of formData.entries()) {
+                console.log(`${pair[0]}: ${pair[1]}`);
+            }
+
+            // Send the form data to the server
+            // Send the form data to the server
+            fetch("{{ url_for('inventory.inventory_entry') }}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                },
+                body: formData,
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification('Inventory added successfully!', 'success');
+
+                        // Handle different actions
+                        if (action === 'save-exit') {
+                            window.location.href = '/inventory/stock_movement_history'; // Redirect to inventory entries page
+                        } else if (action === 'save-new') {
+                            // Reset form for new entry
+                            resetFormForNewEntry();
+                            showNotification('Inventory saved successfully! Ready for new entry.', 'success');
+                        }
+
+                        enableAllSubmitButtons();
+                    } else {
+                        showNotification('Error adding inventory: ' + data.message, 'error');
+                        enableAllSubmitButtons();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('There was an issue adding your inventory. Please try again later.', 'error');
+                    enableAllSubmitButtons();
+                }).finally(() => {
+                    // Clear the timeout
+                    if (window.submissionTimeout) {
+                        clearTimeout(window.submissionTimeout);
+                    }
+                });
+        }
+
+        // Function to reset form for new entry
+        function resetFormForNewEntry() {
+            // Store movement type before reset
+            const movementType = document.getElementById('movement_type').value;
+            const transactionDate = document.getElementById('transaction_date').value;
+
+            // Clear line items
+            document.getElementById('lineItemsContainer').innerHTML = '';
+
+            // List of fields to preserve (movement type only in this case)
+            // Preserve movement type, transaction date, and currency
+            const fieldsToPreserve = ['movement_type', 'transaction_date', 'currency'];
+
+
+            // Reset all form fields
+            document.querySelectorAll('#inventoryForm input, #inventoryForm select, #inventoryForm textarea').forEach(field => {
+                if (!fieldsToPreserve.includes(field.id)) {
+                    resetField(field);
+                }
+            });
+
+            // Reset specific elements that might not be caught above
+            resetSpecificElements();
+
+            document.getElementById('transaction_date').value = transactionDate;
+
+            // Add one empty line item
+            document.getElementById('addLineItem').click();
+
+            // Update UI state
+            updateUIAfterReset(movementType);
+
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+
+        // Helper function to reset individual fields
+        function resetField(field) {
+            const fieldType = field.tagName.toLowerCase();
+
+            switch (fieldType) {
+                case 'select':
+                    if ($(field).hasClass('select2-hidden-accessible')) {
+                        // For Select2 dropdowns
+                        $(field).val('').trigger('change');
+
+                        // Also reset the visible Select2 display
+                        const select2Container = field.nextElementSibling;
+                        if (select2Container && select2Container.classList.contains('select2-container')) {
+                            const selection = select2Container.querySelector('.select2-selection__rendered');
+                            if (selection) {
+                                selection.title = '';
+                                selection.textContent = 'Select an option';
+                            }
+                        }
+                    } else {
+                        // Regular select dropdown
+                        field.selectedIndex = 0;
+                    }
+                    break;
+
+                case 'input':
+                    if (field.type === 'checkbox' || field.type === 'radio') {
+                        field.checked = false;
+                    } else {
+                        field.value = '';
+                        // Clear any validation states
+                        field.classList.remove('is-valid', 'is-invalid');
+                    }
+                    break;
+
+                case 'textarea':
+                    field.value = '';
+                    field.classList.remove('is-valid', 'is-invalid');
+                    break;
+            }
+
+            // Clear any validation messages
+            const errorElement = field.nextElementSibling;
+            if (errorElement && errorElement.classList.contains('error-message')) {
+                errorElement.remove();
+            }
+        }
+
+        // Helper function to reset specific elements
+        // Helper function to reset specific elements
+        function resetSpecificElements() {
+            // Reset hidden fields (exclude currency)
+            if (document.getElementById('supplier_id')) {
+                document.getElementById('supplier_id').value = '';
+            }
+            if (document.getElementById('is_one_time_hidden')) {
+                document.getElementById('is_one_time_hidden').value = '0';
+            }
+
+            // Reset Select2 dropdowns except currency
+            const select2Selectors = [
+                '.inventory-dropdown',
+                '.account-dropdown',
+                '#source_type',
+                '#payment_mode'
+            ];
+
+            select2Selectors.forEach(selector => {
+                const elements = document.querySelectorAll(selector);
+                elements.forEach(el => {
+                    if (el.id !== 'currency' && $(el).hasClass('select2-hidden-accessible')) {
+                        $(el).val('').trigger('change');
+                    }
+                });
+            });
+
+            // Clear any dynamic datalist dropdowns
+            const dynamicDropdowns = document.querySelectorAll('datalist');
+            dynamicDropdowns.forEach(datalist => {
+                while (datalist.children.length > 1) {
+                    datalist.removeChild(datalist.lastChild);
+                }
+            });
+        }
+
+        // Helper function to update UI after reset
+        function updateUIAfterReset(movementType) {
+
+            updateSummary();
+
+            // Clear any error states
+            document.querySelectorAll('.field-error').forEach(el => {
+                el.classList.remove('field-error');
+            });
+
+            // Clear notifications
+            const notifications = document.querySelectorAll('.alert, .notification, .flash-message');
+            notifications.forEach(notification => {
+                notification.remove();
+            });
+
+
+
+            // Refresh Reference Number
+            fetchSuggestedReferenceAdvanced();
+
+
+        }
+
+    });
+
+
+
+    // Save and Exit functionality
+    document.getElementById('saveAndExitBtn').addEventListener('click', function () {
+        // Set flag for save and exit
+        document.getElementById('inventoryForm').setAttribute('data-action', 'save-exit');
+        document.getElementById('inventoryForm').dispatchEvent(new Event('submit'));
+    });
+
+    // Save and New functionality
+    document.getElementById('saveAndNewBtn').addEventListener('click', function () {
+        // Set flag for save and new
+        document.getElementById('inventoryForm').setAttribute('data-action', 'save-new');
+        document.getElementById('inventoryForm').dispatchEvent(new Event('submit'));
+    });
+
+    // Searchable Dropdown for Inventory Items
+    document.querySelectorAll('.searchable-dropdown').forEach(dropdown => {
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Search inventory...';
+        searchInput.style.width = '100%';
+        searchInput.style.marginBottom = '10px';
+
+        dropdown.parentElement.insertBefore(searchInput, dropdown);
+
+        searchInput.addEventListener('input', function () {
+            const searchTerm = this.value.toLowerCase();
+            Array.from(dropdown.options).forEach(option => {
+                const text = option.text.toLowerCase();
+                option.style.display = text.includes(searchTerm) ? 'block' : 'none';
+            });
+        });
+    });
+
+
+    // Handle category select change in the add new inventory item modal
+    document.getElementById('location').addEventListener('change', function () {
+        const movementType = document.getElementById('movement_type').value;
+
+        document.querySelectorAll('.line-item').forEach(lineItem => {
+            updateAvailableQuantity(lineItem);
+            if (movementType === 'adjustment') {
+                updateAdjustmentCalculation(lineItem);
+            }
+        });
+
+        if (movementType === 'transfer') {
+            validateLocations();
+        }
+
+        if (this.value === 'add_new_location') {
+            $('#addInventoryItemModal').modal('hide');
+            $('#addLocationModal').modal('show');
+            this.value = '';
+        }
+    });
+
+    // Handle change in "to location"
+    document.getElementById('to_location').addEventListener('change', function () {
+        const movementType = document.getElementById('movement_type').value;
+        if (movementType === 'transfer') {
+            validateLocations();
+        }
+    });
+
+    // Handle form submission for adding a new location
+    $('#add-location-form').submit(function (event) {
+        event.preventDefault(); // Prevent the default form submission
+
+        // Send the data via AJAX
+        $.ajax({
+            type: 'POST',
+            url: $(this).attr('action'),
+            headers: {
+                'X-CSRFToken': csrfToken // Add CSRF token here
+            },
+            data: $(this).serialize(),
+            success: function (response) {
+                // Handle success response
+                console.log('Location added successfully:', response);
+
+                // Close the modal
+                $('#addLocationModal').modal('hide');
+
+                // Optionally reset the form fields
+                $('#add-location-form')[0].reset();
+
+                // Check if the response is successful
+                if (response.success) {
+                    // Update the location dropdown
+                    const locationSelect = document.getElementById('location'); // Adjust the ID to your actual location dropdown ID
+                    const newLocationOption = document.createElement('option');
+                    newLocationOption.value = response.location_id; // Use the ID from the server response
+                    newLocationOption.text = response.location_name; // Use the name from the server response
+                    locationSelect.add(newLocationOption);
+                    locationSelect.value = response.location_id; // Set the newly added location as selected
+                } else {
+                    console.error('Failed to add location:', response.error);
+                }
+            },
+            error: function (xhr, status, error) {
+                // Handle error response
+                console.error('Error adding location:', error);
+            }
+        });
+    });
+
+
+
+    // When a new line item is added, set unit price readonly/value according to source_type
+    function setUnitPriceFieldBehavior(lineItem) {
+        const source = document.getElementById('source_type').value;
+        const movementType = document.getElementById('movement_type').value;
+        const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
+
+        if (!unitPriceInput) return;
+
+        // For adjustment movement, always remove required and set to 0
+        if (movementType === 'adjustment') {
+            unitPriceInput.value = '0';
+            unitPriceInput.readOnly = true;
+            unitPriceInput.removeAttribute('required'); // Ensure required is removed
+        }
+        else if (source === 'donation' || source === 'adjustment') {
+            unitPriceInput.value = '0';
+            unitPriceInput.readOnly = true;
+            // Don't remove required here if it's not adjustment movement
+        } else {
+            // If switching back, clear value if it is zero-ish
+            if (unitPriceInput.value === '0' || unitPriceInput.value === '0.00' || unitPriceInput.value === '') {
+                unitPriceInput.value = '';
+            }
+            unitPriceInput.readOnly = false;
+        }
+    }
+
+
+    // Add this function to handle unit price requirements
+    function handleUnitPriceRequirements() {
+        const movementType = document.getElementById('movement_type').value;
+
+        document.querySelectorAll('.line-item').forEach(lineItem => {
+            const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
+            const sellingPriceInput = lineItem.querySelector('input[name="selling_price[]"]');
+
+            if (movementType === 'adjustment') {
+                // For adjustments, remove required attribute and set default values
+                if (unitPriceInput) {
+                    unitPriceInput.removeAttribute('required');
+                    unitPriceInput.value = '0';
+                    unitPriceInput.readOnly = true;
+                }
+                if (sellingPriceInput) {
+                    sellingPriceInput.removeAttribute('required');
+                    sellingPriceInput.value = '0';
+                    sellingPriceInput.readOnly = true;
+                }
+            } else {
+                // For other movements, restore normal behavior
+                if (unitPriceInput) {
+                    unitPriceInput.readOnly = false;
+                }
+                if (sellingPriceInput) {
+                    sellingPriceInput.readOnly = false;
+                }
+            }
+        });
+    }
+
+    // Call this function when movement type changes
+    document.getElementById('movement_type').addEventListener('change', function () {
+
+        const movementType = this.value;
+        updateFormVisibility(movementType);
+        updateSummary();
+
+
+        // Update adjustment calculations for all line items
+        if (movementType === 'adjustment') {
+            document.querySelectorAll('.line-item').forEach(lineItem => {
+                updateAdjustmentCalculation(lineItem);
+            });
+        }
+
+
+        handleUnitPriceRequirements();
+        updateRequiredAttributes(); // Also update other required attributes
+
+        // Also update line items to handle donation-specific behavior
+        updateLineItemsForMovementType(movementType);
+    });
+
+    // Also call it on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        handleUnitPriceRequirements();
+    });
+
+
+    // Patch addLineItem button to apply the above logic
+    const origAddLineItemHandler = document.getElementById('addLineItem').onclick;
+    document.getElementById('addLineItem').addEventListener('click', function () {
+        setTimeout(() => {
+            const lineItems = document.querySelectorAll('.line-item');
+            if (lineItems.length > 0) {
+                setUnitPriceFieldBehavior(lineItems[lineItems.length - 1]);
+            }
+        }, 0);
+    });
+
+    // On page load, set unit price fields according to source_type
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.line-item').forEach(setUnitPriceFieldBehavior);
+    });
+
+    // Function to update available quantity for inventory items in the inventory entry form
+    // function updateAvailableQuantity(lineItem) {
+    //     const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
+    //     const stockDisplay = lineItem.querySelector('.stock-display');
+
+    //     if (!inventoryDropdown || !stockDisplay) {
+    //         return; // Exit if elements don't exist
+    //     }
+
+    //     // Get the selected inventory item ID
+    //     const inventoryItemId = $(inventoryDropdown).val();
+    //     const locationId = document.getElementById('location').value;
+
+    //     // Clear display if selections aren't complete
+    //     if (!inventoryItemId || !locationId) {
+    //         stockDisplay.innerHTML = '<div class="badge bg-secondary">Select item and location</div>';
+    //         return;
+    //     }
+
+    //     // Show loading state
+    //     stockDisplay.innerHTML = '<div class="stock-loading">Checking stock...</div>';
+
+    //     // Fetch available quantity
+    //     fetch(`/api/inventory/available?item_id=${inventoryItemId}&location_id=${locationId}`)
+    //         .then((response) => {
+    //             if (!response.ok) throw new Error("Network response was not ok");
+    //             return response.json();
+    //         })
+    //         .then((data) => {
+    //             const availableQty = data.available_quantity || 0;
+    //             let badgeClass = 'bg-info';
+    //             let warningText = '';
+
+
+    //             if (availableQty < 0) {
+    //                 badgeClass = 'bg-danger';       // red badge
+    //                 warningText = ' (Negative stock!)';
+    //                 showNotification(`⚠️ Warning: Stock for this item is negative (${availableQty}). Please review inventory adjustments.`, 'error');
+    //             } else if (availableQty === 0) {
+    //                 badgeClass = 'bg-warning';      // yellow badge
+    //                 warningText = ' (Out of stock)';
+    //             }
+
+
+    //             stockDisplay.innerHTML = `
+    //             <div class="badge ${badgeClass}">
+    //                 <span>Available: ${availableQty}${warningText}</span>
+    //             </div>
+    //         `;
+    //         })
+    //         .catch((error) => {
+    //             console.error("Error fetching available quantity:", error);
+    //             stockDisplay.innerHTML = '<div class="badge bg-danger">Error loading quantity</div>';
+    //         });
+    // }
+
+
+
+    // Function to update available quantity for inventory items in the inventory entry form
+    function updateAvailableQuantity(lineItem) {
+        const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
+        const stockDisplay = lineItem.querySelector('.stock-display');
+
+        if (!inventoryDropdown || !stockDisplay) {
+            return; // Exit if elements don't exist
+        }
+
+        // Get the selected inventory item ID
+        const inventoryItemId = $(inventoryDropdown).val();
+        const locationId = document.getElementById('location').value;
+
+        // Clear display if selections aren't complete
+        if (!inventoryItemId || !locationId) {
+            stockDisplay.innerHTML = '<div class="badge bg-secondary">Select item and location</div>';
+            return;
+        }
+
+        // Show loading state
+        stockDisplay.innerHTML = '<div class="stock-loading">Checking stock...</div>';
+
+        // Fetch available quantity using the existing api_inventory_stock endpoint
+        fetch(`/api/inventory_stock?item_ids[]=${inventoryItemId}&location_id=${locationId}&include_negative=true&use_variation_ids=true`)
+            .then((response) => {
+                if (!response.ok) throw new Error("Network response was not ok");
+                return response.json();
+            })
+            .then((data) => {
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to fetch stock data');
+                }
+
+                // Extract available quantity from the response
+                // The response structure is: {stock_data: {item_id: quantity}}
+                const availableQty = data.stock_data[inventoryItemId] || 0;
+                let badgeClass = 'bg-info';
+                let warningText = '';
+
+                if (availableQty < 0) {
+                    badgeClass = 'bg-danger';       // red badge
+                    warningText = ' (Negative stock!)';
+                    showNotification(`⚠️ Warning: Stock for this item is negative (${availableQty}). Please review inventory adjustments.`, 'error');
+                } else if (availableQty === 0) {
+                    badgeClass = 'bg-warning';      // yellow badge
+                    warningText = ' (Out of stock)';
+                }
+
+                stockDisplay.innerHTML = `
+                <div class="badge ${badgeClass}">
+                    <span>Available: ${availableQty}${warningText}</span>
+                </div>
+            `;
+            })
+            .catch((error) => {
+                console.error("Error fetching available quantity:", error);
+                stockDisplay.innerHTML = '<div class="badge bg-danger">Error loading quantity</div>';
+            });
+    }
+
+
+    // Add event listeners for inventory dropdown changes
+    $(document).on('select2:select', '.inventory-dropdown', function (e) {
+        const lineItem = this.closest('.line-item');
+        updateAvailableQuantity(lineItem);
+    });
+
+
+
+
+    // Initialize available quantity for existing line items on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.line-item').forEach(lineItem => {
+            updateAvailableQuantity(lineItem);
+        });
+    });
+
+
+    document.getElementById('reference').addEventListener('blur', function () {
+        const ref = this.value.trim();
+        if (!ref) return;
+
+        fetch(`/inventory/api/check_inventory_reference?reference=${encodeURIComponent(ref)}`)
+            .then(res => {
+                if (!res.ok) throw new Error('Network response was not ok');
+                return res.json();
+            })
+            .then(data => {
+                if (data.exists) {
+                    showNotification(`Reference "${ref}" already exists. You can still use it.`, 'warning');
+                }
+            })
+            .catch(err => {
+                console.error('Error checking reference:', err);
+            });
+    });
+
+
+</script>
+{% endblock %}

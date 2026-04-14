@@ -1,0 +1,716 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .summary-section {
+        flex: 0 0 250px;
+        padding: 10px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        border: 1px solid #e1e1e1;
+    }
+
+
+    .transaction-section {
+        flex: 1;
+        min-width: 300px;
+    }
+
+    /* Summary Section Styles */
+    .balance-totals {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .balance-total {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .balance-total-amount {
+        font-weight: bold;
+    }
+
+    .balance-breakdown {
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .balance-breakdown-item {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .balance-breakdown-item:hover {
+        background: #f8f9fa;
+    }
+
+    .balance-breakdown-item.active {
+        background: #e7f5ff;
+        border-left: 3px solid #228be6;
+    }
+
+    .balance-details {
+        display: flex;
+        gap: 1rem;
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    .reconciliation-status {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .reconciled {
+        color: #2b8a3e;
+    }
+
+    .unreconciled {
+        color: #c92a2a;
+    }
+
+    /* Transaction Table Styles */
+    .reconciled-row {
+        background-color: #ebfbee;
+    }
+
+    .badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+
+    .reconciled-badge {
+        background: #d3f9d8;
+        color: #2b8a3e;
+    }
+
+    .unreconciled-badge {
+        background: #ffc9c9;
+        color: #c92a2a;
+    }
+
+    /* Reconciliation Controls */
+    .reconciliation-controls {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+
+
+    /* --- Table --- */
+    .transaction-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+    }
+
+    .transaction-table th,
+    .transaction-table td {
+        padding: 10px;
+        border: 1px solid #eaeaea;
+    }
+
+    .transaction-table th {
+        background-color: #f1f3f5;
+        text-align: left;
+    }
+
+    .amount-column {
+        text-align: right;
+    }
+
+    .reconciled-row {
+        background-color: #e7fbe7;
+    }
+
+    .reconciliation-controls {
+        margin-top: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+    }
+
+
+    /* Mobile Styles */
+    @media (max-width: 768px) {
+
+        .summary-section {
+            flex: 1;
+            width: 90%;
+            order: 2;
+        }
+
+        .transaction-section {
+            order: 1;
+        }
+
+        .mobile-filter-btn {
+            display: flex;
+        }
+
+        .filter-wrapper {
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+        }
+
+        .filter-wrapper.active {
+            max-height: 500px;
+            opacity: 1;
+            padding: 15px 0;
+        }
+
+        .filter-controls {
+            grid-template-columns: 1fr;
+        }
+
+        .date-range-filter {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .date-range-separator {
+            display: none;
+        }
+
+        .transaction-table {
+            font-size: 0.85rem;
+        }
+
+        .transaction-table th,
+        .transaction-table td {
+            padding: 8px 5px;
+        }
+
+        .balance-totals {
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .balance-details,
+        .reconciliation-status {
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .reconciliation-controls {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    /* Small mobile devices */
+    @media (max-width: 480px) {
+        .transaction-table {
+            display: block;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .header-top-row h1 {
+            font-size: 1.5rem;
+        }
+
+        .balance-total-amount {
+            font-size: 1.2rem;
+        }
+
+        .cta-button {
+            padding: 8px 12px;
+            font-size: 0.9rem;
+        }
+    }
+</style>
+
+<div class="content-container">
+    <div class="header-section">
+        <div class="dashboard-header">
+
+
+            <div class="header-top-row">
+                <h1>Bank Reconciliation</h1>
+                <!-- New mobile filter button -->
+                <button class="mobile-filter-btn" id="mobileFilterBtn">
+                    <svg class="filter-icon" viewBox="0 0 24 24">
+                        <path d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                    <span class="filter-text">Filters</span>
+                </button>
+            </div>
+
+
+            <div class="view-toggle-buttons">
+                <button class="cta-button" id="download-pdf">
+                    <i class="fas fa-file-pdf"></i> Download Report
+                </button>
+            </div>
+
+
+            <div class="filter-wrapper">
+                <div class="filter-controls">
+
+                    <!-- Banks Account Filter -->
+                    <div class="filter-group">
+                        <label for="bank-account-select">Bank Account</label>
+                        <select id="bank-account-select" class="form-select">
+                            <option value="">All Accounts</option>
+                            {% for account in bank_accounts %}
+                            <option value="{{ account.id }}">{{ account.sub_category }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Currency Filter -->
+                    <div class="filter-group">
+                        <label for="currency-select">Currency</label>
+                        <select id="currency-select" class="form-select">
+                            {% for currency in currencies %}
+                            <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Status Filter -->
+                    <div class="filter-group">
+                        <label for="status-select">Status</label>
+                        <select id="status-select" class="form-select">
+                            <option value="all">All (Reconciled and Unreconciled) </option>
+                            <option value="false">Unreconciled</option>
+                            <option value="true">Reconciled</option>
+
+                        </select>
+                    </div>
+
+                    <!-- Date Range Filter -->
+                    <div class="filter-group">
+                        <label for="start-date">Statement Period</label>
+                        <div class="date-range-filter">
+                            <input type="date" id="start-date" class="form-select">
+                            <span class="date-range-separator">to</span>
+                            <input type="date" id="end-date" class="form-select">
+                        </div>
+                    </div>
+
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+    <!-- Summary Section -->
+    <div class="summary-section">
+        <h3>Bank Accounts Summary</h3>
+
+        <div id="bank-account-summary">
+            <div class="text-center py-3">
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Transactions Section -->
+    <div class="transaction-section">
+
+
+        <div id="transaction-details">
+            <h3 id="selected-account-name">Bank Transactions</h3>
+            <div style="overflow-x: auto;">
+                <table class="transaction-table">
+                    <thead>
+                        <tr>
+
+                            <th width="10%">Date</th>
+                            <th width="35%">Description</th>
+                            <th width="20%" class="amount-debit-column">Inflow(Debit)</th>
+                            <th width="20%" class="amount-credit-column">OutFlow(Credit)</th>
+                            <th width="10%">Journal No.</th>
+                            <th width="20%">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transaction-body">
+                        <!-- Transactions will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="reconciliation-controls">
+            <button id="mark-reconciled" class="cta-button" disabled>
+                <i class="fas fa-check-circle"></i> Mark as Reconciled
+            </button>
+            <button id="mark-unreconciled" class="cta-button secondary" disabled>
+                <i class="fas fa-times-circle"></i> Mark as Unreconciled
+            </button>
+            <span id="selected-count">0 selected</span>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    class BankReconciliation {
+        constructor() {
+            this.apiKey = "{{ api_key }}";
+            this.csrfToken = document.querySelector('meta[name="csrf-token"]').content;;
+            this.baseCurrency = '{{ base_currency }}';
+            this.filterTimeout = null;
+            this.initEventListeners();
+            this.loadInitialData();
+            this.setupSelectAll();
+        }
+
+        async loadInitialData() {
+            try {
+                // Set default date range (current month to date)
+                const today = new Date();
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+
+                this.startDate = firstDay.toISOString().split('T')[0];
+                this.endDate = today.toISOString().split('T')[0];
+
+                document.getElementById('start-date').value = this.startDate;
+                document.getElementById('end-date').value = this.endDate;
+
+                await this.fetchData();
+            } catch (error) {
+                console.error('Initial load failed:', error);
+            }
+        }
+
+        setupSelectAll() {
+            // Add select all checkbox in header
+            const headerCheckbox = document.createElement('th');
+            headerCheckbox.innerHTML = `
+            <input type="checkbox" id="select-all" title="Select all unreconciled transactions">
+        `;
+            document.querySelector('.transaction-table thead tr').prepend(headerCheckbox);
+
+            document.getElementById('select-all').addEventListener('change', (e) => {
+                const checkboxes = document.querySelectorAll('.tx-checkbox:not(:disabled)');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = e.target.checked;
+                });
+                this.updateSelectionCount();
+            });
+        }
+
+        async fetchData() {
+            try {
+                setLoadingState(true);
+
+                const params = new URLSearchParams();
+                params.append('start_date', document.getElementById('start-date').value);
+                params.append('end_date', document.getElementById('end-date').value);
+
+                // Add other filters
+                const filters = {
+                    currency_id: document.getElementById('currency-select').value,
+                    status: document.getElementById('status-select').value,
+                    account_id: document.getElementById('bank-account-select').value
+                };
+
+                Object.entries(filters).forEach(([key, value]) => {
+                    if (value) params.append(key, value);
+                });
+
+                const [summaryResponse, transactionsResponse] = await Promise.all([
+                    fetch(`/api/bank_reconciliation/summary?${params.toString()}`, {
+                        headers: { 'X-API-Key': this.apiKey }
+                    }),
+                    fetch(`/api/bank_reconciliation/transactions?${params.toString()}`, {
+                        headers: { 'X-API-Key': this.apiKey }
+                    })
+                ]);
+
+                if (!summaryResponse.ok || !transactionsResponse.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const [summaryData, transactionsData] = await Promise.all([
+                    summaryResponse.json(),
+                    transactionsResponse.json()
+                ]);
+
+                this.updateSummaryDisplay(summaryData);
+                this.updateTransactionsDisplay(transactionsData);
+
+            } catch (error) {
+                console.error('Fetch error:', error);
+                this.showError(error.message);
+            } finally {
+                setLoadingState(false);
+            }
+        }
+
+        updateSummaryDisplay(summaryData) {
+            const container = document.getElementById('bank-account-summary');
+            if (!container) return;
+
+            container.innerHTML = `
+            <div class="balance-totals">
+                <div class="balance-total left">
+                    <span class="balance-total-title">Total Unreconciled</span>
+                    <span class="balance-total-amount">${this.formatCurrency(
+                summaryData.reduce((sum, acc) => sum + acc.unreconciled_balance, 0),
+                this.baseCurrency
+            )}</span>
+                </div>
+                <div class="balance-total right">
+                    <span class="balance-total-title">Bank Accounts</span>
+                    <span class="balance-total-amount">${summaryData.length}</span>
+                </div>
+            </div>
+            <div class="balance-breakdown">
+                <h4>Account Balances</h4>
+                ${summaryData.map(account => `
+                    <div class="balance-breakdown-item bank-account-card" 
+                         data-account-id="${account.account_id}"
+                         data-currency-id="${account.currency_id}">
+                        <span class="balance-breakdown-title">
+                            ${account.account_name} (${account.currency})
+                        </span>
+                        <div class="balance-details">
+                            <span>Opening: ${this.formatCurrency(account.opening_balance, account.currency)}</span>
+                            <span>In: ${this.formatCurrency(account.total_inflows, account.currency)}</span>
+                            <span>Out: ${this.formatCurrency(account.total_outflows, account.currency)}</span>
+                            <span class="closing-balance">
+                                Closing: ${this.formatCurrency(account.closing_balance, account.currency)}
+                            </span>
+                        </div>
+                        <div class="reconciliation-status">
+                            <span class="reconciled">Reconciled: ${this.formatCurrency(account.reconciled_balance, account.currency)}</span>
+                            <span class="unreconciled">Unreconciled: ${this.formatCurrency(account.unreconciled_balance, account.currency)}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+            document.querySelectorAll('.bank-account-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    document.getElementById('bank-account-select').value = card.dataset.accountId;
+                    document.getElementById('currency-select').value = card.dataset.currencyId;
+                    this.debouncedFetch();
+                });
+            });
+        }
+
+        updateTransactionsDisplay(transactions) {
+            const tbody = document.getElementById('transaction-body');
+            tbody.innerHTML = transactions.map(tx => `
+            <tr class="${tx.reconciled ? 'reconciled' : ''}" data-tx-id="${tx.id}">
+                <td><input type="checkbox" class="tx-checkbox"></td>
+                <td>${tx.date}</td>
+                <td>${tx.description}</td>
+                <td class="amount-debit-column">${tx.dr_cr === 'D' ? this.formatCurrency(tx.amount, tx.currency) : ''}</td>
+                <td class="amount-credit-column">${tx.dr_cr === 'C' ? this.formatCurrency(tx.amount, tx.currency) : ''}</td>
+                <td>${tx.journal_number}</td>
+                <td>${tx.reconciled ?
+                    `<span class="badge reconciled-badge">Reconciled</span>` :
+                    `<span class="badge unreconciled-badge">Unreconciled</span>`}
+                </td>
+            </tr>
+        `).join('');
+
+            this.setupTransactionCheckboxes();
+        }
+
+        setupTransactionCheckboxes() {
+            document.querySelectorAll('.tx-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    document.getElementById('select-all').checked = false;
+                    this.updateSelectionCount();
+                });
+            });
+            this.updateSelectionCount();
+        }
+
+        updateSelectionCount() {
+            const selected = document.querySelectorAll('.tx-checkbox:checked').length;
+            document.getElementById('selected-count').textContent = `${selected} selected`;
+            document.getElementById('mark-reconciled').disabled = selected === 0;
+            document.getElementById('mark-unreconciled').disabled = selected === 0;
+        }
+
+        debouncedFetch() {
+            // Clear any pending debounce
+            if (this.filterTimeout) {
+                clearTimeout(this.filterTimeout);
+            }
+
+            // Set new debounce (500ms delay)
+            this.filterTimeout = setTimeout(() => {
+                this.fetchData();
+                this.filterTimeout = null;
+            }, 500);
+        }
+
+        initEventListeners() {
+            // Auto-fetch with debounce when filters change
+            ['bank-account-select', 'currency-select', 'status-select'].forEach(id => {
+                document.getElementById(id).addEventListener('change', () => this.debouncedFetch());
+            });
+
+            // Date filters with debounce
+            ['start-date', 'end-date'].forEach(id => {
+                document.getElementById(id).addEventListener('change', () => {
+                    this.startDate = document.getElementById('start-date').value;
+                    this.endDate = document.getElementById('end-date').value;
+                    this.debouncedFetch();
+                });
+            });
+
+            // Reconciliation buttons
+            document.getElementById('mark-reconciled').addEventListener('click', () => this.markTransactions(true));
+            document.getElementById('mark-unreconciled').addEventListener('click', () => this.markTransactions(false));
+
+            // Download PDF
+            document.getElementById('download-pdf').addEventListener('click', () => this.downloadReport());
+        }
+
+        async markTransactions(reconciled) {
+            const selectedIds = Array.from(document.querySelectorAll('.tx-checkbox:checked'))
+
+                .map(checkbox => checkbox.closest('tr').dataset.txId);
+
+            try {
+                const response = await fetch('/api/bank_reconciliation/mark', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.csrfToken
+                    },
+                    body: JSON.stringify({
+                        transaction_ids: selectedIds,
+                        reconciled: reconciled
+                    })
+                });
+
+                console.log('Marking transactions:', {
+                    transaction_ids: selectedIds,
+                    reconciled: reconciled
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.fetchData();
+                    showNotification(data.updated_count + 'Transactions marked as reconciled',
+                        'success'
+                    );
+                } else {
+                    showNotification('Failed to update transactions', 'error');
+                }
+            } catch (error) {
+                console.error('Error marking transactions:', error);
+                showNotification('Error updating transactions', 'error');
+            }
+        }
+
+        async downloadReport() {
+            try {
+                // Get all filter values
+                const accountId = document.getElementById('bank-account-select').value;
+                const startDate = document.getElementById('start-date').value;
+                const endDate = document.getElementById('end-date').value;
+                const status = document.getElementById('status-select').value;
+                const currencyId = document.getElementById('currency-select').value;
+
+                // Validate required fields
+                if (!startDate || !endDate) {
+                    throw new Error('Please select both start and end dates');
+                }
+
+                // Prepare request data
+                const requestData = {
+                    account_id: accountId || null,
+                    start_date: startDate,
+                    end_date: endDate,
+                    status: status,
+                    currency_id: currencyId || null
+                };
+
+                // Make POST request with JSON body
+                const response = await fetch('/download_reconciliation_report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.csrfToken
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to generate report');
+                }
+
+                // Get the blob and create object URL
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+
+                // Create download link and trigger click
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Bank_Reconciliation_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+
+                // Clean up
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+            } catch (error) {
+                console.error('Download error:', error);
+                this.showError(error.message || 'Error generating report');
+            }
+        }
+
+        formatCurrency(amount, currency, showSymbol = true) {
+            return new Intl.NumberFormat('en-US', {
+                style: showSymbol ? 'currency' : 'decimal',
+                currency: currency || this.baseCurrency,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        }
+
+
+
+        showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-danger';
+            errorDiv.textContent = message;
+            document.querySelector('.content-container').prepend(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        new BankReconciliation();
+    });
+</script>
+{% endblock %}

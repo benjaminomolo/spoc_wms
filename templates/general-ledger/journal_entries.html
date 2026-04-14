@@ -1,0 +1,828 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Journal Entries</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Supervisor' or role == 'Viewer' %}
+                    <li><a href="{{ url_for('general_ledger_routes.general_ledger_dashboard') }}">Accounting
+                            Dashboard</a></li>
+                    {% endif %}
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li><a href="{{url_for('add_transaction')}}">Journal Entry</a></li>
+                    <li><a href="{{ url_for('general_ledger.new_category') }}">Manage Account Category</a></li>
+                    <li><a href="{{ url_for('general_ledger.add_chart_of_accounts') }}">Manage Chart of Accounts</a>
+                    </li>
+                    <li><a href="{{ url_for('manage_projects') }}">Manage Projects</a></li>
+                    <li><a href="{{ url_for('general_ledger.add_vendor_form') }}">Manage Vendors & Customers</a></li>
+                    <li><a href="{{ url_for('add_payment_mode_form') }}">Manage Payment Modes</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+            <!-- 🔍 Quick Search -->
+            <input type="text" id="journalSearch" class="form-control search-input"
+                placeholder="Search current page...">
+
+        </div>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" onclick="toggleDropdown(event)">
+                        <span>Manage </span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('general_ledger.new_category') }}">Parent Category</a>
+                            <a href="{{ url_for('general_ledger.add_chart_of_accounts') }}">Chart of Accounts</a>
+                            <a href="{{ url_for('manage_projects') }}">Projects</a>
+                            <a href="{{ url_for('general_ledger.add_vendor_form') }}">Payers & Payees</a>
+                            <a href="{{ url_for('add_payment_mode_form') }}">Payment Modes</a>
+                        </div>
+                    </div>
+                </li>
+                {% endif %}
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{url_for('add_transaction')}}">Journal Entry</a></li>
+                <li class="shortcut-item"><a
+                        href="{{ url_for('general_ledger_routes.general_ledger_dashboard') }}">Dashboard</a></li>
+                {% endif %}
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Enhanced Filter Section with Select2 Journal Number Search -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+        <form class="date-filter-form" id="filter-form">
+
+            <!-- Filter by Account -->
+            <!-- Filter by Account -->
+            <div class="filter-group">
+                <label for="accountSelect" class="filter-label">Select Account</label>
+                <select id="accountSelect" name="account_id" class="form-select select2">
+                    <option value="">All Accounts</option>
+                    {% for parent_type, categories in grouped_accounts.items() %}
+                    <optgroup label="{{ parent_type }}">
+                        {% for category, accounts in categories.items() %}
+                    <optgroup label="&nbsp;&nbsp;{{ category }}">
+                        {% for acct in accounts %}
+                        <option value="{{ acct.id }}" {% if request.args.get('account_id')==acct.id|string %}selected{%
+                            endif %}>
+                            {{ acct.sub_category }} ({{ acct.sub_category_id }})
+                        </option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+            <!-- Filter by Journal Number -->
+
+
+            <div class="filter-group">
+                <label for="journal_number" class="filter-label">Journal Number</label>
+                <select id="journal_number" name="journal_number" class="form-select2 select2">
+                    <option value="">All</option>
+                    {% for journal in journal_numbers %}
+                    <option value="{{ journal.journal_number }}" {% if
+                        request.args.get('journal_number')==journal.journal_number %}selected{% endif %}>
+                        {{ journal.journal_number }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+            <!-- FILTER BY REFERENCE NUMBER -->
+            <!-- Reference Filter -->
+            <div class="filter-group">
+                <label for="reference" class="filter-label">Reference</label>
+                <input type="text" id="reference" name="reference" class="form-control"
+                    placeholder="Search reference...">
+            </div>
+
+
+            <!-- FILTER BY PROJECT -->
+            <div class="filter-group">
+                <label for="project" class="filter-label">Project</label>
+                <select id="project" name="project" class="form-select">
+                    <option value="">All</option>
+                    {% for project in projects %}
+                    <option value="{{ project.id }}" {% if request.args.get('project')==project.id|string %}selected{%
+                        endif %}>
+                        {{ project.project_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- FILTER BY VENDOR/CUSTOMER -->
+            <div class="filter-group">
+                <label for="vendor" class="filter-label">Vendor/Customer</label>
+                <select id="vendor" name="vendor" class="form-select2">
+                    <option value="">All</option>
+                    {% for vendor in vendors %}
+                    <option value="{{ vendor.id }}" {% if request.args.get('vendor')==vendor.id|string %}selected{%
+                        endif %}>
+                        {{ vendor.vendor_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+
+
+
+
+            <!-- NEW: DESCRIPTION SEARCH FILTER -->
+            <!-- NEW: DESCRIPTION SEARCH FILTER -->
+            <div class="filter-group search-description-input">
+                <label for="description_search" class="filter-label">Search Description / Narration</label>
+                <input type="text" id="description_search" name="description_search" class="form-control"
+                    placeholder="🔍 Enter keywords..." value="">
+            </div>
+
+
+            <!-- FILTER BY PAYMENT MODE -->
+            <div class="filter-group">
+                <label for="payment_mode" class="filter-label">Payment Mode</label>
+                <select id="payment_mode" name="payment_mode" class="form-select">
+                    <option value="">All</option>
+                    {% for mode in payment_modes %}
+                    <option value="{{ mode.id }}" {% if request.args.get('payment_mode')==mode.id|string %}selected{%
+                        endif %}>
+                        {{ mode.payment_mode }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- FILTER By date type -->
+
+            <div class="filter-group">
+                <label for="filter_type" class="filter-label">Filter By</label>
+                <select id="filter_type" name="filter_type" class="form-select">
+                    <option value="transaction_date" {% if request.args.get('filter_type')=='transaction_date'
+                        %}selected{% endif %}>
+                        Transaction Date
+                    </option>
+                    <option value="date_added" {% if request.args.get('filter_type')=='date_added' %}selected{% endif
+                        %}>
+                        Date Added
+                    </option>
+                </select>
+            </div>
+
+
+
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control date-filter-section"
+                    value="{{ request.args.get('start_date', '') }}">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control date-filter-section"
+                    value="{{ request.args.get('end_date', '') }}">
+            </div>
+
+            <!-- Filter by journal source -->
+
+
+
+            <!-- Filter by journal source -->
+            <div class="filter-group">
+                <label for="source_type" class="filter-label">Source Type</label>
+                <select id="source_type" name="source_type" class="form-select2 select2">
+                    <option value="">All Sources</option>
+                    <option value="general_ledger" {% if request.args.get('source_type')=='general_ledger' %}selected{%
+                        endif %}>
+                        Manual Entry (GL)
+                    </option>
+                    {% for source in source_types %}
+                    <option value="{{ source }}" {% if request.args.get('source_type')==source %}selected{% endif %}>
+                        {{ source|replace('_', ' ')|title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+            <div class="filter-group">
+                <label for="per_page" class="filter-label">Entries Per Page</label>
+                <select id="per_page" name="per_page" class="form-select">
+                    <option value="10" {% if request.args.get('per_page')=='10' %}selected{% endif %}>10</option>
+                    <option value="20" {% if request.args.get('per_page', '20' )=='20' %}selected{% endif %}>20</option>
+                    <option value="50" {% if request.args.get('per_page')=='50' %}selected{% endif %}>50</option>
+                    <option value="100" {% if request.args.get('per_page')=='100' %}selected{% endif %}>100</option>
+                    <option value="200" {% if request.args.get('per_page')=='200' %}selected{% endif %}>200</option>
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="button" class="filter-section-button filter" id="applyFilter">Apply Filter</button>
+                <button type="button" class="filter-section-button reset" id="resetFilters">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Journal Entries Table -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" id="journalEntriesTable">
+            <thead class="table-light">
+                <tr>
+                    <th>Journal #</th>
+                    <th>
+                        Date
+                    </th>
+
+                    <th>Reference</th>
+
+                    <th>Narration</th>
+                    <th class="text-end">Debit Amount</th>
+                    <th class="text-end">Credit Amount</th>
+                    {% if company.has_multiple_currencies %}
+                    <th class="text-end">Applied Rate</th>
+                    {% endif %}
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="journalEntriesList">
+                <!-- Entries loaded via JS -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <nav>
+        <ul class="pagination" id="pagination"></ul>
+        <div id="paginationInfo" class="mt-2"></div>
+    </nav>
+</div>
+
+<!-- View Journal Entry Modal -->
+<div class="modal fade" id="viewJournalModal" tabindex="-1" aria-labelledby="viewJournalModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewJournalModalLabel">Journal Entry Details</h5>
+                <button type="button" class="btn-close add-button" data-bs-dismiss="modal" aria-label="Close"><i
+                        class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+
+
+
+
+                <p><strong>Payer/Payee:</strong> <span id="modalVendor"></span></p>
+
+
+
+                <p><strong>Project:</strong> <span id="modalProject"></span></p>
+
+
+                <p><strong>Payment Mode:</strong> <span id="modalPaymentMode"></span></p>
+
+
+                <hr>
+                <h5>Ledger Transactions: <span class="text-muted" id="journalDescription"></span></h5>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Account</th>
+                                <th>Description</th>
+                                <th class="text-end">Debit</th>
+                                <th class="text-end">Credit</th>
+                                <th>Currency</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalTransactionsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="button cta-button" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- NEW: Mobile Page Jump Modal -->
+<div class="modal fade" id="mobilePageJumpModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Jump to Page</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="number" id="mobilePageJumpInput" class="form-control" placeholder="Page number" min="1">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="mobilePageJumpBtn">Go</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        let currentPage = 1;
+        let perPage = 20;
+        let journalNumber = '';
+        let referenceNumber = '';
+        let accountId = '';
+        let startDate = '';
+        let endDate = '';
+        let projectId = '';
+        let vendorId = '';
+        let paymentModeId = '';
+        let filterType = 'transaction_date';
+        let descriptionSearch = ''; // NEW: Store description search value
+        let sourceType = '';
+        let currentPagination = {}; // Store current pagination info
+        let currentEntries = []; // Store current entries for modal access
+
+        const journalEntriesList = document.getElementById('journalEntriesList');
+        const paginationElement = document.getElementById('pagination');
+        const paginationInfoElement = document.getElementById('paginationInfo');
+        const applyFilterBtn = document.getElementById('applyFilter');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+        const viewJournalModal = new bootstrap.Modal(document.getElementById('viewJournalModal'));
+
+
+        // initialize Select2 for journal number
+        $('#journal_number').select2({
+            placeholder: 'Select Journal Number',
+            allowClear: true,
+            width: '100%'
+        });
+
+        function loadJournalEntries() {
+            setLoadingState(true);
+            journalEntriesList.innerHTML = `<tr><td colspan="9" class="text-center">Loading...</td></tr>`;
+
+            fetch('/general_ledger/journal_entries/filter', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    page: currentPage,
+                    per_page: perPage,
+                    journal_number: journalNumber,
+                    reference: referenceNumber,
+                    account_id: accountId,
+                    start_date: startDate,
+                    end_date: endDate,
+                    project: projectId,
+                    vendor: vendorId,
+                    payment_mode: paymentModeId,
+                    filter_type: filterType,
+                    description_search: descriptionSearch,
+                    source_type: sourceType
+                })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        currentEntries = data.journal_entries;
+                        currentPagination = data.pagination; // Make sure this line exists
+                        renderJournalEntries(data.journal_entries);
+                        renderPagination(data.pagination);
+                    } else {
+                        journalEntriesList.innerHTML = `<tr><td colspan="9" class="text-center text-danger">${data.message}</td></tr>`;
+                    }
+                    setLoadingState(false);
+                })
+                .catch(err => {
+                    journalEntriesList.innerHTML = `<tr><td colspan="9" class="text-center text-danger">Error loading entries</td></tr>`;
+                    console.error(err);
+                    setLoadingState(false);
+                });
+        }
+
+
+
+        function renderJournalEntries(entries) {
+            if (entries.length === 0) {
+                journalEntriesList.innerHTML = `<tr><td colspan="9" class="text-center">No entries found</td></tr>`;
+                return;
+            }
+
+            journalEntriesList.innerHTML = '';
+            entries.forEach(entry => {
+                const debitTotal = Object.entries(entry.total_debit_currency || {})
+                    .map(([currency, amount]) => `${currency} ${amount.toLocaleString()}`)
+                    .join(', ');
+
+                const creditTotal = Object.entries(entry.total_credit_currency || {})
+                    .map(([currency, amount]) => `${currency} ${amount.toLocaleString()}`)
+                    .join(', ');
+
+                journalEntriesList.innerHTML += `
+                <tr data-journal="${entry.journal_number}" class="journal-row">
+                    <td style="width: 140px;"> ${entry.journal_number}<span class="badge ${entry.source_type ? 'bg-success' : 'bg-info'}">${entry.source_type || 'general_ledger'}</span></td>
+                    <td style="width: 80px;">${entry.entry_date}</td>
+                    <td style="width: 140px;">${entry.reference || '-'}</td>
+                    <td>${entry.journal_description || '-'}</td>
+                    <td class="text-end positive-color">${debitTotal}</td>
+                    <td class="text-end negative-color">${creditTotal}</td>
+                    {% if company.has_multiple_currencies %}
+                    <td class="text-end">${entry.journal_exchange_rate || '-'}</td>
+                    {% endif %}
+                <td style="width:50px;">
+                    <div class="action-icons-clean">
+
+                        <!-- View Icon -->
+                        <div class="custom-tooltip-container">
+                            <button class="button view-icon view-entry" data-journal="${entry.journal_number}">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <span class="custom-tooltip left">View Details</span>
+                        </div>
+
+                        <!-- Edit Icon -->
+                        <div class="custom-tooltip-container">
+                            ${!entry.source_type
+                        ? `
+                                    <a href="/general_ledger/journal_entries/edit/${entry.journal_number}" class="button edit-icon">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <span class="custom-tooltip left">Edit</span>
+                                `
+                        : `
+                                    <button class="button edit-icon disabled-style" disabled>
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <span class="custom-tooltip left">Edit not allowed</span>
+                                `
+                    }
+                        </div>
+
+                    </div>
+                </td>
+
+
+                    </td>
+                </tr>
+            `;
+            });
+
+            // Add event listeners to view buttons after rendering
+            document.querySelectorAll('.view-entry').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const journalNum = this.getAttribute('data-journal');
+                    showJournalDetails(journalNum);
+                });
+            });
+        }
+
+        function showJournalDetails(journalNumber) {
+            const entry = currentEntries.find(e => e.journal_number == journalNumber);
+            if (!entry) {
+                console.error('Journal entry not found:', journalNumber);
+                return;
+            }
+
+            // Populate modal fields
+            document.getElementById('modalVendor').textContent = entry.vendor || '-';
+            document.getElementById('modalProject').textContent = entry.project || '-';
+            document.getElementById('modalPaymentMode').textContent = entry.payment_mode || '-';
+            document.getElementById('journalDescription').textContent = entry.journal_description || '-';
+
+            // Populate transactions table
+            const tbody = document.getElementById('modalTransactionsBody');
+            tbody.innerHTML = '';
+
+            entry.transactions.forEach(tx => {
+                const badgeClass = tx.transaction_type === 'Income' ? 'badge bg-success' :
+                    tx.transaction_type === 'Expense' ? 'badge bg-danger' :
+                        tx.transaction_type === 'Asset' ? 'badge bg-primary' :
+                            tx.transaction_type === 'Liability' ? 'badge bg-warning' :
+                                tx.transaction_type === 'Equity' ? 'badge bg-info' : 'badge bg-secondary';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>     ${tx.account || '-'} (${tx.account_code || '-'})<br>
+                            <span class="${badgeClass}">${tx.transaction_type || 'Other'}</span>
+                            
+                       
+                        </td>
+                        <td>${tx.description || '-'}</td>
+                        <td class="text-end positive-color">${tx.debit ? tx.debit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</td>
+                        <td class="text-end negative-color">${tx.credit ? tx.credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</td>
+                        <td>${tx.currency || '-'}</td>
+                    </tr>
+                    `;
+            });
+
+            // Show modal
+            viewJournalModal.show();
+        }
+
+        function renderPagination(pagination) {
+            const { page, per_page, total_pages, total_items, has_next, has_prev } = pagination;
+            paginationInfoElement.textContent = `Showing ${(page - 1) * per_page + 1} to ${Math.min(page * per_page, total_items)} of ${total_items} entries`;
+
+            let html = '';
+
+            // Previous button
+            if (has_prev) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page - 1}">‹ Previous</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">‹ Previous</a></li>`;
+            }
+
+            // Determine max visible pages based on screen size
+            const isMobile = window.innerWidth <= 768;
+            const maxVisiblePages = isMobile ? 3 : 7;
+
+            let startPage, endPage;
+
+            if (total_pages <= maxVisiblePages) {
+                startPage = 1;
+                endPage = total_pages;
+            } else {
+                const maxPagesBeforeCurrent = Math.floor(maxVisiblePages / 2);
+                const maxPagesAfterCurrent = Math.ceil(maxVisiblePages / 2) - 1;
+
+                if (page <= maxPagesBeforeCurrent) {
+                    startPage = 1;
+                    endPage = maxVisiblePages;
+                } else if (page + maxPagesAfterCurrent >= total_pages) {
+                    startPage = total_pages - maxVisiblePages + 1;
+                    endPage = total_pages;
+                } else {
+                    startPage = page - maxPagesBeforeCurrent;
+                    endPage = page + maxPagesAfterCurrent;
+                }
+            }
+
+            // Always show first page if not in initial range
+            if (startPage > 1) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>`;
+                if (startPage > 2) {
+                    html += `<li class="page-item disabled"><a class="page-link">...</a></li>`;
+                }
+            }
+
+            // Page numbers
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<li class="page-item ${i === page ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+            }
+
+            // Always show last page if not in final range
+            if (endPage < total_pages) {
+                if (endPage < total_pages - 1) {
+                    html += `<li class="page-item disabled"><a class="page-link">...</a></li>`;
+                }
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${total_pages}">${total_pages}</a></li>`;
+            }
+
+            // Next button
+            if (has_next) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page + 1}">Next ›</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">Next ›</a></li>`;
+            }
+
+            // Add mobile page jump button for large page counts
+            if (total_pages > 20 && isMobile) {
+                html += `
+            <li class="page-item">
+                <button class="page-link" id="mobilePageJumpTrigger" style="cursor: pointer;">
+                    <i class="fas fa-arrow-right-to-bracket"></i> Jump
+                </button>
+            </li>
+        `;
+            }
+
+            // Add desktop page jump for very large page counts
+            if (total_pages > 20 && !isMobile) {
+                html += `
+            <li class="page-item page-jump">
+                <div class="input-group">
+                    <input type="number" id="pageJumpInput" class="form-control" min="1" max="${total_pages}" 
+                           placeholder="Page" style="width: 80px; height: 15px;">
+                    <button class="button-outline" type="button" id="pageJumpBtn">Go</button>
+                </div>
+            </li>
+        `;
+            }
+
+            paginationElement.innerHTML = html;
+
+            // Add event listeners for page links
+            document.querySelectorAll('.page-link[data-page]').forEach(el => {
+                el.addEventListener('click', e => {
+                    e.preventDefault();
+                    currentPage = parseInt(el.getAttribute('data-page'));
+                    loadJournalEntries();
+                    document.querySelector('.table-responsive').scrollIntoView({ behavior: 'smooth' });
+                });
+            });
+
+            // Add event listener for desktop page jump
+            const pageJumpBtn = document.getElementById('pageJumpBtn');
+            if (pageJumpBtn) {
+                pageJumpBtn.addEventListener('click', handlePageJump);
+                const pageJumpInput = document.getElementById('pageJumpInput');
+                if (pageJumpInput) {
+                    pageJumpInput.addEventListener('keypress', function (e) {
+                        if (e.key === 'Enter') {
+                            handlePageJump();
+                        }
+                    });
+                }
+            }
+
+            // Add event listener for mobile page jump trigger
+            const mobilePageJumpTrigger = document.getElementById('mobilePageJumpTrigger');
+            if (mobilePageJumpTrigger) {
+                mobilePageJumpTrigger.addEventListener('click', function () {
+                    // Show the mobile page jump modal
+                    const mobilePageJumpModal = new bootstrap.Modal(document.getElementById('mobilePageJumpModal'));
+
+                    // Set max attribute for input
+                    const mobileInput = document.getElementById('mobilePageJumpInput');
+                    mobileInput.setAttribute('max', total_pages);
+                    mobileInput.value = '';
+
+                    mobilePageJumpModal.show();
+                });
+            }
+
+            // Add event listener for mobile page jump button
+            const mobilePageJumpBtn = document.getElementById('mobilePageJumpBtn');
+            if (mobilePageJumpBtn) {
+                mobilePageJumpBtn.addEventListener('click', function () {
+                    handleMobilePageJump();
+                });
+            }
+        }
+
+        // New function for mobile page jump
+        function handleMobilePageJump() {
+            const input = document.getElementById('mobilePageJumpInput');
+            const pageNum = parseInt(input.value);
+
+            if (!currentPagination || currentPagination.total_pages === undefined) {
+                showNotification('Please wait for the page to finish loading', 'error');
+                return;
+            }
+
+            if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= currentPagination.total_pages) {
+                currentPage = pageNum;
+
+                // Close the modal
+                const mobilePageJumpModal = bootstrap.Modal.getInstance(document.getElementById('mobilePageJumpModal'));
+                if (mobilePageJumpModal) {
+                    mobilePageJumpModal.hide();
+                }
+
+                loadJournalEntries();
+                input.value = '';
+            } else {
+                showNotification(`Please enter a valid page number between 1 and ${currentPagination.total_pages}`, 'error');
+            }
+        }
+
+
+        function handlePageJump() {
+            const input = document.getElementById('pageJumpInput');
+            const pageNum = parseInt(input.value);
+
+            // Check if currentPagination exists and has total_pages
+            if (!currentPagination || currentPagination.total_pages === undefined) {
+                showNotification('Please wait for the page to finish loading', 'error');
+                return;
+            }
+
+            if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= currentPagination.total_pages) {
+                currentPage = pageNum;
+                loadJournalEntries();
+                input.value = '';
+            } else {
+                showNotification(`Please enter a valid page number between 1 and ${currentPagination.total_pages}`, 'error');
+            }
+        }
+
+
+        function setLoadingState(loading) {
+            const applyBtn = document.getElementById('applyFilter');
+            const resetBtn = document.getElementById('resetFilters');
+
+            if (loading) {
+                applyBtn.disabled = true;
+                resetBtn.disabled = true;
+                applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            } else {
+                applyBtn.disabled = false;
+                resetBtn.disabled = false;
+                applyBtn.innerHTML = 'Apply Filter';
+            }
+        }
+
+        applyFilterBtn.addEventListener('click', () => {
+            currentPage = 1;
+            journalNumber = document.getElementById('journal_number').value;
+            referenceNumber = document.getElementById('reference').value; // NEW: Get reference search value
+            accountId = document.getElementById('accountSelect').value;
+            startDate = document.getElementById('start_date').value;
+            endDate = document.getElementById('end_date').value;
+            perPage = document.getElementById('per_page').value;
+            projectId = document.getElementById('project').value;
+            vendorId = document.getElementById('vendor').value;
+            paymentModeId = document.getElementById('payment_mode').value;
+            filterType = document.getElementById('filter_type').value;
+            sourceType = document.getElementById('source_type').value;
+            descriptionSearch = document.getElementById('description_search').value; // NEW: Get description search value
+            loadJournalEntries();
+        });
+
+        resetFiltersBtn.addEventListener('click', () => {
+            document.getElementById('filter-form').reset();
+            currentPage = 1;
+            journalNumber = '';
+            referenceNumber = ''; // NEW: Reset reference search
+            accountId = '';
+            startDate = '';
+            endDate = '';
+            perPage = 20;
+            projectId = '';
+            vendorId = '';
+            paymentModeId = '';
+            filterType = 'transaction_date';
+            sourceType = ''; // Reset source type
+
+
+            descriptionSearch = ''; // NEW: Reset description search
+            // Reset Select2
+            $('#journal_number').val(null).trigger('change');
+            $('#accountSelect').val(null).trigger('change');
+            $('#source_type').val(null).trigger('change');
+
+
+            loadJournalEntries();
+        });
+
+        // Filter toggle
+        document.getElementById('toggleFilterForm').addEventListener('click', () => {
+            document.getElementById('filter-section').classList.toggle('visible');
+        });
+
+
+        // Quick Search
+        document.getElementById('journalSearch').addEventListener('input', function () {
+            const searchValue = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#journalEntriesList tr');
+
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(searchValue) ? '' : 'none';
+            });
+        });
+
+
+
+        // Initialize
+        loadJournalEntries();
+    });
+</script>
+
+
+
+{% endblock %}

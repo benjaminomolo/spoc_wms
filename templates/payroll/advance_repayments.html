@@ -1,0 +1,284 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div class="header-section">
+        <h1>Advance Repayments</h1>
+
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li><a href="/payroll/create_advance_payment"> Create Advance</a></li>
+                    <li><a href="{{ url_for('payroll.generate_pay_run') }}">Create Pay Run</a></li>
+
+                    {% endif %}
+                    <li><a href="{{ url_for('payroll.get_pay_runs') }}">View Payroll Runs</a></li>
+                    <li><a href="{{ url_for('payroll.add_employee') }}">View Employees</a></li>
+                    <li><a href="{{ url_for('payroll.get_employee_deductions') }}">Employee Deductions</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <div class="header-buttons">
+
+
+
+
+            <button class="filter-button" type="filter-button" id="toggleFilterForm" hidden>
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+        </div>
+
+
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="/payroll/create_advance_payment"> Create Advance </a></li>
+                <li class="shortcut-item"><a href="{{ url_for('payroll.generate_pay_run') }}">Create
+                        Pay Run</a></li>
+                {% endif %}
+
+                <!-- New Dropdown Group -->
+                <li class="shortcut-item">
+                    <a href="{{ url_for('payroll.get_pay_runs') }}"> View Payroll
+                        Runs</a>
+                </li>
+
+                <li class="shortcut-item">
+                    <a href="{{ url_for('payroll.add_employee') }}">View Employees</a>
+                </li>
+
+                <li class="shortcut-item">
+                    <a href="{{ url_for('payroll.get_employee_deductions') }}">Employee Deductions</a>
+                </li>
+
+
+
+            </ol>
+        </nav>
+
+
+
+
+
+
+    </div>
+    <div class="table-responsive">
+        <table id="advance-repayments-table" class="stripe">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Advance Payment</th>
+                    <th>Payment Date</th>
+                    <th>Payment Amount</th>
+                    <th>Payroll Period</th>
+                    <th>Ledger Status</th>
+                    <th class="hidden">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for repayment in advance_repayments %}
+                <tr>
+                    <td>{{ repayment.advance_payments.employees.first_name }} {{
+                        repayment.advance_payments.employees.last_name }}</td>
+                    <td>{{ "{:,.2f}".format(repayment.advance_payments.advance_amount) }}</td>
+                    <td>{{ repayment.payment_date }}</td>
+                    <td>{{ "{:,.2f}".format(repayment.payment_amount) }}</td>
+                    <td>{{ repayment.payroll_periods.payroll_period_name if repayment.payroll_periods else "N/A" }}</td>
+                    <td>
+                        {% if not repayment.is_posted_to_ledger %}
+                        <span class="custom-tooltip-container" style="display: inline-block; margin-left: 4px;">
+                            <i class="fas fa-info-circle" style="color: #856404; cursor: pointer;"></i>
+                            <div class="custom-tooltip">
+                                This will be posted automatically during payroll posting.
+                            </div>
+                        </span>
+                        {% endif %}
+                        <span
+                            class="badge {% if not repayment.is_posted_to_ledger %}bg-warning{% else %}bg-success{% endif %}">
+
+                            {% if not repayment.is_posted_to_ledger %}
+                            not posted
+                            {% else %}posted
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td class="hidden">
+                        <div class="action-icons">
+                            <!-- Edit Icon (only show if not posted to ledger) -->
+                            {% if not repayment.is_posted_to_ledger %}
+                            <a href="/payroll/edit_advance_repayment/{{ repayment.id }}" class="action-icon edit-icon"
+                                data-tooltip="Edit Payment Amount">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% endif %}
+
+                            <!-- Delete Icon (only show if not posted to ledger and user is Admin) -->
+                            {% if not repayment.is_posted_to_ledger and role == 'Admin' %}
+                            <a href="#" class="action-icon delete-icon"
+                                onclick="deleteAdvanceRepayment({{ repayment.id }})" data-tooltip="Delete Repayment">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th><input type="text" placeholder="Search Employee" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Advance Payment" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Payment Date" class="column-search"></th>
+                    <th>Total: <span id="totalPaymentAmount">0.00</span></th>
+                    <th><input type="text" placeholder="Search Payroll Period" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Posted to Ledger" class="column-search"></th>
+                    <th class="hidden"></th> <!-- No search for Actions column -->
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- Post Advance Repayment to Ledger Modal -->
+<div class="modal fade" id="postAdvanceRepaymentToLedgerModal" tabindex="-1"
+    aria-labelledby="postAdvanceRepaymentToLedgerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="postAdvanceRepaymentToLedgerModalLabel">Post Advance Repayment to Ledger
+                </h3>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="postAdvanceRepaymentToLedgerForm">
+                    <!-- Hidden input for advance repayment ID -->
+                    <input type="hidden" id="advanceRepaymentId" name="advanceRepaymentId">
+
+                    <!-- Total Amount -->
+                    <div class="form-group mb-4">
+                        <label for="ledgerTotalAmount" class="form-label fw-bold">
+                            Total Amount <span class="required">*</span>
+                        </label>
+                        <input type="number" id="ledgerTotalAmount" name="ledgerTotalAmount" class="form-control"
+                            readonly>
+                    </div>
+
+                    <div class="form-grid">
+
+                        <!-- Asset Account Allocation Section -->
+                        <h4 class="mb-3">Repayment Expense Allocation <span class="input-helper" data-toggle="tooltip"
+                                data-tooltip="Select the Expense account (e.g., Salary Expense) to record the repayment.">
+                                <i class="fas fa-question-circle"></i>
+                            </span></h4>
+                        <div class="form-group mb-4">
+                            <label for="expenseAccountCategory" class="form-label fw-bold">
+                                Expense Category <span class="required">*</span>
+                            </label>
+                            <select id="expenseAccountCategory" name="expenseAccountCategory" class="form-select"
+                                onchange="loadExpenseSubcategories()" required>
+                                <option value="">Select Asset Account Category</option>
+                                <!-- Asset categories will be populated here -->
+                            </select>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="expenseSubCategory" class="form-label fw-bold">
+                                Subcategory <span class="required">*</span>
+                            </label>
+                            <select id="expenseSubCategory" name="expenseSubCategory" class="form-select" required>
+                                <option value="">Select Subcategory</option>
+                                <!-- Subcategories will be dynamically loaded based on the selected category -->
+                            </select>
+                        </div>
+
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="button cta-button">Post to Ledger</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+    $(document).ready(function () {
+        var table = $('#advance-repayments-table').DataTable({
+            "lengthMenu": [
+                [10, 25, 50, 100, -1],
+                [10, 25, 50, 100, 'All']
+            ],
+            "aaSorting": [], // No initial sorting
+            "initComplete": function () {
+                var api = this.api();
+
+                // Bind footer search inputs
+                api.columns().every(function () {
+                    var column = this;
+                    var index = column.index();
+
+                    // Skip totals (3) and Actions column (6)
+                    if (![3, 6].includes(index)) {
+                        $('input', column.footer()).on('keyup change clear', function () {
+                            if (column.search() !== this.value) {
+                                column.search(this.value).draw();
+                            }
+                        });
+                    }
+                });
+            },
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                // Helper to convert strings to numbers
+                var intVal = function (i) {
+                    return typeof i === 'string' ?
+                        i.replace(/[\$,]/g, '') * 1 :
+                        typeof i === 'number' ? i : 0;
+                };
+
+                // Total for Payment Amount column (index 3)
+                var totalPaymentAmount = api.column(3, { page: 'current' }).data()
+                    .reduce((a, b) => intVal(a) + intVal(b), 0);
+
+                // Update footer with formatted total
+                $('#totalPaymentAmount').text(totalPaymentAmount.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }));
+            }
+        });
+
+        // Initial draw to calculate totals
+        table.draw();
+    });
+
+
+</script>
+{% endblock %}

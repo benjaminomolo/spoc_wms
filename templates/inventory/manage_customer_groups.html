@@ -1,0 +1,276 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div class="header-section">
+        <h1>Manage Customer Groups</h1>
+        {% if role == 'Admin' or role == 'Contributor' %}
+        <button class="button cta-button" id="addGroupBtn">Add Group</button>
+        {% endif %}
+    </div>
+
+    <table id="customer-groups-table" class="display">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Group Name</th>
+                <th>Description</th>
+                <th>Discount %</th>
+                <th>Tax %</th>
+                <th>is default</th>
+                <th>Status</th>
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% if customer_groups|length > 0 %}
+            {% for group in customer_groups %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>
+                    <span id="groupName_{{ group.id }}">{{ group.name }}</span>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <div id="editGroupForm_{{ group.id }}" class="edit-form" style="display:none;">
+                        <input type="text" id="groupNameInput_{{ group.id }}" value="{{ group.name }}" />
+                        <textarea id="groupDescInput_{{ group.id }}" rows="2">{{ group.description or '' }}</textarea>
+                        <input type="number" step="0.01" id="groupDiscountInput_{{ group.id }}"
+                            value="{{ group.default_discount_percentage }}" />
+                        <input type="number" step="0.01" id="groupTaxInput_{{ group.id }}"
+                            value="{{ group.default_tax_percentage }}" />
+
+                        <div>
+
+                            <!-- New checkboxes -->
+                            <label>
+                                <input type="checkbox" id="groupDefaultInput_{{ group.id }}" {% if group.is_default
+                                    %}checked{% endif %}>
+                                Default
+                            </label>
+                            <label>
+                                <input type="checkbox" id="groupActiveInput_{{ group.id }}" {% if group.is_active
+                                    %}checked{% endif %}>
+                                Active
+                            </label>
+                        </div>
+
+                        <button class="cta-button" onclick="saveCustomerGroup({{ group.id }})">Save</button>
+                        <button class="remove-button" onclick="cancelEditGroup({{ group.id }})">Cancel</button>
+                    </div>
+
+                    {% endif %}
+                </td>
+                <td>{{ group.description or '-' }}</td>
+                <td>{{ group.default_discount_percentage or '0.00' }}%</td>
+                <td>{{ group.default_tax_percentage or '0.00' }}</td>
+                <td>{{ 'Yes' if group.is_default else 'No' }}</td>
+                <td>{{ 'Active' if group.is_active else 'Inactive' }}</td>
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <td>
+                    <div class="action-icons-clean">
+                        <div class="custom-tooltip-container">
+                            <a href="#" class="edit-icon" onclick="editGroup({{ group.id }})">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <span class="custom-tooltip">Edit</span>
+                        </div>
+                        <div class="custom-tooltip-container">
+                            <a href="#" class="delete-icon" onclick="confirmDeleteGroup(event, {{ group.id }})">
+                                <i class="fas fa-trash-alt"></i>
+                            </a>
+                            <span class="custom-tooltip left">Delete</span>
+                        </div>
+                    </div>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="7" class="text-center">No customer groups available</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Customer Group Modal -->
+<div class="modal fade" id="addGroupModal" tabindex="-1" aria-labelledby="addGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addGroupModalLabel">Add New Customer Group</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label for="group_name">Name:</label>
+                    <input type="text" id="group_name" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="group_description">Description:</label>
+                    <textarea id="group_description" class="form-control"></textarea>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="group_discount">Default Discount %:</label>
+                    <input type="number" step="0.01" id="group_discount" class="form-control" value="0.00">
+                </div>
+
+
+                <div class="form-group mb-3">
+                    <label for="group_tax">Default Tax %:</label>
+                    <input type="number" step="0.01" id="group_tax" class="form-control" value="0.00">
+                </div>
+
+                <div class=" mb-3">
+                    <label><input type="checkbox" id="group_default"> Default</label>
+                </div>
+
+                <div class=" mb-3">
+                    <label><input type="checkbox" id="group_active" checked> Active</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                <button class="button cta-button" id="saveNewGroupBtn">Add Group</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Show Add Group modal
+    document.getElementById('addGroupBtn')?.addEventListener('click', () => {
+        new bootstrap.Modal(document.getElementById('addGroupModal')).show();
+    });
+
+    // Save new Customer Group
+    document.getElementById('saveNewGroupBtn')?.addEventListener('click', async () => {
+        const name = document.getElementById('group_name').value.trim();
+        const description = document.getElementById('group_description').value.trim();
+        const discount = parseFloat(document.getElementById('group_discount').value) || 0.0;
+        const tax = parseFloat(document.getElementById('group_tax').value) || 0.0;
+        const is_active = document.getElementById('group_active').checked;
+        const is_default = document.getElementById('group_default').checked;
+
+        if (!name) return showNotification('Group name is required', 'error');
+
+        try {
+            const res = await fetch('/inventory/customer_group/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ name, description, default_discount_percentage: discount, default_tax_percentage: tax, is_default, is_active })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.message || 'Customer group added successfully', 'success');
+                location.reload();
+            } else {
+                showNotification(data.error || 'Failed to add group', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            showNotification('An error occurred', 'error');
+        }
+    });
+
+    // Inline edit
+    function editGroup(id) {
+        document.getElementById(`editGroupForm_${id}`).style.display = 'block';
+        document.getElementById(`groupName_${id}`).style.display = 'none';
+    }
+
+    function cancelEditGroup(id) {
+        document.getElementById(`editGroupForm_${id}`).style.display = 'none';
+        document.getElementById(`groupName_${id}`).style.display = 'inline';
+    }
+
+    async function saveCustomerGroup(id) {
+        const name = document.getElementById(`groupNameInput_${id}`).value.trim();
+        const description = document.getElementById(`groupDescInput_${id}`).value.trim();
+        const discount = parseFloat(document.getElementById(`groupDiscountInput_${id}`).value) || 0.0;
+        const tax = parseFloat(document.getElementById(`groupTaxInput_${id}`).value) || 0.0;
+        const is_default = document.getElementById(`groupDefaultInput_${id}`).checked;
+        const is_active = document.getElementById(`groupActiveInput_${id}`).checked;
+
+        if (!name) return showNotification('Group name is required', 'error');
+
+        try {
+            const res = await fetch(`/inventory/customer_group/${id}/edit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    name,
+                    description,
+                    default_discount_percentage: discount,
+                    default_tax_percentage: tax,
+                    is_default,
+                    is_active
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.message || 'Customer group updated successfully', 'success');
+                location.reload();
+            } else {
+                showNotification(data.error || 'Failed to update group', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            showNotification('An error occurred', 'error');
+        }
+    }
+
+    // Delete (deactivate) group
+    async function confirmDeleteGroup(event, id) {
+        event.preventDefault();
+        Swal.fire({
+            title: 'Delete Customer Group?',
+            text: 'Are you sure you want to deactivate this customer group?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content',
+                confirmButton: 'custom-swal-confirm-btn',
+                cancelButton: 'custom-swal-cancel-btn',
+                icon: 'custom-swal-icon'
+            }
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const res = await fetch(`/inventory/customer_group/${id}/delete`, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken }
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        showNotification(data.success || 'Group deactivated', 'success');
+                        location.reload();
+                    } else {
+                        showNotification(data.error || 'Cannot delete group', 'error');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showNotification('An error occurred', 'error');
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

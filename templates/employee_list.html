@@ -1,0 +1,46 @@
+{% extends "payroll_lists_base.html" %}
+{% block content %}
+<h2>Employee List</h2>
+<a href="/add_employee" class="btn btn-primary btn-sm" style="margin-bottom:3px">Add New Employee</a>
+
+<table id="employeeTable" class="display table table-striped table-bordered" style="border-radius: 5px;">
+    <thead>
+    <tr>
+        <th>Name</th>
+        <th>ID</th>
+        <th>Date Added</th>
+        <th>NSSF Number</th>
+        <th>TIN Number</th>
+        <th>Basic Salary</th>
+        <th>Gender</th>
+        <th>Phone</th>
+        <th>Email</th>
+        <th>DOB</th>
+        <th>Position</th>
+        <th style="width:15%;">Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for employee in employees %}
+    <tr>
+        <td>{{ employee.employee_name }}</td>
+        <td>{{ employee.employee_id }}</td>
+        <td>{{ employee.date_added }}</td>
+        <td>{{ employee.nssf_num }}</td>
+        <td>{{ employee.tin_num }}</td>
+        <td>{{ "{:,.0f}".format(employee.basic_salary|float) }}</td>
+        <td>{{ employee.gender }}</td>
+        <td>{{ employee.tel }}</td>
+        <td>{{ employee.email }}</td>
+        <td>{{ employee.date_of_birth }}</td>
+        <td>{{ employee.position }}</td>
+        <td>
+            <a href="/edit_employee/{{ employee.id }}" class="btn btn-warning btn-sm">Edit</a>
+            <a href="/delete_employee/{{ employee.id }}" class="btn btn-danger btn-sm"
+                    onclick="return confirm('Are you sure you want to delete this transaction?');">Delete</a></div>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

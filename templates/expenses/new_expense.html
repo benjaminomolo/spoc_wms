@@ -1,0 +1,991 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <h1>Expense Entry</h1>
+
+    <form id="expenseForm" action="/expenses/submit" method="post" enctype="multipart/form-data">
+        <!-- Currency Selection -->
+        <div class="form-section-header">
+            <h3>Transaction Details</h3>
+        </div>
+
+        <!-- Top Journal Info Section - Added Reference and Narration -->
+        <div
+            style="background-color: #f9f9f9; padding: 15px 10px; border-radius: 8px; display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+
+            <!-- Payment Account -->
+            <div style="display: flex; flex-direction: column;" class="text-muted">
+                <label for="payment_account" style="font-weight: 300; margin-bottom: 4px;">Funding Account <span
+                        style="color: red;">*</span></label>
+                <select id="payment_account" name="payment_account" required
+                    style="padding: 6px 10px; min-width: 160px; border-radius: 6px; border: 1px solid #ccc;">
+                    <option value="" disabled selected>Select Funding Account</option>
+                    {% set grouped_accounts = {} %}
+                    {% for account in accounts %}
+                    {% set cat = account.category or account.parent_account_type or 'Other' %}
+                    {% if cat not in grouped_accounts %}
+                    {% set _ = grouped_accounts.update({cat: []}) %}
+                    {% endif %}
+                    {% set _ = grouped_accounts[cat].append(account) %}
+                    {% endfor %}
+                    {% for category, accounts_in_cat in grouped_accounts.items() %}
+                    <optgroup label="{{ category }}">
+                        {% for account in accounts_in_cat %}
+                        <option value="{{ account.id }}">{{ account.sub_category }}</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Date Field -->
+            <div style="display: flex; flex-direction: column;" class="text-muted">
+                <label for="date" style="font-weight: 300; margin-bottom: 4px;">Date <span
+                        style="color: red;">*</span></label>
+                <input type="date" id="date" name="date" required
+                    style="padding: 6px 10px; min-width: 140px; border-radius: 6px; border: 1px solid #ccc;">
+            </div>
+
+            <!-- Transaction Currency -->
+            <select id="form_currency" name="form_currency" required
+                style="padding: 6px 10px; min-width: 140px; border-radius: 6px; border: 1px solid #ccc;">
+                {% if currencies|length == 0 %}
+                <option value="" disabled selected>Add currency in settings</option>
+                {% else %}
+                {% for currency in currencies %}
+                <option value="{{ currency.id }}" {% if currency.id==base_currency.id %}selected{% endif %}>
+                    {{ currency.user_currency }}
+                </option>
+                {% endfor %}
+                {% endif %}
+            </select>
+
+            <!-- Expense Ref No (optional) -->
+            <div style="display: flex; flex-direction: column;" class="text-muted">
+                <label for="expense_ref_no" style="font-weight: 300; margin-bottom: 4px;">Reference No</label>
+                <input type="text" id="expense_ref_no" name="expense_ref_no" placeholder="Optional"
+                    style="padding: 6px 10px; min-width: 140px; border-radius: 6px; border: 1px solid #ccc;">
+            </div>
+
+            <!-- Narration (optional) -->
+            <div style="display: flex; flex-direction: column; flex: 1;" class="text-muted">
+                <label for="narration" style="font-weight: 300; margin-bottom: 4px;">Narration</label>
+                <input type="text" id="narration" name="narration" placeholder="Optional" maxLength="100"
+                    style="padding: 6px 10px; width: 95%; border-radius: 6px; border: 1px solid #ccc;">
+            </div>
+        </div>
+
+
+
+        <!-- Hidden field for base currency ID -->
+        <input type="hidden" id="base_currency_id" name="base_currency_id"
+            value="{{ base_currency.id if base_currency else '' }}">
+
+        <!-- Main Form Fields -->
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="project_name">
+                    {{ 'Site' if app_id == 1 else 'Project' }} Name
+                    <span class="input-helper" data-tooltip="Project/Company/Business affiliated to the expense">
+                        <i class="fas fa-question-circle"></i>
+                    </span>
+                </label>
+                <select id="project_name" name="project_name" onchange="handleProjectChange(this.value)"
+                    class="form-select2">
+                    <option value="" disabled selected>Select {{ 'Site' if app_id == 1 else 'Project' }}</option>
+                    {% for project in project_names %}
+                    <option value="{{ project.id }}">{{ project.name }} - {{ project.project_id }}</option>
+                    {% endfor %}
+                    <option value="add_new_project" class="add-new-link">+ Add New Project</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="vendor">
+                    Payee
+                    <span class="input-helper"
+                        data-tooltip="Person or organization supplying goods or services and/or receiving payment">
+                        <i class="fas fa-question-circle"></i>
+                    </span>
+                </label>
+
+                <select id="vendor" name="vendor" onchange="handleVendorChange(this.value)" class="form-select2">
+                    <option value="" disabled selected>Select Payee</option>
+                    {% for vendor in vendors %}
+                    <option value="{{ vendor.id }}" {% if vendor.designation or vendor.address or vendor.email or
+                        vendor.city or vendor.country %}
+                        title="{{ vendor.designation }} | {{ vendor.address }} | {{ vendor.email }} | {{ vendor.city }} | {{ vendor.country }}"
+                        {% endif %}>
+                        {{ vendor.vendor_name }} {% if vendor.vendor_id %} - {{ vendor.vendor_id }} {% endif %}
+                        {% if vendor.designation or vendor.city %}
+                        <small>({{ vendor.designation }}{% if vendor.city %}, {{ vendor.city }}{% endif %})</small>
+                        {% endif %}
+                    </option>
+                    {% endfor %}
+                    <option value="add_new_vendor" class="add-new-link">+ Add New Payee</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="payment_mode">Payment Method</label>
+                <select id="payment_mode" name="payment_mode" onchange="handlePaymentModeChange(this.value)"
+                    class="form-select2">
+                    <option value="" disabled selected>Select Payment Method</option>
+                    {% for mode in payment_modes %}
+                    <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                    {% endfor %}
+                    <option value="add_payment_mode" class="add-new-link">+ Add Payment Mode</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Expense Items Section -->
+        <div class="form-section-header">
+            <h3>Expense Items</h3>
+            <button type="button" id="add-row" class="add-button">
+                <i class="fas fa-plus"></i> Add Line
+            </button>
+        </div>
+
+        <div class="expense-items-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th width="25%">Category</th>
+                        <th width="25%">Subcategory</th>
+                        <th width="15%">Amount</th>
+                        <th width="30%">Description</th>
+                        <th width="5%"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <select name="category[]" required onchange="updateSubcategories(this)">
+                                <option value="" disabled selected>Select Category</option>
+                                {% for category in expense_categories %}
+                                <option value="{{ category.id }}">{{ category.category }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <select name="subcategory[]" required>
+                                <option value="" disabled selected>Select Subcategory</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input style="width: 85%;" type="text" name="amount[]" placeholder="0.00"
+                                pattern="^\d*(\.\d{1,2})?$" autocomplete="off" required onfocus="this.select()">
+                        </td>
+                        <td>
+                            <textarea name="description[]" maxlength="100" required
+                                placeholder="Brief description (max 100 chars)" class="auto-resize"></textarea>
+                        </td>
+                        <td>
+                            <button type="button" class="remove-button" disabled title="Cannot remove the only row">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="5" class="table-footer-note">
+                            <small>Add multiple items if this expense covers different categories</small>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div class="form-group" style="text-align: right; margin-top: 15px;">
+                <label>
+                    <strong>Total Amount:</strong>
+                    <span id="expenseTotal">0.00</span>
+                    <span id="convertedTotal"
+                        style="font-weight: normal; color: #666; font-size: 0.9rem; margin-left: 8px; display: none;"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Exchange Rate Field (Hidden by default) -->
+        <div id="exchange_rate_container"
+            style="display: none; margin-top: 15px; padding: 12px; background-color: #f8f9fa; border-radius: 6px;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="font-weight: 500;">Exchange Rate</span>
+                <span id="from_currency_display">1</span>
+                <span>=</span>
+                <input type="number" id="exchange_rate" name="exchange_rate" step="0.0000000001" min="0.0000000001"
+                    placeholder="Enter rate"
+                    style="padding: 6px 10px; width: 150px; border-radius: 4px; border: 1px solid #ccc;">
+                <span id="to_currency_display"></span>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+            <button type="button" id="submit-expense" class="cta-button">
+                <i class="fas fa-check-circle"></i> Submit Expense
+            </button>
+            <button type="button" id="reset-form" class="remove-button">
+                <i class="fas fa-undo"></i> Reset Form
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+    /* Base Styles */
+    :root {
+        --border-color: #e0e0e0;
+        --light-bg: #f9f9f9;
+    }
+
+    /* Form Section Headers */
+    .form-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 25px 0 15px 0;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-color);
+        background-color: var(--light-bg);
+        border-radius: 6px;
+    }
+
+    .form-section-header h3 {
+        color: #555;
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin: 0;
+        color: #222b45;
+    }
+
+    /* Form Layout */
+    .form-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 5px;
+        margin-bottom: 10px;
+    }
+
+    /* Form Group Styling */
+    .form-group {
+        margin-bottom: 10px;
+        position: relative;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 500;
+        color: #555;
+    }
+
+    .form-group label.required-field::after {
+        content: " *";
+        color: red;
+    }
+
+    .form-group select,
+    .form-group input[type="date"],
+    .form-group input[type="text"] {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 14px;
+        transition: border-color 0.2s;
+        margin-top: 10px;
+    }
+
+    /* Expense Items Table */
+    .expense-items-table {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .expense-items-table table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .expense-items-table th {
+        background-color: var(--light-bg);
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 500;
+        color: #555;
+    }
+
+    .expense-items-table td {
+        padding: 10px 15px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .expense-items-table select,
+    .expense-items-table input {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+    }
+
+    .expense-items-table textarea {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        resize: vertical;
+        min-height: 38px;
+    }
+
+    .table-footer-note {
+        padding: 8px 15px;
+        color: #777;
+        font-size: 0.85rem;
+        background-color: var(--light-bg);
+        font-style: italic;
+    }
+
+    /* Payment Account Section */
+    .payment-account-section {
+        margin: 25px 0;
+        padding: 20px;
+        background-color: var(--light-bg);
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 25px;
+    }
+
+    /* Add New Link Styling */
+    .add-new-link {
+        color: var(--primary-color);
+        font-weight: 500;
+    }
+
+    /* Auto-resize textarea */
+    .auto-resize {
+        resize: none;
+        overflow: hidden;
+        min-height: 38px;
+    }
+
+    /* Responsive adjustments (non-mobile per request) */
+    @media (min-width: 769px) {
+        .expense-items-table {
+            overflow-x: visible;
+        }
+    }
+
+    /* Responsive styles */
+    @media (max-width: 768px) {
+        .expense-items-table {
+            overflow-x: visible;
+        }
+
+        .expense-items-table table {
+            min-width: 100%;
+            display: block;
+        }
+
+        .expense-items-table thead {
+            display: none;
+        }
+
+        .expense-items-table tbody {
+            display: block;
+        }
+
+        .expense-items-table tr {
+            display: block;
+            margin-bottom: 1rem;
+            position: relative;
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+
+        .expense-items-table td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100% !important;
+            text-align: right;
+            padding: 0.5rem;
+            box-sizing: border-box;
+            border-bottom: 1px solid #eee;
+        }
+
+        .expense-items-table td[data-label]::before {
+            content: attr(data-label);
+            font-weight: bold;
+            margin-right: 1rem;
+            text-align: left;
+            flex: 0 0 30%;
+        }
+
+        .expense-items-table select,
+        .expense-items-table input,
+        .expense-items-table textarea {
+            width: 100% !important;
+            max-width: 100%;
+            box-sizing: border-box;
+            height: 50px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .expense-items-table td {
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+        }
+
+        .expense-items-table td[data-label]::before {
+            margin-bottom: 0.25rem;
+            flex: 0 0 100%;
+        }
+    }
+</style>
+
+<script>
+    // Define payable account IDs (you'll need to pass this from your backend)
+    const payableAccountIds = {{ payable_account_ids | tojson | default ([]) }};
+
+    // Function to update subcategories based on selected category
+    function updateSubcategories(selectElement) {
+        const categoryId = selectElement.value;
+        const subcategorySelect = selectElement.closest('tr').querySelector('select[name="subcategory[]"]');
+        subcategorySelect.innerHTML = '<option value="" disabled selected>Select Subcategory</option>';
+        console.log('Updating subcategories for category ID:', categoryId);
+        if (categoryId) {
+            fetch(`/subcategories/${categoryId}`)
+                .then(response => response.json())
+                .then(subcategories => {
+                    subcategories.forEach(subcategory => {
+                        const option = document.createElement('option');
+                        option.value = subcategory.id;
+                        option.textContent = subcategory.name;
+                        subcategorySelect.appendChild(option);
+                        console.log('Added subcategory:', subcategory.name);
+                    });
+                })
+                .catch(error => console.error('Error fetching subcategories:', error));
+        }
+    }
+
+    // Handle vendor change
+    function handleVendorChange(value) {
+        if (value === 'add_new_vendor') {
+            window.location.href = "{{url_for('general_ledger.add_vendor_form')}}";
+        }
+    }
+
+    // Handle project change
+    function handleProjectChange(value) {
+        if (value === 'add_new_project') {
+            window.location.href = "{{url_for('manage_projects')}}";
+        }
+    }
+
+    // Handle payment mode change
+    function handlePaymentModeChange(value) {
+        if (value === 'add_payment_mode') {
+            window.location.href = "{{url_for('add_payment_mode_form')}}";
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const formTableBody = document.querySelector('.expense-items-table tbody');
+        const today = new Date().toISOString().split('T')[0];
+
+        // Set today's date as default
+        document.getElementById('date').value = today;
+
+        // Initialize Exchange Rate Manager
+        window.rateManager = ExchangeRateManager.init({
+            currencySelectId: 'form_currency',
+            dateInputId: 'date',
+            exchangeRateInputId: 'exchange_rate',
+            containerId: 'exchange_rate_container',
+            fromDisplayId: 'from_currency_display',
+            toDisplayId: 'to_currency_display',
+            baseCurrencyId: 'base_currency_id',
+            appId: '{{ app_id }}',
+            apiEndpoint: '/multi_currency/api/get_exchange_rate',
+            csrfToken: csrfToken,
+            callbacks: {
+                onRateChange: function (rate) {
+                    calculateTotalAmount();
+                },
+                onSuccess: function (rate, source) {
+                    console.log(`Rate ${rate} loaded from ${source}`);
+                    calculateTotalAmount();
+                }
+            }
+        });
+
+        // Add new expense line
+        document.getElementById('add-row').addEventListener('click', function () {
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+            <td>
+                <select name="category[]" required onchange="updateSubcategories(this)">
+                    <option value="" disabled selected>Select Category</option>
+                    {% for category in expense_categories %}
+                    <option value="{{ category.id }}">{{ category.category }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td>
+                <select name="subcategory[]" required>
+                    <option value="" disabled selected>Select Subcategory</option>
+                </select>
+            </td>
+            <td>
+                <input style="width: 85%;" type="text" name="amount[]" placeholder="0.00" 
+                       pattern="^\d*(\.\d{1,2})?$" autocomplete="off" required
+                       onfocus="this.select()">
+            </td>
+            <td>
+                <textarea name="description[]" maxlength="100" required 
+                          placeholder="Brief description (max 1000 chars)"
+                          class="auto-resize"></textarea>
+            </td>
+            <td>
+                <button type="button" class="remove-button">
+                    <i class="fas fa-times"></i>
+                </button>
+            </td>
+        `;
+            formTableBody.appendChild(newRow);
+
+            // Enable all remove buttons except if it's the only row
+            const rows = formTableBody.querySelectorAll('tr');
+            if (rows.length > 1) {
+                rows.forEach(row => {
+                    row.querySelector('.remove-button').disabled = false;
+                    row.querySelector('.remove-button').removeAttribute('title');
+                });
+            }
+        });
+
+        // Remove expense line
+        formTableBody.addEventListener('click', function (event) {
+            if (event.target.closest('.remove-button')) {
+                const row = event.target.closest('tr');
+                const rows = formTableBody.querySelectorAll('tr');
+
+                if (rows.length > 1) {
+                    row.remove();
+                    calculateTotalAmount();
+
+                    // If only one row left, disable its remove button
+                    if (formTableBody.querySelectorAll('tr').length === 1) {
+                        const removeBtn = formTableBody.querySelector('.remove-button');
+                        removeBtn.disabled = true;
+                        removeBtn.title = "Cannot remove the only row";
+                    }
+                } else {
+                    showNotification("You must have at least one expense line", "warning");
+                }
+            }
+        });
+
+        // Auto-resize textareas
+        function autoResizeTextarea() {
+            document.querySelectorAll('.auto-resize').forEach(textarea => {
+                textarea.style.height = 'auto';
+                textarea.style.height = (textarea.scrollHeight) + 'px';
+            });
+        }
+
+        // Initialize and set up event listeners for textareas
+        document.querySelectorAll('.auto-resize').forEach(textarea => {
+            textarea.addEventListener('input', function () {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+                if (this.value.length > 50) {
+                    this.value = this.value.slice(0, 50);
+                }
+            });
+        });
+
+        function calculateTotalAmount() {
+            let total = 0;
+            document.querySelectorAll('input[name="amount[]"]').forEach(input => {
+                const val = parseFloat(input.value) || 0;
+                total += val;
+            });
+
+            // Format and display total
+            document.getElementById('expenseTotal').textContent = formatCurrency(total, "USD", false);
+
+            // Calculate and display converted total if exchange rate exists
+            if (window.rateManager && window.rateManager.isForeignCurrency()) {
+                const rate = window.rateManager.getRate();
+                if (rate > 0) {
+                    const convertedTotal = total * rate;
+                    const baseCurrencyCode = window.rateManager.getBaseCurrencyCode();
+                    const convertedSpan = document.getElementById('convertedTotal');
+                    convertedSpan.textContent = `(≈ ${formatCurrency(convertedTotal, "USD", false)} ${baseCurrencyCode})`;
+                    convertedSpan.style.display = 'inline';
+                }
+            } else {
+                const convertedSpan = document.getElementById('convertedTotal');
+                convertedSpan.textContent = '';
+                convertedSpan.style.display = 'none';
+            }
+        }
+
+        // Bind to amount field inputs
+        formTableBody.addEventListener('input', function (event) {
+            if (event.target.name === 'amount[]') {
+                calculateTotalAmount();
+            }
+        });
+
+
+        // Function to reset Select2 components in expense form
+function resetExpenseFormSelect2() {
+    // Reset project select
+    const projectSelect = document.getElementById('project_name');
+    if (projectSelect) {
+        projectSelect.value = '';
+        if ($(projectSelect).data('select2')) {
+            $(projectSelect).val('').trigger('change');
+        }
+    }
+    
+    // Reset vendor select
+    const vendorSelect = document.getElementById('vendor');
+    if (vendorSelect) {
+        vendorSelect.value = '';
+        if ($(vendorSelect).data('select2')) {
+            $(vendorSelect).val('').trigger('change');
+        }
+    }
+    
+    // Reset payment mode select
+    const paymentModeSelect = document.getElementById('payment_mode');
+    if (paymentModeSelect) {
+        paymentModeSelect.value = '';
+        if ($(paymentModeSelect).data('select2')) {
+            $(paymentModeSelect).val('').trigger('change');
+        }
+    }
+    
+    // Reset funding account select (not Select2, but reset anyway)
+    const fundingAccountSelect = document.getElementById('payment_account');
+    if (fundingAccountSelect) {
+        fundingAccountSelect.value = '';
+    }
+    
+    // Reset currency select to base currency
+    const currencySelect = document.getElementById('form_currency');
+    if (currencySelect && window.baseCurrency) {
+        currencySelect.value = window.baseCurrency.id;
+        if ($(currencySelect).data('select2')) {
+            $(currencySelect).val(window.baseCurrency.id).trigger('change');
+        } else {
+            // Trigger change event for regular select
+            $(currencySelect).trigger('change');
+        }
+    }
+    
+    // Reset exchange rate
+    const exchangeRateInput = document.getElementById('exchange_rate');
+    if (exchangeRateInput) {
+        exchangeRateInput.value = '';
+    }
+    
+    // Hide exchange rate container
+    const exchangeRateContainer = document.getElementById('exchange_rate_container');
+    if (exchangeRateContainer) {
+        exchangeRateContainer.style.display = 'none';
+    }
+}
+
+        // Validate expense form before submission
+        function validateExpenseForm() {
+            let isValid = true;
+            let totalAmount = 0;
+            let requiresVendor = false;
+            const rows = document.querySelectorAll('.expense-items-table tbody tr');
+
+            console.log('=== DEBUG PAYABLE VALIDATION ===');
+            console.log('Payable Account IDs from backend:', payableAccountIds);
+
+            // Check if the selected FUNDING ACCOUNT is a payable account
+            const fundingAccountSelect = document.getElementById('payment_account');
+            if (fundingAccountSelect && fundingAccountSelect.value) {
+                const accountId = parseInt(fundingAccountSelect.value);
+                const accountText = fundingAccountSelect.options[fundingAccountSelect.selectedIndex].text;
+                console.log(`Funding Account: ID: ${accountId}, Name: "${accountText}", Is Payable: ${payableAccountIds.includes(accountId)}`);
+
+                if (payableAccountIds.includes(accountId)) {
+                    requiresVendor = true;
+                    console.log('✅ PAYABLE FUNDING ACCOUNT DETECTED - VENDOR REQUIRED');
+                }
+            } else {
+                console.log('No funding account selected');
+            }
+
+            console.log('Final requiresVendor:', requiresVendor);
+
+            // Validate vendor if payable account is used
+            if (requiresVendor) {
+                const vendorSelect = document.getElementById('vendor');
+                const vendorValue = vendorSelect ? vendorSelect.value : 'undefined';
+                console.log('Vendor select value:', vendorValue);
+
+                if (!vendorSelect || !vendorSelect.value) {
+                    console.log('❌ VENDOR VALIDATION FAILED - Payee is required for payable funding account');
+                    showNotification('Payee selection is required when using a payable account as funding source', 'warning');
+                    isValid = false;
+                } else {
+                    console.log('✅ VENDOR VALIDATION PASSED');
+                }
+            } else {
+                console.log('No payable funding account detected, vendor not required');
+            }
+
+            console.log('Form valid so far:', isValid);
+            console.log('=== END DEBUG ===');
+
+            // Validate payment account
+            if (!fundingAccountSelect || !fundingAccountSelect.value || fundingAccountSelect.value.trim() === '') {
+                showNotification('Payment Account is required.', 'danger');
+                isValid = false;
+            }
+
+            // Validate exchange rate for foreign currency
+            if (window.rateManager && window.rateManager.isForeignCurrency()) {
+                const rate = window.rateManager.getRate();
+                if (!rate || rate <= 0) {
+                    showNotification('Please enter a valid exchange rate (greater than 0)', 'danger');
+                    isValid = false;
+                }
+            }
+
+            // Validate each expense line
+            rows.forEach((row, index) => {
+                const rowNumber = index + 1;
+                const requiredFields = [
+                    { element: row.querySelector('select[name="category[]"]'), message: `Row ${rowNumber}: Expense Category is required` },
+                    { element: row.querySelector('select[name="subcategory[]"]'), message: `Row ${rowNumber}: Subcategory is required` },
+                    { element: row.querySelector('input[name="amount[]"]'), message: `Row ${rowNumber}: Amount is required` },
+                    { element: row.querySelector('textarea[name="description[]"]'), message: `Row ${rowNumber}: Description is required` }
+                ];
+
+                for (const field of requiredFields) {
+                    if (!field.element || !field.element.value || (field.element.value && field.element.value.trim() === '')) {
+                        showNotification(field.message, 'danger');
+                        isValid = false;
+                    }
+                }
+
+                // Validate amount format
+                const amountInput = row.querySelector('input[name="amount[]"]');
+                if (amountInput && amountInput.value) {
+                    const amountValue = parseFloat(amountInput.value);
+                    if (isNaN(amountValue) || amountValue <= 0) {
+                        showNotification(`Row ${rowNumber}: Please enter a valid positive amount`, 'danger');
+                        isValid = false;
+                    } else {
+                        totalAmount += amountValue;
+                    }
+                }
+            });
+
+            return isValid;
+        }
+
+        // Submit expense form
+        document.getElementById('submit-expense').addEventListener('click', function (e) {
+            e.preventDefault();
+
+             const dateField = document.getElementById('date').value;
+
+            const submitBtn = this;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+
+            if (!validateExpenseForm()) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Submit Expense';
+                return;
+            }
+
+            const form = document.getElementById('expenseForm');
+            const formData = new FormData(form);
+
+            console.log('Submitting form data:', Object.fromEntries(formData.entries()));
+
+            fetch('/expenses/submit', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                },
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification(data.message, 'success');
+                        form.reset();
+
+                        document.getElementById('date').value = dateField;
+
+
+                        // Reset currency to base
+                        if (window.baseCurrency && window.rateManager) {
+                            window.rateManager.reset(window.baseCurrency.id);
+                        }
+
+                        // Reset the expense items table to one row
+                        formTableBody.innerHTML = `
+                        <tr>
+                            <td>
+                                <select name="category[]" required onchange="updateSubcategories(this)">
+                                    <option value="" disabled selected>Select Category</option>
+                                    {% for category in expense_categories %}
+                                    <option value="{{ category.id }}">{{ category.category }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <select name="subcategory[]" required>
+                                    <option value="" disabled selected>Select Subcategory</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input type="text" name="amount[]" placeholder="0.00" 
+                                       pattern="^\d*(\.\d{1,2})?$" autocomplete="off" required
+                                       onfocus="this.select()">
+                            </td>
+                            <td>
+                                <textarea name="description[]" maxlength="100" required 
+                                          placeholder="Brief description (max 100 chars)"
+                                          class="auto-resize"></textarea>
+                            </td>
+                            <td>
+                                <button type="button" class="remove-button" disabled title="Cannot remove the only row">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+
+                        // Reset total
+                        document.getElementById('expenseTotal').textContent = '0.00';
+
+                        // Reset all Select2 components
+    resetExpenseFormSelect2();
+
+                        // Hide converted total
+                        const convertedSpan = document.getElementById('convertedTotal');
+                        convertedSpan.textContent = '';
+                        convertedSpan.style.display = 'none';
+
+                        // Reinitialize event listeners for the new row
+                        autoResizeTextarea();
+                    } else {
+                        showNotification(data.message, 'danger');
+                    }
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Submit Expense';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('An error occurred while submitting the expense.', 'danger');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Submit Expense';
+                });
+        });
+
+        // Handle reset button
+        // Handle reset button
+        document.getElementById('reset-form').addEventListener('click', function (e) {
+            e.preventDefault();
+
+            // Reset all Select2 components
+    resetExpenseFormSelect2();
+
+           
+
+            // Reset currency to base currency using rate manager
+            if (window.baseCurrency && window.rateManager) {
+                window.rateManager.reset(window.baseCurrency.id);
+            }
+
+            // Reset the expense items table to one row
+            formTableBody.innerHTML = `
+        <tr>
+            <td>
+                <select name="category[]" required onchange="updateSubcategories(this)">
+                    <option value="" disabled selected>Select Category</option>
+                    {% for category in expense_categories %}
+                    <option value="{{ category.id }}">{{ category.category }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td>
+                <select name="subcategory[]" required>
+                    <option value="" disabled selected>Select Subcategory</option>
+                </select>
+            </td>
+            <td>
+                <input type="text" name="amount[]" placeholder="0.00" 
+                       pattern="^\d*(\.\d{1,2})?$" autocomplete="off" required
+                       onfocus="this.select()">
+            </td>
+            <td>
+                <textarea name="description[]" maxlength="100" required 
+                          placeholder="Brief description (max 100 chars)"
+                          class="auto-resize"></textarea>
+            </td>
+            <td>
+                <button type="button" class="remove-button" disabled title="Cannot remove the only row">
+                    <i class="fas fa-times"></i>
+                </button>
+            </td>
+        </tr>
+    `;
+
+            // Reset total
+            document.getElementById('expenseTotal').textContent = '0.00';
+
+            // Hide converted total
+            const convertedSpan = document.getElementById('convertedTotal');
+            convertedSpan.textContent = '';
+            convertedSpan.style.display = 'none';
+
+            // Reinitialize event listeners for the new row
+            autoResizeTextarea();
+
+            showNotification('Form has been reset', 'info');
+        });
+        // Initialize textareas
+        autoResizeTextarea();
+    });
+
+
+</script>
+
+{% endblock %}

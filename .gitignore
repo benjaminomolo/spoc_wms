@@ -1,0 +1,24 @@
+# logs
+*.log
+app.log
+
+# virtual environments
+.venv/
+venv/
+env/
+
+# python cache
+__pycache__/
+
+# databases (VERY IMPORTANT for your project)
+*.db
+
+# uploads (can be huge)
+uploads/
+
+# IDE
+.idea/
+.vscode/
+
+# backups (optional but recommended)
+*backup*

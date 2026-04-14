@@ -1,0 +1,428 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+
+/* Container and Base Styling */
+.container {
+    max-width: 1200px;
+    margin: auto;
+    padding: 20px;
+    font-family: 'Roboto', sans-serif;
+}
+
+.page-title {
+    font-size: 2rem;
+    color: #333;
+    margin-bottom: 20px;
+    font-weight: 500;
+}
+
+/* Summary Section */
+.summary {
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+    margin-bottom: 20px;
+}
+
+.summary h4 {
+    font-size: 1.25rem;
+    margin-bottom: 10px;
+    color: #555;
+    font-weight: 500;
+}
+
+.summary-list {
+    list-style: none;
+    padding-left: 0;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+    gap: 15px;
+}
+
+.summary-list li {
+    margin-right: 10px;
+    color: #777;
+}
+
+/* Filter and Sort Section */
+.filter-sort {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.filter-sort .form-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-sort .form-group {
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+}
+
+.filter-sort select {
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease;
+}
+
+.filter-sort select:focus {
+    outline: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Table Styling */
+.table {
+    width: 100%;
+    margin-bottom: 20px;
+    border-collapse: collapse;
+    background-color: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+    border-radius: 8px;
+    overflow-x: auto;
+}
+
+.table th, .table td {
+    padding: 12px;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid #eee;
+}
+
+.table th {
+    background-color: #f5f5f5;
+    font-weight: 500;
+    color: #333;
+}
+
+.table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.table td {
+    color: #555;
+}
+
+.thead-dark th {
+    background-color: #424242;
+    color: #fff;
+}
+
+/* Buttons */
+.btn {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn-info {
+    background-color: #4285f4;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-info:hover {
+    background-color: #3367d6;
+}
+
+.btn-danger {
+    background-color: #d32f2f;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-danger:hover {
+    background-color: #c12727;
+}
+
+.btn .material-icons {
+    font-size: 12px; /* Smaller icon size for buttons */
+    vertical-align: middle; /* Ensures icons align properly with text */
+    margin-right: 4px; /* Space between icon and text */
+}
+
+
+
+#select-all {
+    cursor: pointer;
+}
+
+input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+}
+
+#delete-selected-btn {
+    display: none;
+}
+
+/* Container for delete button */
+#bulk-delete-form #delete-button-container {
+    margin-bottom: 20px; /* Space between button and table */
+    text-align: right; /* Align button to the right */
+    display: block; /* Ensure the container is treated as a block-level element */
+    
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .summary-list {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .filter-sort {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .filter-sort .form-inline {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .table th, .table td {
+        padding: 12px;
+    }
+    /* Ensure the table is scrollable on mobile */
+.table {
+    overflow-x: auto;
+    width: 100%;
+    display: block;
+    /* Add other styles as needed */
+}
+
+/* Styles for the bulk delete button and form */
+#bulk-delete-form {
+    margin: 10px 0; /* Add margin for spacing on mobile */
+    text-align: right; /* Align button to the right */
+}
+
+#delete-selected-btn {
+    display: inline-block; /* Ensure button is inline-block for better alignment */
+    margin: 10px 0; /* Add margin for spacing */
+    padding: 10px 20px; /* Add padding for better touch target */
+    font-size: 14px; /* Adjust font size for mobile */
+}
+
+/* Ensure the table headers are readable on mobile */
+.table th {
+    font-size: 12px; /* Smaller font size for mobile */
+    padding: 8px; /* Adjust padding */
+}
+
+/* Ensure the table cells are readable on mobile */
+.table td {
+    font-size: 12px; /* Smaller font size for mobile */
+    padding: 8px; /* Adjust padding */
+}
+
+/* Adjust table for very small screens */
+@media (max-width: 600px) {
+    .table th, .table td {
+        font-size: 10px; /* Smaller font size for very small screens */
+        padding: 6px; /* Adjust padding for small screens */
+    }
+    
+    #delete-selected-btn {
+        font-size: 12px; /* Smaller font size for the button */
+        padding: 8px 16px; /* Adjust padding for smaller screens */
+    }
+}
+
+    
+}
+
+
+
+</style>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<div id="notification" class="notification" style="display: none;"></div>
+
+<div class="container">
+    <h1 class="page-title">Purchase Orders</h1>
+
+    <!-- Summary Section -->
+    <div class="summary">
+        <h4>Summary by Status</h4>
+        <ul class="summary-list">
+            <li><strong>Pending:</strong> {{ summary['pending'] }}</li>
+            <li><strong>In Progress:</strong> {{ summary['in_progress'] }}</li>
+            <li><strong>Partially Received:</strong> {{ summary['partially_received'] }}</li>
+            <li><strong>Received:</strong> {{ summary['received'] }}</li>
+            <li><strong>Closed:</strong> {{ summary['closed'] }}</li>
+            <li><strong>Canceled:</strong> {{ summary['canceled'] }}</li>
+        </ul>
+    </div>
+
+    <!-- Filter and Sort Section -->
+    <div class="filter-sort">
+        <div class="form-inline">
+            <form method="get" action="{{ url_for('view_purchase_orders') }}" class="form-inline">
+                <div class="form-group">
+                    <label for="status">Status:</label>
+                    <select id="status" name="status" class="form-control">
+                        <option value="">All</option>
+                        <option value="pending" {% if request.args.get('status') == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="in_progress" {% if request.args.get('status') == 'in_progress' %}selected{% endif %}>In Progress</option>
+                        <option value="partially_received" {% if request.args.get('status') == 'partially_received' %}selected{% endif %}>Partially Received</option>
+                        <option value="received" {% if request.args.get('status') == 'received' %}selected{% endif %}>Received</option>
+                        <option value="closed" {% if request.args.get('status') == 'closed' %}selected{% endif %}>Closed</option>
+                        <option value="canceled" {% if request.args.get('status') == 'canceled' %}selected{% endif %}>Canceled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sort">Sort By:</label>
+                    <select id="sort" name="sort" class="form-control">
+                        <option value="po_date" {% if request.args.get('sort') == 'po_date' %}selected{% endif %}>Date</option>
+                        <option value="order_total" {% if request.args.get('sort') == 'order_total' %}selected{% endif %}>Total Amount</option>
+                        <option value="currency" {% if request.args.get('sort') == 'currency' %}selected{% endif %}>Currency</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="currency">Currency:</label>
+                    <select id="currency" name="currency" class="form-control">
+                        <option value="All" >
+                            ALL
+                        </option>
+                        {% for currency in currencies %}
+                            <option value="{{ currency.user_currency }}">
+                                {{ currency.user_currency }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Apply</button>
+            </form>
+        </div>
+
+      
+
+    </div>
+    
+<!-- Bulk delete form -->
+<form id="bulk-delete-form" method="POST" action="{{ url_for('delete_multiple_orders') }}">
+    <div  id="delete-button-container">
+        <button id="delete-selected-btn" type="submit" class="btn btn-danger btn-sm" style="display: none;">Delete Selected</button>
+    </div>
+    
+    <!-- Purchase Orders Table -->
+    <div id="table-container">
+    <table class="table">
+        <thead class="thead-dark">
+            <tr>
+                <th><input type="checkbox" id="select-all"></th>
+                <th>PO Number</th>
+                <th>Vendor</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th>Currency</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+            <tr>
+                <td><input type="checkbox" class="select-order" name="selected_orders" value="{{ order.id }}"></td>
+                <td>{{ order.po_number }}</td>
+                <td>{{ order.vendor.name }}</td>
+                <td>{{ order.po_date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ order.order_status.value }}</td>
+                <td>{{ "{:,.2f}".format(order.order_total) }}</td>
+                <td>{{ order.currencies.user_currency }}</td>
+                <td>
+                    <a href="{{ url_for('view_purchase_order', order_id=order.id) }}" class="btn btn-info btn-sm">
+                        <span class="material-icons">visibility</span> View status
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</form>
+
+<script>
+document.getElementById('select-all').addEventListener('click', function() {
+    var checkboxes = document.querySelectorAll('input[name="selected_orders"]');
+    checkboxes.forEach(function(checkbox) {
+        checkbox.checked = document.getElementById('select-all').checked;
+    });
+    toggleDeleteButton();
+});
+
+function toggleDeleteButton() {
+    var selected = document.querySelectorAll('input[name="selected_orders"]:checked').length > 0;
+    document.getElementById('delete-selected-btn').style.display = selected ? 'block' : 'none';
+}
+
+document.querySelectorAll('input[name="selected_orders"]').forEach(function(checkbox) {
+    checkbox.addEventListener('change', toggleDeleteButton);
+});
+
+document.getElementById('bulk-delete-form').addEventListener('submit', function(event) {
+    event.preventDefault(); // Prevent form from submitting the traditional way
+
+    // Confirm before proceeding
+    if (confirm('Are you sure you want to delete the selected orders? This action cannot be undone.')) {
+        var formData = new FormData(this);
+
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data); // Log the response for debugging
+            if (data.status === "success") {
+                showNotification(data.message, "success");
+            } else if (data.status === "danger") {
+                showNotification(data.message, "error");
+            } else if (data.status === "warning") {
+                showNotification(data.message, "warning");
+            }
+            setTimeout(() => {
+                window.location.reload(); // Reload the page after notification
+            }, 2000); // Adjust the time as necessary
+        })
+        .catch(error => {
+            console.error('Error:', error); // Log any fetch errors
+            showNotification('An unexpected error occurred.', 'error');
+        });
+    }
+});
+
+function showNotification(message, type) {
+    var notification = document.getElementById('notification');
+    notification.innerHTML = message;
+    notification.className = `notification ${type}`;
+    notification.style.display = 'block';
+
+    setTimeout(() => {
+        notification.classList.add('hide');
+        setTimeout(() => {
+            notification.style.display = 'none';
+            notification.classList.remove('hide');
+        }, 500);
+    }, 3000); // Adjust the time the notification is visible as necessary
+}
+
+</script>
+
+{% endblock %}

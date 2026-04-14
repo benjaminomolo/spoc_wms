@@ -1,0 +1,372 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+
+<div class="content-container">
+
+
+    <div class="header-section">
+        <h1>Quotation Management</h1>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+
+                <li class="shortcut-item"><a href="{{ url_for('sales.add_quotation') }}">Create New Quotation</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('general_ledger.add_vendor_form') }}">Add New Customer</a>
+                </li>
+                <li class="shortcut-item">
+                    <div class="action-icons">
+                        <button class="filter-icon" type="button" id="toggleFilterForm" data-tooltip="Apply Filter">
+                            <i class="fas fa-filter"></i>
+                        </button>
+                    </div>
+                </li>
+                {% endif %}
+
+
+            </ol>
+        </nav>
+
+    </div>
+
+
+    <!-- Filter Section -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+        <form method="GET" action="{{ url_for('sales.quotation_management') }}" class="date-filter-form"
+            id="filter-form">
+            <!-- Filter Type Dropdown -->
+            <div class="filter-group">
+                <label for="filter_type" class="filter-label">Filter By</label>
+                <select id="filter_type" name="filter_type" class="form-select">
+                    <option value="quotation_date" {% if request.args.get('filter_type')=='quotation_date' %}selected{%
+                        endif %}>
+                        Quotation Date
+                    </option>
+                    <option value="expiry_date" {% if request.args.get('filter_type')=='expiry_date' %}selected{% endif
+                        %}>
+                        Expiry Date
+                    </option>
+                </select>
+            </div>
+
+            <!-- Start Date Input -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control"
+                    value="{{ request.args.get('start_date', '') }}">
+            </div>
+
+            <!-- End Date Input -->
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control"
+                    value="{{ request.args.get('end_date', '') }}">
+            </div>
+
+            <!-- Status Filter Dropdown -->
+            <div class="filter-group">
+                <label for="status" class="filter-label">Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">All</option>
+                    <option value="draft" {% if request.args.get('status')=='draft' %}selected{% endif %}>Draft</option>
+                    <option value="approved" {% if request.args.get('status')=='approved' %}selected{% endif %}>Approved
+                    </option>
+                    <option value="accepted" {% if request.args.get('status')=='accepted' %}selected{% endif %}>Accepted
+                    </option>
+                    <option value="rejected" {% if request.args.get('status')=='rejected' %}selected{% endif %}>Rejected
+                    </option>
+                    <option value="expired" {% if request.args.get('status')=='expired' %}selected{% endif %}>Expired
+                    </option>
+                </select>
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="filter-actions">
+                <button type="submit" class="add-button">Apply Filter</button>
+                <a href="{{ url_for('sales.quotation_management') }}" class="btn reset-button">Reset</a>
+            </div>
+        </form>
+    </div>
+
+
+
+    <!-- Summary Section -->
+    <!-- Summary Section -->
+    <div class="summary-container">
+
+        <!-- Total Quotations -->
+        <div class="summary-item">
+            <i class="fa fa-sort-numeric-up"></i>
+            <h2>Total Quotations</h2>
+            <h1>{{ total_quotations }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar info" style="width: 100%;">100%</div>
+            </div>
+        </div>
+
+        <!-- Approved Quotations -->
+        <div class="summary-item">
+            <i class="fas fa-hourglass-half"></i>
+            <h2>Approved Quotations</h2>
+            <h1>{{ approved_quotations }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar in-progress"
+                    style="width: {% if total_quotations > 0 %}{{ (approved_quotations / total_quotations * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_quotations > 0 %}
+                    {{ (approved_quotations / total_quotations * 100) | round(2) }}%
+                    {% else %}
+                    0.0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Accepted Quotations -->
+        <div class="summary-item">
+            <i class="fas fa-check-circle"></i>
+            <h2>Accepted Quotations</h2>
+            <h1>{{ accepted_quotations }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar approved"
+                    style="width: {% if total_quotations > 0 %}{{ (accepted_quotations / total_quotations * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_quotations > 0 %}
+                    {{ (accepted_quotations / total_quotations * 100) | round(2) }}%
+                    {% else %}
+                    0.0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Rejected Quotations -->
+        <div class="summary-item">
+            <i class="fas fa-times-circle"></i>
+            <h2>Rejected Quotations</h2>
+            <h1>{{ rejected_quotations }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar cancelled"
+                    style="width: {% if total_quotations > 0 %}{{ (rejected_quotations / total_quotations * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_quotations > 0 %}
+                    {{ (rejected_quotations / total_quotations * 100) | round(2) }}%
+                    {% else %}
+                    0.0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Expired Quotations -->
+        <div class="summary-item">
+            <i class="fas fa-calendar-times"></i>
+            <h2>Expired Quotations</h2>
+            <h1>{{ expired_quotations }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar discontinued"
+                    style="width: {% if total_quotations > 0 %}{{ (expired_quotations / total_quotations * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_quotations > 0 %}
+                    {{ (expired_quotations / total_quotations * 100) | round(2) }}%
+                    {% else %}
+                    0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+
+    <!-- Quotation List Table -->
+    <div class="table-container table-responsive">
+        <div id="loadingSpinner" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+        <table class="quotation-list-table stripe">
+            <thead>
+                <tr>
+                    <th>Quotation Number</th>
+                    <th>Customer</th>
+                    <th>Quotation Date</th>
+                    <th>Expiry Date</th>
+                    <th>Currency</th>
+                    <th>Total Amount</th>
+                    <th>Discount Amount</th>
+                    <th>Tax (%)</th>
+                    <th>Shipping Cost</th>
+                    <th>Handling Cost</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for quotation in quotations %}
+                <tr class="status-{{ quotation.status | lower }}">
+                    <td>{{ quotation.quotation_number }}</td>
+                    <td>{{ quotation.customer.vendor_name }}</td>
+                    <td>{{ quotation.quotation_date }}</td>
+                    <td>{{ quotation.expiry_date if quotation.expiry_date else "-" }}</td>
+                    <td>{{ quotation.currencies.user_currency if quotation.currency else "-" }}</td>
+                    <td>{{ "{:,.2f}".format(quotation.total_amount) if quotation.total_amount else "0.00" }}</td>
+                    <td>{{ quotation.calculated_discount_amount }}</td>
+                    <td>{{ quotation.quotation_tax_rate }}</td>
+                    <td>{{ "{:,.2f}".format(quotation.shipping_cost) if quotation.shipping_cost else "0.00" }}</td>
+                    <td>{{ "{:,.2f}".format(quotation.handling_cost) if quotation.handling_cost else "0.00" }}</td>
+                    <td>
+                        <span class="status 
+                        {% if quotation.status.value == 'Draft' %} pending
+                        {% elif quotation.status.value == 'Approved' %} in-progress
+                        {% elif quotation.status.value == 'Accepted' %} approved
+                        {% elif quotation.status.value == 'Cancelled' %} cancelled
+                        {% elif quotation.status.value == 'Rejected' %} cancelled
+                        {% elif quotation.status.value == 'Expired' %} discontinued
+                        {% endif %}">
+                            {{ quotation.status.value }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-icons-clean">
+                            <!-- View Details -->
+                            <div class="custom-tooltip-container">
+                                <a href="{{ url_for('sales.quotation_details', quotation_id=quotation.id) }}"
+                                    class="ledger-icon">
+                                    <i class="fas fa-eye view-icon"></i>
+                                </a>
+                                <span class="custom-tooltip">View Details</span>
+                            </div>
+
+                            {% if quotation.status.name != 'accepted' and quotation.status.name != 'cancelled' %}
+                            <!-- Edit -->
+                            <div class="custom-tooltip-container">
+                                <a href="{{ url_for('sales.edit_quotation', quotation_id=quotation.id) }}"
+                                    class="ledger-icon">
+                                    <i class="fas fa-edit edit-icon"></i>
+                                </a>
+                                <span class="custom-tooltip">Edit</span>
+                            </div>
+
+                            {% if quotation.status.name == 'draft' %}
+                            <!-- Delete -->
+                            <form action="{{ url_for('delete_quotation', quotation_id=quotation.id) }}" method="post"
+                                style="display:inline;"
+                                onsubmit="return confirm('Are you sure you want to delete this quotation?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="custom-tooltip-container">
+                                    <button type="submit" class="ledger-icon">
+                                        <i class="fas fa-trash delete-icon"></i>
+                                    </button>
+                                    <span class="custom-tooltip left">Delete</span>
+                                </div>
+                            </form>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </td>
+
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th><input type="text" placeholder="Search Quotation Number" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Customer" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Quotation Date" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Expiry Date" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Currency" class="column-search"></th>
+                    <th>Total: <span id="totalAmount">0.00</span></th>
+                    <th>Total: <span id="totalDiscount">0.00</span></th>
+                    <th>Total: <span id="totalTax">0.00</span></th>
+                    <th>Total: <span id="totalShipping">0.00</span></th>
+                    <th>Total: <span id="totalHandling">0.00</span></th>
+                    <th><input type="text" placeholder="Search Status" class="column-search"></th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+
+        // Initialize DataTables
+        var table = $('.quotation-list-table').DataTable({
+            "paging": true,
+            "ordering": true,
+            "info": true,
+            "searching": true,
+            "order": [[2, "desc"]],  // Change 0 to the correct column index of "created_at"
+            "columnDefs": [
+                { "orderable": false, "targets": [11] } // Disable sorting on Actions column
+            ],
+            "initComplete": function () {
+                $('#loadingSpinner').hide(); // Hide spinner after initialization
+            },
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                // Format the amount column with thousands separators
+                function formatNumber(num) {
+                    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+
+                // Calculate totals for numeric columns
+                var intVal = function (i) {
+                    return typeof i === 'string' ? i.replace(/[^0-9.-]+/g, '') * 1 : typeof i === 'number' ? i : 0;
+                };
+
+                // Total Amount
+                var totalAmount = api.column(5, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Total Discount
+                var totalDiscount = api.column(6, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Total Tax
+                var totalTax = api.column(7, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Total Shipping Cost
+                var totalShipping = api.column(8, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Total Handling Cost
+                var totalHandling = api.column(9, { page: 'current' }).data().reduce(function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0);
+
+                // Update footer with totals
+                $('#totalAmount').text(formatNumber(totalAmount));
+                $('#totalDiscount').text(formatNumber(totalDiscount));
+                $('#totalTax').text(formatNumber(totalTax));
+                $('#totalShipping').text(formatNumber(totalShipping));
+                $('#totalHandling').text(formatNumber(totalHandling));
+            }
+        });
+
+        // Apply search for each column
+        $('.quotation-list-table tfoot th').each(function (index) {
+            if (index < 11) { // Exclude 'Actions' column
+                $('input', this).on('keyup change clear', function () {
+                    if (table.column(index).search() !== this.value) {
+                        table.column(index).search(this.value).draw();
+                    }
+                });
+            }
+        });
+    });
+
+    // Toggle the filter section visibility with animation
+    document.getElementById('toggleFilterForm').addEventListener('click', function () {
+        const filterSection = document.getElementById('filter-section');
+        filterSection.classList.toggle('visible');
+    });
+</script>
+{% endblock %}

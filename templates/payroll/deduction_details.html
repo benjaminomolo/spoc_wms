@@ -1,0 +1,1001 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container odoo-style">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <a href="/payroll/deduction_summary/{{ deduction_transaction.payroll_period_id }}" class="back-button"
+            style="display: inline-flex; align-items: center; width: auto !important; margin-bottom: 10px;">
+            <i class="fas fa-arrow-left" style="margin-right: 6px;"></i> Back to Deduction Summary
+        </a>
+
+        <div class="oe_button_box" style="float: right;">
+            <button class="oe_stat_button" onclick="printDeductionSummary()">
+                <i class="fa fa-print"></i> Print
+            </button>
+        </div>
+    </div>
+
+    <!-- Header Section -->
+    <div class="oe_view_nocontent">
+        <h1 class="oe_view_title">
+            <span class="oe_view_title_text">
+                Deduction: {{ deduction_transaction.employees.first_name }} {{ deduction_transaction.employees.last_name
+                }}
+            </span>
+        </h1>
+        <div class="oe_view_subtitle">
+            <span>{{ deduction_transaction.payroll_periods.start_date }} - {{
+                deduction_transaction.payroll_periods.end_date }}</span>
+        </div>
+    </div>
+
+
+    <!-- Employee Summary -->
+    <div class="oe_form_sheetbg">
+        <div class="oe_form_sheet">
+            <div class="oe_title">
+                <div class="oe_avatar" style="float: left;">
+                    <i class="fa fa-user-circle fa-3x"></i>
+                </div>
+                <h1>
+                    <span>{{ deduction_transaction.employees.first_name }}
+                        {% if deduction_transaction.employees.middle_name %}
+                        {{ deduction_transaction.employees.middle_name }}
+                        {% endif %}
+                        {{ deduction_transaction.employees.last_name }}
+                    </span>
+                </h1>
+                <h3>
+                    <span class="oe_form_field oe_form_field_empty">Employee ID: {{
+                        deduction_transaction.employees.employee_id or 'N/A' }}</span>
+                </h3>
+            </div>
+
+            <!-- Deduction Summary -->
+            <table class="oe_form_group">
+                <tbody>
+                    <tr class="oe_form_group_row">
+                        <td class="oe_form_group_cell" colspan="2">
+                            <h2 class="oe_form_group_title">Deduction Information</h2>
+                        </td>
+                    </tr>
+                    <tr class="oe_form_group_row">
+                        <td class="oe_form_group_cell">
+                            <div class="oe_form_field">
+                                <strong>Gross Salary</strong><br>
+                                {{ "{:,.2f}".format(deduction_transaction.payroll_transactions.gross_salary or 0) }} {{
+                                deduction_transaction.currency.user_currency }}
+                            </div>
+                        </td>
+                        <td class="oe_form_group_cell">
+                            <div class="oe_form_field">
+                                <strong>Deduction Item</strong><br>
+                                {% for deduction, deduction_type in deductions %}
+                                {{ deduction_type.name }}
+                                {% endfor %}
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="oe_form_group_row">
+                        <td class="oe_form_group_cell">
+                            <div class="oe_form_field">
+                                <strong>Total Deductions</strong><br>
+                                {{ "{:,.2f}".format(totals.total_deductions or 0) }} {{
+                                deduction_transaction.currency.user_currency }}
+                            </div>
+                        </td>
+                        <td class="oe_form_group_cell">
+                            <div class="oe_form_field">
+                                <strong>Paid Amount</strong><br>
+                                {{ "{:,.2f}".format(deduction_transaction.paid_amount or 0) }} {{
+                                deduction_transaction.currency.user_currency }}
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="oe_form_group_row">
+                        <td class="oe_form_group_cell" colspan="2">
+                            <div class="oe_form_field">
+                                <strong>Balance Due</strong><br>
+                                <span class="{% if deduction_transaction.balance_due > 0 %}negative-color{% endif %}">
+                                    {{ "{:,.2f}".format(deduction_transaction.balance_due or 0) }} {{
+                                    deduction_transaction.currency.user_currency }}
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Deduction Details -->
+            <div class="oe_form_group">
+                <div class="oe_form_group_row">
+                    <div class="oe_form_group_cell oe_form_group_cell_label" colspan="2">
+                        <h2 class="oe_form_group_title">Deduction Details</h2>
+                    </div>
+                </div>
+
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">
+                            <i class="fa fa-minus-circle"></i> Deductions ({{ deductions|length }})
+                        </h3>
+                    </div>
+                    <div class="panel-body">
+                        <table class="table table-condensed">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                    <th>Rate (%)</th>
+                                    <th>Fixed Amount</th>
+                                    <th class="text-right">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for deduction, deduction_type in deductions %}
+                                <tr>
+                                    <td>{{ deduction_type.name }}</td>
+                                    <td>{{ deduction_type.description if deduction_type.description else '-' }}</td>
+                                    <td>{{ "{:,.2f}".format(deduction_type.rate or 0) if deduction_type.is_rate else '-'
+                                        }}</td>
+                                    <td>{{ "{:,.2f}".format(deduction_type.fixed_amount or 0) if not
+                                        deduction_type.is_rate else '-' }}</td>
+                                    <td class="text-right">{{ "{:,.2f}".format(deduction.amount or 0) }} {{
+                                        deduction_transaction.currency.user_currency }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="4">Total Deductions</th>
+                                    <th class="text-right">{{ "{:,.2f}".format(totals.total_deductions or 0) }} {{
+                                        deduction_transaction.currency.user_currency }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment History -->
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">
+                        <i class="fa fa-history"></i> Payment History
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    {% if deduction_transaction.deduction_payments %}
+                    <table class="table table-condensed">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Payment Method</th>
+                                <th>Funding Account</th>
+                                <th>Reference</th>
+                                <th>Notes</th>
+                                <th>Ledger Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in deduction_transaction.deduction_payments %}
+                            <tr>
+                                <td>{{ payment.payment_date }}</td>
+                                <td>{{ "{:,.2f}".format(payment.amount) }} {{
+                                    deduction_transaction.currency.user_currency }}</td>
+                                <td>{{ payment.payment_modes.payment_mode if payment.payment_modes else '-' }}</td>
+                                <td>{{ payment.chart_of_accounts.sub_category }} - {{
+                                    payment.chart_of_accounts.sub_category_id }}</td>
+                                <td>{{ payment.reference if payment.reference else '-' }}</td>
+                                <td>{{ payment.notes if payment.notes else '-' }}</td>
+                                <td>
+                                    {% if not payment.is_posted_to_ledger %}
+                                    <div class="custom-tooltip-container">
+                                        <i class="fas fa-info-circle"
+                                            style="color: #856404; margin-left: 4px; cursor: pointer;"></i>
+                                        <span class="custom-tooltip left">
+                                            To post this payment to the ledger, go to
+                                            <a href="/payroll/deduction_summary/{{ deduction_transaction.payroll_period_id }}"
+                                                style="color: #fff; text-decoration: underline;">Deduction Summary</a>.
+                                        </span>
+                                    </div>
+
+                                    <span class="badge bg-warning">Not Posted</span>
+                                    {% else %}
+                                    <span class="badge bg-success">Posted</span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    <div class="action-icons">
+                                        <a href="#" class="edit-icon" data-tooltip="Edit"
+                                            data-payment-id="{{ payment.id }}" data-amount="{{ payment.amount }}"
+                                            data-payment-date="{{ payment.payment_date }}"
+                                            data-funding-account="{{ payment.chart_of_accounts.id }}"
+                                            data-version="{{ payment.version }}"
+                                            data-reference="{{ payment.reference or '' }}"
+                                            data-payment-method="{{ payment.payment_modes.id if payment.payment_modes else '' }}"
+                                            data-notes="{{ payment.notes or '' }}"
+                                            data-exchange-rate="{{ payment.exchange_rate.rate if payment.exchange_rate else 1 }}">
+                                            <i class="fa fa-pencil"></i>
+                                        </a>
+
+                                        <a href="#" class="delete-icon" data-tooltip="Delete"
+                                            data-payment-id="{{ payment.id }}" data-amount="{{ payment.amount }}"
+                                            data-payment-date="{{ payment.payment_date }}"
+                                            data-funding-account="{{ payment.chart_of_accounts.id }}"
+                                            data-reference="{{ payment.reference or '' }}"
+                                            data-payment-method="{{ payment.payment_method.id if payment.payment_method else '' }}"
+                                            data-notes="{{ payment.notes or '' }}">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fa fa-info-circle"></i> No payment history found
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- Edit Payment Modal -->
+<div class="modal fade" id="editPaymentModal" tabindex="-1" aria-labelledby="editPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editPaymentModalLabel">Edit Deduction Payment</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editPaymentForm">
+                    <input type="hidden" id="editPaymentId" name="paymentId">
+                    <input type="hidden" id="editDeductionId" name="deductionId" value="{{ deduction_transaction.id }}">
+
+                    <!-- Add these two hidden fields -->
+                    <select id="edit_payment_currency_active" name="payment_currency" style="display: none;">
+                        <option value="{{ deduction_transaction.currency_id }}" selected>{{
+                            deduction_transaction.currency.user_currency }}</option>
+                    </select>
+
+                    <input type="hidden" id="edit_base_currency_id" name="base_currency_id"
+                        value="{{ base_currency.id if base_currency else '' }}">
+
+                    <div class="form-grid">
+                        <div class="form-group mb-4">
+                            <label for="editAmount" class="form-label fw-bold">Amount <span
+                                    class="required">*</span></label>
+                            <input type="text" id="editAmount" name="amount" class="form-control" required>
+                            <small class="form-text text-muted">Enter the payment amount.</small>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="editPaymentDate" class="form-label fw-bold">Payment Date <span
+                                    class="required">*</span></label>
+                            <input type="date" id="editPaymentDate" name="paymentDate" class="form-control" required>
+                            <small class="form-text text-muted">Select the payment date.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group mb-4">
+                            <label for="editFundingAccount" class="form-label fw-bold">Funding Account <span
+                                    class="required">*</span></label>
+                            <select id="editFundingAccount" name="fundingAccount" class="form-select" required>
+                                <option value="">Select Funding Account</option>
+                                {% for category, accounts in funding_accounts.items() %}
+                                <optgroup label="{{ category }}">
+                                    {% for account in accounts %}
+                                    <option value="{{ account.id }}">
+
+                                        {{ account.sub_category }}
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">Select the funding account.</small>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="editPaymentMethod" class="form-label fw-bold">Payment Method</label>
+                            <select id="editPaymentMethod" name="paymentMethod" class="form-select">
+                                <option value="">Select Payment Method</option>
+                                {% for mode in payment_modes %}
+                                <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">Choose the payment method.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group mb-4">
+                            <label for="editReference" class="form-label fw-bold">Reference</label>
+                            <input type="text" id="editReference" name="reference" class="form-control">
+                            <small class="form-text text-muted">Enter transaction reference.</small>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="editNotes" class="form-label fw-bold">Notes</label>
+                            <textarea id="editNotes" name="notes" class="form-control" rows="3"
+                                maxlength="50"></textarea>
+                            <small class="form-text text-muted">Additional details about the payment.</small>
+                        </div>
+                    </div>
+
+
+                    <!-- Exchange Rate Section -->
+                    <div id="edit_exchange_rate_container" class="exchange-rate-container"
+                        style="display: none; padding: 12px; background-color: #f8f9fa; border-radius: 6px; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                            <span style="font-weight: 500;">Exchange Rate</span>
+                            <span id="edit_from_currency_display">1 {{ deduction_transaction.currency.user_currency
+                                }}</span>
+                            <span>=</span>
+                            <input type="number" id="edit_exchange_rate" name="exchange_rate" step="0.0000000001"
+                                min="0.0000000001" placeholder="Enter rate"
+                                style="padding: 6px 10px; width: 150px; border-radius: 4px;">
+                            <span id="edit_to_currency_display">{{ base_currency.user_currency if base_currency else ''
+                                }}</span>
+                        </div>
+                        <div id="edit_converted_amount_display" class="converted-amount"
+                            style="margin-top: 8px; display: none;">
+                            Amount in {{ base_currency.user_currency }}: <strong><span
+                                    id="edit_convertedAmountValue">0.00</span></strong>
+                        </div>
+                        <div id="edit_fx_gain_loss_preview"
+                            style="margin-top: 10px; padding: 8px; border-radius: 4px; display: none;">
+                            <strong id="edit_fx_gain_loss_label">FX Gain/Loss:</strong>
+                            <span id="edit_fx_gain_loss_amount">0.00</span> {{ base_currency.user_currency }}
+                        </div>
+                        <small class="form-text text-muted" style="margin-top: 5px; display: block;">
+                            <i class="fas fa-info-circle"></i>
+                            Original deduction created at rate: <span id="edit_original_rate_display">{{
+                                deduction_transaction.exchange_rate.rate if deduction_transaction.exchange_rate else 1
+                                }}</span> {{ base_currency.user_currency }}
+                        </small>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="button cta-button">Update Payment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function printDeductionSummary() {
+        const printContents = `
+    <html>
+        <head>
+            <title>Deduction Summary - {{ deduction_transaction.employees.first_name }} {{ deduction_transaction.employees.last_name }}</title>
+            <style>
+                body { font-family: Arial; margin: 20px; }
+                .print-header { text-align: center; margin-bottom: 20px; }
+                .employee-info { margin-bottom: 15px; }
+                .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                .summary-table th, .summary-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+                .total-row { font-weight: bold; }
+                .breakdown-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                .breakdown-table th { background-color: #f2f2f2; }
+                @page { size: auto; margin: 5mm; }
+            </style>
+        </head>
+        <body>
+            <div class="print-header">
+                <h2>DEDUCTION SUMMARY</h2>
+                <p>{{ deduction_transaction.payroll_periods.start_date }} - {{ deduction_transaction.payroll_periods.end_date }}</p>
+            </div>
+            
+            <div class="employee-info">
+                <h3>{{ deduction_transaction.employees.first_name }} {{ deduction_transaction.employees.last_name }}</h3>
+                <p>Employee ID: {{ deduction_transaction.employees.employee_id or 'N/A' }}</p>
+            </div>
+            
+            <table class="summary-table">
+                <tr>
+                    <th>Description</th>
+                    <th>Amount ({{ deduction_transaction.currency.user_currency }})</th>
+                </tr>
+                <tr>
+                    <td>Gross Salary</td>
+                    <td>{{ "{:,.2f}".format(deduction_transaction.payroll_transactions.gross_salary or 0) }}</td>
+                </tr>
+                <tr>
+                    <td>Total Deductions</td>
+                    <td>{{ "{:,.2f}".format(totals.total_deductions or 0) }}</td>
+                </tr>
+                <tr>
+                    <td>Paid Amount</td>
+                    <td>{{ "{:,.2f}".format(deduction_transaction.paid_amount or 0) }}</td>
+                </tr>
+                <tr class="total-row">
+                    <td>Balance Due</td>
+                    <td>{{ "{:,.2f}".format(deduction_transaction.balance_due or 0) }}</td>
+                </tr>
+            </table>
+            
+            <h4>Deductions Breakdown</h4>
+            <table class="breakdown-table">
+                <tr>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Rate (%)</th>
+                    <th>Fixed Amount</th>
+                    <th>Amount</th>
+                </tr>
+                {% for deduction, deduction_type in deductions %}
+                <tr>
+                    <td>{{ deduction_type.name }}</td>
+                    <td>{{ deduction_type.description if deduction_type.description else '-' }}</td>
+                    <td>{{ "{:,.2f}".format(deduction_type.rate or 0) if deduction_type.is_rate else '-' }}</td>
+                    <td>{{ "{:,.2f}".format(deduction_type.fixed_amount or 0) if not deduction_type.is_rate else '-' }}</td>
+                    <td>{{ "{:,.2f}".format(deduction.amount or 0) }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+            
+            <h4>Payment History</h4>
+            {% if deduction_transaction.deduction_payments %}
+            <table class="breakdown-table">
+                <tr>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Method</th>
+                    <th>Status</th>
+                </tr>
+                {% for payment in deduction_transaction.deduction_payments %}
+                <tr>
+                    <td>{{ payment.payment_date }}</td>
+                    <td>{{ "{:,.2f}".format(payment.amount) }}</td>
+                    <td>{{ payment.payment_method.name if payment.payment_method else '-' }}</td>
+                    <td>{% if payment.is_posted_to_ledger %}Posted{% else %}Pending{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% else %}
+            <p>No payment history found</p>
+            {% endif %}
+            
+            <div class="print-footer">
+                <p>Generated on: {{ now }}</p>
+            </div>
+        </body>
+    </html>
+`;
+        const win = window.open('', '', 'width=800,height=600');
+        win.document.write(printContents);
+        win.document.close();
+        win.focus();
+        setTimeout(() => { win.print(); }, 500);
+    }
+
+
+
+    $(document).ready(function () {
+        // Handle edit payment click for deductions
+        $('.edit-icon').click(function (e) {
+            e.preventDefault();
+
+            // Get payment data from data attributes
+            const paymentId = $(this).data('payment-id');
+            const amount = $(this).data('amount');
+            const paymentDate = $(this).data('payment-date');
+            const fundingAccount = $(this).data('funding-account');
+            const reference = $(this).data('reference') === '-' ? '' : $(this).data('reference');
+            const paymentMethod = $(this).data('payment-method');
+            const notes = $(this).data('notes');
+            const paymentExchangeRate = $(this).data('exchange-rate') || 1;
+
+            // Get deduction currency data
+            const deductionCurrencyId = '{{ deduction_transaction.currency_id }}';
+            const deductionCurrencyCode = '{{ deduction_transaction.currency.user_currency }}';
+            const baseCurrencyId = document.getElementById('edit_base_currency_id').value;
+            const baseCurrencyCode = '{{ base_currency.user_currency }}';
+            const originalRate = parseFloat('{{ deduction_transaction.exchange_rate.rate if deduction_transaction.exchange_rate else 1 }}');
+
+            const version = $(this).data('version') || 1;  // ADD THIS
+
+            // Store version in modal
+            $('#editPaymentModal').data('payment-version', version);
+
+            // Populate the EDIT modal
+            $('#editPaymentId').val(paymentId);
+            $('#editAmount').val(amount);
+            $('#editPaymentDate').val(paymentDate.split('T')[0]);
+            $('#editFundingAccount').val(fundingAccount);
+            $('#editReference').val(reference);
+            $('#editPaymentMethod').val(paymentMethod);
+            $('#editNotes').val(notes);
+
+            // Set the exchange rate input
+            const exchangeRateInput = document.getElementById('edit_exchange_rate');
+            if (exchangeRateInput) {
+                exchangeRateInput.value = paymentExchangeRate;
+            }
+
+            // Update original rate display
+            const originalRateDisplay = document.getElementById('edit_original_rate_display');
+            if (originalRateDisplay) {
+                originalRateDisplay.textContent = originalRate;
+            }
+
+            // Update from currency display
+            const fromDisplay = document.getElementById('edit_from_currency_display');
+            if (fromDisplay) {
+                fromDisplay.innerHTML = `1 ${deductionCurrencyCode}`;
+            }
+
+            // Check if foreign currency
+            const isForeign = String(deductionCurrencyId) !== String(baseCurrencyId);
+            const exchangeRateContainer = document.getElementById('edit_exchange_rate_container');
+
+            if (isForeign) {
+                exchangeRateContainer.style.display = 'block';
+
+                // Update hidden currency select
+                const currencySelect = document.getElementById('edit_payment_currency_active');
+                if (currencySelect) {
+                    currencySelect.innerHTML = `<option value="${deductionCurrencyId}" selected>${deductionCurrencyCode}</option>`;
+                }
+
+                // Initialize Exchange Rate Manager if available
+                if (typeof ExchangeRateManager !== 'undefined') {
+                    if (window.editDeductionRateManager && typeof window.editDeductionRateManager.destroy === 'function') {
+                        window.editDeductionRateManager.destroy();
+                    }
+
+                    window.editDeductionRateManager = ExchangeRateManager.init({
+                        currencySelectId: 'edit_payment_currency_active',
+                        dateInputId: 'editPaymentDate',
+                        exchangeRateInputId: 'edit_exchange_rate',
+                        containerId: 'edit_exchange_rate_container',
+                        fromDisplayId: 'edit_from_currency_display',
+                        toDisplayId: 'edit_to_currency_display',
+                        baseCurrencyId: 'edit_base_currency_id',
+                        appId: '{{ app_id }}',
+                        apiEndpoint: '/multi_currency/api/get_exchange_rate',
+                        csrfToken: csrfToken,
+                        callbacks: {
+                            onRateChange: function (rate) {
+                                updateEditConvertedAmount();
+                                calculateEditFXGainLoss();
+                            },
+                            onSuccess: function (rate, source) {
+                                console.log(`Rate ${rate} loaded from ${source}`);
+                                updateEditConvertedAmount();
+                                calculateEditFXGainLoss();
+                            },
+                            onVisibilityChange: function (isVisible) {
+                                if (!isVisible) {
+                                    $('#edit_exchange_rate').val('');
+                                }
+                            }
+                        }
+                    });
+                }
+            } else {
+                exchangeRateContainer.style.display = 'none';
+            }
+
+            // Setup preview
+            setupEditPreview();
+            updateEditConvertedAmount();
+            calculateEditFXGainLoss();
+
+            // Show the EDIT modal
+            $('#editPaymentModal').modal('show');
+        });
+
+
+
+
+        // Handle delete payment click for deductions
+        $('.delete-icon').click(function (e) {
+            e.preventDefault();
+            const paymentId = $(this).data('payment-id');
+
+            // Show confirmation dialog
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it!',
+                width: '400px',
+                padding: '1rem',
+                backdrop: 'rgba(0,0,0,0.4)',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    deleteDeductionPayment(paymentId);
+                }
+            });
+        });
+
+        // Handle edit form submission for deductions
+        $('#editPaymentForm').submit(function (e) {
+            e.preventDefault();
+
+            const formData = {
+                amount: $('#editAmount').val(),
+                paymentDate: $('#editPaymentDate').val(),
+                fundingAccount: $('#editFundingAccount').val(),
+                reference: $('#editReference').val(),
+                paymentMethod: $('#editPaymentMethod').val(),
+                notes: $('#editNotes').val(),
+                exchange_rate: $('#edit_exchange_rate').val(),
+                base_currency_id: $('#edit_base_currency_id').val(),
+                fx_gain_loss: $('#editPaymentForm').data('fx-gain-loss') || 0,
+                version: $('#editPaymentModal').data('payment-version')
+            };
+
+            $.ajax({
+                url: `/payroll/deduction_payments/${$('#editPaymentId').val()}/update`,
+                type: 'PUT',
+                data: JSON.stringify(formData),
+                headers: {
+                    "Content-Type": "application/json",
+                    'X-CSRFToken': csrfToken
+                },
+                success: function (data) {
+                    $('#editPaymentModal').modal('hide');
+                    showNotification(data.message || 'Deduction payment updated successfully', 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                },
+                error: function (xhr) {
+                    showNotification(
+                        'Error updating deduction payment: ' +
+                        (xhr.responseJSON?.message || xhr.statusText),
+                        'error'
+                    );
+                    enableAllSubmitButtons();
+                }
+            });
+        });
+        // Function to handle deduction payment deletion
+        function deleteDeductionPayment(paymentId) {
+            $.ajax({
+                url: `/payroll/deduction_payments/${paymentId}`,
+                type: 'DELETE',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                success: function (data) {
+                    showNotification(data.message || 'Deduction payment deleted successfully', 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                },
+                error: function (xhr) {
+                    showNotification(
+                        'Error deleting deduction payment: ' +
+                        (xhr.responseJSON?.message || xhr.statusText),
+                        'error'
+                    );
+                }
+            });
+        }
+
+
+        // Helper functions for exchange rate handling
+        function updateEditConvertedAmount() {
+            const paymentAmount = parseFloat(document.getElementById('editAmount').value) || 0;
+            const exchangeRate = parseFloat(document.getElementById('edit_exchange_rate').value) || 1;
+            const convertedAmount = paymentAmount * exchangeRate;
+            const baseCurrencyCode = '{{ base_currency.user_currency }}';
+
+            const convertedSpan = document.getElementById('edit_convertedAmountValue');
+            const convertedDisplay = document.getElementById('edit_converted_amount_display');
+
+            if (convertedSpan && convertedDisplay) {
+                convertedSpan.textContent = formatCurrency(convertedAmount, baseCurrencyCode, true);
+                convertedDisplay.style.display = 'block';
+            }
+        }
+
+        function calculateEditFXGainLoss() {
+            const paymentAmount = parseFloat(document.getElementById('editAmount').value) || 0;
+            const currentRate = parseFloat(document.getElementById('edit_exchange_rate').value) || 1;
+            const originalRate = parseFloat(document.getElementById('edit_original_rate_display').textContent) || 1;
+            const baseCurrencyCode = '{{ base_currency.user_currency }}';
+
+            const currentBaseAmount = paymentAmount * currentRate;
+            const originalBaseAmount = paymentAmount * originalRate;
+            const fxGainLoss = currentBaseAmount - originalBaseAmount;
+
+            const fxContainer = document.getElementById('edit_fx_gain_loss_preview');
+            const fxAmountSpan = document.getElementById('edit_fx_gain_loss_amount');
+            const fxLabelSpan = document.getElementById('edit_fx_gain_loss_label');
+
+            if (Math.abs(fxGainLoss) > 0.01 && paymentAmount > 0) {
+                fxContainer.style.display = 'block';
+                fxAmountSpan.textContent = Math.abs(fxGainLoss).toFixed(2);
+
+                if (fxGainLoss > 0) {
+                    fxLabelSpan.innerHTML = 'FX Loss:';
+                    fxContainer.style.backgroundColor = '#fff0f0';
+                    fxContainer.style.borderLeft = '3px solid #dc3545';
+                } else {
+                    fxLabelSpan.innerHTML = 'FX Gain:';
+                    fxContainer.style.backgroundColor = '#f0fff0';
+                    fxContainer.style.borderLeft = '3px solid #28a745';
+                }
+            } else {
+                fxContainer.style.display = 'none';
+            }
+
+            $('#editPaymentForm').data('fx-gain-loss', fxGainLoss);
+        }
+
+        function setupEditPreview() {
+            const amountInput = document.getElementById('editAmount');
+            const rateInput = document.getElementById('edit_exchange_rate');
+
+            const update = () => {
+                updateEditConvertedAmount();
+                calculateEditFXGainLoss();
+            };
+
+            if (amountInput) {
+                amountInput.removeEventListener('input', update);
+                amountInput.addEventListener('input', update);
+            }
+            if (rateInput) {
+                rateInput.removeEventListener('input', update);
+                rateInput.addEventListener('input', update);
+            }
+        }
+
+        // Reset create payment modal when closed
+        $('#paymentModal').on('hidden.bs.modal', function () {
+            $('#paymentForm')[0].reset();
+        });
+    });
+</script>
+
+<style>
+    .oe_view_nocontent {
+        padding: 15px;
+        position: relative;
+        border-bottom: 1px solid #e2e2e0;
+    }
+
+    .oe_view_title {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 500;
+    }
+
+    .oe_view_subtitle {
+        color: var(--primary-color);
+        font-size: 13px;
+        margin-top: 5px;
+    }
+
+    .oe_button_box {
+        display: inline-block;
+        position: absolute;
+        right: 15px;
+        top: 15px;
+    }
+
+    .oe_stat_button {
+        display: inline-block;
+        padding: 6px 12px;
+        margin-left: 5px;
+        background-color: #f0eeee;
+        border: 1px solid #e2e2e0;
+        border-radius: 3px;
+        color: #4c4c4c;
+        cursor: pointer;
+    }
+
+    .oe_form_sheetbg {
+        background-color: #f9f9f9;
+        padding: 16px;
+    }
+
+    .oe_form_sheet {
+        background: white;
+        border: 1px solid #e2e2e0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 16px;
+        max-width: 100%;
+    }
+
+    .oe_title {
+        margin-bottom: 20px;
+        position: relative;
+    }
+
+    .oe_avatar {
+        margin-right: 15px;
+        color: var(--highlight-color);
+    }
+
+    .oe_title h1 {
+        margin: 0 0 5px 0;
+        font-size: 24px;
+        padding-left: 60px;
+    }
+
+    .oe_title h3 {
+        margin: 0;
+        font-size: 14px;
+        color: #999;
+        padding-left: 60px;
+    }
+
+    .oe_form_group {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .oe_form_group_title {
+        font-size: 16px;
+        color: var(--highlight-color);
+        margin: 0 0 10px 0;
+        padding-bottom: 5px;
+        border-bottom: 1px solid #e2e2e0;
+    }
+
+    .oe_form_group_row {
+        display: table-row;
+    }
+
+    .oe_form_group_cell {
+        display: table-cell;
+        padding: 8px;
+        vertical-align: top;
+    }
+
+    .panel {
+        margin-bottom: 20px;
+        background-color: #fff;
+        border: 1px solid #e2e2e0;
+        border-radius: 3px;
+        box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+    }
+
+    .panel-default {
+        border-color: #e2e2e0;
+    }
+
+    .panel-heading {
+        padding: 10px 15px;
+        background-color: #f9f9f9;
+        border-bottom: 1px solid #e2e2e0;
+        border-top-left-radius: 2px;
+        border-top-right-radius: 2px;
+    }
+
+    .panel-title {
+        margin-top: 0;
+        margin-bottom: 0;
+        font-size: 14px;
+        color: var(--highlight-color-darker);
+    }
+
+    .panel-body {
+        padding: 15px;
+    }
+
+    .table {
+        width: 100%;
+        max-width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .table-condensed th,
+    .table-condensed td {
+        padding: 5px;
+    }
+
+    .table th {
+        text-align: left;
+        background-color: #f9f9f9;
+        border-bottom: 1px solid #e2e2e0;
+    }
+
+    .table td {
+        border-bottom: 1px solid #e2e2e0;
+    }
+
+    .text-right {
+        text-align: right;
+    }
+
+    .back-button {
+        display: flex;
+        align-items: center;
+        color: var(--primary-color);
+        text-decoration: none;
+        font-weight: 400;
+        margin-left: 5px;
+    }
+
+    .back-button i {
+        margin-right: 8px;
+    }
+
+    .negative-color {
+        color: #d32f2f;
+    }
+
+    .status.success {
+        color: var(--positive-color);
+        background: #e3f7ec;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .status.pending {
+        color: #ff9800;
+        background: #fff8e1;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .alert {
+        padding: 10px;
+        background-color: #e3f2fd;
+        border: 1px solid #bbdefb;
+        border-radius: 4px;
+        color: #0d47a1;
+    }
+
+    .alert-info {
+        background-color: #e3f2fd;
+        border-color: #bbdefb;
+        color: #0d47a1;
+    }
+
+    @media (max-width: 768px) {
+        .oe_button_box {
+            position: static;
+            margin-bottom: 15px;
+        }
+
+        .oe_title h1,
+        .oe_title h3 {
+            padding-left: 0;
+        }
+
+        .row {
+            display: block;
+        }
+
+        .col-md-6 {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+    }
+</style>
+{% endblock %}

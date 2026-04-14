@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Payment</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .form-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="number"],
+        input[type="date"],
+        select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button[type="submit"] {
+            background-color: #005c8b;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #004269;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="form-container">
+        <h2>Update Payment</h2>
+        <form method="post">
+            <div class="form-group">
+                <label for="payment_amount">Amount</label>
+                <input type="number" id="payment_amount" name="payment_amount" min="0" required>
+            </div>
+
+            <div class="form-group">
+                <label for="payment_date">Transaction Date</label>
+                <input type="date" id="payment_date" name="payment_date" required>
+            </div>
+
+            <div class="form-group">
+                <label for="payment_type">Payment Type</label>
+                <select id="payment_type" name="payment_type" required>
+                    <option value="payment">Loan Repayment</option>
+                    <option value="discount">Discount</option>
+                    <option value="discontinue">Discontinue Loan</option>
+                </select>
+            </div>
+
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+
+    <script>
+        // Set default value of payment_date to today's date
+        document.getElementById('payment_date').valueAsDate = new Date();
+
+        // Get references to the payment type dropdown and amount input
+        const paymentType = document.getElementById('payment_type');
+        const paymentAmount = document.getElementById('payment_amount');
+
+        // Add an event listener to the payment type dropdown
+        paymentType.addEventListener('change', function () {
+            if (this.value === 'discontinue') {
+                // If "Discontinue Loan" is selected, set amount to readonly and value to 0
+                paymentAmount.readOnly = true;
+                paymentAmount.value = 0;
+                alert('Since the loan is being discontinued, the amount has been set to 0.');
+            } else {
+                // Otherwise, ensure the amount input is not readonly
+                paymentAmount.readOnly = false;
+            }
+        });
+    </script>
+</body>
+
+</html>

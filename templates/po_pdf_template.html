@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>View Purchase Order</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const contentElement = document.getElementById('po-content');
+            const options = {
+                margin: 0.5,
+                filename: '{{ company.name }} - #PO {{ purchase_order.po_number }}.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            html2pdf().from(contentElement).set(options).save()
+            });
+        
+    </script>
+</head>
+<body>
+    <div id="po-content">
+       
+        <style>
+            :root {
+                --primary-color: #333;
+                --secondary-color: #f8f9fa;
+                --border-color: #ddd;
+                --text-color: #333;
+                --background-color: #ffffff;
+                --box-shadow-color: rgba(0, 0, 0, 0.1);
+                --font-size-base: 15px;
+                --font-size-small: 14px;
+                --padding-base: 10px;
+                --padding-small: 8px;
+            }
+
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                flex-wrap: wrap;
+            }
+
+            .header h1 {
+                margin: 0;
+                color: var(--primary-color);
+                flex: 1;
+            }
+
+            .date-po {
+                text-align: right;
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+            }
+
+            .date-po div {
+                margin-bottom: 3px;
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+
+            .date-po label {
+                width: 120px;
+                text-align: right;
+                margin-right: 10px;
+            }
+
+            .date-po input[type="date"],
+            .date-po input[type="text"] {
+                width: 200px;
+                padding: 5px;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+            }
+
+            /* Responsive Design */
+            @media (max-width: 768px) {
+                .header {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+
+                .date-po {
+                    text-align: left;
+                    align-items: flex-start;
+                }
+
+                .date-po label {
+                    width: auto;
+                    margin-right: 0;
+                }
+
+                .date-po input[type="date"],
+                .date-po input[type="text"] {
+                    width: 100%;
+                    margin-top: 5px;
+                }
+            }
+
+            .info-section {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: space-between;
+                margin-bottom: 10px;
+            }
+
+            .info-section div {
+                flex: 1 1 15%;
+                margin: 5px;
+                min-width: 200px;
+            }
+
+            .info-section h6 {
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+
+            .table-container {
+                overflow-x: auto;
+                margin-bottom: 20px;
+                padding: 20px;
+                background-color: var(--background-color);
+                box-shadow: 0 2px 6px var(--box-shadow-color);
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                background-color: var(--background-color);
+            }
+
+            table th,
+            table td {
+                padding: var(--padding-base);
+                text-align: left;
+                border-bottom: 1px solid var(--border-color);
+                font-size: var(--font-size-base);
+            }
+
+            table th {
+                background-color: var(--primary-color);
+                color: white;
+                font-weight: 600;
+            }
+
+            .total-comments-container {
+                display: flex;
+                align-items: right;
+                margin-left: 50%;
+                flex-wrap: wrap;
+                
+                justify-content: flex-end;
+                
+            }
+
+    
+
+            .total-section {
+    flex: 0.8;
+    padding: 20px;
+    background-color: var(--secondary-color);
+    box-shadow: 0 2px 6px var(--box-shadow-color);
+}
+
+.total-section div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.total-section label {
+    font-weight: bold;
+    font-size: var(--font-size-small);
+    color: var(--text-color);
+    text-align: right; /* Aligns the label text to the right */
+    width: 100%; /* Ensures the label takes up half of the space */
+}
+
+.total-section span {
+    display: inline-block;
+    padding: 5px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--background-color);
+    font-size: var(--font-size-small);
+    text-align: right;
+    width: 50%; /* Ensures the span takes up the other half of the space */
+}
+
+
+            @media (max-width: 768px) {
+                .total-section {
+                    padding: var(--padding-small);
+                }
+
+                .total-section label,
+                .total-section span {
+                    font-size: var(--font-size-small);
+                }
+            }
+        </style>
+
+        <div class="container">
+            <main>
+                <div class="container-fluid px-4">
+                    <!-- Flash Messages Section -->
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ 
+                'success' if category == 'success' 
+                else 'info' if category == 'info' 
+                else 'warning' if category == 'warning' 
+                else 'danger' if category == 'error' 
+                else category 
+            }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+
+                    <div class="header">
+                        <div class="company-info">
+                            {% if company.name %}
+                            <h2>{{ company.name }}</h2>
+                            {% endif %}
+
+                            {% if company.address %}
+                            <p>{{ company.address }}</p>
+                            {% endif %}
+
+                            {% if company.phone %}
+                            <p>Phone: {{ company.phone }}</p>
+                            {% endif %}
+
+                            {% if company.email %}
+                            <p>Email: {{ company.email }}</p>
+                            {% endif %}
+
+                            {% if company.website %}
+                            <p>Website: {{ company.website }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="date-po">
+                            <h1 class="mt-4">Purchase Order</h1>
+                            <div><label for="po_date">DATE:</label> <input type="date" id="po_date" name="po_date"
+                                value="{{purchase_order.po_date}}" readonly></div>
+                            <div><label for="po_number">PO #:</label> <input type="text" id="po_number" name="po_number"
+                                value="{{ purchase_order.po_number }}" readonly></div>
+                        </div>
+                    </div>
+
+                    <div class="info-section">
+                        <div>
+                            <h6>VENDOR:</h6>
+                            {% if purchase_order.vendor %}
+                                {% if purchase_order.vendor.vendor_name %}
+                                    <p>{{ purchase_order.vendor.vendor_name }}</p>
+                                {% else %}
+                                    <p>Vendor name not available</p>
+                                {% endif %}
+                            {% else %}
+                                <p>Vendor information not available</p>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h6>SHIP TO:</h6>
+                            {% if purchase_order.ship_to %}
+                            <p>{{ purchase_order.ship_to }}</p>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h6>PAYMENT TERMS:</h6>
+                            {% if purchase_order.payment_terms %}
+                            <p>{{ purchase_order.payment_terms }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Item</th>
+                                    <th>Description</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price ({{purchase_order.currencies.user_currency}})</th>
+                                    <th>Total ({{purchase_order.currencies.user_currency}})</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in purchase_order.items %}
+                                <tr>
+                                    <td>{{ item.po_line_number }}</td>
+                                    <td>{{ item.item }}</td>
+                                    <td>{{ item.description }}</td>
+                                    <td>{{ item.quantity_ordered }}</td>
+                                    <td>{{ "{:,.2f}".format(item.unit_price) }}</td>
+                                    <td>{{ "{:,.2f}".format(item.extended_price) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+        
+                    <div class="total-comments-container">
+                        
+        
+                        <div class="total-section">
+                            <div>
+                                <label for="subtotal">Subtotal:</label>
+                                <span id="subtotal">{{ "{:,.2f}".format(purchase_order.order_subtotal ) }}</span>
+                            </div>
+                            <div>
+                                <label for="tax">Tax:</label>
+                                <span id="tax">{{ "{:,.2f}".format(purchase_order.tax) }}</span>
+                            </div>
+                            <div>
+                                <label for="shipping">Shipping:</label>
+                                <span id="shipping">{{ "{:,.2f}".format(purchase_order.shipping) }}</span>
+                            </div>
+                            <div>
+                                <label for="other">Other:</label>
+                                <span id="other">{{ "{:,.2f}".format(purchase_order.other) }}</span>
+                            </div>
+                            <div>
+                                <label for="discount">Discount(less):</label>
+                                <span id="discount">{{ "{:,.2f}".format(purchase_order.discount ) }}</span>
+                            </div>
+                            <div>
+                                <label for="total">Total ({{purchase_order.currencies.user_currency}}):</label>
+                                <span id="total">{{ "{:,.2f}".format(purchase_order.order_total) }}</span>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

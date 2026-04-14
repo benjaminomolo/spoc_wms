@@ -1,0 +1,1227 @@
+{% extends "transaction_base_template.html" %}
+{% block content %}
+
+<style>
+    .form-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e0e0e0;
+        padding-bottom: 10px;
+    }
+
+    .form-tab {
+        padding: 10px 20px;
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 5px 5px 0 0;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        margin-bottom: -2px;
+    }
+
+    .form-tab:hover {
+        background: #e9e9e9;
+    }
+
+    .form-tab.active {
+        background: #2980b9;
+        color: white;
+        border-color: #2980b9;
+    }
+
+    .form-tab-content {
+        display: none;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .form-tab-content.active {
+        display: block;
+    }
+
+    .form-navigation {
+        border-top: 1px solid #eee;
+        padding-top: 15px;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    /* Ensure form elements in tabs display properly */
+    .form-tab-content .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+</style>
+
+<div class="content-container">
+    <div id="addEmployee" class="header-section">
+        <h1>Manage Employees</h1>
+
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Supervisor' or role == 'Viewer' %}
+                    <li><a href="{{ url_for('payroll_routes.payroll_dashboard') }}">Payroll
+                            Dashboard</a></li>
+                    {% endif %}
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li><a href="{{ url_for('payroll.generate_pay_run') }}">Create Pay run</a></li>
+                    <li><a href="{{ url_for('payroll.create_advance_payment') }}">Create Advance</a>
+                    </li>
+                    {% endif %}
+                    <li><a href="{{ url_for('payroll.get_employee_deductions') }}">Deductions</a></li>
+
+                    <li><a href="{{ url_for('payroll.get_advance_payments') }}">View Advances</a></li>
+                    <li><a href="{{ url_for('payroll.get_advance_repayments') }}">View Repayments</a></li>
+
+                </ul>
+            </nav>
+        </div>
+
+        <div class="header-buttons">
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+
+
+        </div>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+
+
+
+            <ol class="dashboard-shortcuts">
+
+                <li class="shortcut-item"><a href="{{ url_for('payroll.add_employee') }}">Employees</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('payroll.get_pay_runs') }}"> View Payroll
+                        Runs </a></li>
+
+
+
+                <!-- In your shortcuts sidebar -->
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" id="moreOptionsDropdown" onclick="toggleDropdown(event)">
+                        <span>More Options </span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+                            <!-- Important: Receive Payment first -->
+                            {% if role == 'Admin' or role == 'Supervisor' or role == 'Viewer' %}
+                            <a href="{{ url_for('payroll_routes.payroll_dashboard') }}"> Payroll Dashboard</a>
+                            {% endif %}
+
+
+                            {% if role == 'Admin' or role == 'Contributor' %}
+                            <a href="{{ url_for('payroll.generate_pay_run') }}"> Create
+                                Pay
+                                Run</a>
+                            {% endif %}
+
+                            <!-- Quotations -->
+                            <a href="{{ url_for('payroll.get_employee_deductions') }}">Deductions</a>
+
+                            {% if role == 'Admin' or role == 'Contributor' %}
+
+                            <!-- Sales Orders -->
+                            <a href="{{ url_for('payroll.create_advance_payment') }}">Create Advance</a>
+
+                            {% endif %}
+
+                            <!-- Delivery Notes -->
+                            <a href="{{ url_for('payroll.get_advance_payments') }}">View Advances</a>
+
+                            <!-- Payment Receipts -->
+                            <a href="{{ url_for('payroll.get_advance_repayments') }}">View Repayments</a>
+
+
+                        </div>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+    </div>
+
+
+
+
+    <h4>Edit Employee: {{ employee.first_name }} {{ employee.last_name }}</h4>
+
+    <!-- Form Tabs Navigation -->
+    <div class="form-tabs">
+        <button type="button" class="form-tab active" data-tab="personal">Personal Info</button>
+        <button type="button" class="form-tab" data-tab="employment">Employment</button>
+        <button type="button" class="form-tab" data-tab="compensation">Compensation</button>
+        <button type="button" class="form-tab" data-tab="accounting">Accounting</button>
+        <button type="button" class="form-tab" data-tab="additional">Additional Info</button>
+    </div>
+
+    <!-- Form for Editing Employee -->
+    <form id="addEmployeeForm" action="{{ url_for('payroll.update_employee', id=employee.id) }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <!-- Personal Information Tab -->
+        <div class="form-tab-content active" id="personal-tab">
+            <h5>Personal Information</h5>
+            <div class="form-grid">
+                <div class="form-group">
+                    <input type="text" id="first_name" class="form-control" name="first_name" placeholder=""
+                        value="{{ employee.first_name }}" autocomplete="off" required>
+                    <label for="first_name" class="form-label">First Name: <span class="required">*</span></label>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="middle_name" class="form-control" name="middle_name" placeholder=""
+                        value="{{ employee.middle_name or '' }}" autocomplete="off">
+                    <label for="middle_name" class="form-label">Middle Name:</label>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="last_name" class="form-control" name="last_name" placeholder=""
+                        value="{{ employee.last_name }}" autocomplete="off" required>
+                    <label for="last_name" class="form-label">Last Name: <span class="required">*</span></label>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="employee_id" class="form-control" name="employee_id" placeholder=""
+                        value="{{ employee.employee_id or '' }}" autocomplete="off">
+                    <label for="employee_id" class="form-label">Employee ID:</label>
+                </div>
+
+                <div class="form-group">
+                    <input type="date" id="date_of_birth" class="form-control" name="date_of_birth" placeholder=""
+                        value="{{ employee.date_of_birth or '' }}" autocomplete="off">
+                    <label for="date_of_birth" class="form-label">Date of Birth:</label>
+                </div>
+
+                <div class="form-group">
+                    <select class="form-control" id="gender" name="gender" required>
+                        <option value="">--Select Gender--</option>
+                        <option value="Male" {% if employee.gender=='Male' %}selected{% endif %}>Male</option>
+                        <option value="Female" {% if employee.gender=='Female' %}selected{% endif %}>Female</option>
+                        <option value="Other" {% if employee.gender=='Other' %}selected{% endif %}>Other</option>
+                    </select>
+                    <label for="gender" class="form-label">Gender: <span class="required">*</span></label>
+                </div>
+
+                <div class="form-group">
+                    <input type="email" id="email" class="form-control" name="email" placeholder=""
+                        value="{{ employee.email or '' }}" autocomplete="off">
+                    <label for="email" class="form-label">Email:</label>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="emergency_contact_name" class="form-control" name="emergency_contact_name"
+                        value="{{ employee.emergency_contact_name or '' }}" placeholder="" autocomplete="off">
+                    <label for="emergency_contact_name" class="form-label">Emergency Contact Name:</label>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="emergency_contact_phone" class="form-control" name="emergency_contact_phone"
+                        value="{{ employee.emergency_contact_phone or '' }}" placeholder="" autocomplete="off">
+                    <label for="emergency_contact_phone" class="form-label">Emergency Contact Phone:</label>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="tax_id" class="form-control" name="tax_id" placeholder=""
+                        value="{{ employee.tax_id or '' }}" autocomplete="off">
+                    <label for="tax_id" class="form-label">Tax ID:</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employment Information Tab -->
+        <div class="form-tab-content" id="employment-tab">
+            <h5>Employment Information</h5>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="department_id" class="form-label">Department: <span class="required">*</span></label>
+                    <select class="form-control select2-custom" id="department_id" name="department_id" required>
+                        <option value="">-- Select Department --</option>
+                        {% for department in company.departments %}
+                        <option value="{{ department.id }}" {% if employee.department_id==department.id %}selected{%
+                            endif %}>
+                            {{ department.department_name }}
+                        </option>
+                        {% endfor %}
+                        <option value="add_new_department" class="add-new-option">Add New Department</option>
+                    </select>
+                </div>
+
+                <!-- Project Field Added Here -->
+                <div class="form-group">
+                    <label for="project_id" class="form-label">Project: (Optional)</label>
+                    <select class="form-control select2-custom" id="project_id" name="project_id">
+                        <option value="">-- Select Project --</option>
+                        {% for project in company.projects %}
+                        <option value="{{ project.id }}" {% if employee.project_id==project.id %}selected{% endif %}>
+                            {{ project.name }} {% if project.project_id %}({{ project.project_id }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="job_title" class="form-control" name="job_title" placeholder=""
+                        value="{{ employee.job_title }}" autocomplete="off" required>
+                    <label for="job_title" class="form-label">Job Title: <span class="required">*</span></label>
+                </div>
+
+                <div class="form-group">
+                    <select class="form-control" id="employment_status" name="employment_status" required>
+                        <option value="">--Select Employment Status--</option>
+                        <option value="Full-time" {% if employee.employment_status=='Full-time' %}selected{% endif %}>
+                            Full-time</option>
+                        <option value="Part-time" {% if employee.employment_status=='Part-time' %}selected{% endif %}>
+                            Part-time</option>
+                        <option value="Contract" {% if employee.employment_status=='Contract' %}selected{% endif %}>
+                            Contract</option>
+                        <option value="Temporary" {% if employee.employment_status=='Temporary' %}selected{% endif %}>
+                            Temporary</option>
+                        <option value="Seasonal" {% if employee.employment_status=='Seasonal' %}selected{% endif %}>
+                            Seasonal</option>
+                        <option value="Freelance" {% if employee.employment_status=='Freelance' %}selected{% endif %}>
+                            Freelance</option>
+                        <option value="Intern" {% if employee.employment_status=='Intern' %}selected{% endif %}>
+                            Intern</option>
+                        <option value="Apprentice" {% if employee.employment_status=='Apprentice' %}selected{% endif %}>
+                            Apprentice</option>
+                    </select>
+                    <label for="employment_status" class="form-label">Employment Status: <span
+                            class="required">*</span></label>
+                </div>
+
+                <div class="form-group">
+                    <input type="date" id="hire_date" class="form-control" name="hire_date" placeholder=""
+                        value="{{ employee.hire_date }}" autocomplete="off" required>
+                    <label for="hire_date" class="form-label">Hire Date: <span class="required">*</span></label>
+                </div>
+
+                <div class="form-group">
+                    <input type="date" id="termination_date" class="form-control" name="termination_date" placeholder=""
+                        value="{{ employee.termination_date or '' }}" autocomplete="off">
+                    <label for="termination_date" class="form-label">Termination Date:</label>
+                </div>
+
+                <div class="form-group">
+                    <input type="date" id="last_promotion_date" class="form-control" name="last_promotion_date"
+                        placeholder="" value="{{ employee.last_promotion_date or '' }}" autocomplete="off">
+                    <label for="last_promotion_date" class="form-label">Last Promotion Date:</label>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="work_location" class="form-control" name="work_location" placeholder=""
+                        value="{{ employee.work_location or '' }}" autocomplete="off">
+                    <label for="work_location" class="form-label">Work Location:</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compensation Information Tab -->
+        <div class="form-tab-content" id="compensation-tab">
+            <h5>Compensation Information</h5>
+            <div class="form-grid">
+                <div class="form-group">
+                    <select class="form-control" id="salary_type" name="salary_type" required>
+                        <option value="">-- Select Salary Type --</option>
+                        <option value="Monthly" {% if employee.salary_type=='Monthly' %}selected{% endif %}>Monthly
+                        </option>
+                        <option value="Bi-weekly" {% if employee.salary_type=='Bi-weekly' %}selected{% endif %}>
+                            Bi-weekly</option>
+                        <option value="Weekly" {% if employee.salary_type=='Weekly' %}selected{% endif %}>Weekly
+                        </option>
+                        <option value="Hourly" {% if employee.salary_type=='Hourly' %}selected{% endif %}>Hourly
+                        </option>
+                        <option value="Daily" {% if employee.salary_type=='Daily' %}selected{% endif %}>Daily
+                        </option>
+                        <option value="Piece Rate" {% if employee.salary_type=='Piece Rate' %}selected{% endif %}>
+                            Piece Rate</option>
+                        <option value="Commission" {% if employee.salary_type=='Commission' %}selected{% endif %}>
+                            Commission</option>
+                        <option value="Other" {% if employee.salary_type=='Other' %}selected{% endif %}>Other
+                        </option>
+                    </select>
+                    <label for="salary_type" class="form-label">Salary Type: <span class="required">*</span></label>
+                </div>
+
+                <div class="form-group">
+                    <input type="number" id="base_salary" class="form-control format-number" name="base_salary"
+                        placeholder="" value="{{ employee.base_salary if employee.base_salary is not none else '' }}"
+                        autocomplete="off">
+                    <label for="base_salary" class="form-label">Base Salary (Gross):</label>
+                </div>
+
+                <div class="form-group">
+                    <select class="form-control" id="base_currency" name="base_currency" required>
+                        <option value="">--Select Currency--</option>
+                        {% for c in company.currency %}
+                        <option value="{{ c.id }}" {% if employee.base_currency==c.id %}selected{% endif %}>
+                            {{ c.user_currency }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <label for="base_currency" class="form-label">Base Currency: <span class="required">*</span></label>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="payment_account_number" class="form-control" name="payment_account_number"
+                        placeholder="" value="{{ employee.payment_account_number or '' }}" autocomplete="off">
+                    <label for="payment_account_number" class="form-label">Payment Account Number:</label>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="payment_account_name" class="form-control" name="payment_account_name"
+                        placeholder="" value="{{ employee.payment_account_name or '' }}" autocomplete="off">
+                    <label for="payment_account_name" class="form-label">Payment Account Name:</label>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="payment_platform" class="form-control" name="payment_platform" placeholder=""
+                        value="{{ employee.payment_platform or '' }}" autocomplete="off">
+                    <label for="payment_platform" class="form-label">Payment Platform / Entity:</label>
+                </div>
+
+                <!-- Multi-select for Benefits -->
+                <div class="form-group" style="grid-column: span 2;">
+                    <label for="benefits" class="form-label">Select Benefits:</label>
+                    <select class="form-control select2-custom" id="benefits" name="benefits[]" multiple>
+                        {% for benefit in company.benefit_types %}
+                        <option value="{{ benefit.id }}" {% if benefit.id in employee_benefit_ids %}selected{% endif %}>
+                            {{ benefit.name }}
+                        </option>
+                        {% endfor %}
+                        <option value="add_new_benefit" class="add-new-option">Add New Benefit</option>
+                    </select>
+                    <small class="form-text text-muted">Selected benefits will increase the employee's total
+                        compensation.</small>
+                </div>
+
+                <!-- Multi-select for Deductions -->
+                <div class="form-group" style="grid-column: span 2;">
+                    <label for="deductions" class="form-label">Select Deductions:</label>
+                    <select class="form-control select2-custom" id="deductions" name="deductions[]" multiple>
+                        {% for deduction in company.deduction_types %}
+                        <option value="{{ deduction.id }}" {% if deduction.id in employee_deduction_ids %}selected{%
+                            endif %}>
+                            {{ deduction.name }}
+                        </option>
+                        {% endfor %}
+                        <option value="add_new_deduction" class="add-new-option">Add New Deduction</option>
+                    </select>
+                    <small class="form-text text-muted">Deductions selected here will be applied to reduce the gross
+                        amount.</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accounting Information Tab -->
+        <div class="form-tab-content" id="accounting-tab">
+            <h5>Accounting Information</h5>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="payroll_expense_account" class="form-label">Payroll Expense Account:<span
+                            class="required">*</span></label>
+                    <select id="payroll_expense_account" name="payroll_expense_account_id"
+                        class="form-control form-select2" required>
+                        <option value="">Loading payroll expense accounts...</option>
+                    </select>
+                    <div class="text-muted">Expense account for recording payroll costs.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="payable_account" class="form-label">Payable Account:<span
+                            class="required">*</span></label>
+                    <select id="payable_account" name="payable_account_id" class="form-control form-select2" required>
+                        <option value="">Loading payable accounts...</option>
+                    </select>
+                    <div class="text-muted">Liability account for recording payroll payables.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="deduction_payable_account" class="form-label">Deduction Payable Account:
+                        (Optional)</label>
+                    <select id="deduction_payable_account" name="deduction_payable_account_id"
+                        class="form-control form-select2">
+                        <option value="">Loading deduction payable accounts...</option>
+                    </select>
+                    <div class="text-muted">Liability account for employee deductions (taxes, benefits, etc.).</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="advance_account" class="form-label">Advance Account:<span
+                            class="required">*</span></label>
+                    <select id="advance_account" name="advance_account_id" class="form-control form-select2" required>
+                        <option value="">Loading advance accounts...</option>
+                    </select>
+                    <div class="text-muted">Asset account for tracking employee advances.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Information Tab -->
+        <div class="form-tab-content" id="additional-tab">
+            <h5>Additional Information</h5>
+            <div class="form-grid">
+                <div class="form-group">
+                    <input type="number" id="performance_rating" min="0" max="9.99" class="form-control"
+                        name="performance_rating" placeholder="Enter a value between 0.00 and 9.99."
+                        value="{{ employee.performance_rating if employee.performance_rating is not none else '' }}"
+                        autocomplete="off" step="0.01">
+                    <label for="performance_rating" class="form-label">Performance Rating:</label>
+                </div>
+
+                <div class="form-group" style="grid-column: span 2;">
+                    <textarea id="skills" class="form-control" name="skills"
+                        placeholder="List relevant skills separated by commas" autocomplete="off"
+                        rows="3">{{ employee.skills or '' }}</textarea>
+                    <label for="skills" class="form-label">Skills:</label>
+                </div>
+
+                <div class="form-group" style="grid-column: span 2;">
+                    <textarea id="certifications" class="form-control" name="certifications"
+                        placeholder="List certifications separated by commas" autocomplete="off"
+                        rows="3">{{ employee.certifications or '' }}</textarea>
+                    <label for="certifications" class="form-label">Certifications:</label>
+                </div>
+
+                <div class="form-group" style="grid-column: span 2;">
+                    <textarea id="notes" class="form-control" name="notes" placeholder="Additional notes or comments"
+                        autocomplete="off" rows="4">{{ employee.notes or '' }}</textarea>
+                    <label for="notes" class="form-label">Notes:</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Navigation Buttons -->
+        <div class="form-navigation" style="grid-column: 1 / -1; margin-top: 20px;">
+            <div class="d-flex justify-content-between">
+                <button type="button" class="button add-button" id="prevBtn">Previous</button>
+                <button type="button" class="button cta-button" id="nextBtn">Next</button>
+            </div>
+        </div>
+
+        <!-- Submit Button (only shown on last tab) -->
+        <div class="form-submit" style="grid-column: 1 / -1; margin-top: 20px; display: none;">
+            <div style="display: flex; gap: 10px; justify-content: flex-start;">
+                <button type="button" class="button add-button" onclick="goBack()" style="border: none;">
+                    <i class="fas fa-arrow-left"></i> Back to Employees
+                </button>
+                <button type="submit" class="reset-button" style="border: none; width: 200px;">
+                    Update Employee
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+</div>
+
+<!-- Keep all the existing modals EXACTLY as they are in the original working code -->
+<!-- Add Department Modal -->
+<div class=" modal" id="addDepartmentModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Department</h5>
+                <button type="button " class="button add-button" data-bs-dismiss="modal" aria-label="Close"><i
+                        class="fas fa-times"></i></button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="modal-body">
+                <form id="addDepartmentForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <!-- Department Name -->
+                    <div class="form-group">
+                        <label for="departmentName">Department Name <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="departmentName" name="department_name" required>
+                    </div>
+
+                    <!-- Department Head -->
+                    <div class="form-group">
+                        <label for="departmentHead">Department Head</label>
+                        <select class="form-control select2-custom" id="departmentHead" name="department_head_id">
+                            <option value="">Select Department Head</option>
+                            {% for employee in company.employees %}
+                            <option value="{{ employee.id }}">{{ employee.first_name }} {{ employee.last_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Location -->
+                    <div class="form-group">
+                        <label for="location">Location</label>
+                        <input type="text" class="form-control" id="location" name="location">
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    </div>
+
+                    <!-- Budget -->
+                    <div class="form-group">
+                        <label for="budget">Budget
+                            <input type="number" class="form-control" id="budget" name="budget">
+                    </div>
+                </form>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="modal-footer">
+                <button type="button" class="button add-button" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="button cta-button" id="saveDepartmentBtn">Save Department</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Benefit Modal -->
+<div class="modal" id="addBenefitModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Benefit</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="addBenefitForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <!-- Benefit Name -->
+                    <div class="form-group">
+                        <label for="benefitName">Benefit Name <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="benefitName" name="name" required>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label for="benefitDescription">Description</label>
+                        <textarea class="form-control" id="benefitDescription" name="description" rows="3"></textarea>
+                    </div>
+
+                    <!-- Benefit Type: Rate or Fixed Amount -->
+                    <div class="form-group">
+                        <label for="benefitType">Benefit Type <span class="required">*</span></label>
+                        <select class="form-control" id="benefitType" name="benefitType" required>
+                            <option value="">Select Benefit Type</option>
+                            <option value="rate">Rate</option>
+                            <option value="fixed_amount">Fixed Amount</option>
+                        </select>
+                    </div>
+
+                    <!-- Rate or Fixed Amount Fields -->
+                    <div class="form-group" id="rateField" style="display:none;">
+                        <label for="rateAmount">Rate</label>
+                        <input type="number" class="form-control" id="rateAmount" name="rate">
+                    </div>
+
+                    <div class="form-group" id="fixedAmountField" style="display:none; margin-bottom: 20px;">
+
+                        <select class="form-control" id="fixedAmountCurrency" name="currency"
+                            style="margin-bottom: 15px;">
+                            <option value="">Select Currency</option>
+                            {% for c in company.currency %}
+                            <option value="{{ c.id }}">{{ c.user_currency }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <label for="fixedAmount" style="margin-bottom: 5px;">Fixed Amount</label>
+
+                        <input type="number" class="form-control" id="fixedAmount" name="fixed_amount"
+                            style="margin-bottom: 10px;" placeholder="--Enter Amount--">
+                    </div>
+
+                    <!-- App ID (hidden) - Will be auto-populated in backend -->
+                    <input type="hidden" id="appId" name="app_id" value="{{ current_user.app_id }}">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="button add-button" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="button cta-button" id="saveBenefitBtn">Save Benefit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Deduction Modal -->
+<div class="modal" id="addDeductionModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Deduction</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="addDeductionForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <!-- Deduction Name -->
+                    <div class="form-group">
+                        <label for="deductionName">Deduction Name <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="deductionName" name="deductionName" required>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label for="deductionDescription">Description</label>
+                        <textarea class="form-control" id="deductionDescription" name="deductionDescription"
+                            rows="3"></textarea>
+                    </div>
+
+                    <!-- Deduction Type: Rate or Fixed Amount -->
+                    <div class="form-group">
+                        <label for="deductionType">Deduction Type <span class="required">*</span></label>
+                        <select class="form-control" id="deductionType" name="deductionType" required>
+                            <option value="">Select Deduction Type</option>
+                            <option value="rate">Rate</option>
+                            <option value="fixed_amount">Fixed Amount</option>
+                        </select>
+                    </div>
+
+                    <!-- Rate or Fixed Amount Fields -->
+                    <div class="form-group" id="rateFieldDeductions" style="display:none;">
+                        <label for="rate">Rate</label>
+                        <input type="number" class="form-control" id="rateDeductions" name="rateDeductions">
+                    </div>
+
+                    <div class="form-group" id="fixedAmountFieldDeductions" style="display:none;">
+
+                        <select class="form-control" id="fixedAmountCurrencyDeductions" name="currency"
+                            style="margin-bottom: 15px;">
+                            <option value="">Select Currency</option>
+                            {% for c in company.currency %}
+                            <option value="{{ c.id }}">{{ c.user_currency }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <label for="fixedAmount">Fixed Amount</label>
+                        <input type="number" class="form-control" id="fixedAmountDeductions"
+                            name="fixedAmountDeductions" style="margin-bottom: 5px;" placeholder="--Enter Amount--">
+                    </div>
+
+                    <!-- App ID (hidden) - Will be auto-populated in backend -->
+                    <input type="hidden" id="appId" name="app_id" value="{{ current_user.app_id }}">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="button add-button" data-bs-dismiss="modal"
+                    aria-label="Close">Close</button>
+                <button type="button" class="button cta-button" id="saveDeductionBtn">Save Deduction</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Initialize Select2 for all dropdowns - KEEP THE ORIGINAL CODE
+        $('#department_id').select2({
+            placeholder: '--Select Department--',
+            allowClear: true,
+        });
+
+        $('#project_id').select2({
+            placeholder: '--Select Project--',
+            allowClear: true,
+        });
+
+        $('#benefits').select2({
+            placeholder: '--Select Benefits--',
+            allowClear: true,
+        });
+
+        $('#deductions').select2({
+            placeholder: '--Select Deductions--',
+            allowClear: true,
+        });
+
+        // Form Tab Navigation
+        const formTabs = $('.form-tab');
+        const tabContents = $('.form-tab-content');
+        const prevBtn = $('#prevBtn');
+        const nextBtn = $('#nextBtn');
+        const submitSection = $('.form-submit');
+
+        let currentTab = 0;
+
+        // Initialize tabs
+        showTab(currentTab);
+
+        // Next button click
+        nextBtn.on('click', function () {
+            if (currentTab < formTabs.length - 1) {
+                currentTab++;
+                showTab(currentTab);
+            }
+        });
+
+        // Previous button click
+        prevBtn.on('click', function () {
+            if (currentTab > 0) {
+                currentTab--;
+                showTab(currentTab);
+            }
+        });
+
+        // Tab click
+        formTabs.on('click', function () {
+            const tabIndex = $(this).index();
+            currentTab = tabIndex;
+            showTab(currentTab);
+        });
+
+        function showTab(tabIndex) {
+            // Hide all tab contents
+            tabContents.removeClass('active');
+            formTabs.removeClass('active');
+
+            // Show current tab
+            $(tabContents[tabIndex]).addClass('active');
+            $(formTabs[tabIndex]).addClass('active');
+
+            // Update navigation buttons
+            if (tabIndex === 0) {
+                prevBtn.hide();
+                nextBtn.show();
+                submitSection.hide();
+                nextBtn.text('Next');
+            } else if (tabIndex === formTabs.length - 1) {
+                prevBtn.show();
+                nextBtn.hide();
+                submitSection.show();
+            } else {
+                prevBtn.show();
+                nextBtn.show();
+                submitSection.hide();
+                nextBtn.text('Next');
+            }
+
+            // Load accounting dropdowns when accounting tab is opened
+            if (tabIndex === 3) {
+                setTimeout(() => {
+                    loadEmployeeAccountingDropdowns();
+                }, 100);
+            }
+        }
+
+        // Modal handling - KEEP THE ORIGINAL CODE
+        $(document).on('change', '#department_id', function () {
+            if (this.value === 'add_new_department') {
+                $('#addDepartmentModal').modal('show');
+                $(this).val('').trigger('change');
+            }
+        });
+
+        $(document).on('change', '#benefits', function () {
+            const selectedValue = $(this).val();
+            if (selectedValue && selectedValue.includes('add_new_benefit')) {
+                $('#addBenefitModal').modal('show');
+                $(this).val('').trigger('change');
+            }
+        });
+
+        $(document).on('change', '#deductions', function () {
+            const selectedValue = $(this).val();
+            if (selectedValue && selectedValue.includes('add_new_deduction')) {
+                $('#addDeductionModal').modal('show');
+                $(this).val('').trigger('change');
+            }
+        });
+
+
+
+        // -------------------Modal Submissions --------------------------------------------------------------
+
+
+
+        // Saving Benefit
+        $(document).ready(function () {
+            // Toggle between Rate and Fixed Amount fields based on dropdown selection
+            $('#benefitType').on('change', function () {
+                if ($(this).val() === 'rate') {
+                    // Show the Rate field and hide the Fixed Amount field
+                    $('#rateField').show();
+                    $('#fixedAmountField').hide();
+                    // Clear Fixed Amount field if any value exists
+                    $('#fixedAmount').val('');
+                } else if ($(this).val() === 'fixed_amount') {
+                    // Show the Fixed Amount field and hide the Rate field
+                    $('#fixedAmountField').show();
+                    $('#rateField').hide();
+                    // Clear Rate field if any value exists
+                    $('#rateAmount').val('');
+                } else {
+                    // If no option is selected, hide both fields
+                    $('#rateField').hide();
+                    $('#fixedAmountField').hide();
+                }
+            });
+
+
+            // Initialize all select2 elements with class form-select2
+            $('.form-select2').select2({
+                placeholder: 'Select an option',
+                allowClear: true,
+            });
+
+
+            // Handle "Save Benefit" button click event
+            $('#saveBenefitBtn').on('click', function () {
+                const formData = {
+                    name: $('#benefitName').val(),
+                    description: $('#benefitDescription').val(),
+                    benefitType: $('#benefitType').val(),
+                    rate: $('#rateAmount').val(),
+                    currency: $('#fixedAmountCurrency').val(),
+                    fixed_amount: $('#fixedAmount').val(),
+                    app_id: $('#appId').val()
+                };
+
+                $.ajax({
+                    url: '/payroll/add_benefit', // Your endpoint for saving benefit
+                    method: 'POST',
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRF-Token': '{{ csrf_token() }}' // CSRF token for security
+                    },
+                    data: JSON.stringify(formData),
+                    success: function (response) {
+                        if (response.success) {
+                            // Show success notification
+                            showNotification(response.message, 'success');
+
+                            // Close the modal
+                            $('#addBenefitModal').modal('hide');
+
+                            // Reset the form
+                            $('#addBenefitForm')[0].reset();
+                            // Hide both fields
+                            $('#rateField').hide();
+                            $('#fixedAmountField').hide();
+                            $('#fixedAmountCurrency').val('');
+
+                            // Add the new benefit to the multi-select dropdown
+                            const newOption = new Option(
+                                formData.name, // Text
+                                response.benefit_id, // Value
+                                false, // Not selected by default
+                                true // Mark as selected
+                            );
+                            $('#benefits').append(newOption).trigger('change');
+
+                            // Refresh Select2 to reflect the changes
+                            $('#benefits').trigger('change');
+                        } else {
+                            // Show error notification
+                            showNotification(response.message, 'error');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        // Show error notification
+                        console.log(error);
+                        showNotification('Failed to add benefit. Please try again.', 'error');
+                    }
+                });
+            });
+        });
+
+
+        // Saving Deduction
+        $(document).ready(function () {
+            // Initially hide both Rate and Fixed Amount fields
+            $('#rateFieldDeductions').hide();
+            $('#fixedAmountField').hide();
+
+            // Handle Deduction Type selection change
+            $('#deductionType').on('change', function () {
+                if ($(this).val() === 'rate') {
+                    // Show the Rate field and hide the Fixed Amount field
+                    $('#rateFieldDeductions').show();
+                    $('#fixedAmountFieldDeductions').hide();
+                    // Update the label for Rate field
+                    $('#rateFieldDeductions label').text('Rate');
+                    // Clear Fixed Amount field if any value exists
+                    $('#fixedAmountDeductions').val('');
+                } else if ($(this).val() === 'fixed_amount') {
+                    // Show the Fixed Amount field and hide the Rate field
+                    $('#fixedAmountFieldDeductions').show();
+                    $('#rateFieldDeductions').hide();
+                    // Update the label for Rate field
+                    $('#rateFieldDeductions label').text('Fixed Amount');
+                    // Clear Rate field if any value exists
+                    $('#rateDeductions').val('');
+                } else {
+                    // If no option is selected, hide both fields
+                    $('#rateFieldDeductions').hide();
+                    $('#fixedAmountFieldDeductions').hide();
+                }
+            });
+
+
+
+            // Handle "Save Deduction" button click event
+            $('#saveDeductionBtn').on('click', function () {
+                const formData = {
+                    // Collect form data
+                    // Use the IDs of the fields to get their values
+
+                    name: $('#deductionName').val(),
+                    description: $('#deductionDescription').val(),
+                    deductionType: $('#deductionType').val(),
+                    rate: $('#rateDeductions').val(),
+                    currency: $('#fixedAmountCurrencyDeductions').val(),
+                    fixed_amount: $('#fixedAmountDeductions').val(),
+                    app_id: $('#appId').val() // Passing the app_id from hidden input field
+                };
+
+                $.ajax({
+                    url: '/payroll/add_deduction', // Your endpoint for saving deduction
+                    method: 'POST',
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRF-Token': '{{ csrf_token() }}' // CSRF token for security
+                    },
+                    data: JSON.stringify(formData),
+                    success: function (response) {
+                        if (response.success) {
+                            // Show success notification
+                            showNotification(response.message, 'success');
+
+                            // Close the modal
+                            $('#addDeductionModal').modal('hide');
+
+                            // Reset the form
+                            $('#addDeductionForm')[0].reset();
+                            // Hide both fields
+                            $('#rateField').hide();
+                            $('#fixedAmountField').hide();
+                            $('#fixedAmountCurrencyDeductions').val('');
+
+                            // Add the new deduction to the multi-select dropdown
+                            const newOption = new Option(
+                                formData.name, // Text
+                                response.deduction_id, // Value
+                                false, // Not selected by default
+                                true // Mark as selected
+                            );
+                            $('#deductions').append(newOption).trigger('change');
+
+                            // Refresh Select2 to reflect the changes
+                            $('#deductions').trigger('change');
+                        } else {
+                            // Show error notification
+                            showNotification(response.message, 'error');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        // Show error notification
+                        console.log(error);
+                        showNotification('Failed to add deduction. Please try again.', 'error');
+                    }
+                });
+            });
+        });
+
+        // Saving Department
+
+        $(document).ready(function () {
+            // Handle "Add New Department" option selection
+            $('#department_id').on('select2:select', function (e) {
+                if (e.params.data.id === 'add_new_department') {
+                    $('#addDepartmentModal').modal('show'); // Show the modal
+                }
+            });
+
+            // Handle form submission
+            $('#saveDepartmentBtn').on('click', function () {
+                const formData = {
+                    department_name: $('#departmentName').val(),
+                    department_head_id: $('#departmentHead').val(),
+                    location: $('#location').val(),
+                    description: $('#description').val(),
+                    budget: $('#budget').val()
+                };
+
+                $.ajax({
+                    url: '/payroll/add_department',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(formData),
+                    success: function (response) {
+                        if (response.success) {
+                            // Show success notification
+                            showNotification(response.message, 'success');
+
+                            // Add the new department to the dropdown
+                            const newOption = new Option(
+                                formData.department_name, // Text
+                                response.department_id,  // Value (New Department ID)
+                                false,                   // Not selected by default
+                                true                     // Mark as selected
+                            );
+
+                            // Append the new option before the "Add New Department" option
+                            $('#department_id option[value="add_new_department"]').before($(newOption));
+
+                            // Refresh Select2 to reflect the changes
+                            $('#department_id').trigger('change');
+
+                            // Close the modal
+                            $('#addDepartmentModal').modal('hide');
+
+                            // Reset the form
+                            $('#addDepartmentForm')[0].reset();
+                        } else {
+                            // Show error notification
+                            showNotification(response.message, 'error');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        // Show error notification
+                        showNotification('Failed to add department. Please try again.', 'error');
+                    }
+                });
+            });
+        });
+
+
+    });
+
+    // Function to load accounting dropdowns - KEEP THE ORIGINAL CODE
+    function loadEmployeeAccountingDropdowns() {
+        const payrollExpenseDropdown = document.getElementById('payroll_expense_account');
+        const payableDropdown = document.getElementById('payable_account');
+        const deductionPayableDropdown = document.getElementById('deduction_payable_account');
+        const advanceDropdown = document.getElementById('advance_account');
+
+        if (!payrollExpenseDropdown || !payableDropdown || !deductionPayableDropdown || !advanceDropdown) {
+            console.error("Could not find accounting dropdown elements");
+            return;
+        }
+
+        // Show loading state
+        payrollExpenseDropdown.innerHTML = '<option value="">Loading payroll expense accounts...</option>';
+        payableDropdown.innerHTML = '<option value="">Loading payable accounts...</option>';
+        deductionPayableDropdown.innerHTML = '<option value="">Loading deduction payable accounts...</option>';
+        advanceDropdown.innerHTML = '<option value="">Loading advance accounts...</option>';
+
+        fetch('/api/chart_of_accounts_grouped')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Clear old options
+                payrollExpenseDropdown.innerHTML = '<option value="">Select Payroll Expense Account</option>';
+                payableDropdown.innerHTML = '<option value="">Select Payable Account</option>';
+                deductionPayableDropdown.innerHTML = '<option value="">Select Deduction Payable Account</option>';
+                advanceDropdown.innerHTML = '<option value="">Select Advance Account</option>';
+
+                // Sort categories alphabetically
+                const sortedCategories = data.chart_of_accounts_grouped.sort((a, b) =>
+                    a.category.localeCompare(b.category)
+                );
+
+                // Helper function to populate dropdown and set selected value
+                function populateDropdown(dropdown, accountType, filterFn, currentValue) {
+                    sortedCategories.forEach(cat => {
+                        const accounts = cat.accounts
+                            .filter(filterFn)
+                            .sort((a, b) => a.sub_category.localeCompare(b.sub_category));
+
+                        if (accounts.length > 0) {
+                            const optGroup = document.createElement('optgroup');
+                            optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                            accounts.forEach(acc => {
+                                const option = document.createElement('option');
+                                option.value = acc.sub_category_id;
+                                option.textContent = `${acc.sub_category} (${acc.sub_category_code})`;
+                                option.setAttribute('data-account-type', acc.account_type);
+                                if (currentValue && acc.sub_category_id == currentValue) {
+                                    option.selected = true;
+                                }
+                                optGroup.appendChild(option);
+                            });
+
+                            dropdown.appendChild(optGroup);
+                        }
+                    });
+
+                    // Trigger change event to update Select2 after populating
+                    $(dropdown).trigger('change');
+                }
+                // Get current employee accounting values from the template
+                const currentPayrollExpense = {{ employee.payroll_expense_account_id | tojson | default ('null')
+            }};
+    const currentPayable = {{ employee.payable_account_id | tojson | default ('null') }};
+    const currentDeductionPayable = {{ employee.deduction_payable_account_id | tojson | default ('null') }};
+    const currentAdvance = {{ employee.advance_account_id | tojson | default ('null') }};
+
+    // Populate each dropdown with current selection
+    populateDropdown(payrollExpenseDropdown, 'Expense',
+        acc => acc.account_type === 'Expense', currentPayrollExpense);
+
+    populateDropdown(payableDropdown, 'Liability',
+        acc => acc.account_type === 'Liability' && acc.is_payable === true, currentPayable);
+
+    populateDropdown(deductionPayableDropdown, 'Liability',
+        acc => acc.account_type === 'Liability', currentDeductionPayable);
+
+    populateDropdown(advanceDropdown, 'Asset',
+        acc => acc.account_type === 'Asset' &&
+            acc.is_receivable !== true &&
+            acc.is_cash !== true &&
+            acc.is_bank !== true, currentAdvance);
+
+    console.log("Successfully loaded employee accounting options for edit form");
+            })
+            .catch (error => {
+        console.error('Error loading accounting accounts:', error);
+        payrollExpenseDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+        payableDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+        deductionPayableDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+        advanceDropdown.innerHTML = '<option value="">Error loading accounts</option>';
+    });
+    }
+
+    // Load accounting dropdowns when the page loads
+    document.addEventListener('DOMContentLoaded', function () {
+        loadEmployeeAccountingDropdowns();
+    });
+
+    // Back button function
+    function goBack() {
+        window.location.href = "{{ url_for('payroll.add_employee') }}";
+    }
+</script>
+
+{% endblock %}

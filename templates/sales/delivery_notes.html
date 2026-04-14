@@ -1,0 +1,273 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+
+    <div class="header-section">
+        <h1>Delivery Note Management</h1>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{ url_for('sales.add_delivery_note') }}">Create New Delivery
+                        Note</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('sales.sales_order_management') }}">Sales Orders</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('sales.invoice_management') }}">Sales Invoices</a></li>
+                {% endif %}
+                <li class="shortcut-item">
+                    <div class="action-icons">
+                        <button class="filter-icon" type="button" id="toggleFilterForm" data-tooltip="Apply Filter">
+                            <i class="fas fa-filter"></i>
+                        </button>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Delivery Note Filter Section -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+        <form method="GET" action="{{ url_for('sales.delivery_note_management') }}" class="date-filter-form"
+            id="filter-form">
+            <!-- Filter Type Dropdown -->
+            <div class="filter-group">
+                <label for="filter_type" class="filter-label">Filter By</label>
+                <select id="filter_type" name="filter_type" class="form-select">
+                    <option value="delivery_date" {% if request.args.get('filter_type')=='delivery_date' %}selected{%
+                        endif %}>Delivery Date</option>
+                    <option value="received_date" {% if request.args.get('filter_type')=='received_date' %}selected{%
+                        endif %}>Received Date</option>
+                </select>
+            </div>
+
+            <!-- Start Date Input -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control"
+                    value="{{ request.args.get('start_date', '') }}">
+            </div>
+
+            <!-- End Date Input -->
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control"
+                    value="{{ request.args.get('end_date', '') }}">
+            </div>
+
+            <!-- Status Filter Dropdown -->
+            <div class="filter-group">
+                <label for="status" class="filter-label">Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">All</option>
+                    <option value="draft" {% if request.args.get('status')=='draft' %}selected{% endif %}>Draft</option>
+                    <option value="delivered" {% if request.args.get('status')=='delivered' %}selected{% endif %}>
+                        Delivered</option>
+                    <option value="canceled" {% if request.args.get('status')=='canceled' %}selected{% endif %}>Canceled
+                    </option>
+                </select>
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="filter-actions">
+                <button type="submit" class="add-button">Apply Filter</button>
+                <a href="{{ url_for('sales.delivery_note_management') }}" class="btn reset-button">Reset</a>
+            </div>
+        </form>
+    </div>
+
+
+    <!-- Summary Section -->
+    <div class="summary-container">
+
+        <!-- Total Delivery Notes -->
+        <div class="summary-item">
+            <i class="fa fa-sort-numeric-up"></i>
+            <h2>Total Delivery Notes</h2>
+            <h1>{{ total_delivery_notes }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar info" style="width: 100%;">100%</div>
+            </div>
+        </div>
+
+
+
+        <!-- Pending Delivery Notes -->
+        <div class="summary-item">
+            <i class="fas fa-hourglass-half"></i>
+            <h2>Draft Delivery Notes</h2>
+            <h1>{{ draft_delivery_notes }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar pending"
+                    style="width: {% if total_delivery_notes > 0 %}{{ (draft_delivery_notes / total_delivery_notes * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_delivery_notes > 0 %}
+                    {{ (draft_delivery_notes / total_delivery_notes * 100) | round(2) }}%
+                    {% else %}
+                    0.0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Delivered Delivery Notes -->
+        <div class="summary-item">
+            <i class="fas fa-check-double"></i>
+            <h2>Delivered</h2>
+            <h1>{{ delivered_delivery_notes }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar approved"
+                    style="width: {% if total_delivery_notes > 0 %}{{ (delivered_delivery_notes / total_delivery_notes * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_delivery_notes > 0 %}
+                    {{ (delivered_delivery_notes / total_delivery_notes * 100) | round(2) }}%
+                    {% else %}
+                    0.0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Canceled Delivery Notes -->
+        <div class="summary-item">
+            <i class="fas fa-times-circle"></i>
+            <h2>Canceled</h2>
+            <h1>{{ canceled_delivery_notes }}</h1>
+            <div class="summary-progress-bar-container">
+                <div class="summary-progress-bar cancelled"
+                    style="width: {% if total_delivery_notes > 0 %}{{ (canceled_delivery_notes / total_delivery_notes * 100) | round(2) }}{% else %}0{% endif %}%;">
+                    {% if total_delivery_notes > 0 %}
+                    {{ (canceled_delivery_notes / total_delivery_notes * 100) | round(2) }}%
+                    {% else %}
+                    0.0%
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delivery Notes List Table -->
+    <div class="table-container table-responsive">
+        <div id="loadingSpinner" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+        <table class="delivery-notes-list-table stripe">
+            <thead>
+                <tr>
+                    <th>Delivery Number</th>
+                    <th>Reference Number</th>
+                    <th>Sales Order No</th>
+                    <th>Quotation No</th>
+                    <th>Customer</th>
+                    <th>Delivery Date</th>
+                    <th>Shipping Address</th>
+                    <th>Delivery Method</th>
+                    <th>Total Items</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for delivery_note in delivery_notes %}
+                <tr class="status-{{ delivery_note.status | lower }}">
+                    <td>{{ delivery_note.delivery_number }}</td>
+                    <td>{{ delivery_note.delivery_reference.delivery_reference_number or "-" }}</td>
+                    <td>{{ delivery_note.sales_order.sales_order_number if
+                        delivery_note.sales_order else "-" }}</td>
+                    <td>{{ delivery_note.quotation.quotation_number if
+                        delivery_note.quotation else "-" }}</td>
+                    <td>{{ delivery_note.customer.vendor_name }}</td>
+                    <td>{{ delivery_note.delivery_date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ delivery_note.shipping_address if delivery_note.shipping_address else "-" }}</td>
+                    <td>{{ delivery_note.delivery_method if delivery_note.delivery_method else "-" }}</td>
+                    <td>{{ delivery_note.delivery_items | length }}</td>
+                    <td>
+                        <span class="status 
+                        {% if delivery_note.status.value == 'Draft' %} pending
+                        {% elif delivery_note.status.value == 'Approved' %} in-progress
+                        {% elif delivery_note.status.value == 'Pending' %} in-progress
+                        {% elif delivery_note.status.value == 'Partly Delivered' %} cancelled
+                        {% elif delivery_note.status.value == 'Delivered' %} approved
+                        {% elif delivery_note.status.value == 'Canceled' %} cancelled
+                        {% endif %}">
+                            {{ delivery_note.status.value }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="{{ url_for('sales.view_delivery_note', delivery_note_id=delivery_note.id) }}"
+                                data-tooltip="View Details">
+                                <i class="fas fa-eye view-icon"></i>
+                            </a>
+
+                            {% if delivery_note.status.name == 'draft' %}
+                            <a href="{{ url_for('edit_delivery_note', delivery_note_id=delivery_note.id) }}"
+                                data-tooltip="Edit">
+                                <i class="fas fa-edit edit-icon"></i>
+                            </a>
+
+                            <a href="{{ url_for('delete_delivery_note', delivery_note_id=delivery_note.id) }}"
+                                data-tooltip="Delete">
+                                <i class="fas fa-trash delete-icon"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th><input type="text" placeholder="Search Delivery Number" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Delivery Reference Numbers" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Sales Order No" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Quotation No" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Customer" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Delivery Date" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Shipping Address" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Delivery Method" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Total Items" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Status" class="column-search"></th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+
+        // Initialize DataTables
+        var table = $('.delivery-notes-list-table').DataTable({
+            "paging": true,
+            "ordering": true,
+            "info": true,
+            "searching": true,
+            "order": [[5, "desc"]],  // Change 0 to the correct column index of "created_at"
+            "columnDefs": [
+                { "orderable": false, "targets": [10] } // Disable sorting on Actions column
+            ],
+            "initComplete": function () {
+                $('#loadingSpinner').hide(); // Hide spinner after initialization
+            }
+        });
+
+        // Apply search for each column
+        $('.delivery-notes-list-table tfoot th').each(function (index) {
+            if (index < 10) { // Include 'Status' column
+                $('input', this).on('keyup change clear', function () {
+                    if (table.column(index).search() !== this.value) {
+                        table.column(index).search(this.value).draw();
+                    }
+                });
+            }
+        });
+    });
+
+    // Toggle the filter section visibility with animation
+    document.getElementById('toggleFilterForm').addEventListener('click', function () {
+        const filterSection = document.getElementById('filter-section');
+        filterSection.classList.toggle('visible');
+    });
+</script>
+{% endblock %}

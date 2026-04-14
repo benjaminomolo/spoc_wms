@@ -1,0 +1,288 @@
+{% extends "transaction_base_template.html" %}
+
+<style>
+    #filter-section {
+        display: none !important;
+    }
+
+    #filter-section.visible {
+        display: block !important;
+    }
+</style>
+
+{% block content %}
+<div class="content-container">
+    <div class="header-section">
+        <h1>Cash Flow Financial Statement - {{user_currency}}</h1>
+
+        <div class="view-toggle-buttons">
+            <button class="cta-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <button class="button cta-button" id="download-pdf">
+                <i class="fas fa-file-pdf"></i> Download
+            </button>
+        </div>
+    </div>
+
+    <div id="loading-overlay">
+        <div id="loading-spinner"></div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section date-filter date-filter-form" id="filter-section">
+        <div class="filter-group">
+            <label for="account_filter">Filter by Account:</label>
+            <select id="subcategory" name="subcategory">
+                {% for subcategory_name, subcategory_id in subcategories.items() %}
+                <option value="{{ subcategory_id }}" {% if subcategory_id==selected_subcategory_id %}selected{% endif
+                    %}>
+                    {{ subcategory_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="currency_filter">Currency:</label>
+            <select id="currency" name="currency">
+                {% for currency in company.currency %}
+                <option value="{{ currency.id }}" {% if currency.id==selected_currency_id %}selected{% endif %}>
+                    {{ currency.user_currency }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="start-date" class="filter-label">Start Date</label>
+            <input type="date" id="start-date" name="start-date" class="form-control" value="{{ selected_start_date }}">
+        </div>
+
+        <div class="filter-group">
+            <label for="end-date" class="filter-label">End Date</label>
+            <input type="date" id="end-date" name="end-date" class="form-control" value="{{ selected_end_date }}">
+        </div>
+
+        <div class="filter-actions">
+            <button id="apply-filter" class="add-button">Apply Filter</button>
+            <a href="{{ url_for('cash_flow_statement') }}" class="btn reset-button">Reset</a>
+        </div>
+    </div>
+
+    <!-- Cash Balance Section -->
+    <div id="cash_balance_section" class="mb-4">
+        <h3>Total Cash Balances:</h3>
+        <ul id="cash_balances_list">
+            <li data-amount="{{ cash_account.amount }}">
+                Closing {{ cash_account.subcategory }} balance:
+                <span class="formatted-amount">
+                    {% if cash_account.amount is not none and cash_account.amount is number %}
+                    {{ '{:,.2f}'.format(cash_account.amount) }}
+                    {% else %}
+                    N/A <!-- Or you can display 0.00 if preferred -->
+                    {% endif %}
+                </span>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Transactions Table -->
+    <div id="transactions_table_container" class="table-responsive">
+        <table id="transactions_table" class="table table-bordered display nowrap" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Debit ({{user_currency}})</th>
+                    <th>Credit ({{user_currency}})</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in response.transactions %}
+                <tr>
+                    <td>{{ transaction.date }}</td>
+                    <td>{{ transaction.description }}</td>
+                    <td class="debit">{{ '{:,.2f}'.format(transaction.amount) if transaction.dr_cr == 'D' else '' }}
+                    </td>
+                    <td class="credit">{{ '{:,.2f}'.format(transaction.amount) if transaction.dr_cr == 'C' else '' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th></th>
+                    <th style="text-align: right;">Overall Total:</th>
+
+                    <th id="total-debit">0.00</th>
+                    <th id="total-credit">0.00</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<script>
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Function to format numbers with thousand separators
+        function formatNumber(value) {
+            return parseFloat(value).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        // Format cash balances
+        const cashBalances = document.querySelectorAll('#cash_balances_list li');
+        cashBalances.forEach(balance => {
+            const amount = balance.getAttribute('data-amount');
+            const formattedAmount = formatNumber(amount);
+            balance.querySelector('.formatted-amount').textContent = formattedAmount;
+        });
+
+        // Toggle the filter section visibility
+        document.getElementById('toggleFilterForm').addEventListener('click', function () {
+            const filterSection = document.getElementById('filter-section');
+            filterSection.classList.toggle('visible');
+        });
+
+        // Initialize DataTable
+        var table = $('#transactions_table').DataTable({
+            "lengthMenu": [10, 25, 50, 100],
+            "scrollX": false,
+            "paging": true,
+            "ordering": true,
+            "info": true,
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                // Function to convert string to number
+                var intVal = function (i) {
+                    return typeof i === 'string' ? i.replace(/,/g, '') * 1 : typeof i === 'number' ? i : 0;
+                };
+
+                // Calculate totals for Debit and Credit columns
+                var totalDebit = api.column(2, { page: 'current' }).data()
+                    .reduce((a, b) => intVal(a) + intVal(b), 0);
+
+                var totalCredit = api.column(3, { page: 'current' }).data()
+                    .reduce((a, b) => intVal(a) + intVal(b), 0);
+
+                // Update the footer with formatted totals
+                $(api.column(2).footer()).html(formatNumber(totalDebit));
+                $(api.column(3).footer()).html(formatNumber(totalCredit));
+            }
+        });
+
+        // Apply filters when the button is clicked
+        document.getElementById('apply-filter').addEventListener('click', function () {
+            const subcategory = document.getElementById('subcategory').value;
+            const currency = document.getElementById('currency').value;
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            // Show loading overlay
+            document.getElementById('loading-overlay').style.display = 'flex';
+
+            // Send AJAX request
+            fetch('/cash_flow_statement', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest' // Indicate this is an AJAX request
+                },
+                body: JSON.stringify({
+                    subcategory: subcategory,
+                    currency: currency,
+                    start_date: startDate,
+                    end_date: endDate
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    // Clear the existing table data
+                    table.clear();
+
+                    // Add new data to the table
+                    data.transactions.forEach(transaction => {
+                        table.row.add([
+                            transaction.date,
+                            transaction.description,
+                            transaction.dr_cr === 'D' ? formatNumber(transaction.amount) : '',
+                            transaction.dr_cr === 'C' ? formatNumber(transaction.amount) : ''
+                        ]);
+                    });
+
+                    // Redraw the table
+                    table.draw();
+
+                    // Update cash balances
+                    updateCashBalances(data.cash_balances, data.total_cash_balance);
+                })
+                .catch(error => console.error('Error:', error))
+                .finally(() => {
+                    // Hide loading overlay
+                    document.getElementById('loading-overlay').style.display = 'none';
+                });
+        });
+
+        // Function to update cash balances
+        function updateCashBalances(cashBalances, totalCashBalance) {
+            const cashBalancesList = document.getElementById('cash_balances_list');
+            cashBalancesList.innerHTML = ''; // Clear existing balances
+
+            cashBalances.forEach(balance => {
+                const li = document.createElement('li');
+                li.setAttribute('data-amount', balance.amount);
+                li.innerHTML = `
+                Closing ${balance.subcategory} balance:
+                <span class="formatted-amount">${formatNumber(balance.amount)}</span>
+            `;
+                cashBalancesList.appendChild(li);
+            });
+
+            // Update total cash balance
+            document.getElementById('total_cash_balance').textContent = formatNumber(totalCashBalance);
+        }
+
+        // PDF download functionality
+        document.getElementById('download-pdf').addEventListener('click', function () {
+            const subcategory = document.getElementById('subcategory').value;
+            const currency = document.getElementById('currency').value;
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            fetch('/download_cash_flow_statement', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    currency: currency,
+                    startDate: startDate,
+                    endDate: endDate,
+                    subcategory: subcategory
+                }),
+            })
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Cash_Flow_Statement_${new Date().toISOString().split('T')[0]}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(error => console.error('Error:', error));
+        });
+    });
+</script>
+{% endblock %}

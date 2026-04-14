@@ -1,0 +1,2375 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
+<!-- Add Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+
+<!-- Add Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+
+<style>
+    .container {
+        display: flex;
+        gap: 20px;
+        width: 100%;
+        max-width: 1200px;
+        margin: 20px auto;
+    }
+
+    .inventory_sidebar {
+        width: 350px;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 10px;
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+    }
+
+    .inventory-main-content {
+        flex: 1;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+    .form-section {
+        margin-bottom: 20px;
+    }
+
+    .form-section h2 {
+        font-size: 1.25rem;
+        color: #34495e;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .line-item {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        background-color: #f8f9fa;
+        border-left: 2px solid var(--highlight-color);
+    }
+
+    .line-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .line-item-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: #2c3e50;
+        font-weight: 600;
+    }
+
+    .line-item-header button {
+        background-color: #dc3545;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .line-item-header button:hover {
+        background-color: #c82333;
+    }
+
+    .add-line-item {
+        margin-bottom: 15px;
+    }
+
+    .general-total {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-top: 15px;
+        color: #007bff;
+    }
+
+    /* Confirmation Modal */
+    #confirmationModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+    }
+
+    #confirmationModal p {
+        margin-bottom: 15px;
+    }
+
+    #confirmationModal button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        margin-right: 10px;
+    }
+
+    #confirmDelete {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    #cancelDelete {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    /* Summary Section Styling */
+    .summary-section {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        margin-top: 15px;
+    }
+
+    .summary-section h3 {
+        font-size: 1.1rem;
+        color: #2c3e50;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .summary-section p {
+        font-size: 0.9rem;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+
+    .summary-section p span {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    /* Vendor Modal Styling */
+    #vendorModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        width: 600px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    #vendorModal h3 {
+        font-size: 1.25rem;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    #vendorModal .form-group {
+        margin-bottom: 15px;
+    }
+
+    #vendorModal label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 6px;
+        color: #495057;
+    }
+
+    @media (max-width: 480px) {
+        #vendorModal {
+            width: 100%;
+            padding: 10px;
+            border-radius: 0;
+        }
+
+        #vendorModal h3 {
+            font-size: 1rem;
+        }
+
+        #vendorModal .form-group {
+            margin-bottom: 10px;
+        }
+
+        #vendorModal label {
+            font-size: 0.9rem;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+        }
+
+        .inventory_sidebar,
+        .inventory-main-content {
+            width: 90%;
+        }
+
+        .inventory_sidebar {
+            position: static;
+            margin-bottom: 20px;
+        }
+    }
+
+    @media (max-width: 480px) {
+
+        .inventory_sidebar,
+        .inventory-main-content {
+            padding: 15px;
+        }
+
+        .inventory_sidebar h2,
+        .inventory-main-content h1 {
+            font-size: 1.1rem;
+        }
+
+        .form-section h2 {
+            font-size: 1rem;
+        }
+
+        .line-item-header h3 {
+            font-size: 0.9rem;
+        }
+
+        .summary-section h3 {
+            font-size: 1rem;
+        }
+    }
+
+    .account-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-left: 2px solid #007bff;
+    }
+
+    .account-section h4 {
+        margin-top: 0;
+        color: #2c3e50;
+        font-size: 1.1rem;
+        margin-bottom: 12px;
+    }
+
+    .conditional-field {
+        display: none;
+    }
+
+    .conditional-field.visible {
+        display: block;
+    }
+
+    .payable-section {
+        background-color: #fff3cd;
+        border-left-color: #ffc107;
+    }
+
+    .adjustment-section {
+        background-color: #e7f3ff;
+        border-left-color: #17a2b8;
+    }
+
+    .readonly-field {
+        background-color: #f8f9fa;
+        border-radius: 6px;
+        min-height: 38px;
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+    }
+
+    .readonly-field em {
+        color: #6c757d;
+        font-style: italic;
+    }
+
+    /* Edit mode specific styles */
+    .edit-badge {
+        background-color: #ffc107;
+        color: #212529;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-left: 10px;
+    }
+
+    .movement-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .movement-id {
+        background-color: #6c757d;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+</style>
+
+<div class="content-container">
+    <div class="container">
+        <!-- inventory_sidebar -->
+        <div class="inventory_sidebar">
+            <h2>Quick Actions</h2>
+
+            <button type="button" id="addLineItem" class="add-line-item button add-button">
+                Add Line Item
+            </button>
+            <div class="summary-section">
+                <h3>Summary</h3>
+                <div class="currency-section" style="display: none;">
+                    <p>Currency: <span id="summaryCurrency">{{ base_currency.user_currency if base_currency else '-'
+                            }}</span></p>
+                </div>
+                <p>Movement Type: <span id="summaryMovementType">{{ asset_movement.movement_type|replace('_', ' ')|title
+                        }}</span></p>
+                <p>Total Items: <span id="totalItems">{{ line_items|length }}</span></p>
+
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="inventory-main-content">
+            <h1>Edit Asset Movement</h1>
+            <form id="inventoryForm" method="post" autocomplete="off">
+                <!-- Basic Information Section -->
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="movement_id" value="{{ asset_movement.id }}">
+
+                <div class="form-section">
+                    <h2>Basic Information</h2>
+
+                    <div class="form-group" style="display: none;">
+                        <label for="movement_type">Movement Type: <span class="required">*</span></label>
+                        <select id="movement_type" name="movement_type" required disabled>
+                            <!-- Receiving Assets -->
+                            <optgroup label="Receiving Assets">
+                                <option value="acquisition" {% if asset_movement.movement_type=='acquisition'
+                                    %}selected{% endif %}>Purchase/Acquisition</option>
+                                <option value="donation_in" {% if asset_movement.movement_type=='donation_in'
+                                    %}selected{% endif %}>Donation Received (Free)</option>
+                                <option value="opening_balance" {% if asset_movement.movement_type=='opening_balance'
+                                    %}selected{% endif %}>Opening Balance</option>
+                            </optgroup>
+
+                            <!-- Giving Out Assets -->
+                            <optgroup label="Giving Out Assets">
+                                <option value="sale" {% if asset_movement.movement_type=='sale' %}selected{% endif %}>
+                                    Sale to Customer</option>
+                                <option value="donation_out" {% if asset_movement.movement_type=='donation_out'
+                                    %}selected{% endif %}>Donation Given (Free)</option>
+                                <option value="disposal" {% if asset_movement.movement_type=='disposal' %}selected{%
+                                    endif %}>Disposal/Write-off</option>
+                            </optgroup>
+
+                            <!-- Internal Movements -->
+                            <optgroup label="Internal Movements">
+                                <option value="transfer" {% if asset_movement.movement_type=='transfer' %}selected{%
+                                    endif %}>Transfer (Location/Department)</option>
+                                <option value="assignment" {% if asset_movement.movement_type=='assignment' %}selected{%
+                                    endif %}>Assign to Employee</option>
+                                <option value="return" {% if asset_movement.movement_type=='return' %}selected{% endif
+                                    %}>Return from Assignment</option>
+                                <option value="depreciation" {% if asset_movement.movement_type=='depreciation'
+                                    %}selected{% endif %}>Depreciation Entry</option>
+                            </optgroup>
+                        </select>
+                        <input type="hidden" name="movement_type" value="{{ asset_movement.movement_type }}">
+                    </div>
+
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="transaction_date">Transaction Date:</label>
+                            <input type="date" id="transaction_date" name="transaction_date"
+                                value="{{ asset_movement.transaction_date.strftime('%Y-%m-%d') }}" required />
+                        </div>
+
+                        <!-- Reference -->
+                        <div class="form-group">
+                            <input type="text" id="reference" name="reference"
+                                value="{{ asset_movement.reference or '' }}">
+                            <label for="reference">Reference:</label>
+                        </div>
+                    </div>
+                    <div class="form-group" style="display: none;">
+                        <div class="form-group">
+                            <input type="hidden" id="is_one_time_hidden" name="is_one_time" value="0" />
+                        </div>
+                        <div class="form-group conditional-field currency-section visible" id="currency_section">
+                            <label for="currency">Currency <span class="required">*</span></label>
+                            <select id="currency" name="currency" required disabled>
+                                <option value="">Select Currency</option>
+                                {% for currency in currencies %}
+                                <option value="{{ currency.id }}" {% if asset_movement.currency_id==currency.id or (not
+                                    asset_movement.currency_id and currency.currency_index==1) %}selected{% endif %}>
+                                    {{ currency.user_currency }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Line Items Section -->
+                    <div class="form-section">
+                        <h2>Assets</h2>
+                        <div id="lineItemsContainer" class="line-items-container">
+                            <!-- Line items will be dynamically populated from existing data -->
+                            {% for line_item in line_items %}
+                            {% set asset = assets_dict.get(line_item.asset_id) %}
+                            <div class="line-item" data-movement-type="{{ asset_movement.movement_type }}">
+                                <div class="line-item-header">
+                                    <h3>Asset {{ loop.index }}</h3>
+                                    <button type="button" class="remove-line-item button remove-button">Remove</button>
+                                </div>
+
+                                <input type="hidden" name="item_type[]" value="asset">
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="asset_item_id">Asset Type <span class="required">*</span></label>
+                                        <select name="asset_item_id[]" class="asset-item-dropdown searchable-dropdown"
+                                            required>
+                                            <option value="">Select Asset Type</option>
+                                            {% for item in asset_items %}
+                                            <option value="{{ item.id }}" {% if asset and asset.asset_item_id==item.id
+                                                %}selected{% endif %} data-code="{{ item.asset_code }}"
+                                                data-useful-life="{{ item.expected_useful_life_years }}"
+                                                data-depreciation="{{ item.depreciation_method }}"
+                                                data-salvage="{{ item.salvage_value_percentage }}"
+                                                data-fixed-account="{{ item.fixed_asset_account_id }}"
+                                                data-dep-account="{{ item.depreciation_expense_account_id }}"
+                                                data-accum-dep-account="{{ item.accumulated_depreciation_account_id }}">
+                                                {{ item.asset_name }}{% if item.asset_code %} ({{ item.asset_code }}){%
+                                                endif %}
+                                                {% if item.brand %} - {{ item.brand.brand_name }}{% endif %}
+                                                {% if item.inventory_category %}
+                                                [{{ item.inventory_category.category_name }}
+                                                {% if item.inventory_subcategory %}
+                                                /{{ item.inventory_subcategory.subcategory_name }}
+                                                {% endif %}
+                                                ]
+                                                {% endif %}
+
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- For existing asset movements -->
+                                <div class="conditional-field existing-asset-section"
+                                    style="display: {{ 'block' if asset_movement.movement_type in ['assignment', 'return', 'transfer', 'sale', 'donation_out', 'disposal', 'depreciation'] else 'none' }}">
+                                    <div class="form-group">
+                                        <label for="asset_id">Select Asset Instance <span
+                                                class="required">*</span></label>
+                                        <select name="asset_id[]" class="asset-instance-dropdown searchable-dropdown"
+                                            data-selected="{{ line_item.asset_id or '' }}">
+                                            <option value="">Select an asset...</option>
+                                            {% if asset %}
+                                            <option value="{{ asset.id }}" selected
+                                                data-current-value="{{ asset.current_value }}"
+                                                data-asset-tag="{{ asset.asset_tag }}"
+                                                data-serial-number="{{ asset.serial_number if asset.serial_number else '' }}"
+                                                data-asset-item-id="{{ asset.asset_item_id }}">
+                                                {{ asset.asset_tag }} - {{ asset.asset_item.asset_name if
+                                                asset.asset_item else '' }}
+                                                {% if asset.serial_number and asset.serial_number != 'None' %} (SN: {{
+                                                asset.serial_number }}){% endif %}
+                                            </option>
+                                            {% endif %}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- For new asset creation -->
+                                <div class="conditional-field new-asset-section"
+                                    style="display: {{ 'block' if asset_movement.movement_type in ['acquisition', 'opening_balance', 'donation_in'] else 'none' }}">
+
+                                    <!-- Asset Identification -->
+                                    <div class="form-row asset-identification"
+                                        style="display: {{ 'block' if asset_movement.movement_type in ['acquisition', 'opening_balance', 'donation_in'] else 'none' }}">
+                                        <div class="form-group">
+                                            <label for="asset_tag">Asset Tag <span class="required">*</span></label>
+                                            <input type="text" name="asset_tag[]" class="asset-tag-input"
+                                                value="{{ asset.asset_tag if asset else '' }}"
+                                                placeholder="Auto-generated">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="serial_number">Serial Number</label>
+                                            <input type="text" name="serial_number[]" class="serial-number-input"
+                                                value="{{ asset.serial_number if asset and asset.serial_number else '' }}"
+                                                placeholder="Enter serial number (optional)">
+                                        </div>
+                                    </div>
+
+                                    <!-- Display only section for existing assets (readonly) -->
+                                    <div class="form-row existing-asset-identification"
+                                        style="display: {{ 'block' if asset_movement.movement_type in ['assignment', 'return', 'transfer', 'sale', 'donation_out', 'disposal', 'depreciation'] else 'none' }}">
+                                        <div class="form-group">
+                                            <label>Asset Tag:</label>
+                                            <div class="readonly-field asset-tag-display">
+                                                {% if asset %}{{ asset.asset_tag }}{% else %}<em>Will be populated when
+                                                    asset is selected</em>{% endif %}
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Serial Number:</label>
+                                            <div class="readonly-field serial-number-display">
+                                                {% if asset and asset.serial_number %}{{ asset.serial_number }}{% else
+                                                %}{% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-section conditional-field"
+                                        style="display: {{ 'block' if asset_movement.movement_type in ['acquisition', 'opening_balance', 'donation_in'] else 'none' }}">
+
+
+                                        <!-- Supplier for acquisition AND donation_in -->
+                                        <div class="form-row conditional-field"
+                                            style="display: {{ 'block' if asset_movement.movement_type in ['acquisition', 'donation_in'] else 'none' }}">
+                                            <div class="form-group">
+                                                <label for="supplier_id">
+                                                    {% if asset_movement.movement_type == 'acquisition' %}Supplier{%
+                                                    else %}Donor{% endif %}
+                                                    <span class="required">*</span>
+                                                </label>
+                                                <input type="hidden" name="supplier_id[]" class="asset-supplier-id"
+                                                    value="{{ line_item.party_id if line_item.party_id else '' }}">
+                                                <input type="text" name="supplier_name[]" class="asset-supplier-name"
+                                                    list="supplier_list" value="{{ line_item.party_name or '' }}"
+                                                    placeholder="{% if asset_movement.movement_type == 'acquisition' %}Select sender{% else %}Enter donor name{% endif %}"
+                                                    required>
+                                            </div>
+                                        </div>
+
+                                        <!-- Depreciation Overrides -->
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="useful_life_years">Useful Life (Years)</label>
+                                                <input type="number" name="useful_life_years[]"
+                                                    class="useful-life-input"
+                                                    value="{{ asset.useful_life_years if asset else '' }}" min="1"
+                                                    max="50" placeholder="Uses asset type default">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label for="depreciation_method">Depreciation Method</label>
+                                                <select name="depreciation_method[]" class="depreciation-method-input">
+                                                    <option value="">Use Asset Type Default</option>
+                                                    <option value="straight_line" {% if asset and
+                                                        asset.depreciation_method=='straight_line' %}selected{% endif
+                                                        %}>Straight Line</option>
+                                                    <option value="declining_balance" {% if asset and
+                                                        asset.depreciation_method=='declining_balance' %}selected{%
+                                                        endif %}>Declining Balance</option>
+                                                    <option value="double_declining" {% if asset and
+                                                        asset.depreciation_method=='double_declining' %}selected{% endif
+                                                        %}>Double Declining Balance</option>
+                                                    <option value="none" {% if asset and
+                                                        asset.depreciation_method=='none' %}selected{% endif %}>No
+                                                        Depreciation</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <!-- Capitalization Date -->
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="capitalization_date">Capitalization Date</label>
+                                                <input type="date" name="capitalization_date[]"
+                                                    class="capitalization-date-input"
+                                                    value="{{ asset.capitalization_date.strftime('%Y-%m-%d') if asset and asset.capitalization_date else '' }}">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Warranty Information -->
+                                    <div class="form-section conditional-field"
+                                        style="display: {{ 'block' if asset_movement.movement_type == 'acquisition' else 'none' }}">
+                                        <h4>Warranty Information</h4>
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="warranty_months">Warranty Period (Months)</label>
+                                                <input type="number" name="warranty_months[]"
+                                                    class="warranty-months-input" value="12" min="0" max="120">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label for="warranty_expiry">Warranty Expiry</label>
+                                                <input type="date" name="warranty_expiry[]"
+                                                    class="warranty-expiry-input"
+                                                    value="{{ asset.warranty_expiry.strftime('%Y-%m-%d') if asset and asset.warranty_expiry else '' }}">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Condition -->
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="condition">Initial Condition</label>
+                                            <select name="condition[]" class="condition-input">
+                                                <option value="excellent" {% if asset and asset.condition=='excellent'
+                                                    %}selected{% endif %}>Excellent</option>
+                                                <option value="good" {% if not asset or asset.condition=='good'
+                                                    %}selected{% endif %}>Good</option>
+                                                <option value="fair" {% if asset and asset.condition=='fair'
+                                                    %}selected{% endif %}>Fair</option>
+                                                <option value="poor" {% if asset and asset.condition=='poor'
+                                                    %}selected{% endif %}>Poor</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Sales-specific fields -->
+                                <div class="conditional-field sale-section"
+                                    style="display: {{ 'block' if asset_movement.movement_type == 'sale' else 'none' }}">
+                                    <div class="form-section">
+                                        <h4>Dispatch Details</h4>
+                                        <div class="form-row">
+
+
+                                            <div class="form-group">
+                                                <label for="customer_id">Receiver <span
+                                                        class="required">*</span></label>
+                                                <input type="hidden" name="customer_id[]" class="asset-customer-id"
+                                                    value="{{ line_item.party_id if line_item.party_id else '' }}">
+                                                <input type="text" name="customer_name[]" class="asset-customer-name"
+                                                    list="customer_list" value="{{ line_item.party_name or '' }}"
+                                                    placeholder="Select Receiver" required>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="sale_notes">Dispatch Notes</label>
+                                            <textarea name="sale_notes[]" rows="2"
+                                                placeholder="Additional dispatch details...">{{ line_item.line_notes }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Assignment-specific fields -->
+                                <div class="conditional-field assignment-section"
+                                    style="display: {{ 'block' if asset_movement.movement_type == 'assignment' else 'none' }}">
+                                    <div class="form-section">
+                                        <h4>Assignment Details</h4>
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="assigned_to_id">Assign To Employee</label>
+                                                <select name="assigned_to_id[]" class="employee-dropdown">
+                                                    <option value="">Select Employee</option>
+                                                    {% for employee in employees %}
+                                                    <option value="{{ employee.id }}" {% if
+                                                        line_item.assigned_to_id==employee.id %}selected{% endif %}>
+                                                        {{ employee.first_name }} {{ employee.middle_name or '' }} {{
+                                                        employee.last_name }}
+                                                        ({{ employee.department.department_name if employee.department
+                                                        else 'No Dept' }})
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label for="department_id">Department</label>
+                                                <select name="department_id[]" class="department-dropdown">
+                                                    <option value="">Select Department</option>
+                                                    {% for department in departments %}
+                                                    <option value="{{ department.id }}" {% if
+                                                        line_item.to_department_id==department.id %}selected{% endif %}>
+                                                        {{ department.department_name }}
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="expected_return_date">Expected Return Date</label>
+                                                <input type="date" name="expected_return_date[]"
+                                                    value="{{ line_item.expected_return_date.strftime('%Y-%m-%d') if line_item.expected_return_date else '' }}">
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="assignment_notes">Assignment Notes</label>
+                                            <textarea name="assignment_notes[]" rows="2"
+                                                placeholder="Purpose of assignment...">{{ line_item.line_notes }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Transfer-specific fields -->
+                                <div class="conditional-field transfer-section"
+                                    style="display: {{ 'block' if asset_movement.movement_type == 'transfer' else 'none' }}">
+                                    <div class="form-section">
+                                        <h4>Transfer Details</h4>
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="to_location_id">To Location</label>
+                                                <select name="to_location_id[]" class="location-dropdown">
+                                                    <option value="">Select Destination Location</option>
+                                                    {% for location in locations %}
+                                                    <option value="{{ location.id }}" {% if
+                                                        line_item.to_location_id==location.id %}selected{% endif %}>
+                                                        {{ location.location }}
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label for="to_department_id">To Department</label>
+                                                <select name="to_department_id[]" class="department-dropdown">
+                                                    <option value="">Select Destination Department</option>
+                                                    {% for department in departments %}
+                                                    <option value="{{ department.id }}" {% if
+                                                        line_item.to_department_id==department.id %}selected{% endif %}>
+                                                        {{ department.department_name }}
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="transfer_reason">Transfer Reason</label>
+                                            <textarea name="transfer_reason[]" rows="2"
+                                                placeholder="Reason for transfer...">{{ line_item.line_notes }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Disposal-specific fields -->
+                                <div class="conditional-field disposal-section"
+                                    style="display: {{ 'block' if asset_movement.movement_type == 'disposal' else 'none' }}">
+                                    <div class="form-section">
+                                        <h4>Disposal Details</h4>
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="disposal_method">Disposal Method</label>
+                                                <select name="disposal_method[]">
+                                                    <option value="">Select Method</option>
+                                                    <option value="sale">Sale</option>
+                                                    <option value="donation">Donation</option>
+                                                    <option value="recycling">Recycling</option>
+                                                    <option value="scrap">Scrap</option>
+                                                    <option value="other">Other</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="disposal_value">Disposal Value/Proceeds</label>
+                                                <input type="text" name="disposal_value[]"
+                                                    value="{{ line_item.transaction_value if line_item.transaction_value else '' }}"
+                                                    placeholder="Amount received (if any)">
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="disposal_notes">Disposal Notes</label>
+                                            <textarea name="disposal_notes[]" rows="2"
+                                                placeholder="Additional disposal details...">{{ line_item.line_notes }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Donation Out-specific fields -->
+                                <div class="conditional-field donation-out-section"
+                                    style="display: {{ 'block' if asset_movement.movement_type == 'donation_out' else 'none' }}">
+                                    <div class="form-section">
+                                        <h4>Donation Details</h4>
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="recipient_name">Recipient Name</label>
+                                                <input type="text" name="recipient_name[]"
+                                                    placeholder="Who received the donation"
+                                                    value="{{ parties[line_item.party_id].vendor_name if line_item.party_id and parties else '' }}">
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="donation_reason">Donation Reason</label>
+                                            <textarea name="donation_reason[]" rows="2"
+                                                placeholder="Reason for donation...">{{ line_item.line_notes }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Depreciation-specific fields -->
+                                <div class="conditional-field depreciation-section"
+                                    style="display: {{ 'block' if asset_movement.movement_type == 'depreciation' else 'none' }}">
+                                    <div class="form-section">
+                                        <h4>Depreciation Details</h4>
+
+                                        <div class="form-group">
+                                            <label for="depreciation_amount">Depreciation Amount <span
+                                                    class="required">*</span></label>
+                                            <input type="text" name="depreciation_amount[]"
+                                                class="depreciation-amount-input"
+                                                value="{{ line_item.transaction_value if line_item.transaction_value else '' }}"
+                                                required>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="depreciation_notes">Depreciation Notes</label>
+                                            <textarea name="depreciation_notes[]" class="depreciation-notes-input"
+                                                rows="2"
+                                                placeholder="Optional notes about this depreciation entry">{{ line_item.line_notes }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Asset Summary Display -->
+                                <div class="asset-summary mt-3 p-3 bg-light rounded" style="display: none;">
+                                    <div class="summary-content"></div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+
+
+                    <!-- Additional Details Section -->
+                    <div class="form-section conditional-field" id="additional_details_section"
+                        style="display: {{ 'block' if asset_movement.movement_type in ['acquisition', 'opening_balance', 'donation_in'] else 'none' }}">
+                        <h2>Additional Details (Optional)</h2>
+
+                        <div class="form-group conditional-field" id="project_field"
+                            style="display: {{ 'block' if asset_movement.movement_type in ['acquisition', 'opening_balance', 'donation_in'] else 'none' }}">
+                            <select id="project_id" name="project_id">
+                                <option value=""></option>
+                                {% for project in projects %}
+                                <option value="{{ project.id }}" {% if asset_movement.project_id==project.id
+                                    %}selected{% endif %}>
+                                    {{ project.name }} - {{ project.project_id }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <label for="project">Project:</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions - Add this section before the closing </form> tag -->
+                <div class="form-actions" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e9ecef;">
+                    <button type="button" class="button remove-button"
+                        onclick="window.location.href='{{ url_for('inventory.stock_movement_history', movement_id=asset_movement.id) }}'">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="button" id="saveAndExitBtn" class="button cta-button">
+                        <i class="fas fa-save"></i> Update and Exit
+                    </button>
+                </div>
+
+
+            </form>
+        </div>
+
+        <!-- Confirmation Modal -->
+        <div id="confirmationModal">
+            <p>Are you sure you want to delete this line item?</p>
+            <button id="confirmDelete">Yes, Delete</button>
+            <button id="cancelDelete">Cancel</button>
+        </div>
+
+        <!-- Modal for New supplier -->
+        <div id="newPartyModal" class="confirmationModal" style="display: none;">
+            <p>"<span id="enteredPartyName"></span>" is not in the database. Is this a one-time <span
+                    id="partyTypeText">party</span>?</p>
+            <div>
+                <button id="oneTimePartyBtn" class="confirmDelete">Yes, One-Time <span
+                        id="partyTypeBtn">Party</span></button>
+                <button id="addToDatabaseBtn" class="cancelDelete">No, Add to Database</button>
+                <button id="cancelModalBtn" class="cancelDelete" style="margin-left: 10px;">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Vendor Modal -->
+        <div id="vendorModal" style="display: none">
+            <div
+                style="background: white; padding: 15px; border: 1px solid #ccc; width: 95%; margin-right: 40px; max-height: 80vh; overflow-y: auto;">
+                <h3>Add New Client/Supplier</h3>
+                <form id="vendorDetailsForm" method="POST" action="{{ url_for('general_ledger.add_vendor') }}">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="vendorType">Party Type:</label>
+                            <select id="vendorType" name="vendorType" required>
+                                <option value="supplier">Supplier</option>
+                                <option value="vendor">Vendor</option>
+                                <option value="client">Client</option>
+                                <option value="partner">Partner</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="vendorName">Name:</label>
+                            <input type="text" id="vendorName" name="vendorName" required />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="vendorId">ID:</label>
+                            <input type="text" id="vendorId" name="vendorId" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="designation">Designation:</label>
+                            <input type="text" id="designation" name="designation" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="telContact">Tel Contact:</label>
+                            <input type="text" id="telContact" name="telContact" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email Contact:</label>
+                            <input type="text" id="email" name="email" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="address">Address:</label>
+                            <input type="text" id="address" name="address" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="city">City:</label>
+                            <input type="text" id="city" name="city" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="stateProvince">State/Province:</label>
+                            <input type="text" id="stateProvince" name="stateProvince" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="postalCode">Postal Code:</label>
+                            <input type="text" id="postalCode" name="postalCode" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="country">Country:</label>
+                            <select id="country" name="country">
+                                <option value="">Loading countries...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="website">Website:</label>
+                            <input type="text" id="website" name="website" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="paymentTerms">Payment Terms:</label>
+                            <input type="text" id="paymentTerms" name="paymentTerms" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="taxId">Tax ID:</label>
+                            <input type="text" id="taxId" name="taxId" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="preferredCommunicationMethod">Preferred Communication Method:</label>
+                            <select id="preferredCommunicationMethod" name="preferredCommunicationMethod">
+                                <option value="Phone">Phone</option>
+                                <option value="Email">Email</option>
+                                <option value="Whatsapp">Whatsapp</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="primaryContactPerson">Primary Contact Person:</label>
+                            <input type="text" id="primaryContactPerson" name="primaryContactPerson" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="secondaryContactPerson">Secondary Contact Person:</label>
+                            <input type="text" id="secondaryContactPerson" name="secondaryContactPerson" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="certifications">Certifications:</label>
+                            <textarea id="certifications" name="certifications"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="notes">Notes:</label>
+                            <textarea id="notes" name="notes"></textarea>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="button cta-button">Save Client/Supplier</button>
+                            <button type="button" class="button add-button" id="closeModal">Close</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supplier Datalist -->
+    <datalist id="supplier_list">
+        {% for supplier in suppliers %}
+        <option value="{{ supplier.vendor_name }}" data-id="{{ supplier.id }}">
+            {{ supplier.vendor_name }}
+        </option>
+        {% endfor %}
+    </datalist>
+
+    <!-- Customer Datalist -->
+    <datalist id="customer_list">
+        {% for customer in customers %}
+        <option value="{{ customer.vendor_name }}" data-id="{{ customer.id }}">
+            {{ customer.vendor_name }}
+        </option>
+        {% endfor %}
+    </datalist>
+</div>
+
+<script>
+
+    calculateLineItemTotal = function () { return 0; };
+    // Asset items data (catalog - fetched from backend)
+    const assetItems = [
+        {% for item in asset_items %}
+    {
+        id: "{{ item.id }}",
+            name: "{{ item.asset_name }}",
+                code: "{{ item.asset_code }}",
+                    category: "{{ item.inventory_category.category_name if item.inventory_category else '' }}",
+                        subcategory: "{{ item.inventory_subcategory.subcategory_name if item.inventory_subcategory else '' }}",
+                            brand: "{{ item.brand.brand_name if item.brand else '' }}",
+                                description: "{{ item.asset_description }}",
+                                    default_useful_life: "{{ item.expected_useful_life_years }}",
+                                        depreciation_method: "{{ item.depreciation_method }}",
+                                            salvage_percentage: "{{ item.salvage_value_percentage }}",
+                                                fixed_asset_account_id: "{{ item.fixed_asset_account_id }}",
+                                                    depreciation_account_id: "{{ item.depreciation_expense_account_id }}",
+                                                        accumulated_dep_account_id: "{{ item.accumulated_depreciation_account_id }}"
+    },
+    {% endfor %}
+];
+
+    // Global cache for available assets
+    const assetCache = new Map();
+    const movementId = '{{ asset_movement.id }}';
+    const movementType = '{{ asset_movement.movement_type }}';
+    const baseCurrencyId = '{{ base_currency_id }}';
+
+    // Initialize on page load
+    // Add this function to load assets for all line items on page load
+    async function loadInitialAssetsForAllLineItems() {
+        const lineItems = document.querySelectorAll('.line-item');
+        const promises = [];
+
+        lineItems.forEach((lineItem, index) => {
+            const assetItemDropdown = lineItem.querySelector('.asset-item-dropdown');
+            const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+            const selectedAssetId = assetInstanceDropdown?.dataset?.selected;
+
+            // Check if this is an existing asset movement type
+            const showExistingAssetDropdown = ['assignment', 'return', 'transfer', 'sale', 'donation_out', 'disposal', 'depreciation'].includes(movementType);
+
+            if (showExistingAssetDropdown && assetItemDropdown && assetItemDropdown.value) {
+                // Load available assets
+                const promise = loadAvailableAssets(assetItemDropdown.value, lineItem, false)
+                    .then(() => {
+                        // After assets are loaded, select the previously selected asset
+                        if (selectedAssetId) {
+                            setTimeout(() => {
+                                $(assetInstanceDropdown).val(selectedAssetId).trigger('change');
+                            }, 100);
+                        }
+                    });
+                promises.push(promise);
+            }
+        });
+
+        await Promise.all(promises);
+        console.log('Initial assets loaded for all line items');
+    }
+
+    // Update DOMContentLoaded event listener
+    document.addEventListener('DOMContentLoaded', function () {
+        // Set transaction date if not already set
+        if (!document.getElementById('transaction_date').value) {
+            const today = new Date();
+            const formattedDate = today.toISOString().split('T')[0];
+            document.getElementById('transaction_date').value = formattedDate;
+        }
+
+
+
+        // Initialize Select2 for all dropdowns
+        initializeSelect2();
+
+
+
+        // Setup event listeners
+        setupEventListeners();
+
+        // Initialize each line item
+        document.querySelectorAll('.line-item').forEach((lineItem, index) => {
+            setupAssetLineItemEvents(lineItem, movementType);
+        });
+
+        // Load assets for all line items
+        loadInitialAssetsForAllLineItems().then(() => {
+            // Update summary after assets are loaded
+            setTimeout(() => {
+                updateSummary();
+                updateAdjustmentAccountVisibility();
+            }, 500);
+        });
+    });
+    function initializeSelect2() {
+        // Initialize all select2 dropdowns
+        $('.asset-item-dropdown, .asset-instance-dropdown, .employee-dropdown, .department-dropdown, .location-dropdown, .account-dropdown').select2({
+            width: '100%',
+            placeholder: "Select an option",
+            allowClear: true,
+            dropdownParent: $(document.body)
+        });
+    }
+
+    function setupEventListeners() {
+        // Add line item button
+        document.getElementById('addLineItem').addEventListener('click', function () {
+            addNewLineItem();
+        });
+
+        // Movement type change (should not happen in edit mode, but keep for dynamic updates)
+        document.getElementById('movement_type').addEventListener('change', function () {
+            // Do nothing - movement type is disabled in edit mode
+            // This event handler is kept for compatibility
+        });
+
+        // Save and Exit button
+        document.getElementById('saveAndExitBtn').addEventListener('click', function () {
+            processFormSubmission('save-exit');
+        });
+
+        // Vendor form submission
+        document.getElementById('vendorDetailsForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            submitVendorForm(this);
+        });
+
+        // Close modal button
+        document.getElementById('closeModal').addEventListener('click', function () {
+            document.getElementById('vendorModal').style.display = 'none';
+        });
+    }
+
+    function addNewLineItem() {
+        const lineItemsContainer = document.getElementById('lineItemsContainer');
+        const lineItemNumber = lineItemsContainer.querySelectorAll('.line-item').length + 1;
+        const movementType = '{{ asset_movement.movement_type }}';
+
+        const showExistingAssetDropdown = ['assignment', 'return', 'transfer', 'sale', 'donation_out', 'disposal', 'depreciation'].includes(movementType);
+        const showNewAssetFields = ['acquisition', 'opening_balance', 'donation_in'].includes(movementType);
+
+        const lineItem = document.createElement('div');
+        lineItem.classList.add('line-item');
+        lineItem.dataset.movementType = movementType;
+
+        lineItem.innerHTML = `
+            <div class="line-item-header">
+                <h3>Asset ${lineItemNumber}</h3>
+                <button type="button" class="remove-line-item button remove-button">Remove</button>
+            </div>
+            
+            <input type="hidden" name="item_type[]" value="asset">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="asset_item_id">Asset Type <span class="required">*</span></label>
+                    <select name="asset_item_id[]" class="asset-item-dropdown searchable-dropdown" required>
+                        <option value="">Select Asset Type</option>
+                        ${assetItems.map(item => `
+                            <option value="${item.id}" 
+                                    data-code="${item.code}"
+                                    data-useful-life="${item.default_useful_life}"
+                                    data-depreciation="${item.depreciation_method}"
+                                    data-salvage="${item.salvage_percentage}"
+                                    data-fixed-account="${item.fixed_asset_account_id}"
+                                    data-dep-account="${item.depreciation_account_id}"
+                                    data-accum-dep-account="${item.accumulated_dep_account_id}">
+                                ${item.name}${item.code ? ` (${item.code})` : ''}
+                                ${item.brand ? ` - ${item.brand}` : ''}
+                                ${item.category ? ` [${item.category}` : ''}
+                                ${item.subcategory ? `/${item.subcategory}]` : ']'}
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+            </div>
+            
+            <!-- For existing asset movements -->
+            <div class="conditional-field existing-asset-section" 
+                style="display: ${showExistingAssetDropdown ? 'block' : 'none'}">
+                <div class="form-group">
+                    <label for="asset_id">Select Asset Instance <span class="required">*</span></label>
+                    <select name="asset_id[]" class="asset-instance-dropdown searchable-dropdown" 
+                            ${showExistingAssetDropdown ? 'required' : ''}>
+                        <option value="">Select an asset...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- For new asset creation -->
+            <div class="conditional-field new-asset-section" 
+                style="display: ${showNewAssetFields ? 'block' : 'none'}">
+                
+                <div class="form-row asset-identification" 
+                    style="display: ${showNewAssetFields ? 'block' : 'none'}">
+                    <div class="form-group">
+                        <label for="asset_tag">Asset Tag <span class="required">*</span></label>
+                        <input type="text" name="asset_tag[]" class="asset-tag-input" 
+                            ${showNewAssetFields ? 'required' : ''}
+                            placeholder="Auto-generated">
+                    </div>
+                    
+                    <div class="form-group">
+    <label for="serial_number">Serial Number</label>
+    <input type="text" name="serial_number[]" class="serial-number-input"
+        value="{{ asset.serial_number if asset and asset.serial_number else '' }}"
+        placeholder="Enter serial number (optional)">
+</div>
+                </div>
+
+                <div class="form-row existing-asset-identification" 
+                    style="display: ${showExistingAssetDropdown ? 'block' : 'none'}">
+                    <div class="form-group">
+                        <label>Asset Tag:</label>
+                        <div class="readonly-field asset-tag-display">
+                            <em>Will be populated when asset is selected</em>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Serial Number:</label>
+                        <div class="readonly-field serial-number-display">
+                            <em>Will be populated when asset is selected</em>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Information -->
+                <div class="form-section conditional-field" 
+                    style="display: ${['acquisition', 'opening_balance', 'donation_in'].includes(movementType) ? 'block' : 'none'}">
+         
+                    
+                    <!-- Supplier for acquisition AND donation_in -->
+                    <div class="form-row conditional-field" 
+                        style="display: ${['acquisition', 'donation_in'].includes(movementType) ? 'block' : 'none'}">
+                        <div class="form-group">
+                            <label for="supplier_id">${movementType === 'acquisition' ? 'From (Sender)' : 'Donor'} <span class="required">*</span></label>
+                            <input type="hidden" name="supplier_id[]" class="asset-supplier-id">
+                            <input type="text" name="supplier_name[]" class="asset-supplier-name" 
+                                list="supplier_list" placeholder="${movementType === 'acquisition' ? 'Select sender' : 'Enter donor name'}" 
+                                required>
+                        </div>
+                    </div>
+                    
+                    <!-- Depreciation Overrides -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="useful_life_years">Useful Life (Years)</label>
+                            <input type="number" name="useful_life_years[]" class="useful-life-input" 
+                                   min="1" max="50" placeholder="Uses asset type default">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="depreciation_method">Depreciation Method</label>
+                            <select name="depreciation_method[]" class="depreciation-method-input">
+                                <option value="">Use Asset Type Default</option>
+                                <option value="straight_line">Straight Line</option>
+                                <option value="declining_balance">Declining Balance</option>
+                                <option value="double_declining">Double Declining Balance</option>
+                                <option value="none">No Depreciation</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Capitalization Date -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="capitalization_date">Capitalization Date</label>
+                            <input type="date" name="capitalization_date[]" class="capitalization-date-input"
+                                   value="${new Date().toISOString().split('T')[0]}">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Warranty Information -->
+                <div class="form-section conditional-field" 
+                    style="display: ${movementType === 'acquisition' ? 'block' : 'none'}">
+                    <h4>Warranty Information</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="warranty_months">Warranty Period (Months)</label>
+                            <input type="number" name="warranty_months[]" class="warranty-months-input" 
+                                   min="0" max="120" value="12">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="warranty_expiry">Warranty Expiry</label>
+                            <input type="date" name="warranty_expiry[]" class="warranty-expiry-input">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Condition -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="condition">Initial Condition</label>
+                        <select name="condition[]" class="condition-input">
+                            <option value="excellent">Excellent</option>
+                            <option value="good" selected>Good</option>
+                            <option value="fair">Fair</option>
+                            <option value="poor">Poor</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sales-specific fields -->
+            <div class="conditional-field sale-section" 
+                style="display: ${movementType === 'sale' ? 'block' : 'none'}">
+                <div class="form-section">
+                    <h4>Dispatch Details</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="sale_price">Dispatch Price <span class="required">*</span></label>
+                            <input type="text" name="sale_price[]" class="sale-price-input" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="customer_id">Receiver <span class="required">*</span></label>
+                            <input type="hidden" name="customer_id[]" class="asset-customer-id">
+                            <input type="text" name="customer_name[]" class="asset-customer-name" 
+                                list="customer_list" placeholder="Select Receiver" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sale_notes">Dispatch Notes</label>
+                        <textarea name="sale_notes[]" rows="2" placeholder="Additional dispatch details..."></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Assignment-specific fields -->
+            <div class="conditional-field assignment-section" 
+                style="display: ${movementType === 'assignment' ? 'block' : 'none'}">
+                <div class="form-section">
+                    <h4>Assignment Details</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="assigned_to_id">Assign To Employee</label>
+                            <select name="assigned_to_id[]" class="employee-dropdown">
+                                <option value="">Select Employee</option>
+                                {% for employee in employees %}
+                                <option value="{{ employee.id }}">
+                                    {{ employee.first_name }} {{ employee.middle_name }} {{ employee.last_name }} 
+                                    ({{ employee.department.department_name if employee.department else 'No Dept' }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="department_id">Department</label>
+                            <select name="department_id[]" class="department-dropdown">
+                                <option value="">Select Department</option>
+                                {% for department in departments %}
+                                <option value="{{ department.id }}">{{ department.department_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="expected_return_date">Expected Return Date</label>
+                            <input type="date" name="expected_return_date[]">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="assignment_notes">Assignment Notes</label>
+                        <textarea name="assignment_notes[]" rows="2" placeholder="Purpose of assignment..."></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Transfer-specific fields -->
+            <div class="conditional-field transfer-section" 
+                style="display: ${movementType === 'transfer' ? 'block' : 'none'}">
+                <div class="form-section">
+                    <h4>Transfer Details</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="to_location_id">To Location</label>
+                            <select name="to_location_id[]" class="location-dropdown">
+                                <option value="">Select Destination Location</option>
+                                {% for location in locations %}
+                                <option value="{{ location.id }}">{{ location.location }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="to_department_id">To Department</label>
+                            <select name="to_department_id[]" class="department-dropdown">
+                                <option value="">Select Destination Department</option>
+                                {% for department in departments %}
+                                <option value="{{ department.id }}">{{ department.department_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="transfer_reason">Transfer Reason</label>
+                        <textarea name="transfer_reason[]" rows="2" placeholder="Reason for transfer..."></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Disposal-specific fields -->
+            <div class="conditional-field disposal-section" 
+                style="display: ${movementType === 'disposal' ? 'block' : 'none'}">
+                <div class="form-section">
+                    <h4>Disposal Details</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="disposal_method">Disposal Method</label>
+                            <select name="disposal_method[]">
+                                <option value="">Select Method</option>
+                                <option value="sale">Sale</option>
+                                <option value="donation">Donation</option>
+                                <option value="recycling">Recycling</option>
+                                <option value="scrap">Scrap</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="disposal_value">Disposal Value/Proceeds</label>
+                            <input type="text" name="disposal_value[]" placeholder="Amount received (if any)">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="disposal_notes">Disposal Notes</label>
+                        <textarea name="disposal_notes[]" rows="2" placeholder="Additional disposal details..."></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Donation Out-specific fields -->
+            <div class="conditional-field donation-out-section" 
+                style="display: ${movementType === 'donation_out' ? 'block' : 'none'}">
+                <div class="form-section">
+                    <h4>Donation Details</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="recipient_name">Recipient Name</label>
+                            <input type="text" name="recipient_name[]" placeholder="Who received the donation">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="donation_reason">Donation Reason</label>
+                        <textarea name="donation_reason[]" rows="2" placeholder="Reason for donation..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Depreciation-specific fields -->
+            <div class="conditional-field depreciation-section" 
+                style="display: ${movementType === 'depreciation' ? 'block' : 'none'}">
+                <div class="form-section">
+                    <h4>Depreciation Details</h4>
+                    
+                    <div class="form-group">
+                        <label for="depreciation_amount">Depreciation Amount <span class="required">*</span></label>
+                        <input type="text" name="depreciation_amount[]" class="depreciation-amount-input" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="depreciation_notes">Depreciation Notes</label>
+                        <textarea name="depreciation_notes[]" class="depreciation-notes-input" rows="2"
+                                  placeholder="Optional notes about this depreciation entry"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Asset Summary Display -->
+            <div class="asset-summary mt-3 p-3 bg-light rounded" style="display: none;">
+                <div class="summary-content"></div>
+            </div>
+        `;
+
+        lineItemsContainer.appendChild(lineItem);
+
+        // Initialize Select2 for the new line item
+        $(lineItem).find('.asset-item-dropdown, .asset-instance-dropdown, .employee-dropdown, .department-dropdown, .location-dropdown').select2({
+            width: '100%',
+            placeholder: "Select an option",
+            allowClear: true,
+            dropdownParent: $(lineItem)
+        });
+
+        // Setup event listeners
+        setupAssetLineItemEvents(lineItem, movementType);
+
+        // Generate initial asset tag for new assets
+        if (showNewAssetFields) {
+            const assetTagInput = lineItem.querySelector('.asset-tag-input');
+            if (assetTagInput) {
+                assetTagInput.value = generateAssetTag('000');
+            }
+        }
+
+        // Update summary
+        updateSummary();
+    }
+
+    // Load available assets for a specific asset item
+    async function loadAvailableAssets(assetItemId, lineItem, forceRefresh = false, currentAssetId = null) {
+        const movementType = document.getElementById('movement_type').value;
+        const cacheKey = `${assetItemId}_${movementType}`;
+
+        // Check cache first
+        if (!forceRefresh && assetCache.has(cacheKey)) {
+            updateAssetDropdown(assetCache.get(cacheKey), lineItem);
+            return;
+        }
+
+        try {
+            const dropdown = lineItem.querySelector('.asset-instance-dropdown');
+            if (dropdown) {
+                dropdown.disabled = true;
+                dropdown.innerHTML = '<option value="">Loading available assets...</option>';
+            }
+
+            const params = new URLSearchParams({
+                asset_item_id: assetItemId,
+                movement_type: movementType,
+                current_asset_id: currentAssetId || ''
+            });
+
+            const response = await fetch(`/assets/api/asset_movement/get_available_assets?${params}`);
+            const data = await response.json();
+
+            if (data.success) {
+                assetCache.set(cacheKey, data.assets);
+                updateAssetDropdown(data.assets, lineItem);
+            } else {
+                console.error('Error loading assets:', data.message);
+            }
+        } catch (error) {
+            console.error('Error loading available assets:', error);
+        }
+    }
+
+
+
+    // Update asset dropdown with fetched assets
+    // Update asset dropdown with fetched assets
+    function updateAssetDropdown(assets, lineItem) {
+        const dropdown = lineItem.querySelector('.asset-instance-dropdown');
+        if (!dropdown) return;
+
+        // Store current selected value before clearing
+        const currentSelectedValue = dropdown.value;
+
+        console.log(`updateAssetDropdown called with currentSelectedValue: ${currentSelectedValue}`);
+        console.log(`Available assets:`, assets.map(a => a.id));
+
+        dropdown.innerHTML = '<option value="">Select Asset</option>';
+
+        if (assets.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No available assets found for this item type';
+            option.disabled = true;
+            dropdown.appendChild(option);
+        } else {
+            assets.forEach(asset => {
+                const option = document.createElement('option');
+                option.value = asset.id;
+                const serialDisplay = asset.serial_number && asset.serial_number !== 'None' && asset.serial_number !== 'null' ? `(SN: ${asset.serial_number})` : '';
+                option.textContent = `${asset.asset_tag} - ${asset.asset_item_name || ''} ${serialDisplay} ${asset.current_location ? `[${asset.current_location}]` : ''}`.trim();
+                option.dataset.currentValue = asset.current_value;
+                option.dataset.assetTag = asset.asset_tag;
+                option.dataset.serialNumber = asset.serial_number || '';
+                option.dataset.assetItemId = asset.asset_item_id;
+                dropdown.appendChild(option);
+            });
+        }
+
+        // Refresh Select2
+        if ($(dropdown).hasClass('select2-hidden-accessible')) {
+            $(dropdown).select2('destroy');
+        }
+
+        $(dropdown).select2({
+            width: '100%',
+            placeholder: "Select an asset",
+            allowClear: true,
+            dropdownParent: $(lineItem)
+        });
+
+        dropdown.disabled = false;
+
+        // Restore previously selected value if it exists in the new options
+        if (currentSelectedValue && currentSelectedValue !== '') {
+            const optionExists = Array.from(dropdown.options).some(opt => opt.value === currentSelectedValue);
+            if (optionExists) {
+                $(dropdown).val(currentSelectedValue).trigger('change');
+                console.log(`Restored selected value: ${currentSelectedValue}`);
+            }
+        }
+    }
+
+
+
+    // Setup event listeners for asset line items
+    function setupAssetLineItemEvents(lineItem, movementType) {
+        // Setup party autocomplete events
+        setupLineItemPartyEvents(lineItem, movementType);
+
+        // Asset item dropdown change
+        const assetItemDropdown = lineItem.querySelector('.asset-item-dropdown');
+        $(assetItemDropdown).select2({
+            width: '100%',
+            placeholder: "Select Asset Type",
+            allowClear: true,
+            dropdownParent: $(lineItem)
+        }).on('change', async function () {
+            const selectedOption = this.options[this.selectedIndex];
+
+            if (selectedOption && selectedOption.value) {
+                const itemId = selectedOption.value;
+
+                // Load default values
+                const usefulLife = selectedOption.dataset.usefulLife;
+                const depreciationMethod = selectedOption.dataset.depreciation;
+
+                // Update asset tag with correct item ID
+                const assetTagInput = lineItem.querySelector('.asset-tag-input');
+                if (assetTagInput && !assetTagInput.value) {
+                    assetTagInput.value = generateAssetTag(itemId);
+                }
+
+                // Set default values in override fields
+                const usefulLifeInput = lineItem.querySelector('.useful-life-input');
+                const depreciationSelect = lineItem.querySelector('.depreciation-method-input');
+
+                if (usefulLifeInput && usefulLife && !usefulLifeInput.value) {
+                    usefulLifeInput.value = usefulLife;
+                }
+
+                if (depreciationSelect && depreciationMethod && !depreciationSelect.value) {
+                    depreciationSelect.value = depreciationMethod;
+                }
+
+                // Load available assets if needed
+                const showExistingAssetDropdown = ['assignment', 'return', 'transfer', 'sale', 'donation_out', 'disposal', 'depreciation'].includes(movementType);
+                if (showExistingAssetDropdown) {
+                    await loadAvailableAssets(itemId, lineItem, false);
+                }
+            }
+        });
+
+        // Asset instance dropdown change
+        const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+        if (assetInstanceDropdown) {
+            $(assetInstanceDropdown).select2({
+                width: '100%',
+                placeholder: "Select Asset",
+                allowClear: true,
+                dropdownParent: $(lineItem)
+            }).on('change', function () {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption && selectedOption.value) {
+                    const currentValue = selectedOption.dataset.currentValue;
+                    const purchasePrice = selectedOption.dataset.purchasePrice;
+                    const assetTag = selectedOption.dataset.assetTag;
+                    const serialNumber = selectedOption.dataset.serialNumber;
+                    const assetItemId = selectedOption.dataset.assetItemId;
+
+                    // Update form fields
+                    const currentValueInput = lineItem.querySelector('.current-value-input');
+                    const purchasePriceInput = lineItem.querySelector('.purchase-price-input');
+
+                    if (currentValueInput) currentValueInput.value = currentValue || '';
+                    if (purchasePriceInput) purchasePriceInput.value = purchasePrice || '';
+
+                    // Update asset identification display
+                    updateAssetIdentificationFields(lineItem);
+                }
+            });
+        }
+
+        // Remove button
+        const removeBtn = lineItem.querySelector('.remove-line-item');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function () {
+                showDeleteConfirmation(lineItem);
+            });
+        }
+
+        // Financial field changes
+        const financialInputs = lineItem.querySelectorAll('.purchase-price-input, .current-value-input, .sale-price-input, .depreciation-amount-input');
+        financialInputs.forEach(input => {
+            input.addEventListener('input', function () {
+                updateAssetSummary(lineItem);
+                updateSummary();
+                updateAdjustmentAccountVisibility();
+            });
+        });
+    }
+
+    // Setup per-line party autocomplete
+    function setupLineItemPartyEvents(lineItem, movementType) {
+        // Handle supplier autocomplete for acquisitions
+        if (movementType === 'acquisition' || movementType === 'donation_in') {
+            const supplierNameInput = lineItem.querySelector('.asset-supplier-name');
+            const supplierIdInput = lineItem.querySelector('.asset-supplier-id');
+
+            if (supplierNameInput && supplierIdInput) {
+                supplierNameInput.addEventListener('input', function () {
+                    handlePartyAutocomplete(this, supplierIdInput, 'supplier_list');
+                });
+
+                supplierNameInput.addEventListener('blur', function () {
+                    setTimeout(() => {
+                        handleNewPartyModal(this, supplierIdInput, 'supplier');
+                    }, 200);
+                });
+            }
+        }
+
+        // Handle customer autocomplete for sales
+        if (movementType === 'sale') {
+            const customerNameInput = lineItem.querySelector('.asset-customer-name');
+            const customerIdInput = lineItem.querySelector('.asset-customer-id');
+
+            if (customerNameInput && customerIdInput) {
+                customerNameInput.addEventListener('input', function () {
+                    handlePartyAutocomplete(this, customerIdInput, 'customer_list');
+                });
+
+                customerNameInput.addEventListener('blur', function () {
+                    const enteredValue = this.value.trim();
+                    setTimeout(() => {
+                        if (enteredValue && !customerIdInput.value) {
+                            handleNewPartyModal(this, customerIdInput, 'customer');
+                        }
+                    }, 200);
+                });
+            }
+        }
+    }
+
+    // Handle party autocomplete
+    function handlePartyAutocomplete(inputElement, idInput, datalistId) {
+        const enteredValue = inputElement.value.trim();
+
+        if (!enteredValue) {
+            idInput.value = '';
+            return;
+        }
+
+        const datalist = document.getElementById(datalistId);
+        let foundMatch = false;
+
+        if (datalist) {
+            const options = datalist.querySelectorAll('option');
+            for (let option of options) {
+                if (option.value.toLowerCase() === enteredValue.toLowerCase()) {
+                    idInput.value = option.getAttribute('data-id');
+                    foundMatch = true;
+                    break;
+                }
+            }
+        }
+
+        if (!foundMatch) {
+            idInput.value = '';
+        }
+    }
+
+    // Handle new party modal
+    function handleNewPartyModal(inputElement, idInput, partyType) {
+        const enteredValue = inputElement.value.trim();
+
+        if (!enteredValue) return;
+
+        const datalistId = partyType === 'supplier' ? 'supplier_list' : 'customer_list';
+        const datalist = document.getElementById(datalistId);
+        let found = false;
+
+        if (datalist) {
+            const options = datalist.querySelectorAll('option');
+            for (let option of options) {
+                if (option.value.toLowerCase() === enteredValue.toLowerCase()) {
+                    idInput.value = option.getAttribute('data-id');
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (!found && !idInput.value && enteredValue) {
+            setTimeout(() => {
+                showNewPartyModal(enteredValue, partyType, function (newPartyId, newPartyName) {
+                    if (newPartyId) {
+                        idInput.value = newPartyId;
+                        inputElement.value = newPartyName;
+                        addToDatalist(datalistId, newPartyName, newPartyId);
+                    }
+                });
+            }, 100);
+        }
+    }
+
+    // Show new party modal
+    function showNewPartyModal(partyName, partyType, callback) {
+        const modal = document.getElementById('newPartyModal');
+        const enteredNameSpan = document.getElementById('enteredPartyName');
+        const partyTypeText = document.getElementById('partyTypeText');
+        const partyTypeBtn = document.getElementById('partyTypeBtn');
+
+        enteredNameSpan.textContent = partyName;
+        const displayType = partyType === 'supplier' ? 'Supplier' : 'Customer';
+        partyTypeText.textContent = displayType.toLowerCase();
+        partyTypeBtn.textContent = displayType;
+
+        modal.style.display = 'block';
+
+        // Remove existing event listeners
+        const oneTimeBtn = document.getElementById('oneTimePartyBtn');
+        const addToDbBtn = document.getElementById('addToDatabaseBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+
+        const newOneTimeBtn = oneTimeBtn.cloneNode(true);
+        const newAddToDbBtn = addToDbBtn.cloneNode(true);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+
+        oneTimeBtn.parentNode.replaceChild(newOneTimeBtn, oneTimeBtn);
+        addToDbBtn.parentNode.replaceChild(newAddToDbBtn, addToDbBtn);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+        newOneTimeBtn.addEventListener('click', function () {
+            modal.style.display = 'none';
+            if (callback) callback(partyName, partyName);
+        });
+
+        newAddToDbBtn.addEventListener('click', function () {
+            modal.style.display = 'none';
+
+            const vendorModal = document.getElementById('vendorModal');
+            document.getElementById('vendorName').value = partyName;
+            document.getElementById('vendorType').value = partyType === 'supplier' ? 'supplier' : 'client';
+
+            vendorModal.style.display = 'block';
+            window.pendingPartyCallback = function (newVendorId, newVendorName) {
+                if (callback) callback(newVendorId, newVendorName);
+                delete window.pendingPartyCallback;
+            };
+        });
+
+        newCancelBtn.addEventListener('click', function () {
+            modal.style.display = 'none';
+        });
+    }
+
+    // Add to datalist
+    function addToDatalist(datalistId, value, dataId) {
+        const datalist = document.getElementById(datalistId);
+        if (datalist) {
+            const existingOptions = datalist.querySelectorAll('option');
+            let alreadyExists = false;
+
+            for (let option of existingOptions) {
+                if (option.value === value || option.getAttribute('data-id') === dataId.toString()) {
+                    alreadyExists = true;
+                    break;
+                }
+            }
+
+            if (!alreadyExists) {
+                const option = document.createElement('option');
+                option.value = value;
+                option.setAttribute('data-id', dataId);
+                datalist.appendChild(option);
+            }
+        }
+    }
+
+    // Update asset identification fields
+    function updateAssetIdentificationFields(lineItem) {
+        const movementType = document.getElementById('movement_type').value;
+        const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+        const selectedOption = assetInstanceDropdown?.options[assetInstanceDropdown.selectedIndex];
+
+        const assetTagDisplay = lineItem.querySelector('.asset-tag-display');
+        const serialDisplay = lineItem.querySelector('.serial-number-display');
+
+        if (selectedOption && selectedOption.value) {
+            const assetTag = selectedOption.dataset.assetTag;
+            const serialNumber = selectedOption.dataset.serialNumber;
+
+            if (assetTagDisplay) {
+                assetTagDisplay.textContent = assetTag || '';
+            }
+
+            if (serialDisplay) {
+                serialDisplay.textContent = serialNumber || '';
+            }
+
+        } else {
+            if (assetTagDisplay) {
+                assetTagDisplay.innerHTML = '<em>Will be populated when asset is selected</em>';
+            }
+            if (serialDisplay) {
+                serialDisplay.innerHTML = '<em>Will be populated when asset is selected</em>';
+            }
+        }
+    }
+
+    // Update asset summary
+    function updateAssetSummary(lineItem) {
+        const movementType = lineItem.dataset.movementType;
+
+
+        const assetItemDropdown = lineItem.querySelector('.asset-item-dropdown');
+        const selectedAssetItem = assetItemDropdown?.options[assetItemDropdown.selectedIndex];
+        const assetItemName = selectedAssetItem?.text || 'No asset type selected';
+
+        const summaryDiv = lineItem.querySelector('.asset-summary');
+        const contentDiv = lineItem.querySelector('.summary-content');
+
+
+        const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+        const selectedAsset = assetInstanceDropdown?.options[assetInstanceDropdown.selectedIndex];
+
+
+        if (!summaryDiv || !contentDiv) return;
+
+        let summaryHTML = '';
+
+        contentDiv.innerHTML = summaryHTML;
+        summaryDiv.style.display = 'block';
+    }
+
+    // Update main summary
+    // Update main summary - FIXED VERSION
+    function updateSummary() {
+        const lineItems = document.querySelectorAll('#lineItemsContainer .line-item');
+        let totalAssets = lineItems.length;
+
+        // Get current movement type from the hidden input (not disabled select)
+        const currentMovementType = '{{ asset_movement.movement_type }}';
+
+        // Get currency for formatting
+        const currencySelect = document.getElementById('currency');
+        const currencyText = currencySelect?.options[currencySelect.selectedIndex]?.text || 'USD';
+
+        lineItems.forEach(item => {
+            // Get the selected asset instance dropdown and its selected option
+            const assetInstanceDropdown = item.querySelector('.asset-instance-dropdown');
+            const selectedOption = assetInstanceDropdown?.options[assetInstanceDropdown.selectedIndex];
+
+            // Get values based on movement type
+            let itemValue = 0;
+
+            if (currentMovementType === 'sale') {
+                // For sales, use sale price
+                const salePrice = parseFloat(item.querySelector('.sale-price-input')?.value) || 0;
+                itemValue = salePrice;
+            } else if (currentMovementType === 'acquisition' || currentMovementType === 'opening_balance') {
+                // For acquisitions and opening balances, use purchase price
+                const purchasePrice = parseFloat(item.querySelector('.purchase-price-input')?.value) || 0;
+                itemValue = purchasePrice;
+            } else if (currentMovementType === 'donation_in') {
+                // For donations in, use current value
+                const currentValue = parseFloat(item.querySelector('.current-value-input')?.value) || 0;
+                itemValue = currentValue;
+            } else if (currentMovementType === 'depreciation') {
+                // For depreciation, use depreciation amount
+                const depreciationAmount = parseFloat(item.querySelector('.depreciation-amount-input')?.value) || 0;
+                itemValue = depreciationAmount;
+            } else {
+                // For other movements (transfer, assignment, return, disposal, donation_out)
+                // Use book value from selected asset
+                const bookValue = parseFloat(selectedOption?.dataset?.currentValue) || 0;
+                itemValue = bookValue;
+            }
+
+        });
+
+        // Update summary display
+        document.getElementById('totalItems').textContent = totalAssets;
+
+        // Update summary movement type display
+        const movementTypeDisplay = document.getElementById('summaryMovementType');
+        if (movementTypeDisplay) {
+            movementTypeDisplay.textContent = currentMovementType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+    }
+    // Update adjustment account visibility
+    function updateAdjustmentAccountVisibility() {
+        const movementType = document.getElementById('movement_type').value;
+        const adjustmentAccount = document.getElementById('adjustment_account');
+        const requiredIndicator = document.getElementById('adjustment_required_indicator');
+
+        if (movementType === 'sale') {
+            let hasGainLoss = false;
+
+            document.querySelectorAll('.line-item').forEach(lineItem => {
+                if (lineItem.dataset.movementType === 'sale') {
+                    const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+                    const selectedAsset = assetInstanceDropdown?.options[assetInstanceDropdown.selectedIndex];
+
+
+                }
+            });
+
+
+        }
+    }
+
+
+    // Add this function to load assets for all line items on page load
+    // Add this function to load assets for all line items on page load
+    async function loadInitialAssetsForAllLineItems() {
+        const lineItems = document.querySelectorAll('.line-item');
+        const promises = [];
+
+        lineItems.forEach((lineItem, index) => {
+            const assetItemDropdown = lineItem.querySelector('.asset-item-dropdown');
+            const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+
+            // Get the selected asset ID from the data-selected attribute or from the existing option
+            let selectedAssetId = assetInstanceDropdown?.dataset?.selected;
+
+            // If not in dataset, check if there's already a selected option
+            if (!selectedAssetId && assetInstanceDropdown) {
+                const selectedOption = assetInstanceDropdown.querySelector('option[selected]');
+                if (selectedOption) {
+                    selectedAssetId = selectedOption.value;
+                }
+            }
+
+            // Check if this is an existing asset movement type
+            const showExistingAssetDropdown = ['assignment', 'return', 'transfer', 'sale', 'donation_out', 'disposal', 'depreciation'].includes(movementType);
+
+            if (showExistingAssetDropdown && assetItemDropdown && assetItemDropdown.value) {
+                // Load available assets
+                const promise = loadAvailableAssets(assetItemDropdown.value, lineItem, true, selectedAssetId)  // Force refresh to ensure fresh data
+                    .then(() => {
+                        // After assets are loaded, select the previously selected asset
+                        if (selectedAssetId && selectedAssetId !== '') {
+                            setTimeout(() => {
+                                // Set the value and trigger change to update all related fields
+                                $(assetInstanceDropdown).val(selectedAssetId).trigger('change');
+                                console.log(`Selected asset ${selectedAssetId} for line item ${index + 1}`);
+                            }, 200);
+                        }
+                    });
+                promises.push(promise);
+            }
+        });
+
+        await Promise.all(promises);
+        console.log('Initial assets loaded for all line items');
+    }
+
+
+
+    // Populate account dropdown
+    function populateAccountDropdown(dropdownId, data, accountType) {
+        const dropdown = document.getElementById(dropdownId);
+        if (!dropdown) return;
+
+        const currentValue = dropdown.querySelector('option[selected]')?.value;
+
+        dropdown.innerHTML = '<option value="">Select account...</option>';
+
+        data.chart_of_accounts_grouped.sort((a, b) => a.category.localeCompare(b.category))
+            .forEach(cat => {
+                let filteredAccounts = [];
+
+                if (accountType === 'payable') {
+                    filteredAccounts = cat.accounts.filter(acc => acc.is_payable === true);
+                } else if (accountType === 'adjustment') {
+                    filteredAccounts = cat.accounts.filter(acc => acc.account_type === 'Expense' || acc.account_type === 'Income');
+                } else if (accountType === 'sales') {
+                    filteredAccounts = cat.accounts.filter(acc =>
+                        acc.account_type === 'Asset' && (acc.is_cash === true || acc.is_bank === true || acc.is_receivable === true)
+                    );
+                }
+
+                if (filteredAccounts.length > 0) {
+                    const optGroup = document.createElement('optgroup');
+                    optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                    filteredAccounts.sort((a, b) => a.sub_category.localeCompare(b.sub_category))
+                        .forEach(acc => {
+                            const option = document.createElement('option');
+                            option.value = acc.sub_category_id;
+                            option.textContent = `${acc.sub_category}${acc.sub_category_code ? ` (${acc.sub_category_code})` : ''}`;
+                            optGroup.appendChild(option);
+                        });
+
+                    dropdown.appendChild(optGroup);
+                }
+            });
+
+        // Restore selected value
+        if (currentValue) {
+            $(dropdown).val(currentValue).trigger('change');
+        }
+
+        // Initialize Select2
+        $(dropdown).select2({
+            width: '100%',
+            placeholder: "Select an account",
+            allowClear: true
+        });
+    }
+
+    // Submit vendor form
+    function submitVendorForm(form) {
+        const formData = new FormData(form);
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+        fetch('/general_ledger/add_vendor', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const vendorType = document.getElementById('vendorType').value;
+                    const datalistId = vendorType === 'supplier' || vendorType === 'vendor' ? 'supplier_list' : 'customer_list';
+                    addToDatalist(datalistId, data.vendorName, data.vendorId);
+
+                    if (window.pendingPartyCallback) {
+                        window.pendingPartyCallback(data.vendorId, data.vendorName);
+                    }
+
+                    document.getElementById('vendorModal').style.display = 'none';
+                    form.reset();
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    // Show delete confirmation
+    function showDeleteConfirmation(lineItem) {
+        const modal = document.getElementById('confirmationModal');
+        const confirmBtn = document.getElementById('confirmDelete');
+        const cancelBtn = document.getElementById('cancelDelete');
+
+        modal.style.display = 'block';
+
+        const confirmHandler = () => {
+            lineItem.remove();
+            renumberLineItems();
+            updateSummary();
+            updateAdjustmentAccountVisibility();
+            modal.style.display = 'none';
+            confirmBtn.removeEventListener('click', confirmHandler);
+            cancelBtn.removeEventListener('click', cancelHandler);
+        };
+
+        const cancelHandler = () => {
+            modal.style.display = 'none';
+            confirmBtn.removeEventListener('click', confirmHandler);
+            cancelBtn.removeEventListener('click', cancelHandler);
+        };
+
+        confirmBtn.addEventListener('click', confirmHandler);
+        cancelBtn.addEventListener('click', cancelHandler);
+    }
+
+    // Renumber line items
+    function renumberLineItems() {
+        const lineItems = document.querySelectorAll('#lineItemsContainer .line-item');
+        lineItems.forEach((item, index) => {
+            const header = item.querySelector('.line-item-header h3');
+            if (header) {
+                header.textContent = `Asset ${index + 1}`;
+            }
+        });
+    }
+
+    // Generate asset tag
+    function generateAssetTag(assetItemId) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        return `AST-${year}${month}-${String(assetItemId).padStart(3, '0')}-${random}`;
+    }
+
+
+
+    // Process form submission
+    function processFormSubmission(action) {
+        const form = document.getElementById('inventoryForm');
+
+        // Validate form
+        if (!validateForm()) {
+            return;
+        }
+
+        // Create FormData
+        const formData = new FormData(form);
+        formData.append('_method', 'PUT');  // For edit/update
+        formData.append('action', action);
+
+        // Log form data for debugging
+        console.log('Submitting form data:');
+        for (let pair of formData.entries()) {
+            console.log(`${pair[0]}: ${pair[1]}`);
+        }
+
+        // Send to server
+        fetch(`/assets/asset_edit/${movementId}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value,
+            },
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showNotification('Asset movement updated successfully!', 'success');
+                    window.location.href = data.redirect_url || `/assets/view_movement/${movementId}`;
+                } else {
+                    showNotification('Error: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('There was an issue updating the asset movement.', 'error');
+            });
+    }
+
+    // Validate form
+    function validateForm() {
+        let isValid = true;
+        let errorMessages = [];
+
+        // Check line items
+        const lineItems = document.querySelectorAll('.line-item');
+        if (lineItems.length === 0) {
+            isValid = false;
+            errorMessages.push('At least one asset line item is required');
+        }
+
+        // Check each line item
+        lineItems.forEach((lineItem, index) => {
+            const assetItemSelect = lineItem.querySelector('.asset-item-dropdown');
+            if (!assetItemSelect?.value) {
+                isValid = false;
+                errorMessages.push(`Asset type is required for line item ${index + 1}`);
+            }
+
+            const movementType = lineItem.dataset.movementType;
+            const showExistingAssetDropdown = ['assignment', 'return', 'transfer', 'sale', 'donation_out', 'disposal', 'depreciation'].includes(movementType);
+
+            if (showExistingAssetDropdown) {
+                const assetInstanceSelect = lineItem.querySelector('.asset-instance-dropdown');
+                if (!assetInstanceSelect?.value) {
+                    isValid = false;
+                    errorMessages.push(`Asset instance is required for line item ${index + 1}`);
+                }
+            }
+
+            // ADD THIS: For acquisition, check sender
+            if (movementType === 'acquisition') {
+                const supplierNameInput = lineItem.querySelector('.asset-supplier-name');
+                const supplierIdInput = lineItem.querySelector('.asset-supplier-id');
+                if (!supplierNameInput?.value && !supplierIdInput?.value) {
+                    isValid = false;
+                    errorMessages.push(`Sender is required for receiving assets in line item ${index + 1}`);
+                }
+            }
+
+            // For sales, check customer
+            if (movementType === 'sale') {
+                const customerNameInput = lineItem.querySelector('.asset-customer-name');
+                const customerIdInput = lineItem.querySelector('.asset-customer-id');
+                if (!customerNameInput?.value && !customerIdInput?.value) {
+                    isValid = false;
+                    errorMessages.push(`Customer is required for sale in line item ${index + 1}`);
+                }
+            }
+        });
+
+        if (!isValid) {
+            showNotification(errorMessages.join('<br>'), 'error');
+        }
+
+        return isValid;
+    }
+
+
+</script>
+{% endblock %}

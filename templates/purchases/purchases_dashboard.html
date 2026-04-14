@@ -1,0 +1,1887 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1>Purchases Dashboard</h1>
+
+        <div class="dashboard-controls">
+            <div class="dashboard-dropdown">
+                <button class="button add-button" id="timePeriodDropdown">
+                    <span class="icon">📅</span>This Month
+                </button>
+                <div class="dashboard-dropdown-menu">
+                    <a class="dashboard-dropdown-item time-filter" data-value="today">Today</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="yesterday">Yesterday</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="week">This Week</a>
+                    <a class="dashboard-dropdown-item time-filter active" data-value="month">This Month</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="last_month">Last Month</a>
+                    <!-- <a class="dashboard-dropdown-item time-filter" data-value="quarter">This Quarter</a> -->
+                    <a class="dashboard-dropdown-item time-filter" data-value="year">This Year</a>
+                    <div class="dashboard-dropdown-divider"></div>
+                    <a class="dashboard-dropdown-item time-filter" data-value="custom">Custom Range</a>
+                </div>
+            </div>
+            <div id="customRangePicker" class="hidden">
+                <div class="date-range-picker">
+                    <input type="date" id="startDate">
+                    <span>to</span>
+                    <input type="date" id="endDate">
+                    <button id="applyDateRange">Apply</button>
+                </div>
+            </div>
+            <button class="refresh-btn" id="refreshData">
+                <span class="icon">🔄</span>
+            </button>
+        </div>
+
+        <!-- New mobile filter button -->
+        <button class="mobile-filter-btn" id="mobileFilterBtn">
+            <svg class="filter-icon" viewBox="0 0 24 24">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            <span class="filter-text">Filters</span>
+        </button>
+
+        <!-- Filter Controls -->
+        <div class="filter-wrapper">
+            <div class="filter-controls">
+                <!-- Currency Filter -->
+                <div class="filter-group">
+                    <label for="currency-select">Currency</label>
+                    <select id="currency-select" class="form-select">
+                        <option value="">Base Currency ({{base_currency}})</option>
+                        {% for currency in currencies %}
+                        <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Purchase Order / Direct Purchase No. -->
+                <div class="filter-group">
+                    <label for="purchase-select">PO/Direct Purchase No.</label>
+                    <select id="purchase-select" name="purchase" class="form-select select2" style="width: 100%;">
+                        <option value="">All POs/Direct Purchases</option>
+                        {% for po in purchase_numbers %}
+                        <option value="{{ po.type }}|{{ po.number }}">
+                            {{ po.number }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Reference Filter -->
+                <div class="filter-group">
+                    <label for="reference-select">Reference Number</label>
+                    <select id="reference-select" name="reference" class="form-select select2" style="width: 100%;">
+                        <option value="">All References</option>
+                        {% for ref in references %}
+                        <option value="{{ ref.reference }}" data-type="{{ ref.type }}">
+                            {{ ref.reference }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <script>
+                    $(document).ready(function () {
+                        $('#reference-select').select2({
+                            placeholder: 'All References',
+                            allowClear: true,
+                            width: '100%'
+                        });
+
+                        $('#purchase-select').select2({
+                            placeholder: 'All POs/Direct Purchases',
+                            allowClear: true,
+                            width: '100%'
+                        });
+                    });
+                </script>
+
+                <!-- Payment Mode Filter -->
+                <div class="filter-group">
+                    <label for="payment-mode-select">Payment Mode</label>
+                    <select id="payment-mode-select" class="form-select">
+                        <option value="">All Payment Modes</option>
+                        {% for mode in payment_modes %}
+                        <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Vendor Filter -->
+                <div class="filter-group">
+                    <label for="vendor-select">Vendor/Customer</label>
+                    <select id="vendor-select" class="form-select">
+                        <option value="">All Vendors/Customers</option>
+                        {% for vendor in vendors %}
+                        <option value="{{ vendor.id }}" {% if vendor.designation or vendor.address or vendor.email or
+                            vendor.city or vendor.country %}
+                            title="{{ vendor.designation }} | {{ vendor.address }} | {{ vendor.email }} | {{ vendor.city }} | {{ vendor.country }}"
+                            {% endif %}>
+                            {{ vendor.vendor_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Project Filter -->
+                <div class="filter-group">
+                    <label for="project-select">Project</label>
+                    <select id="project-select" class="form-select">
+                        <option value="">All Projects</option>
+                        {% for project in projects %}
+                        <option value="{{ project.id }}">{{ project.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="metrics-grid">
+        <div class="metric-card spending">
+            <div class="metric-content">
+                <div>
+                    <h3 id="totalSpendingHeading">Total Spending ($)</h3>
+                    <p class="metric-value" id="totalSpending">0.00</p>
+                </div>
+                <div class="metric-icon">💰</div>
+            </div>
+            <div class="metric-trend">
+                <span class="trend-badge positive" id="spendingChange">
+                    ↑ 0%
+                </span>
+                <span class="trend-label">vs previous period</span>
+            </div>
+        </div>
+
+        <div class="metric-card transactions">
+            <div class="metric-content">
+                <div>
+                    <h3>Total Transactions</h3>
+                    <p class="metric-value" id="totalTransactions">0</p>
+                </div>
+                <div class="metric-icon">🧾</div>
+            </div>
+            <div class="metric-trend">
+                <span class="trend-badge positive" id="transactionsChange">
+                    ↑ 0%
+                </span>
+                <span class="trend-label">vs previous period</span>
+            </div>
+        </div>
+
+        <div class="metric-card balance">
+            <div class="metric-content">
+                <div>
+                    <h3 id="outstandingBalanceHeading">Outstanding Balance ($)</h3>
+                    <p class="metric-value" id="outstandingBalance">0.00</p>
+                </div>
+                <div class="metric-icon">⏳</div>
+            </div>
+            <div class="metric-trend">
+                <span class="trend-badge negative" id="balanceChange">
+                    ↑ 0%
+                </span>
+                <span class="trend-label">vs previous period</span>
+            </div>
+        </div>
+
+        <div class="metric-card average">
+            <div class="metric-content">
+                <div>
+                    <h3 id="avgTransactionHeading">Avg. Transaction ($)</h3>
+                    <p class="metric-value" id="avgTransaction">0.00</p>
+                </div>
+                <div class="metric-icon">📊</div>
+            </div>
+            <div class="metric-trend">
+                <span class="trend-badge positive" id="avgTransactionChange">
+                    ↑ 0%
+                </span>
+                <span class="trend-label">vs previous period</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="dashboards-charts-container">
+        <div class="chart-card main-chart">
+            <div class="chart-header">
+                <h3>Spending Trend</h3>
+                <div class="chart-period-selector">
+                    <button class="period-btn active" data-value="daily">Daily</button>
+                    <button class="period-btn" data-value="weekly">Weekly</button>
+                    <button class="period-btn" data-value="monthly">Monthly</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="spendingTrendChart" height="300"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card secondary-chart">
+            <div class="chart-header">
+                <h3>Spending by Payment Method</h3>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="paymentMethodChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vendor Analysis Section -->
+    <div class="vendor-analysis-section">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Spending by Vendor</h3>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="vendorSpendingChart" height="250"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Outstanding by Vendor</h3>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="vendorOutstandingChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Purchased Items Section -->
+    <div class="top-items-section">
+        <div class="table-card" style="box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);">
+            <div class="table-header">
+                <h3 style="margin-bottom: -5px;">Top 10 Purchased Items</h3>
+                <div class="table-filter">
+                    <button class="filter-btn active cta-button" data-value="spending">By Spending</button>
+                    <button class="filter-btn cta-button" data-value="quantity">By Quantity</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table id="topItemsTable">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Qty Purchased</th>
+                            <th>Total Cost</th>
+                            <th>Avg. Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transaction Table -->
+    <div class="table-card">
+        <div class="table-header">
+            <h3>Recent Transactions</h3>
+            <div class="table-controls">
+                <div class="search-box">
+                    <input type="text" id="transactionSearch" placeholder="Search...">
+                    <button class="search-btn">🔍</button>
+                </div>
+
+                <button id="downloadPurchasesReport" class="filter-toggle">
+                    <i class="fas fa-download"></i> Download PDF
+                </button>
+
+                <div class="filter-dashboard-dropdown">
+                    <button class="filter-toggle">
+                        <span class="icon">⚙️</span> Filter
+                    </button>
+                    <div class="filter-menu">
+                        <div class="filter-group">
+                            <h4>Transaction Type</h4>
+                            <a class="filter-item active" data-filter="all">All Transactions</a>
+                            <a class="filter-item" data-filter="purchase_order">Purchase Orders</a>
+                            <a class="filter-item" data-filter="direct">Direct Purchases</a>
+                        </div>
+                        <div class="filter-group">
+                            <h4>Status</h4>
+                            <a class="filter-item" data-filter="completed">Completed</a>
+                            <a class="filter-item" data-filter="outstanding">Outstanding</a>
+                            <a class="filter-item" data-filter="cancelled">Cancelled</a>
+                        </div>
+                        <div class="filter-group">
+                            <h4>Posting Status</h4>
+                            <a class="filter-item" data-filter="posted">Posted to Ledger</a>
+                            <a class="filter-item" data-filter="not_posted">Not Posted</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table id="transactionsTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Vendor</th>
+                        <th>Reference</th>
+                        <th>Amount</th>
+                        <th>Paid</th>
+                        <th>Balance</th>
+                        <th>Status</th>
+                        <th>Payment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Will be populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+        <div class="table-footer">
+            <div class="table-info" id="transactionCount">Showing 0 of 0 transactions</div>
+            <div class="pagination" id="transactionPagination">
+                <button class="page-btn disabled" id="prevPage">Previous</button>
+                <div class="page-numbers">
+                    <button class="page-number active">1</button>
+                </div>
+                <button class="page-btn disabled" id="nextPage">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction Detail Modal -->
+<div class="modal" id="transactionDetailModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Transaction Details</h3>
+            <button class="close-btn" id="closeModal">×</button>
+        </div>
+        <div class="modal-body" id="transactionDetailContent">
+            <!-- Will be populated by JavaScript -->
+        </div>
+        <div class="modal-footer">
+            <button class="secondary-btn" id="closeModalBtn">Close</button>
+            <button class="primary-btn" id="printTransaction">Print</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Chart Cards */
+    .dashboards-charts-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+        margin-top: -5px;
+    }
+
+    @media (max-width: 1024px) {
+        .dashboards-charts-container {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Vendor Analysis Section */
+    .vendor-analysis-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+        margin-top: -10px;
+    }
+
+    @media (max-width: 768px) {
+        .vendor-analysis-section {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Top Items Section */
+    .top-items-section {
+        margin-bottom: 1.5rem;
+        margin-top: -10px;
+    }
+
+    .chart-card {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        padding: 1.0rem;
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .chart-header h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .chart-period-selector {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .chart-wrapper {
+        position: relative;
+        height: 300px;
+    }
+
+    .vendor-analysis-section .chart-wrapper {
+        height: 250px;
+    }
+
+    /* Table Cards */
+    .table-card {
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.5rem;
+    }
+
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .table-header h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .table-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    /* Tables */
+    .table-responsive {
+        overflow-x: auto;
+        width: 100%;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th,
+    td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--text-light);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    td {
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+
+    .text-end {
+        text-align: right;
+    }
+
+    /* Status Badges */
+    .badge {
+        display: inline-block;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border-radius: 4px;
+    }
+
+    .badge.primary {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: var(--primary-color);
+    }
+
+    .badge.success {
+        background-color: rgba(76, 201, 240, 0.1);
+        color: var(--success-color);
+    }
+
+    .badge.warning {
+        background-color: rgba(248, 150, 30, 0.1);
+        color: var(--warning-color);
+    }
+
+    .badge.info {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: var(--primary-color);
+    }
+
+    /* Action Buttons */
+    .action-btn {
+        background-color: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 0.4rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+    }
+
+    .action-btn:hover {
+        background-color: #f5f5f5;
+    }
+
+    /* Table Footer */
+    .table-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .table-info {
+        font-size: 0.85rem;
+        color: var(--text-light);
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .dashboard-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .dashboard-controls {
+            width: 100%;
+        }
+
+        .dashboard-dropdown-toggle {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .date-range-picker {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        th,
+        td {
+            padding: 0.75rem 0.5rem;
+        }
+
+        .table-footer {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .pagination {
+            justify-content: center;
+        }
+    }
+
+    /* Utility Classes */
+    .text-success {
+        color: var(--success-color);
+    }
+
+    .text-warning {
+        color: var(--warning-color);
+    }
+
+    .text-danger {
+        color: var(--danger-color);
+    }
+
+    .text-muted {
+        color: var(--text-lighter);
+    }
+</style>
+
+<script>
+    const apiKey = "{{ api_key }}";
+
+
+    // Main Dashboard Controller
+    class PurchasesDashboard {
+        constructor() {
+            this.currentData = [];
+            this.filteredData = [];
+            this.currentPage = 1;
+            this.itemsPerPage = 10;
+            this.currentTimeFilter = 'month';
+            this.chartPeriod = 'daily';
+            this.topItemsFilter = 'spending';
+            this.transactionFilter = 'all';
+            this.defaultCurrency = "{{ base_currency }}";
+
+            // Get currency from URL first
+            const urlParams = new URLSearchParams(window.location.search);
+            const currencyFromUrl = urlParams.get('currency');
+            this.selectedCurrency = currencyFromUrl || null;
+
+            this.initElements();
+            this.initEventListeners();
+
+            // Load initial data immediately
+            this.loadInitialData();
+        }
+
+        async initElements() {
+            // Charts
+            this.spendingTrendChart = this.createChart('spendingTrendChart', 'line');
+            this.paymentMethodChart = this.createChart('paymentMethodChart', 'doughnut');
+            this.vendorSpendingChart = this.createChart('vendorSpendingChart', 'bar');
+            this.vendorOutstandingChart = this.createChart('vendorOutstandingChart', 'bar');
+
+            // Tables
+            this.transactionsTable = document.getElementById('transactionsTable').querySelector('tbody');
+            this.topItemsTable = document.getElementById('topItemsTable').querySelector('tbody');
+
+            // Initialize currency dropdown
+            await this.setupCurrencyDropdown();
+        }
+
+
+        initEventListeners() {
+            // Time filters dropdown
+            const timeDropdown = document.querySelector('.dashboard-dropdown');
+            const timeDropdownToggle = document.getElementById('timePeriodDropdown');
+
+
+            // Initialize debounced loadData
+            const debouncedLoadData = debounce(() => this.loadData(), 500);
+
+            // Filter change listeners with debounce
+            ['currency-select', 'payment-mode-select', 'vendor-select', 'project-select'].forEach(id => {
+                document.getElementById(id).addEventListener('change', debouncedLoadData);
+            });
+
+            // With this:
+            $('#reference-select').on('change', debouncedLoadData);
+            $('#purchase-select').on('change', debouncedLoadData);
+
+
+            timeDropdownToggle.addEventListener('click', () => {
+                document.querySelector('.dashboard-dropdown-menu').classList.toggle('show');
+            });
+
+            document.querySelectorAll('.time-filter').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelector('.time-filter.active').classList.remove('active');
+                    item.classList.add('active');
+                    this.currentTimeFilter = item.dataset.value;
+                    timeDropdownToggle.innerHTML = `<span class="icon">📅</span>${item.textContent}`;
+                    document.querySelector('.dashboard-dropdown-menu').classList.remove('show');
+
+                    if (this.currentTimeFilter === 'custom') {
+                        document.getElementById('customRangePicker').classList.remove('hidden');
+                    } else {
+                        document.getElementById('customRangePicker').classList.add('hidden');
+                        this.loadData();
+                    }
+                });
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!timeDropdown.contains(e.target)) {
+                    document.querySelector('.dashboard-dropdown-menu').classList.remove('show');
+                }
+            });
+
+            // Apply custom date range
+            document.getElementById('applyDateRange').addEventListener('click', () => {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+
+                if (startDate && endDate) {
+                    this.loadData(startDate, endDate);
+                } else {
+                    alert('Please select both start and end dates');
+                }
+            });
+
+            // Chart period filter
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelector('.period-btn.active').classList.remove('active');
+                    btn.classList.add('active');
+                    this.chartPeriod = btn.dataset.value;
+                    this.updateCharts();
+                });
+            });
+
+            // Top items filter
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelector('.filter-btn.active').classList.remove('active');
+                    btn.classList.add('active');
+                    this.topItemsFilter = btn.dataset.value;
+                    this.updateTopItemsTable();
+                });
+            });
+
+            // Transaction filters dropdown
+            const filterDropdown = document.querySelector('.filter-dashboard-dropdown');
+            const filterToggle = document.querySelector('.filter-toggle');
+
+            filterToggle.addEventListener('click', () => {
+                document.querySelector('.filter-menu').classList.toggle('show');
+            });
+
+            document.querySelectorAll('.filter-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (item.dataset.filter === 'all') {
+                        document.querySelectorAll('.filter-item').forEach(i => i.classList.remove('active'));
+                    }
+                    item.classList.add('active');
+                    this.transactionFilter = item.dataset.filter;
+                    this.filterTransactions();
+                    document.querySelector('.filter-menu').classList.remove('show');
+                });
+            });
+
+            // Close filter dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!filterDropdown.contains(e.target)) {
+                    document.querySelector('.filter-menu').classList.remove('show');
+                }
+            });
+
+            // Search functionality
+            document.getElementById('transactionSearch').addEventListener('input', (e) => {
+                this.filterTransactions(e.target.value);
+            });
+
+            // Refresh button
+            document.getElementById('refreshData').addEventListener('click', () => {
+                this.loadData();
+            });
+
+            // Print transaction
+            document.getElementById('printTransaction').addEventListener('click', () => {
+                window.print();
+            });
+
+            // Pagination
+            document.getElementById('prevPage').addEventListener('click', () => {
+                if (this.currentPage > 1) {
+                    this.currentPage--;
+                    this.updateTransactionsTable();
+                }
+            });
+
+            document.getElementById('nextPage').addEventListener('click', () => {
+                const totalPages = Math.ceil(this.filteredData.length / this.itemsPerPage);
+                if (this.currentPage < totalPages) {
+                    this.currentPage++;
+                    this.updateTransactionsTable();
+                }
+            });
+
+            // Handle browser back/forward navigation
+            window.addEventListener('popstate', () => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const newCurrency = urlParams.get('currency') || null;
+
+                if (newCurrency !== this.selectedCurrency) {
+                    this.selectedCurrency = newCurrency;
+                    localStorage.setItem('dashboardCurrency', this.selectedCurrency || '');
+                    this.loadData();
+
+                    // Update dropdown selection
+                    const currencySelect = document.getElementById('currency-select');
+                    if (currencySelect) {
+                        currencySelect.value = this.selectedCurrency || '';
+                    }
+                }
+            });
+        }
+
+        createChart(elementId, type) {
+            const ctx = document.getElementById(elementId).getContext('2d');
+            return new Chart(ctx, {
+                type: type,
+                data: { labels: [], datasets: [] },
+                options: this.getChartOptions(elementId)
+            });
+        }
+
+        getChartOptions(chartId) {
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: chartId === 'paymentMethodChart' ? 'right' : 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== undefined) {
+                                    const currency = this.getCurrencyForData(context.dataIndex);
+                                    label += this.formatCurrency(context.parsed.y, currency);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: chartId === 'spendingTrendChart' ? {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: this.chartPeriod === 'daily' ? 'day' :
+                                this.chartPeriod === 'weekly' ? 'week' : 'month',
+                            tooltipFormat: 'MMM dd, yyyy',
+                            displayFormats: {
+                                day: 'MMM dd',
+                                week: 'MMM dd',
+                                month: 'MMM yyyy'
+                            }
+                        },
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 8
+                        },
+                        adapters: {
+                            date: {
+                                locale: luxon.DateTime.now().locale
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: (value) => {
+                                const currency = this.getCurrencyForData();
+                                return this.formatCurrency(value, currency, false);
+                            }
+                        }
+                    }
+                } : {}
+            };
+
+            return commonOptions;
+        }
+
+        getCurrencyForData(index) {
+            if (this.currentData.length > 0 && index !== undefined) {
+                const dataPoint = this.currentData[index];
+                return dataPoint.currency || this.defaultCurrency;
+            }
+
+            if (this.currentData.length > 0) {
+                return this.currentData[0].currency || this.defaultCurrency;
+            }
+
+            return this.defaultCurrency;
+        }
+
+        async setupCurrencyDropdown() {
+            try {
+                const response = await fetch('/get_currency');
+                const currencies = await response.json();
+
+                const currencySelect = document.getElementById('currency-select');
+                currencySelect.innerHTML = '';
+
+                // Add "Base Currency" option at the top
+                const baseOption = document.createElement('option');
+                baseOption.value = '';
+                baseOption.textContent = 'Base Currency ({{base_currency}})';
+                baseOption.id = 'Empty';
+                if (!this.selectedCurrency) {
+                    baseOption.selected = true;
+                }
+                currencySelect.appendChild(baseOption);
+
+                currencies.forEach(currency => {
+                    const option = document.createElement('option');
+                    option.value = currency.user_currency;
+                    option.textContent = currency.user_currency;
+
+                    if (this.selectedCurrency === currency.user_currency) {
+                        option.selected = true;
+                    }
+
+                    currencySelect.appendChild(option);
+                });
+
+                // Add event listener for currency changes
+                currencySelect.addEventListener('change', (e) => {
+                    this.selectedCurrency = e.target.value || null;
+                    this.saveAndReloadWithCurrencyFilter();
+                });
+
+            } catch (error) {
+                console.error('Error setting up currency dropdown:', error);
+            }
+        }
+
+        saveAndReloadWithCurrencyFilter() {
+            if (this.selectedCurrency) {
+                localStorage.setItem('dashboardCurrency', this.selectedCurrency);
+            } else {
+                localStorage.removeItem('dashboardCurrency');
+            }
+
+            const url = new URL(window.location.href);
+            if (this.selectedCurrency) {
+                url.searchParams.set('currency', this.selectedCurrency);
+            } else {
+                url.searchParams.delete('currency');
+            }
+
+            window.history.pushState({}, '', url.toString());
+            this.loadData();
+        }
+
+        async loadInitialData() {
+            // Show loading state for main content
+            setLoadingState(true);
+
+            try {
+                // Load only current period data first
+                await this.loadCurrentPeriodData();
+
+                // Update UI immediately with current data only
+                this.updateDashboardWithCurrentData();
+                this.updateCharts();
+                this.updateTopItemsTable();
+                this.filterTransactions();
+
+                // Hide loading state once initial data is displayed
+                setLoadingState(false);
+
+                // Then load previous period data in background for comparisons
+                this.loadPreviousPeriodForComparison();
+
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+                setLoadingState(false);
+                alert('Failed to load data. Please try again.');
+            }
+        }
+
+        async loadCurrentPeriodData() {
+            // Build API URL with filters for current period only
+            let url = '/api/purchases/transactions';
+            const params = new URLSearchParams();
+
+            // Always get the latest values from the date pickers if custom range is selected
+            let actualStartDate, actualEndDate;
+            if (this.currentTimeFilter === 'custom') {
+                actualStartDate = document.getElementById('startDate')?.value;
+                actualEndDate = document.getElementById('endDate')?.value;
+            }
+
+            // Add date filters if custom range is selected and dates are provided
+            if (this.currentTimeFilter === 'custom' && actualStartDate && actualEndDate) {
+                params.append('start_date', actualStartDate);
+                params.append('end_date', actualEndDate);
+            }
+            // Add time filter if not custom range
+            else if (this.currentTimeFilter !== 'all' && this.currentTimeFilter !== 'custom') {
+                params.append('time_filter', this.currentTimeFilter);
+            }
+
+            // Get current filter values
+            const filters = {
+                currency: document.getElementById('currency-select')?.value,
+                reference: document.getElementById('reference-select')?.value,
+                purchase: document.getElementById('purchase-select')?.value,
+                payment_mode: document.getElementById('payment-mode-select')?.value,
+                vendor: document.getElementById('vendor-select')?.value,
+                project: document.getElementById('project-select')?.value
+            };
+
+            // Add filters to params
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value) params.append(key, value);
+            });
+
+            if (params.toString()) {
+                url += `?${params.toString()}`;
+            }
+
+            const headers = { 'X-API-Key': apiKey };
+            const response = await fetch(url, { headers });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            this.currentData = await response.json();
+            this.filteredData = [...this.currentData];
+        }
+
+        async loadPreviousPeriodForComparison() {
+            if (this.previousPeriodLoading) return;
+
+            this.previousPeriodLoading = true;
+
+            try {
+                this.previousPeriodData = await this.fetchPreviousPeriodData();
+
+                // Update trend indicators with the newly loaded previous period data
+                this.updateTrendIndicatorsWithPreviousData();
+
+            } catch (error) {
+                console.error('Error loading previous period data:', error);
+                // Don't show error to user since this is background loading
+            } finally {
+                this.previousPeriodLoading = false;
+            }
+        }
+
+        updateDashboardWithCurrentData() {
+            if (this.currentData.length === 0) {
+                this.resetMetrics();
+                return;
+            }
+
+            const currency = this.currentData[0]?.currency || this.defaultCurrency;
+            const currentMetrics = this.calculateMetrics(this.currentData);
+
+            // Update UI with current data only (no trends yet)
+            this.updateMetricValues(currentMetrics, currency);
+
+            // Initialize trend indicators with neutral state
+            this.initializeNeutralTrendIndicators();
+        }
+
+        updateTrendIndicatorsWithPreviousData() {
+            if (!this.previousPeriodData || this.currentData.length === 0) return;
+
+            const currentMetrics = this.calculateMetrics(this.currentData);
+            const previousMetrics = this.calculateMetrics(this.previousPeriodData);
+
+            // Now update the trend indicators with actual comparison data
+            this.updateTrendIndicators(currentMetrics, previousMetrics);
+        }
+
+        initializeNeutralTrendIndicators() {
+            const indicators = ['spendingChange', 'transactionsChange', 'balanceChange', 'avgTransactionChange'];
+
+            indicators.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = 'Loading...';
+                    element.className = 'trend-badge neutral';
+                }
+            });
+        }
+
+        // Replace the original loadData method to use the new approach
+        async loadData(startDate, endDate) {
+            // Use the new loading approach
+            await this.loadInitialData();
+        }
+
+
+        async updateDashboard() {
+            if (this.currentData.length === 0) {
+                this.resetMetrics();
+                return;
+            }
+
+            const currency = this.currentData[0]?.currency || this.defaultCurrency;
+
+            // Calculate current period metrics
+            const currentMetrics = this.calculateMetrics(this.currentData);
+
+            // Calculate previous period metrics if not already loading
+            if (!this.previousPeriodLoading) {
+                this.previousPeriodLoading = true;
+                this.previousPeriodData = await this.fetchPreviousPeriodData();
+                this.previousPeriodLoading = false;
+            }
+
+            const previousMetrics = this.calculateMetrics(this.previousPeriodData || []);
+
+            // Update UI
+            this.updateMetricValues(currentMetrics, currency);
+            this.updateTrendIndicators(currentMetrics, previousMetrics);
+        }
+
+        calculateMetrics(data) {
+            const safeParse = (value) => {
+                const num = parseFloat(value);
+                return isNaN(num) ? 0 : num;
+            };
+
+            if (!data || data.length === 0) {
+                return {
+                    totalSpending: 0,
+                    totalPaid: 0,
+                    outstandingBalance: 0,
+                    totalTransactions: 0,
+                    avgTransaction: 0
+                };
+            }
+
+            return {
+                // Use amount_paid for actual money spent in each transaction
+                totalSpending: data.reduce((sum, tx) =>
+                    sum + safeParse(tx.amount_paid), 0),
+
+                // If you want cumulative total paid (all payments for the PO)
+                totalPaid: data.reduce((sum, tx) =>
+                    sum + safeParse(tx.total_paid), 0),
+
+                outstandingBalance: data.reduce((sum, tx) =>
+                    sum + safeParse(tx.remaining_balance), 0),
+                totalTransactions: data.length,
+                avgTransaction: data.length > 0 ?
+                    data.reduce((sum, tx) => sum + safeParse(tx.amount_paid), 0) / data.length : 0
+            };
+        }
+
+        async fetchPreviousPeriodData() {
+            try {
+                const { startDate, endDate } = this.getPreviousPeriodDates();
+
+                let url = '/api/purchases/transactions?';
+                const params = new URLSearchParams();
+
+                params.append('start_date', startDate);
+                params.append('end_date', endDate);
+
+                if (this.selectedCurrency) {
+                    params.append('currency', this.selectedCurrency);
+                }
+
+                const headers = { 'X-API-Key': apiKey };
+                const response = await fetch(url + params.toString(), { headers });
+
+                if (!response.ok) throw new Error('Failed to fetch previous period');
+
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching previous period:', error);
+                return null;
+            }
+        }
+
+        getPreviousPeriodDates() {
+            const now = luxon.DateTime.now();
+            let startDate, endDate;
+
+            switch (this.currentTimeFilter) {
+                case 'today':
+                    startDate = now.minus({ days: 1 }).startOf('day');
+                    endDate = now.minus({ days: 1 }).endOf('day');
+                    break;
+                case 'yesterday':
+                    startDate = now.minus({ days: 2 }).startOf('day');
+                    endDate = now.minus({ days: 2 }).endOf('day');
+                    break;
+                case 'week':
+                    startDate = now.minus({ weeks: 1 }).startOf('week');
+                    endDate = now.minus({ weeks: 1 }).endOf('week');
+                    break;
+                case 'month':
+                    startDate = now.minus({ months: 1 }).startOf('month');
+                    endDate = now.minus({ months: 1 }).endOf('month');
+                    break;
+                case 'last_month':
+                    startDate = now.minus({ months: 2 }).startOf('month');
+                    endDate = now.minus({ months: 2 }).endOf('month');
+                    break;
+                case 'year':
+                    startDate = now.minus({ years: 1 }).startOf('year');
+                    endDate = now.minus({ years: 1 }).endOf('year');
+                    break;
+                case 'custom':
+                    // FIXED: Use same calendar days from previous month
+                    const customStart = luxon.DateTime.fromISO(document.getElementById('startDate').value);
+                    const customEnd = luxon.DateTime.fromISO(document.getElementById('endDate').value);
+
+                    startDate = customStart.minus({ months: 1 });
+                    endDate = customEnd.minus({ months: 1 });
+                    break;
+                default: // Default to month if no filter is set
+                    startDate = now.minus({ months: 1 }).startOf('month');
+                    endDate = now.minus({ months: 1 }).endOf('month');
+            }
+
+            return {
+                startDate: startDate.toISODate(),
+                endDate: endDate.toISODate()
+            };
+        }
+        updateMetricValues(metrics, currency) {
+            this.updateCurrencySymbol(currency);
+
+            document.getElementById('totalSpending').textContent =
+                this.formatCurrency(metrics.totalSpending, currency, false);
+            document.getElementById('totalTransactions').textContent =
+                metrics.totalTransactions.toLocaleString();
+            document.getElementById('outstandingBalance').textContent =
+                this.formatCurrency(metrics.outstandingBalance, currency, false);
+            document.getElementById('avgTransaction').textContent =
+                this.formatCurrency(metrics.avgTransaction, currency, false);
+        }
+
+        updateCurrencySymbol(currency) {
+            document.getElementById('totalSpendingHeading').textContent = `Total Spending (${currency})`;
+            document.getElementById('outstandingBalanceHeading').textContent = `Outstanding Balance (${currency})`;
+            document.getElementById('avgTransactionHeading').textContent = `Avg Transaction (${currency})`;
+        }
+
+        updateTrendIndicators(current, previous) {
+            const indicators = [
+                { id: 'spendingChange', current: current.totalSpending, previous: previous.totalSpending },
+                { id: 'transactionsChange', current: current.totalTransactions, previous: previous.totalTransactions },
+                { id: 'balanceChange', current: current.outstandingBalance, previous: previous.outstandingBalance },
+                { id: 'avgTransactionChange', current: current.avgTransaction, previous: previous.avgTransaction }
+            ];
+
+            indicators.forEach(({ id, current, previous }) => {
+                const element = document.getElementById(id);
+                if (!element) return;
+
+                if (previous === 0) {
+                    if (current > 0) {
+                        element.textContent = "↑ New";
+                        element.className = "trend-badge positive";
+                    } else {
+                        element.textContent = "-";
+                        element.className = "trend-badge neutral";
+                    }
+                    return;
+                }
+
+                if (current === 0 && previous === 0) {
+                    element.textContent = "-";
+                    element.className = "trend-badge neutral";
+                    return;
+                }
+
+                const percentage = ((current - previous) / previous) * 100;
+                const absoluteValue = Math.abs(percentage).toFixed(1);
+                const isPositive = percentage >= 0;
+
+                element.textContent = `${isPositive ? '↑' : '↓'} ${absoluteValue}%`;
+                element.className = `trend-badge ${isPositive ? 'positive' : 'negative'}`;
+            });
+        }
+
+        resetMetrics() {
+            document.getElementById('totalSpending').textContent = this.formatCurrency(0);
+            document.getElementById('totalTransactions').textContent = '0';
+            document.getElementById('outstandingBalance').textContent = this.formatCurrency(0);
+            document.getElementById('avgTransaction').textContent = this.formatCurrency(0);
+
+            document.querySelectorAll('.trend-badge').forEach(el => {
+                el.textContent = '-';
+                el.className = 'trend-badge neutral';
+            });
+        }
+
+        // Add this helper method if you don't have it
+        clearAllCharts() {
+            const emptyData = { labels: [], datasets: [] };
+
+            this.spendingTrendChart.data = emptyData;
+            this.paymentMethodChart.data = emptyData;
+            this.vendorSpendingChart.data = emptyData;
+
+            this.spendingTrendChart.update();
+            this.paymentMethodChart.update();
+            this.vendorSpendingChart.update();
+            // NEW: Clear Vendor Outstanding Chart
+            this.vendorOutstandingChart.data = emptyData;
+        }
+
+
+        updateCharts() {
+            if (this.currentData.length === 0) {
+                console.log('No data available - clearing charts');
+                this.clearAllCharts();
+                return;
+            }
+
+            try {
+                // Update Spending Trend Chart
+                const spendingData = this.groupDataByPeriod();
+
+                console.log('Spending data for chart:', {
+                    labels: spendingData.labels,
+                    values: spendingData.values
+                });
+
+                // 🆕 FIX: Only recreate spending trend chart (the problematic one)
+                if (this.spendingTrendChart) {
+                    this.spendingTrendChart.destroy();
+                }
+                this.spendingTrendChart = this.createChart('spendingTrendChart', 'line');
+
+                if (spendingData.labels && spendingData.labels.length > 0 &&
+                    spendingData.values && spendingData.values.length > 0) {
+
+                    this.spendingTrendChart.data.labels = spendingData.labels;
+                    this.spendingTrendChart.data.datasets = [{
+                        label: 'Spending',
+                        data: spendingData.values,
+                        borderColor: '#4361ee',
+                        backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        tension: 0.4,
+                        fill: true
+                    }];
+
+                    this.spendingTrendChart.update();
+                    console.log('Spending trend chart recreated and updated successfully');
+
+                } else {
+                    console.warn('No valid spending data to display');
+                }
+
+                // Update Payment Method Chart
+                const paymentMethods = {};
+                this.currentData.forEach(tx => {
+                    const method = tx.payment_mode || 'Unknown';
+                    const amount = parseFloat(tx.amount_paid) || 0;
+                    paymentMethods[method] = (paymentMethods[method] || 0) + amount;
+                });
+
+                const validPaymentMethods = Object.entries(paymentMethods)
+                    .filter(([_, amount]) => amount > 0)
+                    .reduce((acc, [method, amount]) => {
+                        acc[method] = amount;
+                        return acc;
+                    }, {});
+
+                if (Object.keys(validPaymentMethods).length > 0) {
+                    this.paymentMethodChart.data.labels = Object.keys(validPaymentMethods);
+                    this.paymentMethodChart.data.datasets = [{
+                        data: Object.values(validPaymentMethods),
+                        backgroundColor: [
+                            '#4361ee', '#3f37c9', '#4895ef', '#4cc9f0', '#f72585',
+                            '#b5179e', '#7209b7', '#560bad', '#480ca8', '#3a0ca3'
+                        ],
+                        borderWidth: 1
+                    }];
+                    this.paymentMethodChart.update();
+                } else {
+                    this.paymentMethodChart.data.labels = [];
+                    this.paymentMethodChart.data.datasets = [];
+                    this.paymentMethodChart.update();
+                }
+
+                // Update Vendor Spending Chart
+                const vendorSpending = {};
+                this.currentData.forEach(tx => {
+                    const vendor = tx.vendor_name || 'Unknown';
+                    const amount = parseFloat(tx.amount_paid) || 0;
+                    vendorSpending[vendor] = (vendorSpending[vendor] || 0) + amount;
+                });
+
+                const sortedVendors = Object.entries(vendorSpending)
+                    .filter(([_, spending]) => spending > 0)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10);
+
+                if (sortedVendors.length > 0) {
+                    this.vendorSpendingChart.data.labels = sortedVendors.map(v => v[0]);
+                    this.vendorSpendingChart.data.datasets = [{
+                        label: 'Spending by Vendor',
+                        data: sortedVendors.map(v => v[1]),
+                        backgroundColor: '#4895ef',
+                        borderColor: '#3f37c9',
+                        borderWidth: 1
+                    }];
+                    this.vendorSpendingChart.update();
+                } else {
+                    this.vendorSpendingChart.data.labels = [];
+                    this.vendorSpendingChart.data.datasets = [];
+                    this.vendorSpendingChart.update();
+                }
+
+                // NEW: Update Vendor Outstanding Chart
+                const vendorOutstanding = {};
+                this.currentData.forEach(tx => {
+                    const vendor = tx.vendor_name || 'Unknown';
+                    const outstanding = parseFloat(tx.remaining_balance) || 0;
+                    if (outstanding > 0) {
+                        vendorOutstanding[vendor] = (vendorOutstanding[vendor] || 0) + outstanding;
+                    }
+                });
+
+                const sortedVendorsOutstanding = Object.entries(vendorOutstanding)
+                    .filter(([_, outstanding]) => outstanding > 0)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10);
+
+                if (sortedVendorsOutstanding.length > 0) {
+                    this.vendorOutstandingChart.data.labels = sortedVendorsOutstanding.map(v => v[0]);
+                    this.vendorOutstandingChart.data.datasets = [{
+                        label: 'Outstanding by Vendor',
+                        data: sortedVendorsOutstanding.map(v => v[1]),
+                        backgroundColor: '#ff6b6b',
+                        borderColor: '#ff4757',
+                        borderWidth: 1
+                    }];
+                    this.vendorOutstandingChart.update();
+                } else {
+                    this.vendorOutstandingChart.data.labels = [];
+                    this.vendorOutstandingChart.data.datasets = [];
+                    this.vendorOutstandingChart.update();
+                }
+
+            } catch (error) {
+                console.error('Error updating charts:', error);
+                this.clearAllCharts();
+            }
+        }
+
+        groupDataByPeriod() {
+            console.log('Grouping data for spending trend. Total transactions:', this.currentData.length);
+
+            const groupedData = {};
+
+            const periodFormats = {
+                'daily': 'yyyy-MM-dd',
+                'weekly': 'yyyy-WW',
+                'monthly': 'yyyy-MM'
+            };
+
+            const periodFormat = periodFormats[this.chartPeriod] || 'yyyy-MM-dd';
+
+            this.currentData.forEach(tx => {
+                try {
+                    // Use amount_paid for actual spending
+                    let amount = parseFloat(tx.amount_paid) || 0;
+
+                    if (!tx.payment_date) {
+                        console.warn('Skipping transaction - missing payment_date:', tx.id);
+                        return;
+                    }
+
+                    // Date parsing
+                    let date = luxon.DateTime.fromISO(tx.payment_date);
+                    if (!date.isValid) {
+                        date = luxon.DateTime.fromRFC2822(tx.payment_date);
+                    }
+                    if (!date.isValid) {
+                        const dateStr = tx.payment_date.toString();
+                        if (dateStr.includes('T')) {
+                            date = luxon.DateTime.fromISO(dateStr.split('T')[0]);
+                        } else {
+                            date = luxon.DateTime.fromFormat(dateStr, 'yyyy-MM-dd');
+                        }
+                    }
+
+                    if (!date.isValid) {
+                        console.warn('Invalid date format for transaction:', tx.id, tx.payment_date);
+                        return;
+                    }
+
+                    // Period grouping
+                    let period;
+                    if (this.chartPeriod === 'weekly') {
+                        period = `${date.year}-${date.weekNumber.toString().padStart(2, '0')}`;
+                    } else {
+                        period = date.toFormat(periodFormat);
+                    }
+
+                    if (!groupedData[period]) {
+                        groupedData[period] = {
+                            date: date.toJSDate(), // Keep as JS Date object
+                            value: 0,
+                            period: period
+                        };
+                    }
+
+                    groupedData[period].value += amount;
+
+                } catch (e) {
+                    console.warn('Error processing transaction:', tx.id, e);
+                    return;
+                }
+            });
+
+            console.log('Grouped data:', groupedData);
+
+            // Sort by date
+            const sortedPeriods = Object.values(groupedData).sort((a, b) => a.date - b.date);
+            console.log('Sorted periods:', sortedPeriods);
+
+            // 🆕 CRITICAL FIX: Return Date objects for time scale, not formatted strings
+            const labels = sortedPeriods.map(p => p.date); // Use Date objects, not formatted strings
+            const values = sortedPeriods.map(p => p.value);
+
+            console.log('Final chart data - Labels (Date objects):', labels);
+            console.log('Final chart data - Values:', values);
+
+            return {
+                labels: labels, // These should be Date objects for time scale
+                values: values
+            };
+        }
+
+        updateTopItemsTable() {
+            if (this.currentData.length === 0) {
+                this.topItemsTable.innerHTML = '<tr><td colspan="4" class="text-center">No data available</td></tr>';
+                return;
+            }
+
+            const currency = this.currentData[0]?.currency || this.defaultCurrency;
+
+            const itemsMap = {};
+            this.currentData.forEach(tx => {
+                tx.items?.forEach(item => {
+                    const key = item.item_name || 'Unknown';
+                    if (!itemsMap[key]) {
+                        itemsMap[key] = {
+                            name: key,
+                            quantity: parseFloat(item.quantity) || 0,
+                            cost: parseFloat(item.total_price) || 0,
+                            count: 0
+                        };
+                    } else {
+                        itemsMap[key].quantity += parseFloat(item.quantity) || 0;
+                        itemsMap[key].cost += parseFloat(item.total_price) || 0;
+                    }
+                    itemsMap[key].count += 1;
+                });
+            });
+
+            let topItems = Object.values(itemsMap).map(item => ({
+                ...item,
+                quantity: Number(item.quantity),
+                cost: Number(item.cost)
+            }));
+
+            switch (this.topItemsFilter) {
+                case 'spending':
+                    topItems.sort((a, b) => b.cost - a.cost);
+                    break;
+                case 'quantity':
+                    topItems.sort((a, b) => b.quantity - a.quantity);
+                    break;
+                default:
+                    topItems.sort((a, b) => b.cost - a.cost);
+            }
+
+            topItems = topItems.slice(0, 10);
+
+            this.topItemsTable.innerHTML = topItems.length > 0 ?
+                topItems.map(item => `
+            <tr>
+                <td>${item.name}</td>
+                <td class="text-end">${item.quantity.toLocaleString()}</td>
+                <td class="text-end">${this.formatCurrency(item.cost, currency)}</td>
+                <td class="text-end">${this.formatCurrency(
+                    item.quantity > 0 ? item.cost / item.quantity : 0,
+                    currency
+                )}</td>
+            </tr>
+        `).join('') :
+                '<tr><td colspan="4" class="text-center">No items found</td></tr>';
+        }
+
+        filterTransactions(searchTerm = '') {
+            this.filteredData = this.currentData.filter(tx => {
+                // Apply type filter
+                if (this.transactionFilter === 'purchase_order' && tx.type !== 'purchase_order') return false;
+                if (this.transactionFilter === 'direct' && tx.type !== 'direct') return false;
+
+                // Apply status filter
+                if (this.transactionFilter === 'completed' && tx.remaining_balance > 0) return false;
+                if (this.transactionFilter === 'outstanding' && tx.remaining_balance <= 0) return false;
+                if (this.transactionFilter === 'cancelled' &&
+                    (tx.status !== 'cancelled' && tx.payment_status !== 'cancelled')) return false;
+
+                // Apply posting status filter
+                if (this.transactionFilter === 'posted' && !tx.posted_to_ledger) return false;
+                if (this.transactionFilter === 'not_posted' && tx.posted_to_ledger) return false;
+
+                // Apply search term
+                if (searchTerm) {
+                    const searchLower = searchTerm.toLowerCase();
+                    const matchesVendor = tx.vendor_name?.toLowerCase().includes(searchLower);
+                    const matchesReference = (tx.po_number || tx.direct_purchase_number)?.toLowerCase().includes(searchLower);
+                    const matchesPaymentMode = tx.payment_mode?.toLowerCase().includes(searchLower);
+
+                    if (!matchesVendor && !matchesReference && !matchesPaymentMode) return false;
+                }
+
+                return true;
+            });
+
+            this.currentPage = 1;
+            this.updateTransactionsTable();
+        }
+
+        updateTransactionsTable() {
+            if (this.filteredData.length === 0) {
+                this.transactionsTable.innerHTML = '<tr><td colspan="10" class="text-center">No transactions found</td></tr>';
+                document.getElementById('transactionCount').textContent = 'Showing 0 of 0 transactions';
+                this.updatePagination();
+                return;
+            }
+
+            const totalPages = Math.ceil(this.filteredData.length / this.itemsPerPage);
+            const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+            const endIndex = Math.min(startIndex + this.itemsPerPage, this.filteredData.length);
+            const paginatedData = this.filteredData.slice(startIndex, endIndex);
+
+            this.transactionsTable.innerHTML = paginatedData.map(tx => {
+                const currency = tx.currency || this.defaultCurrency;
+
+                const paymentDate = luxon.DateTime.fromRFC2822(tx.payment_date);
+                const formattedDate = paymentDate.isValid ?
+                    paymentDate.toFormat('MMM dd, yyyy') :
+                    'Invalid Date';
+
+                return `
+        <tr>
+            <td>${formattedDate}</td>
+            <td>
+                <span class="badge ${tx.type === 'purchase_order' ? 'primary' : 'success'}">
+                    ${tx.type === 'purchase_order' ? 'PO' : 'Direct Purchase'}
+                </span>
+            </td>
+            <td>${tx.vendor_name || 'Unknown'}</td>
+            <td>${tx.type === 'purchase_order' ? tx.po_number : tx.direct_purchase_number}</td>
+            <td class="text-end">${this.formatCurrency(tx.type === 'purchase_order' ? tx.total_po_amount : tx.total_purchase_amount, currency)}</td>
+            <td class="text-end">${this.formatCurrency(tx.amount_paid, currency)}</td>
+            <td class="text-end">
+                ${tx.remaining_balance > 0 ?
+                        `<span class="text-warning">${this.formatCurrency(tx.remaining_balance, currency)}</span>` :
+                        `<span class="text-success">${this.formatCurrency(0, currency)}</span>`}
+            </td>
+            <td>
+                ${tx.type === 'purchase_order' ?
+                        (tx.payment_progress === 'Final' ?
+                            '<span class="badge success">Completed</span>' :
+                            tx.payment_progress === 'Ongoing' ?
+                                '<span class="badge warning">Partial</span>' :
+                                '<span class="badge info">Initial</span>') :
+                        (tx.purchase_type === 'Installment' ?
+                            '<span class="badge warning">Installment</span>' :
+                            '<span class="badge success">Full</span>')}
+            </td>
+            <td>${tx.payment_mode || 'N/A'}</td>
+        </tr>
+        `;
+            }).join('');
+
+            document.getElementById('transactionCount').textContent =
+                `Showing ${startIndex + 1}-${endIndex} of ${this.filteredData.length} transactions`;
+            this.updatePagination();
+        }
+
+        updatePagination() {
+            const totalPages = Math.ceil(this.filteredData.length / this.itemsPerPage);
+            const pagination = document.getElementById('transactionPagination');
+            const pageNumbers = pagination.querySelector('.page-numbers');
+
+            pageNumbers.innerHTML = '';
+
+            const prevBtn = document.getElementById('prevPage');
+            const nextBtn = document.getElementById('nextPage');
+
+            prevBtn.classList.toggle('disabled', this.currentPage === 1);
+            nextBtn.classList.toggle('disabled', this.currentPage === totalPages);
+
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, this.currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            if (startPage > 1) {
+                const firstPage = document.createElement('button');
+                firstPage.className = 'page-number';
+                firstPage.textContent = '1';
+                firstPage.addEventListener('click', () => {
+                    this.currentPage = 1;
+                    this.updateTransactionsTable();
+                });
+                pageNumbers.appendChild(firstPage);
+
+                if (startPage > 2) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'page-ellipsis';
+                    ellipsis.textContent = '...';
+                    pageNumbers.appendChild(ellipsis);
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = `page-number ${this.currentPage === i ? 'active' : ''}`;
+                pageBtn.textContent = i;
+                pageBtn.addEventListener('click', () => {
+                    this.currentPage = i;
+                    this.updateTransactionsTable();
+                });
+                pageNumbers.appendChild(pageBtn);
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'page-ellipsis';
+                    ellipsis.textContent = '...';
+                    pageNumbers.appendChild(ellipsis);
+                }
+
+                const lastPage = document.createElement('button');
+                lastPage.className = 'page-number';
+                lastPage.textContent = totalPages;
+                lastPage.addEventListener('click', () => {
+                    this.currentPage = totalPages;
+                    this.updateTransactionsTable();
+                });
+                pageNumbers.appendChild(lastPage);
+            }
+        }
+
+        formatCurrency(amount, currency = this.defaultCurrency, includeSymbol = true) {
+            const value = parseFloat(amount || 0);
+            const options = {
+                style: 'currency',
+                currency: currency,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+                currencyDisplay: 'symbol'
+            };
+
+            if (!includeSymbol) {
+                options.style = 'decimal';
+            }
+
+            try {
+                return new Intl.NumberFormat(navigator.language, options).format(value);
+            } catch (e) {
+                return `${currency} ${value.toFixed(2)}`;
+            }
+        }
+    }
+
+
+    document.getElementById('downloadPurchasesReport').addEventListener('click', function () {
+        // Get current filters from your page including time filter
+        const activeTimeFilter = document.querySelector('.dashboard-dropdown-item.time-filter.active')?.dataset.value || 'month';
+
+        const filters = {
+            startDate: document.getElementById('startDate').value,
+            endDate: document.getElementById('endDate').value,
+            time_filter: activeTimeFilter,  // Added time filter
+            currency: document.getElementById('currency-select').value,
+            reference: document.getElementById('reference-select')?.value,
+            purchase: document.getElementById('purchase-select')?.value,
+            payment_mode: document.getElementById('payment-mode-select')?.value,
+            vendor: document.getElementById('vendor-select')?.value,
+            project: document.getElementById('project-select')?.value
+
+        };
+
+        // Show loading indicator
+        const btn = this;
+        const originalBtnText = btn.innerHTML; // Store original button HTML
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+        btn.disabled = true;
+
+        // Call the download endpoint
+        fetch('/download_purchases_report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(filters)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    // If the response is not ok, try to parse the error message
+                    return response.json().then(err => {
+                        throw new Error(err.error || 'Failed to generate report');
+                    });
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+
+                // Generate filename with date range or time filter info
+                let filename = `Purchases${new Date().toISOString().slice(0, 10)}`;
+                if (activeTimeFilter && activeTimeFilter !== 'custom') {
+                    filename += `_${activeTimeFilter}`;
+                } else if (filters.startDate && filters.endDate) {
+                    filename += `_${filters.startDate}_to_${filters.endDate}`;
+                }
+                filename += '.pdf';
+
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
+            .catch(error => {
+                console.error('Error downloading report:', error);
+                // Show more specific error message to user
+                alert(error.message || 'Error generating report. Please try again.');
+            })
+            .finally(() => {
+                // Reset button to original state
+                btn.innerHTML = originalBtnText;
+                btn.disabled = false;
+            });
+
+
+
+    });
+
+
+    // Initialize the dashboard when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+        new PurchasesDashboard();
+    });
+</script>
+
+{% endblock %}

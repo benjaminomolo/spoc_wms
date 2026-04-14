@@ -1,0 +1,3437 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
+<!-- Add Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+
+<!-- Add Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+
+<style>
+    .container {
+        display: flex;
+        gap: 20px;
+        width: 100%;
+        max-width: 1200px;
+        margin: 20px auto;
+    }
+
+    .inventory_sidebar {
+        width: 350px;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 10px;
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+
+    }
+
+    .inventory-main-content {
+        flex: 1;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+
+
+    .form-section {
+        margin-bottom: 20px;
+    }
+
+    .form-section h2 {
+        font-size: 1.25rem;
+        color: #34495e;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+
+
+    .line-item {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        background-color: #f8f9fa;
+        border-left: 2px solid var(--highlight-color);
+
+    }
+
+    .line-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .line-item-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: #2c3e50;
+        font-weight: 600;
+    }
+
+    .line-item-header button {
+        background-color: #dc3545;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .line-item-header button:hover {
+        background-color: #c82333;
+    }
+
+    .add-line-item {
+        margin-bottom: 15px;
+    }
+
+
+
+    .general-total {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-top: 15px;
+        color: #007bff;
+    }
+
+    /* Confirmation Modal */
+    #confirmationModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+    }
+
+    #confirmationModal p {
+        margin-bottom: 15px;
+    }
+
+    #confirmationModal button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        margin-right: 10px;
+    }
+
+    #confirmDelete {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    #cancelDelete {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    /* Summary Section Styling */
+    .summary-section {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        margin-top: 15px;
+    }
+
+    .summary-section h3 {
+        font-size: 1.1rem;
+        color: #2c3e50;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .summary-section p {
+        font-size: 0.9rem;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+
+    .summary-section p span {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+
+    /* Vendor Modal Styling */
+    #vendorModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        width: 600px;
+        /* Adjust width as needed */
+
+        /* Ensure it doesn't overflow on small screens */
+        overflow-y: auto;
+        /* Enable vertical scrolling */
+        overflow-x: hidden;
+    }
+
+    #vendorModal h3 {
+        font-size: 1.25rem;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    #vendorModal .form-group {
+        margin-bottom: 15px;
+    }
+
+    #vendorModal label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 6px;
+        color: #495057;
+    }
+
+
+
+
+    @media (max-width: 480px) {
+        #vendorModal {
+            width: 100%;
+            /* Full width for very small screens */
+            padding: 10px;
+            /* Further reduce padding */
+            border-radius: 0;
+            /* Remove border radius for full-width modals */
+        }
+
+        #vendorModal h3 {
+            font-size: 1rem;
+            /* Further reduce font size */
+        }
+
+        #vendorModal .form-group {
+            margin-bottom: 10px;
+            /* Reduce margin for smaller screens */
+        }
+
+        #vendorModal label {
+            font-size: 0.9rem;
+            /* Reduce label font size */
+        }
+    }
+
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+            /* Stack sidebar and main content vertically */
+        }
+
+        .inventory_sidebar,
+        .inventory-main-content {
+            width: 90%;
+            /* Full width on mobile */
+        }
+
+        .inventory_sidebar {
+            position: static;
+            /* Ensure sidebar doesn't overlap main content */
+            margin-bottom: 20px;
+            /* Add space between sidebar and main content */
+        }
+    }
+
+    @media (max-width: 480px) {
+
+        .inventory_sidebar,
+        .inventory-main-content {
+            padding: 15px;
+            /* Reduce padding for smaller screens */
+        }
+
+        .inventory_sidebar h2,
+        .inventory-main-content h1 {
+            font-size: 1.1rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .form-section h2 {
+            font-size: 1rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .line-item-header h3 {
+            font-size: 0.9rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .summary-section h3 {
+            font-size: 1rem;
+            /* Reduce font size for smaller screens */
+        }
+    }
+
+    /* Add new styles for account sections */
+    .account-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-left: 2px solid #007bff;
+    }
+
+    .account-section h4 {
+        margin-top: 0;
+        color: #2c3e50;
+        font-size: 1.1rem;
+        margin-bottom: 12px;
+    }
+
+    .conditional-field {
+        display: none;
+    }
+
+    .conditional-field.visible {
+        display: block;
+    }
+
+
+
+    .payable-section {
+        background-color: #fff3cd;
+        border-left-color: #ffc107;
+    }
+
+    .adjustment-section {
+        background-color: #e7f3ff;
+        border-left-color: #17a2b8;
+    }
+
+    /* Readonly field display for existing assets */
+    .readonly-field {
+
+        background-color: #f8f9fa;
+
+        border-radius: 6px;
+        min-height: 38px;
+        display: flex;
+        align-items: center;
+    }
+
+    .readonly-field em {
+        color: #6c757d;
+        font-style: italic;
+    }
+</style>
+
+<div class="content-container">
+
+    <div class="container">
+        <!-- inventory_sidebar -->
+        <div class="inventory_sidebar">
+            <h2>Quick Actions</h2>
+            <button type="button" id="addLineItem" class="add-line-item button add-button">
+                Add Line Item
+            </button>
+            <div class="summary-section">
+                <h3>Summary</h3>
+
+                <div class="currency-section" style="display: none;">
+                    <p>Currency: <span id="summaryCurrency">-</span></p>
+                </div>
+                <p>Movement Type: <span id="summaryMovementType">-</span></p>
+                <p>Total Items: <span id="totalItems">0</span></p>
+                <div class="summary-details" style="display: none;">
+                    <p>Total Line Subtotals: <span id="totalLineSubtotals">0.00</span></p>
+                    <p>General Total: <span id="generalTotal">0.00</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="inventory-main-content">
+            <h1>Record Asset Movement</h1>
+            <form id="inventoryForm" method="post" autocomplete="off">
+                <!-- Basic Information Section -->
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-section">
+                    <h2>Basic Information</h2>
+
+
+                    <div class="form-group" {% if movement_type %}style="display: none;" {% endif %}>
+                        <label for="movement_type">Movement Type: <span class="required">*</span></label>
+                        <select id="movement_type" name="movement_type" required>
+                            <optgroup label="Receiving Assets">
+                                <option value="acquisition" {% if movement_type=='acquisition' %}selected{% endif %}>
+                                    Receive Assets</option>
+                                <option value="donation_in" {% if movement_type=='donation_in' %}selected{% endif %}>
+                                    Receive Donated Assets</option>
+                            </optgroup>
+                            <optgroup label="Giving Out Assets">
+                                <option value="sale" {% if movement_type=='sale' %}selected{% endif %}>Dispatch Assets
+                                </option>
+                                <option value="donation_out" {% if movement_type=='donation_out' %}selected{% endif %}>
+                                    Donate Assets</option>
+                                <option value="disposal" {% if movement_type=='disposal' %}selected{% endif %}>Dispose
+                                    Assets</option>
+                            </optgroup>
+                            <optgroup label="Internal Movements">
+                                <option value="transfer" {% if movement_type=='transfer' %}selected{% endif %}>Transfer
+                                    Assets</option>
+                                <option value="assignment" {% if movement_type=='assignment' %}selected{% endif %}>
+                                    Assign to Staff</option>
+                                <option value="return" {% if movement_type=='return' %}selected{% endif %}>Return from
+                                    Staff</option>
+                                <option value="depreciation" {% if movement_type=='depreciation' %}selected{% endif %}>
+                                    Depreciation Entry</option>
+                            </optgroup>
+                            <optgroup label="Setup">
+                                <option value="opening_balance" {% if movement_type=='opening_balance' %}selected{%
+                                    endif %}>Opening Balance</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    {% if movement_type %}
+                    <input type="hidden" name="movement_type" value="{{ movement_type }}">
+                    {% endif %}
+
+                    <div class="form-grid">
+
+                        <div class="form-group">
+                            <label for="transaction_date">Transaction Date:</label>
+                            <input type="date" id="transaction_date" name="transaction_date" required />
+                        </div>
+
+                        <!-- Reference  -->
+                        <div class="form-group">
+
+                            <input type="text" id="reference" name="reference">
+                            <label for="reference">Reference:</label>
+
+                        </div>
+
+                    </div>
+
+
+
+
+                    <div class="form-group" style="display: none;">
+                        <div class="form-group">
+                            <input type="hidden" id="is_one_time_hidden" name="is_one_time" value="0" />
+                        </div>
+                        <div class="form-group conditional-field currency-section" id="currency_section">
+                            <label for="currency">Currency <span class="required">*</span></label>
+                            <select id="currency" name="currency" required disabled>
+                                <option value="">Select Currency</option>
+                                {% for currency in currencies %}
+                                {% if currency.currency_index == 1 %}
+                                <option value="{{ currency.id }}" selected>
+                                    {{ currency.user_currency }}
+                                </option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                            <input type="hidden" name="currency" value="{{ base_currency_id }}" />
+                        </div>
+                    </div>
+
+
+
+                    <!-- Line Items Section -->
+                    <div class="form-section">
+                        <h2>Assets</h2>
+                        <div id="lineItemsContainer" class="line-items-container">
+                            <!-- Line items will be dynamically added here -->
+                        </div>
+                    </div>
+
+
+
+                    <!-- Accounting Information Section -->
+
+                    <!-- Additional Details Section -->
+                    <!-- Additional Details Section - Make the whole section conditional -->
+                    <div class="form-section conditional-field" id="additional_details_section">
+                        <h2>Additional Details (Optional)</h2>
+
+                        <div class="form-group conditional-field" id="project_field">
+                            <select id="project_id" name="project_id">
+                                <option value=""></option>
+                                {% for project in projects %}
+                                <option value="{{ project.id }}">{{ project.name }} - {{ project.project_id }}</option>
+                                {% endfor %}
+                            </select>
+                            <label for="project">Project:</label>
+                        </div>
+
+
+                    </div>
+                </div>
+
+
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="button" class="button remove-button" onclick="window.history.back()">Cancel</button>
+
+                    <button type="button" id="saveAndNewBtn" class="button add-button">Save and New</button>
+
+                    <button type="button" id="saveAndExitBtn" class="button cta-button">Save and Exit</button>
+                </div>
+            </form>
+        </div>
+
+
+        <!-- Confirmation Modal -->
+        <div id="confirmationModal">
+            <p>Are you sure you want to delete this line item?</p>
+            <button id="confirmDelete">Yes, Delete</button>
+            <button id="cancelDelete">Cancel</button>
+        </div>
+
+        <!-- Modal for New supplier -->
+        <!-- Modal for New supplier -->
+        <div id="newPartyModal" class="confirmationModal" style="display: none;">
+
+            <p>"<span id="enteredPartyName"></span>" is not in the database. Is this a one-time <span
+                    id="partyTypeText">party</span>?</p>
+            <div>
+                <button id="oneTimePartyBtn" class="confirmDelete">Yes, One-Time <span
+                        id="partyTypeBtn">Party</span></button>
+                <button id="addToDatabaseBtn" class="cancelDelete">No, Add to Database</button>
+                <button id="cancelModalBtn" class="cancelDelete" style="margin-left: 10px;">Cancel</button>
+
+            </div>
+        </div>
+
+
+
+        <!-- Vendor Modal -->
+        <div id="vendorModal" style="display: none">
+            <div style="
+      background: white;
+      padding: 15px;
+      border: 1px solid #ccc;
+      width: 95%;
+      margin-right: 40px;
+      max-height: 80vh;
+      overflow-y: auto;
+    ">
+                <h3>Add New Receiver/Sender</h3>
+                <form id="vendorDetailsForm" method="POST" action="{{ url_for('general_ledger.add_vendor') }}">
+                    <!-- Party Type -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="vendorType">Party Type:</label>
+                            <select id="vendorType" name="vendorType" required>
+                                <option value="vendor">Sender</option>
+
+                                <option value="client">Recipient</option>
+                            </select>
+                        </div>
+
+                        <!-- Vendor Name -->
+                        <div class="form-group">
+                            <label for="vendorName">Name:</label>
+                            <input type="text" id="vendorName" name="vendorName" required />
+                        </div>
+
+                        <!-- Vendor ID -->
+                        <div class="form-group">
+                            <label for="vendorId">ID:</label>
+                            <input type="text" id="vendorId" name="vendorId" />
+                        </div>
+
+                        <!-- Designation -->
+                        <div class="form-group">
+                            <label for="designation">Designation:</label>
+                            <input type="text" id="designation" name="designation" />
+                        </div>
+
+                        <!-- Tel Contact -->
+                        <div class="form-group">
+                            <label for="telContact">Tel Contact:</label>
+                            <input type="text" id="telContact" name="telContact" />
+                        </div>
+
+                        <!-- Email Contact -->
+                        <div class="form-group">
+                            <label for="email">Email Contact:</label>
+                            <input type="text" id="email" name="email" />
+                        </div>
+
+                        <!-- Address -->
+                        <div class="form-group">
+                            <label for="address">Address:</label>
+                            <input type="text" id="address" name="address" />
+                        </div>
+
+                        <!-- City -->
+                        <div class="form-group">
+                            <label for="city">City:</label>
+                            <input type="text" id="city" name="city" />
+                        </div>
+
+                        <!-- State/Province -->
+                        <div class="form-group">
+                            <label for="stateProvince">State/Province:</label>
+                            <input type="text" id="stateProvince" name="stateProvince" />
+                        </div>
+
+                        <!-- Postal Code -->
+                        <div class="form-group">
+                            <label for="postalCode">Postal Code:</label>
+                            <input type="text" id="postalCode" name="postalCode" />
+                        </div>
+
+                        <!-- Country -->
+                        <div class="form-group">
+                            <label for="country">Country:</label>
+                            <select id="country" name="country">
+                                <option value="">Loading countries...</option>
+                            </select>
+                        </div>
+
+                        <!-- Website -->
+                        <div class="form-group">
+                            <label for="website">Website:</label>
+                            <input type="text" id="website" name="website" />
+                        </div>
+
+                        <!-- Payment Terms -->
+                        <div class="form-group">
+                            <label for="paymentTerms">Payment Terms:</label>
+                            <input type="text" id="paymentTerms" name="paymentTerms" />
+                        </div>
+
+                        <!-- Tax ID -->
+                        <div class="form-group">
+                            <label for="taxId">Tax ID:</label>
+                            <input type="text" id="taxId" name="taxId" />
+                        </div>
+
+                        <!-- Preferred Communication Method -->
+                        <div class="form-group">
+                            <label for="preferredCommunicationMethod">Preferred Communication Method:</label>
+                            <select id="preferredCommunicationMethod" name="preferredCommunicationMethod">
+                                <option value="Phone">Phone</option>
+                                <option value="Email">Email</option>
+                                <option value="Whatsapp">Whatsapp</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Primary Contact Person -->
+                        <div class="form-group">
+                            <label for="primaryContactPerson">Primary Contact Person:</label>
+                            <input type="text" id="primaryContactPerson" name="primaryContactPerson" />
+                        </div>
+
+                        <!-- Secondary Contact Person -->
+                        <div class="form-group">
+                            <label for="secondaryContactPerson">Secondary Contact Person:</label>
+                            <input type="text" id="secondaryContactPerson" name="secondaryContactPerson" />
+                        </div>
+
+                        <!-- Certifications -->
+                        <div class="form-group">
+                            <label for="certifications">Certifications:</label>
+                            <textarea id="certifications" name="certifications"></textarea>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="form-group">
+                            <label for="notes">Notes:</label>
+                            <textarea id="notes" name="notes"></textarea>
+                        </div>
+
+                        <!-- Submit and Close Buttons -->
+                        <div class="form-actions">
+                            <button type="submit" class="button cta-button">Save Client/supplier</button>
+                            <button type="button" class="button add-button" id="closeModal">Close</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+
+
+    </div>
+    <!-- End of Main Content -->
+
+
+    <!-- Supplier Datalist -->
+    <datalist id="supplier_list">
+        {% for supplier in suppliers %}
+        <option value="{{ supplier.vendor_name }}" data-id="{{ supplier.id }}">
+            {{ supplier.vendor_name }}
+        </option>
+        {% endfor %}
+    </datalist>
+
+    <!-- Customer Datalist -->
+    <datalist id="customer_list">
+        {% for customer in customers %}
+        <option value="{{ customer.vendor_name }}" data-id="{{ customer.id }}">
+            {{ customer.vendor_name }}
+        </option>
+        {% endfor %}
+    </datalist>
+</div>
+
+
+
+<script>
+    // Asset items data (catalog - fetched from backend)
+    const assetItems = [
+        {% for item in asset_items %}
+    {
+        id: "{{ item.id }}",
+            name: "{{ item.asset_name }}",
+                code: "{{ item.asset_code }}",
+                    category: "{{ item.inventory_category.category_name if item.inventory_category else '' }}",
+                        subcategory: "{{ item.inventory_subcategory.subcategory_name if item.inventory_subcategory else '' }}",
+                            brand: "{{ item.brand.brand_name if item.brand else '' }}",
+                                description: "{{ item.asset_description }}",
+                                    default_useful_life: "{{ item.expected_useful_life_years }}",
+                                        depreciation_method: "{{ item.depreciation_method }}",
+                                            salvage_percentage: "{{ item.salvage_value_percentage }}",
+                                                fixed_asset_account_id: "{{ item.fixed_asset_account_id }}",
+                                                    depreciation_account_id: "{{ item.depreciation_expense_account_id }}",
+                                                        accumulated_dep_account_id: "{{ item.accumulated_depreciation_account_id }}"
+    },
+    {% endfor %}
+];
+
+
+    // Add these functions to your JavaScript
+
+    // Global cache for available assets
+    const assetCache = new Map();
+
+    /**
+     * Load available assets for a specific asset item and movement type
+     */
+    async function loadAvailableAssets(assetItemId, lineItem, forceRefresh = false) {
+        console.log(`Loading available assets for item ID: ${assetItemId}`);
+
+        try {
+            const movementType = document.getElementById('movement_type').value;
+            console.log(`Current movement type: ${movementType}`);
+
+            const cacheKey = `${assetItemId}_${movementType}`;
+
+            // Check cache first (unless force refresh)
+            if (!forceRefresh && assetCache.has(cacheKey)) {
+                console.log(`Using cached assets for ${cacheKey}`);
+                updateAssetDropdown(assetCache.get(cacheKey), lineItem);
+                return;
+            }
+
+            // Show loading state
+            const dropdown = lineItem.querySelector('.asset-instance-dropdown');
+            if (dropdown) {
+                dropdown.disabled = true;
+                const currentHTML = dropdown.innerHTML;
+                dropdown.innerHTML = '<option value="">Loading available assets...</option>';
+            }
+
+            // Build query parameters
+            const params = new URLSearchParams({
+                asset_item_id: assetItemId,
+                movement_type: movementType
+            });
+
+            console.log(`Fetching from: /assets/api/asset_movement/get_available_assets?${params}`);
+
+            // Fetch from API
+            const response = await fetch(`/assets/api/asset_movement/get_available_assets?${params}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('API Response:', data);
+
+            if (data.success) {
+                // Cache the results
+                assetCache.set(cacheKey, data.assets);
+                console.log(`Cached ${data.assets.length} assets for key ${cacheKey}`);
+
+                // Update dropdown
+                updateAssetDropdown(data.assets, lineItem);
+
+                // Show message if no assets available
+                if (data.assets.length === 0) {
+                    showNotification(`No available assets found for this item type and movement type (${movementType}).`, 'info', 3000);
+                }
+            } else {
+                console.error('Error loading assets:', data.message);
+                if (dropdown) {
+                    dropdown.innerHTML = '<option value="">Error loading assets: ' + data.message + '</option>';
+                }
+            }
+
+        } catch (error) {
+            console.error('Error loading available assets:', error);
+            const dropdown = lineItem.querySelector('.asset-instance-dropdown');
+            if (dropdown) {
+                dropdown.innerHTML = '<option value="">Error loading assets. Please try again.</option>';
+            }
+            showNotification('Failed to load available assets. Please check your connection.', 'error');
+        }
+    }
+    /**
+     * Update the asset dropdown with fetched assets
+     */
+    /**
+ * Update the asset dropdown with fetched assets
+ */
+    /**
+ * Update the asset dropdown with fetched assets
+ */
+    function updateAssetDropdown(assets, lineItem) {
+        const dropdown = lineItem.querySelector('.asset-instance-dropdown');
+        if (!dropdown) return;
+
+        // Store current value before clearing
+        const currentValue = dropdown.value;
+
+        // Clear and rebuild options
+        dropdown.innerHTML = '<option value="">Select Asset</option>';
+
+        if (assets.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No available assets found for this item type';
+            option.disabled = true;
+            dropdown.appendChild(option);
+        } else {
+            assets.forEach(asset => {
+                const option = document.createElement('option');
+                option.value = asset.id;
+
+                // Build display text
+                let displayText = `${asset.asset_tag}`;
+                if (asset.asset_item_name) {
+                    displayText += ` - ${asset.asset_item_name}`;
+                }
+                if (asset.serial_number) {
+                    displayText += ` (SN: ${asset.serial_number})`;
+                }
+                if (asset.current_location) {
+                    displayText += ` [${asset.current_location}]`;
+                }
+
+                option.textContent = displayText;
+
+                // Store data attributes for easy access
+                option.dataset.currentValue = asset.current_value;
+                option.dataset.assetTag = asset.asset_tag;
+                option.dataset.serialNumber = asset.serial_number;
+                option.dataset.assetItemId = asset.asset_item_id;
+
+                dropdown.appendChild(option);
+            });
+        }
+
+        // Destroy and recreate Select2 to ensure it picks up new options
+        if ($(dropdown).hasClass('select2-hidden-accessible')) {
+            $(dropdown).select2('destroy');
+        }
+
+        $(dropdown).select2({
+            width: '100%',
+            placeholder: "Select an asset",
+            allowClear: true,
+            dropdownParent: $(dropdown).closest('.line-item')
+        });
+
+        // Restore previous value if it still exists in new options
+        if (currentValue) {
+            const optionExists = Array.from(dropdown.options).some(opt => opt.value === currentValue);
+            if (optionExists) {
+                $(dropdown).val(currentValue).trigger('change');
+            }
+        }
+
+        dropdown.disabled = false;
+
+        // After Select2 is initialized, update asset identification fields
+        updateAssetIdentificationFields(lineItem);
+    }
+
+
+
+    /**
+ * Update asset identification fields based on selected asset and movement type
+ */
+    function updateAssetIdentificationFields(lineItem) {
+        const movementType = document.getElementById('movement_type').value;
+        const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+        const selectedOption = assetInstanceDropdown?.options[assetInstanceDropdown.selectedIndex];
+
+        // Check movement types
+        const showExistingAssetDropdown = [
+            'assignment', 'return', 'transfer', 'sale', 'donation_out', 'disposal', 'depreciation'
+        ].includes(movementType);
+
+        const showNewAssetFields = [
+            'acquisition', 'opening_balance', 'donation_in'
+        ].includes(movementType);
+
+        // Get all relevant elements
+        const assetIdentificationSection = lineItem.querySelector('.asset-identification');
+        const existingAssetIdentificationSection = lineItem.querySelector('.existing-asset-identification');
+        const assetTagInput = lineItem.querySelector('.asset-tag-input');
+        const serialInput = lineItem.querySelector('.serial-number-input');
+        const assetTagDisplay = lineItem.querySelector('.asset-tag-display');
+        const serialDisplay = lineItem.querySelector('.serial-number-display');
+
+        // Show/hide sections based on movement type
+        if (assetIdentificationSection) {
+            assetIdentificationSection.style.display = showNewAssetFields ? 'block' : 'none';
+        }
+
+        if (existingAssetIdentificationSection) {
+            existingAssetIdentificationSection.style.display = showExistingAssetDropdown ? 'block' : 'none';
+        }
+
+        // Handle existing asset selection
+        if (showExistingAssetDropdown && selectedOption && selectedOption.value) {
+            const assetTag = selectedOption.getAttribute('data-asset-tag');
+            const serialNumber = selectedOption.getAttribute('data-serial-number');
+
+            // Update display fields
+            if (assetTagDisplay) {
+                assetTagDisplay.textContent = assetTag || 'Not available';
+                assetTagDisplay.style.fontStyle = assetTag ? 'normal' : 'italic';
+                assetTagDisplay.style.color = assetTag ? '#212529' : '#6c757d';
+            }
+
+            if (serialDisplay) {
+                serialDisplay.textContent = serialNumber || 'Not available';
+                serialDisplay.style.fontStyle = serialNumber ? 'normal' : 'italic';
+                serialDisplay.style.color = serialNumber ? '#212529' : '#6c757d';
+            }
+
+            // Also update hidden input fields for form submission
+            if (assetTagInput) {
+                assetTagInput.value = assetTag || '';
+                assetTagInput.required = false;
+            }
+
+            if (serialInput) {
+                serialInput.value = serialNumber || '';
+            }
+        }
+        // Handle new asset creation
+        else if (showNewAssetFields) {
+            // Enable inputs for new assets
+            if (assetTagInput) {
+                assetTagInput.disabled = false;
+                assetTagInput.readOnly = false;
+                assetTagInput.required = true;
+
+                // Generate asset tag if empty
+                const assetItemDropdown = lineItem.querySelector('.asset-item-dropdown');
+                if (assetItemDropdown && assetItemDropdown.value && !assetTagInput.value.trim()) {
+                    assetTagInput.value = generateAssetTag(assetItemDropdown.value);
+                }
+            }
+
+            if (serialInput) {
+                serialInput.disabled = false;
+                serialInput.readOnly = false;
+                serialInput.required = false;
+            }
+        }
+    }
+
+
+    // Function to update Additional Details section visibility
+    function updateAdditionalDetailsVisibility(movementType) {
+        const additionalDetailsSection = document.getElementById('additional_details_section');
+        const projectField = document.getElementById('project_field');
+
+        // Show project only for receiving assets
+        const showProject = ['acquisition', 'opening_balance', 'donation_in'].includes(movementType);
+        projectField.style.display = showProject ? 'block' : 'none';
+
+
+        // Show the entire Additional Details section if ANY field inside it is visible
+        const shouldShowSection = showProject;
+        additionalDetailsSection.style.display = shouldShowSection ? 'block' : 'none';
+        additionalDetailsSection.classList.toggle('visible', shouldShowSection);
+    }
+
+    /**
+     * Clear asset cache when movement type changes
+     */
+    function clearAssetCache() {
+        assetCache.clear();
+        console.log('Asset cache cleared');
+
+        // Inline the refreshAllAssetDropdowns functionality here
+        document.querySelectorAll('.line-item').forEach(lineItem => {
+            const assetItemDropdown = lineItem.querySelector('.asset-item-dropdown');
+            if (assetItemDropdown && assetItemDropdown.value) {
+                loadAvailableAssets(assetItemDropdown.value, lineItem, true);
+            }
+        });
+    }
+
+
+
+    // Generate asset tag helper
+    function generateAssetTag(assetItemId) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        return `AST-${year}${month}-${String(assetItemId).padStart(3, '0')}-${random}`;
+    }
+
+    // Add Asset Line Item Functionality - UPDATED FOR SALES
+    document.getElementById('addLineItem').addEventListener('click', function () {
+        const lineItemsContainer = document.getElementById('lineItemsContainer');
+        const movementType = document.getElementById('movement_type').value;
+
+        // Calculate the new line item number
+        const lineItemNumber = lineItemsContainer.querySelectorAll('.line-item').length + 1;
+        document.getElementById('currency_section').classList.add('visible');
+        const lineItem = document.createElement('div');
+        lineItem.classList.add('line-item');
+        lineItem.dataset.movementType = movementType;
+
+        // Determine if we need to show existing asset dropdown
+        const showExistingAssetDropdown =
+            movementType === 'assignment' ||
+            movementType === 'return' ||
+            movementType === 'transfer' ||
+            movementType === 'sale' ||  // ADDED SALES
+            movementType === 'donation_out' ||  // ADDED DONATION OUT
+            movementType === 'disposal' ||  // ADDED DISPOSAL
+            movementType === 'depreciation';  // ADDED DEPRECIATION
+
+        // Determine if we need to show new asset creation fields
+        const showNewAssetFields =
+            movementType === 'acquisition' ||
+            movementType === 'opening_balance' ||
+            movementType === 'donation_in';
+
+        // Common HTML for all movement types - UPDATED FOR SALES
+        lineItem.innerHTML = `
+        <div class="line-item-header">
+            <h3>Asset ${lineItemNumber}</h3>
+            <button type="button" class="remove-line-item button remove-button">Remove</button>
+        </div>
+        
+        <input type="hidden" name="item_type[]" value="asset">
+        
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="asset_item_id">Asset Type <span class="required">*</span></label>
+                <select name="asset_item_id[]" class="asset-item-dropdown searchable-dropdown" required>
+                    <option value="">Select Asset Type</option>
+                    ${assetItems.map(item => `
+                        <option value="${item.id}" 
+                                data-code="${item.code}"
+                                data-useful-life="${item.default_useful_life}"
+                                data-depreciation="${item.depreciation_method}"
+                                data-salvage="${item.salvage_percentage}"
+                                data-fixed-account="${item.fixed_asset_account_id}"
+                                data-dep-account="${item.depreciation_account_id}"
+                                data-accum-dep-account="${item.accumulated_dep_account_id}">
+                            ${item.name}${item.code ? ` (${item.code})` : ''}
+                            ${item.brand ? ` - ${item.brand}` : ''}
+                            ${item.category ? ` [${item.category}` : ''}
+                            ${item.subcategory ? `/${item.subcategory}]` : ']'}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+        </div>
+        
+        <!-- For existing asset movements (assignment/return/transfer/sale/disposal) -->
+        <div class="conditional-field existing-asset-section" 
+            style="display: ${showExistingAssetDropdown ? 'block' : 'none'}">
+            <div class="form-group">
+                <label for="asset_id">Select Asset Instance <span class="required">*</span></label>
+                <select name="asset_id[]" class="asset-instance-dropdown searchable-dropdown" 
+                        ${showExistingAssetDropdown ? 'required' : ''}>
+                    <option value="">Select an asset...</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- For new asset creation (acquisition/opening_balance/donation_in) -->
+        <div class="conditional-field new-asset-section" 
+             style="display: ${showNewAssetFields ? 'block' : 'none'}">
+            
+            <!-- Asset Identification -->
+            
+
+            <!-- Asset Identification - Conditionally shown based on movement type -->
+            <div class="form-row asset-identification" 
+                style="display: ${showNewAssetFields ? 'block' : 'none'}">
+                <div class="form-group">
+                    <label for="asset_tag">Asset Tag <span class="required">*</span></label>
+                    <input type="text" name="asset_tag[]" class="asset-tag-input" 
+                        ${showNewAssetFields ? 'required' : ''}
+                        placeholder="Auto-generated">
+                    <small class="text-muted asset-tag-hint">
+                        ${movementType === 'donation_in' ? 'Auto-generated for donated assets' : 'Auto-generated based on asset type'}
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="serial_number">Serial Number</label>
+                    <input type="text" name="serial_number[]" class="serial-number-input" 
+                        placeholder="Enter serial number (optional)">
+                    <small class="text-muted serial-number-hint">
+                        Manufacturer's serial number
+                    </small>
+                </div>
+            </div>
+
+<!-- Display only section for existing assets (readonly) -->
+<div class="form-row existing-asset-identification" 
+     style="display: ${showExistingAssetDropdown ? 'block' : 'none'}">
+    <div class="form-group">
+        <label>Asset Tag:</label>
+        <div class="readonly-field asset-tag-display">
+            <em>Will be populated when asset is selected</em>
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label>Serial Number:</label>
+        <div class="readonly-field serial-number-display">
+            <em>Will be populated when asset is selected</em>
+        </div>
+    </div>
+</div>
+
+
+
+
+            <!-- Financial Information for acquisitions and opening balances -->
+            <div class="form-section conditional-field" 
+                 style="display: ${movementType === 'acquisition' || movementType === 'opening_balance' || movementType === 'donation_in' ? 'block' : 'none'}">
+         
+                
+                
+                <!-- Supplier for acquisition -->
+              <!-- Supplier for acquisition AND donation_in -->
+                <div class="form-row conditional-field" 
+                    style="display: ${movementType === 'acquisition' || movementType === 'donation_in' ? 'block' : 'none'}">
+                    <div class="form-group">
+                        <label for="supplier_id">${movementType === 'acquisition' ? 'From (Sender)' : 'Donor'} <span class="required">*</span></label>
+                        <input type="hidden" name="supplier_id[]" class="asset-supplier-id">
+                        <input type="text" name="supplier_name[]" class="asset-supplier-name" 
+                            list="supplier_list" placeholder="${movementType === 'acquisition' ? 'Select sender' : 'Enter donor name'}" 
+                            required>
+                    </div>
+                </div>
+                
+                <!-- Depreciation Overrides -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="useful_life_years">Useful Life (Years)</label>
+                        <input type="number" name="useful_life_years[]" class="useful-life-input" 
+                               min="1" max="50" placeholder="Uses asset type default">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="depreciation_method">Depreciation Method</label>
+                        <select name="depreciation_method[]" class="depreciation-method-input">
+                            <option value="">Use Asset Type Default</option>
+                            <option value="straight_line">Straight Line</option>
+                            <option value="declining_balance">Declining Balance</option>
+                            <option value="double_declining">Double Declining Balance</option>
+                            <option value="none">No Depreciation</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Capitalization Date -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="capitalization_date">Capitalization Date</label>
+                        <input type="date" name="capitalization_date[]" class="capitalization-date-input"
+                               value="${new Date().toISOString().split('T')[0]}">
+                        <small class="text-muted">When depreciation starts</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Warranty Information -->
+            <div class="form-section conditional-field" 
+                 style="display: ${movementType === 'acquisition' ? 'block' : 'none'}">
+                <h4>Warranty Information</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="warranty_months">Warranty Period (Months)</label>
+                        <input type="number" name="warranty_months[]" class="warranty-months-input" 
+                               min="0" max="120" value="12">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="warranty_expiry">Warranty Expiry</label>
+                        <input type="date" name="warranty_expiry[]" class="warranty-expiry-input">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Condition -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="condition">Initial Condition</label>
+                    <select name="condition[]" class="condition-input">
+                        <option value="excellent">Excellent</option>
+                        <option value="good" selected>Good</option>
+                        <option value="fair">Fair</option>
+                        <option value="poor">Poor</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sales-specific fields -->
+        <div class="conditional-field sale-section" 
+             style="display: ${movementType === 'sale' ? 'block' : 'none'}">
+            <div class="form-section">
+                <h4>Dispatch Details</h4>
+              
+                <div class="form-row">
+                  
+                    
+                    <div class="form-group">
+                        <label for="customer_id">To (Recipient) <span class="required">*</span></label>
+                        <input type="hidden" name="customer_id[]" class="asset-customer-id">
+                        <input type="text" name="customer_name[]" class="asset-customer-name" 
+                            list="customer_list" placeholder="Select recipient" ${movementType === 'sale' ? 'required' : ''}>
+                    </div>
+                </div>
+                
+              
+                
+                <div class="form-group">
+                    <label for="sale_notes">Dispatch Notes</label>
+                    <textarea name="sale_notes[]" rows="2" placeholder="Additional dispatch details..."></textarea>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Assignment-specific fields -->
+        <div class="conditional-field assignment-section" 
+             style="display: ${movementType === 'assignment' ? 'block' : 'none'}">
+            <div class="form-section">
+                <h4>Assignment Details</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="assigned_to_id">Assign To Employee</label>
+                        <select name="assigned_to_id[]" class="employee-dropdown">
+                            <option value="">Select Employee</option>
+                            {% for employee in employees %}
+                            <option value="{{ employee.id }}">
+                                {{ employee.first_name }} {{ employee.middle_name }} {{ employee.last_name }} 
+                                ({{ employee.department.department_name if employee.department else 'No Dept' }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="department_id">Department</label>
+                        <select name="department_id[]" class="department-dropdown">
+                            <option value="">Select Department</option>
+                            {% for department in departments %}
+                            <option value="{{ department.id }}">{{ department.department_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+          
+                    
+                    <div class="form-group">
+                        <label for="expected_return_date">Expected Return Date</label>
+                        <input type="date" name="expected_return_date[]">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="assignment_notes">Assignment Notes</label>
+                    <textarea name="assignment_notes[]" rows="2" placeholder="Purpose of assignment..."></textarea>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Transfer-specific fields -->
+        <div class="conditional-field transfer-section" 
+             style="display: ${movementType === 'transfer' ? 'block' : 'none'}">
+            <div class="form-section">
+                <h4>Transfer Details</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="to_location_id">To Location</label>
+                        <select name="to_location_id[]" class="location-dropdown">
+                            <option value="">Select Destination Location</option>
+                            {% for location in locations %}
+                            <option value="{{ location.id }}">{{ location.location }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="to_department_id">To Department</label>
+                        <select name="to_department_id[]" class="department-dropdown">
+                            <option value="">Select Destination Department</option>
+                            {% for department in departments %}
+                            <option value="{{ department.id }}">{{ department.department_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+       
+                
+                <div class="form-group">
+                    <label for="transfer_reason">Transfer Reason</label>
+                    <textarea name="transfer_reason[]" rows="2" placeholder="Reason for transfer..."></textarea>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Disposal-specific fields -->
+        <div class="conditional-field disposal-section" 
+             style="display: ${movementType === 'disposal' ? 'block' : 'none'}">
+            <div class="form-section">
+                <h4>Disposal Details</h4>
+                <div class="form-row">
+                 
+                    
+                    <div class="form-group">
+                        <label for="disposal_method">Disposal Method</label>
+                        <select name="disposal_method[]">
+                            <option value="">Select Method</option>
+                            <option value="donation">Donation</option>
+                            <option value="recycling">Recycling</option>
+                            <option value="scrap">Scrap</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                
+              
+                
+                <div class="form-group">
+                    <label for="disposal_notes">Disposal Notes</label>
+                    <textarea name="disposal_notes[]" rows="2" 
+                              placeholder="Additional disposal details..."></textarea>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Donation Out-specific fields -->
+        <div class="conditional-field donation-out-section" 
+             style="display: ${movementType === 'donation_out' ? 'block' : 'none'}">
+            <div class="form-section">
+                <h4>Donation Details</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="customer_name">Recipient Name</label>
+                        <input type="text" name="customer_name[]" placeholder="Who received the donation">
+                    </div>
+                    
+                 
+                </div>
+                
+                <div class="form-group">
+                    <label for="donation_reason">Donation Reason</label>
+                    <textarea name="donation_reason[]" rows="2" placeholder="Reason for donation..."></textarea>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- Depreciation-specific fields -->
+<div class="conditional-field depreciation-section" 
+     style="display: ${movementType === 'depreciation' ? 'block' : 'none'}">
+    <div class="form-section">
+        <h4>Depreciation Details</h4>
+        
+        <div class="form-group">
+            <label for="depreciation_amount">Depreciation Amount <span class="required">*</span></label>
+            <input type="text" name="depreciation_amount[]" class="depreciation-amount-input" 
+                   ${movementType === 'depreciation' ? 'required' : ''}>
+            <small class="text-muted">Enter the depreciation amount (positive number)</small>
+        </div>
+
+       
+        
+        <div class="form-group">
+            <label for="depreciation_notes">Depreciation Notes</label>
+            <textarea name="depreciation_notes[]" class="depreciation-notes-input" rows="2"
+                      placeholder="Optional notes about this depreciation entry"></textarea>
+        </div>
+        
+        <!-- Display depreciation account information -->
+        <div class="depreciation-account-info alert alert-info" style="display: none;">
+            <small>
+                <i class="fas fa-info-circle"></i>
+                Depreciation will use the asset's predefined accounts:
+                <span class="depreciation-account-details"></span>
+            </small>
+        </div>
+    </div>
+</div>
+        
+       
+    `;
+
+        lineItemsContainer.appendChild(lineItem);
+
+        // Initialize Select2 dropdowns
+        $(lineItem).find('.asset-item-dropdown, .asset-instance-dropdown, .employee-dropdown, .department-dropdown, .location-dropdown').select2({
+            width: '100%',
+            placeholder: "Select an option",
+            allowClear: true
+        });
+
+        // Setup event listeners
+        setupAssetLineItemEvents(lineItem, movementType);
+
+        // Generate initial asset tag for new assets
+        if (showNewAssetFields) {
+            const assetTagInput = lineItem.querySelector('.asset-tag-input');
+            if (assetTagInput) {
+                assetTagInput.value = generateAssetTag('000');
+            }
+        }
+
+        // Update summary
+        updateSummary();
+    });
+
+
+    // Function to remove all event listeners from an element
+    function removeAllEventListeners(element) {
+        if (!element) return;
+
+        const newElement = element.cloneNode(true);
+        element.parentNode.replaceChild(newElement, element);
+        return newElement;
+    }
+
+    // Function to setup per-line party autocomplete
+    // Function to setup per-line party autocomplete - UPDATED AND FIXED
+    function setupLineItemPartyEvents(lineItem, movementType) {
+        console.log(`Setting up party events for line item, movement type: ${movementType}`);
+
+        // Handle supplier autocomplete for acquisitions
+        if (movementType === 'acquisition' || movementType === 'donation_in') {
+            const supplierNameInput = lineItem.querySelector('.asset-supplier-name');
+            const supplierIdInput = lineItem.querySelector('.asset-supplier-id');
+
+            if (supplierNameInput && supplierIdInput) {
+                // Clone to remove existing listeners
+                const newSupplierNameInput = supplierNameInput.cloneNode(true);
+                supplierNameInput.parentNode.replaceChild(newSupplierNameInput, supplierNameInput);
+
+                // Setup input event for autocomplete
+                newSupplierNameInput.addEventListener('input', function () {
+                    handlePartyAutocomplete(this, supplierIdInput, 'supplier_list');
+                });
+
+                // Setup blur event for new supplier modal
+                newSupplierNameInput.addEventListener('blur', function () {
+                    setTimeout(() => {
+                        handleNewPartyModal(this, supplierIdInput, 'supplier');
+                    }, 200);
+                });
+
+                // Handle Enter key
+                newSupplierNameInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.blur();
+                    }
+                });
+            }
+        }
+
+        // Handle customer autocomplete for sales - FIXED VERSION
+        if (movementType === 'sale') {
+            const customerNameInput = lineItem.querySelector('.asset-customer-name');
+            const customerIdInput = lineItem.querySelector('.asset-customer-id');
+
+            console.log('Setting up customer autocomplete for sale:', {
+                hasCustomerNameInput: !!customerNameInput,
+                hasCustomerIdInput: !!customerIdInput
+            });
+
+            if (customerNameInput && customerIdInput) {
+                // Clone to remove existing listeners
+                const newCustomerNameInput = customerNameInput.cloneNode(true);
+                customerNameInput.parentNode.replaceChild(newCustomerNameInput, customerNameInput);
+
+                // Setup input event for autocomplete
+                newCustomerNameInput.addEventListener('input', function () {
+                    console.log('Customer name input event:', this.value);
+                    handlePartyAutocomplete(this, customerIdInput, 'customer_list');
+                });
+
+                // Setup blur event - FIXED: Ensure modal shows
+                newCustomerNameInput.addEventListener('blur', function () {
+                    console.log('Customer name blur event triggered:', this.value);
+                    const enteredValue = this.value.trim();
+
+                    // Small delay to allow any other events to finish
+                    setTimeout(() => {
+                        if (enteredValue && !customerIdInput.value) {
+                            console.log('Showing modal for new customer:', enteredValue);
+                            handleNewPartyModal(this, customerIdInput, 'customer');
+                        }
+                    }, 200);
+                });
+
+                // Handle Enter key
+                newCustomerNameInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        console.log('Enter key pressed, triggering blur');
+                        this.blur();
+                    }
+                });
+            }
+        }
+    }
+
+
+
+    // Generic function for party autocomplete
+    // Generic function for party autocomplete - IMPROVED
+    function handlePartyAutocomplete(inputElement, idInput, datalistId) {
+        const enteredValue = inputElement.value.trim();
+
+        if (!enteredValue) {
+            idInput.value = '';
+            return;
+        }
+
+        console.log(`Checking ${datalistId} for: "${enteredValue}"`);
+
+        // Check if it's already in the datalist (case-insensitive)
+        const datalist = document.getElementById(datalistId);
+        let foundMatch = false;
+
+        if (datalist) {
+            const options = datalist.querySelectorAll('option');
+            for (let option of options) {
+                if (option.value.toLowerCase() === enteredValue.toLowerCase()) {
+                    // Found in datalist, use existing ID
+                    idInput.value = option.getAttribute('data-id');
+                    console.log(`Found existing in datalist: ${option.value}, ID: ${idInput.value}`);
+                    foundMatch = true;
+                    break;
+                }
+            }
+        }
+
+        // Clear ID if no match found
+        if (!foundMatch) {
+            idInput.value = '';
+            console.log(`No match found in ${datalistId} for: "${enteredValue}"`);
+        }
+    }
+
+    // Replace the showNewPartyModal function with this:
+    function showNewPartyModal(partyName, partyType, callback) {
+        console.log(`showNewPartyModal called: ${partyName}, ${partyType}`);
+
+        const modal = document.getElementById('newPartyModal');
+        const enteredNameSpan = document.getElementById('enteredPartyName');
+        const partyTypeText = document.getElementById('partyTypeText');
+        const partyTypeBtn = document.getElementById('partyTypeBtn');
+        const oneTimeBtn = document.getElementById('oneTimePartyBtn');
+        const addToDbBtn = document.getElementById('addToDatabaseBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+
+        if (!modal || !enteredNameSpan) {
+            console.error('Modal elements not found');
+            return;
+        }
+
+        // Update modal content based on party type
+        enteredNameSpan.textContent = partyName;
+
+        // Update party type text
+        const displayType = partyType === 'supplier' ? 'Supplier' : 'Customer';
+        partyTypeText.textContent = displayType.toLowerCase();
+        partyTypeBtn.textContent = displayType;
+
+        // Remove any existing event listeners first by cloning buttons
+        const newOneTimeBtn = oneTimeBtn.cloneNode(true);
+        const newAddToDbBtn = addToDbBtn.cloneNode(true);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+
+        oneTimeBtn.parentNode.replaceChild(newOneTimeBtn, oneTimeBtn);
+        addToDbBtn.parentNode.replaceChild(newAddToDbBtn, addToDbBtn);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+        // Show the modal
+        modal.style.display = 'block';
+
+        // Handle one-time party
+        newOneTimeBtn.addEventListener('click', function () {
+            console.log(`One-time ${partyType} selected: ${partyName}`);
+            modal.style.display = 'none';
+            if (callback) {
+                // Use name as ID for one-time parties
+                callback(partyName, partyName);
+            }
+
+            // Clean up event listeners
+            document.removeEventListener('click', outsideClickListener);
+            document.removeEventListener('keydown', escapeKeyHandler);
+        });
+
+        // Handle add to database
+        newAddToDbBtn.addEventListener('click', function () {
+            console.log(`Add ${partyType} to database: ${partyName}`);
+            modal.style.display = 'none';
+
+            // Open vendor modal with pre-filled values
+            const vendorModal = document.getElementById('vendorModal');
+            document.getElementById('vendorName').value = partyName;
+
+            // Set correct vendor type based on party type
+            if (partyType === 'supplier') {
+                document.getElementById('vendorType').value = 'supplier';
+            } else if (partyType === 'customer') {
+                document.getElementById('vendorType').value = 'client';
+            }
+
+            vendorModal.style.display = 'block';
+            vendorModal.style.zIndex = '10001';
+
+            // Store callback in global variable
+            window.pendingPartyCallback = function (newVendorId, newVendorName) {
+                console.log(`Vendor added: ${newVendorName}, ID: ${newVendorId}`);
+                if (callback) {
+                    callback(newVendorId, newVendorName);
+                }
+                delete window.pendingPartyCallback;
+            };
+
+            // Clean up event listeners
+            document.removeEventListener('click', outsideClickListener);
+            document.removeEventListener('keydown', escapeKeyHandler);
+        });
+
+        // Handle cancel
+        newCancelBtn.addEventListener('click', function () {
+            console.log('Modal cancelled');
+            modal.style.display = 'none';
+
+            // Clean up event listeners
+            document.removeEventListener('click', outsideClickListener);
+            document.removeEventListener('keydown', escapeKeyHandler);
+        });
+
+        // Close modal when clicking outside
+        const outsideClickListener = function (event) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+                document.removeEventListener('click', outsideClickListener);
+                document.removeEventListener('keydown', escapeKeyHandler);
+            }
+        };
+
+        window.addEventListener('click', outsideClickListener);
+
+        // Also close with Escape key
+        const escapeKeyHandler = function (e) {
+            if (e.key === 'Escape' && modal.style.display === 'block') {
+                modal.style.display = 'none';
+                document.removeEventListener('click', outsideClickListener);
+                document.removeEventListener('keydown', escapeKeyHandler);
+            }
+        };
+
+        document.addEventListener('keydown', escapeKeyHandler);
+    }
+
+    // Update the handleNewPartyModal function to fix the blur event issue:
+    function handleNewPartyModal(inputElement, idInput, partyType) {
+        const enteredValue = inputElement.value.trim();
+
+        if (!enteredValue) return;
+
+        console.log(`Checking ${partyType}: ${enteredValue}`);
+
+        // Check if it's already in the datalist (case-insensitive)
+        const datalistId = partyType === 'supplier' ? 'supplier_list' : 'customer_list';
+        const datalist = document.getElementById(datalistId);
+
+        let found = false;
+        if (datalist) {
+            const options = datalist.querySelectorAll('option');
+            for (let option of options) {
+                if (option.value.toLowerCase() === enteredValue.toLowerCase()) {
+                    // Found in datalist, use existing ID
+                    idInput.value = option.getAttribute('data-id');
+                    console.log(`Found existing ${partyType} in datalist: ${option.value}, ID: ${idInput.value}`);
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        // If not found and we have an ID already, don't show modal
+        if (!found && !idInput.value && enteredValue) {
+            console.log(`New ${partyType} entered: ${enteredValue}, showing modal`);
+
+            // Use setTimeout to ensure blur event completes before showing modal
+            setTimeout(() => {
+                showNewPartyModal(enteredValue, partyType, function (newPartyId, newPartyName) {
+                    if (newPartyId) {
+                        console.log(`Callback received for ${partyType}: ${newPartyName}, ID: ${newPartyId}`);
+
+                        // Update the input fields
+                        idInput.value = newPartyId;
+                        inputElement.value = newPartyName;
+
+                        // Add to datalist if it's not a one-time party
+                        if (newPartyId !== newPartyName) { // If ID is different from name, it's in database
+                            addToDatalist(datalistId, newPartyName, newPartyId);
+                        }
+                    }
+                });
+            }, 100);
+        }
+    }
+
+
+    // Function to add to datalist
+    // Update the addToDatalist function to check for duplicates
+    function addToDatalist(datalistId, value, dataId) {
+        const datalist = document.getElementById(datalistId);
+        if (datalist) {
+            // Check if option already exists
+            const existingOptions = datalist.querySelectorAll('option');
+            let alreadyExists = false;
+
+            for (let option of existingOptions) {
+                if (option.value === value || option.getAttribute('data-id') === dataId.toString()) {
+                    alreadyExists = true;
+                    console.log(`Option already exists in ${datalistId}: ${value}`);
+                    break;
+                }
+            }
+
+            // Only add if it doesn't exist
+            if (!alreadyExists) {
+                const option = document.createElement('option');
+                option.value = value;
+                option.setAttribute('data-id', dataId);
+                datalist.appendChild(option);
+                console.log(`Added to ${datalistId}: ${value} (ID: ${dataId})`);
+            }
+        }
+    }
+    // Setup event listeners for asset line items - UPDATED FOR SALES
+    // Setup event listeners for asset line items - UPDATED FOR SALES
+    function setupAssetLineItemEvents(lineItem, movementType) {
+
+        const supplierInputs = lineItem.querySelectorAll('.asset-supplier-name, .asset-supplier-id, .asset-customer-name, .asset-customer-id');
+        supplierInputs.forEach(input => {
+            removeAllEventListeners(input);
+        });
+
+
+        // Setup party autocomplete events
+        setupLineItemPartyEvents(lineItem, movementType);
+
+
+
+
+
+
+
+
+        // Get the asset item dropdown
+        const assetItemDropdown = lineItem.querySelector('.asset-item-dropdown');
+
+        const depreciationAmountInput = lineItem.querySelector('.depreciation-amount-input');
+        if (depreciationAmountInput) {
+            depreciationAmountInput.addEventListener('input', function () {
+                updateAssetSummary(lineItem);
+                updateSummary();
+            });
+        }
+
+
+        // Initialize Select2 for asset item dropdown first
+        $(assetItemDropdown).select2({
+            width: '100%',
+            placeholder: "Select Asset Type",
+            allowClear: true,
+            dropdownParent: $(lineItem)
+        }).on('change', async function (e) {
+            console.log('Asset item dropdown changed via Select2 event');
+            const selectedOption = this.options[this.selectedIndex];
+
+            if (selectedOption && selectedOption.value) {
+                const itemId = selectedOption.value;
+
+                // Load default values
+                const usefulLife = selectedOption.getAttribute('data-useful-life');
+                const depreciationMethod = selectedOption.getAttribute('data-depreciation');
+
+                // Update asset tag with correct item ID
+                const assetTagInput = lineItem.querySelector('.asset-tag-input');
+                if (assetTagInput) {
+                    assetTagInput.value = generateAssetTag(itemId);
+                }
+
+                // Set default values in override fields
+                const usefulLifeInput = lineItem.querySelector('.useful-life-input');
+                const depreciationSelect = lineItem.querySelector('.depreciation-method-input');
+
+                if (usefulLifeInput && usefulLife && !usefulLifeInput.value) {
+                    usefulLifeInput.value = usefulLife;
+                    usefulLifeInput.placeholder = `Default: ${usefulLife} years`;
+                }
+
+                if (depreciationSelect && depreciationMethod && !depreciationSelect.value) {
+                    depreciationSelect.value = depreciationMethod;
+                }
+
+                // IMPORTANT FIX: Check if we need to load available assets
+                const currentMovementType = document.getElementById('movement_type').value;
+                const showExistingAssetDropdown = [
+                    'assignment', 'return', 'transfer', 'sale', 'donation_out', 'disposal', 'depreciation'
+                ].includes(currentMovementType);
+
+                if (showExistingAssetDropdown) {
+                    console.log(`Loading assets for item ${itemId}, movement type ${currentMovementType}`);
+                    // Load assets immediately
+                    try {
+                        await loadAvailableAssets(itemId, lineItem, false);
+                    } catch (error) {
+                        console.error('Failed to load assets:', error);
+                    }
+                }
+
+                updateAssetSummary(lineItem);
+            } else {
+                // Clear asset instance dropdown if no asset item selected
+                const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+                if (assetInstanceDropdown) {
+                    assetInstanceDropdown.innerHTML = '<option value="">Select Asset</option>';
+                    $(assetInstanceDropdown).val('').trigger('change');
+                }
+            }
+        });
+
+        // Asset instance dropdown change (for existing assets)
+        const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+        if (assetInstanceDropdown) {
+            $(assetInstanceDropdown).select2({
+                width: '100%',
+                placeholder: "Select Asset",
+                allowClear: true,
+                dropdownParent: $(lineItem)
+            }).on('change', function () {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption && selectedOption.value) {
+                    const currentValue = selectedOption.getAttribute('data-current-value');
+                    const purchasePrice = selectedOption.getAttribute('data-purchase-price');
+                    const assetTag = selectedOption.getAttribute('data-asset-tag');
+                    const serialNumber = selectedOption.getAttribute('data-serial-number');
+                    const assetItemId = selectedOption.getAttribute('data-asset-item-id');
+
+
+                    // Update asset identification display
+                    updateAssetIdentificationFields(lineItem);
+
+                    // Update asset item dropdown to match
+                    if (assetItemId && assetItemDropdown) {
+                        const currentAssetItemId = assetItemDropdown.value;
+                        if (currentAssetItemId !== assetItemId) {
+                            $(assetItemDropdown).val(assetItemId).trigger('change');
+                        }
+                    }
+
+                    if (movementType === 'depreciation') {
+
+                        // Suggest a depreciation amount (e.g., 10% of current value)
+                        const depreciationAmountInput = lineItem.querySelector('.depreciation-amount-input');
+                        if (depreciationAmountInput && currentValue) {
+                            const suggestedAmount = parseFloat(currentValue) * 0.1;
+                            depreciationAmountInput.value = suggestedAmount.toFixed(2);
+                            depreciationAmountInput.placeholder = `Suggested: ${suggestedAmount.toFixed(2)}`;
+                        }
+                    }
+
+                    updateAssetSummary(lineItem);
+                } else {
+                    // Clear display if no asset selected
+                    updateAssetIdentificationFields(lineItem);
+                }
+            });
+        }
+
+        // Financial field changes
+        const financialInputs = lineItem.querySelectorAll('.purchase-price-input, .current-value-input, .sale-price-input');
+        financialInputs.forEach(input => {
+            input.addEventListener('input', function () {
+                updateAssetSummary(lineItem);
+                updateSummary();
+            });
+        });
+
+        // Remove button
+        const removeBtn = lineItem.querySelector('.remove-line-item');
+        removeBtn.addEventListener('click', function () {
+            showDeleteConfirmation(lineItem);
+        });
+
+        // Update warranty expiry based on months
+        const warrantyMonthsInput = lineItem.querySelector('.warranty-months-input');
+        const warrantyExpiryInput = lineItem.querySelector('.warranty-expiry-input');
+        if (warrantyMonthsInput && warrantyExpiryInput) {
+            warrantyMonthsInput.addEventListener('input', function () {
+                const months = parseInt(this.value) || 0;
+                if (months > 0) {
+                    const today = new Date();
+                    const expiryDate = new Date(today);
+                    expiryDate.setMonth(today.getMonth() + months);
+                    warrantyExpiryInput.value = expiryDate.toISOString().split('T')[0];
+                } else {
+                    warrantyExpiryInput.value = '';
+                }
+            });
+        }
+    }
+
+    // Update asset summary display - UPDATED FOR SALES
+    function updateAssetSummary(lineItem) {
+        const movementType = lineItem.dataset.movementType;
+
+
+        const assetItemDropdown = lineItem.querySelector('.asset-item-dropdown');
+        const selectedAssetItem = assetItemDropdown?.options[assetItemDropdown.selectedIndex];
+        const assetItemName = selectedAssetItem?.text || 'No asset type selected';
+
+        const summaryDiv = lineItem.querySelector('.asset-summary');
+
+        const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+        const selectedAsset = assetInstanceDropdown?.options[assetInstanceDropdown.selectedIndex];
+
+
+        if (!summaryDiv || !contentDiv) return;
+
+        let summaryHTML = '';
+        const totalValue = currentValue || salePrice || disposalValue; // Single asset value
+
+        switch (movementType) {
+
+
+
+
+            case 'acquisition':
+                summaryHTML = `
+                <strong>New Asset Acquisition:</strong><br>
+                Type: ${assetItemName}<br>
+                Asset: Single Unit<br>
+                ${purchasePrice ? `Purchase Price: ${formatCurrency(purchasePrice, currencyText, true)}` : ''}<br>
+                Book Value: ${formatCurrency(currentValue, currencyText, true)}<br>
+                <strong>Total: ${formatCurrency(totalValue, currencyText, true)}</strong>
+            `;
+
+
+                break;
+
+            case 'opening_balance':
+                summaryHTML = `
+                <strong>Opening Balance:</strong><br>
+                Type: ${assetItemName}<br>
+                Asset: Single Unit<br>
+                ${purchasePrice ? `Initial Value: ${formatCurrency(purchasePrice, currencyText, true)}` : ''}<br>
+                Book Value: ${formatCurrency(currentValue, currencyText, true)}<br>
+                <strong>Total: ${formatCurrency(totalValue, currencyText, true)}</strong>
+            `;
+                break;
+
+            case 'donation_in':
+                summaryHTML = `
+                <strong>Donation Received:</strong><br>
+                Type: ${assetItemName}<br>
+                Asset: Single Unit<br>
+                ${purchasePrice ? `Estimated Market Value: ${formatCurrency(purchasePrice, currencyText, true)}` : ''}<br>
+                Book Value: ${formatCurrency(currentValue, currencyText, true)}<br>
+                <strong>Total Book Value: ${formatCurrency(totalValue, currencyText, true)}</strong>
+            `;
+                break;
+
+            case 'sale':
+                // Get current value from the selected asset's data-current-value attribute
+                const bookValue = parseFloat(selectedAsset?.dataset?.currentValue) || 0;
+                const salePriceValue = salePrice || 0;
+
+                summaryHTML = `
+                    <strong>Asset Sale:</strong><br>
+                    ${selectedAssetItem?.text || 'Select asset'}<br>
+                    Book Value: ${formatCurrency(bookValue, currencyText, true)}<br>
+                    Sale Price: ${formatCurrency(salePriceValue, currencyText, true)}<br>
+                    <strong>Gain/Loss: ${formatCurrency(salePriceValue - bookValue, currencyText, true)}</strong>
+                `;
+                break;
+
+            case 'assignment':
+
+                if (selectedAsset?.value) {
+                    summaryHTML = `
+                    <strong>Asset Assignment:</strong><br>
+                    ${selectedAsset.text}<br>
+                    Current Value: ${formatCurrency(currentValue, currencyText, true)}<br>
+                    <span class="text-warning">Will change status to 'assigned'</span>
+                `;
+                }
+                break;
+
+            case 'transfer':
+                summaryHTML = `
+                <strong>Asset Transfer:</strong><br>
+                ${selectedAssetItem?.text || 'Select asset'}<br>
+                Current Value: ${formatCurrency(currentValue, currencyText, true)}<br>
+                <span class="text-info">Will update location/department</span>
+            `;
+                break;
+
+            case 'disposal':
+                summaryHTML = `
+                <strong>Asset Disposal:</strong><br>
+                ${selectedAssetItem?.text || 'Select asset'}<br>
+                Book Value: ${formatCurrency(currentValue, currencyText, true)}<br>
+                ${disposalValue ? `Proceeds: ${formatCurrency(disposalValue, currencyText, true)}` : ''}<br>
+                <span class="text-danger">Will change status to 'disposed'</span>
+            `;
+                break;
+
+            case 'donation_out':
+                summaryHTML = `
+                <strong>Asset Donation:</strong><br>
+                ${selectedAssetItem?.text || 'Select asset'}<br>
+                Book Value: ${formatCurrency(currentValue, currencyText, true)}<br>
+                <span class="text-info">Will be given away for free</span>
+            `;
+                break;
+
+
+            case 'depreciation':
+                const depreciationAmount = parseFloat(lineItem.querySelector('.depreciation-amount-input')?.value) || 0;
+                summaryHTML = `
+        <strong>Depreciation Entry:</strong><br>
+        ${assetItemName}<br>
+        Current Book Value: ${formatCurrency(currentValue, currencyText, true)}<br>
+        Depreciation Amount: <span class="text-danger">-${formatCurrency(depreciationAmount, currencyText, true)}</span><br>
+        New Book Value: ${formatCurrency(currentValue - depreciationAmount, currencyText, true)}<br>
+        <small class="text-muted">Reduces asset value, increases accumulated depreciation</small>
+    `;
+                break;
+
+            case 'opening_balance':
+                summaryHTML = `
+                <strong>Opening Balance:</strong><br>
+                Type: ${assetItemName}<br>
+                Asset: Single Unit<br>
+                Initial Value: ${formatCurrency(currentValue, currencyText, true)}<br>
+                <strong>Total: ${formatCurrency(totalValue, currencyText, true)}</strong>
+            `;
+                break;
+
+            default:
+                summaryHTML = `
+                <strong>Asset Details:</strong><br>
+                ${assetItemName}<br>
+                ${currentValue ? `Value: ${formatCurrency(currentValue, currencyText, true)}` : ''}
+            `;
+        }
+
+        contentDiv.innerHTML = summaryHTML;
+        summaryDiv.style.display = summaryHTML ? 'block' : 'none';
+    }
+
+
+    // Add to your existing movement_type change event listener
+    function updateAdjustmentAccountHelp(movementType) {
+        const donationHelpText = document.getElementById('donation-help-text');
+        const defaultHelp = document.getElementById('default-help');
+
+        // Hide all help sections first
+        if (donationHelpText) {
+            donationHelpText.style.display = 'none';
+            document.getElementById('donation-in-help').style.display = 'none';
+            document.getElementById('donation-out-help').style.display = 'none';
+            document.getElementById('disposal-help').style.display = 'none';
+        }
+        if (defaultHelp) {
+            defaultHelp.style.display = 'block';
+        }
+
+        // Show specific help based on movement type
+        switch (movementType) {
+            case 'donation_in':
+                if (donationHelpText) {
+                    donationHelpText.style.display = 'block';
+                    document.getElementById('donation-in-help').style.display = 'block';
+                    if (defaultHelp) defaultHelp.style.display = 'none';
+                }
+                break;
+            case 'donation_out':
+                if (donationHelpText) {
+                    donationHelpText.style.display = 'block';
+                    document.getElementById('donation-out-help').style.display = 'block';
+                    if (defaultHelp) defaultHelp.style.display = 'none';
+                }
+                break;
+            case 'disposal':
+                if (donationHelpText) {
+                    donationHelpText.style.display = 'block';
+                    document.getElementById('disposal-help').style.display = 'block';
+                    if (defaultHelp) defaultHelp.style.display = 'none';
+                }
+                break;
+            case 'sale':
+                // For sales, update the adjustment help text
+                updateAdjustmentAccountHelpForSales();
+                if (defaultHelp) defaultHelp.style.display = 'none';
+                break;
+            default:
+                // Show default text
+                if (defaultHelp) defaultHelp.style.display = 'block';
+        }
+    }
+
+    // Delete confirmation for line items
+    function showDeleteConfirmation(lineItem) {
+        const modal = document.getElementById('confirmationModal');
+        const confirmBtn = document.getElementById('confirmDelete');
+        const cancelBtn = document.getElementById('cancelDelete');
+
+        modal.style.display = 'block';
+
+        const confirmHandler = () => {
+            lineItem.remove();
+            renumberLineItems();
+            updateSummary();
+            modal.style.display = 'none';
+
+            confirmBtn.removeEventListener('click', confirmHandler);
+            cancelBtn.removeEventListener('click', cancelHandler);
+        };
+
+        const cancelHandler = () => {
+            modal.style.display = 'none';
+            confirmBtn.removeEventListener('click', confirmHandler);
+            cancelBtn.removeEventListener('click', cancelHandler);
+        };
+
+        confirmBtn.addEventListener('click', confirmHandler);
+        cancelBtn.addEventListener('click', cancelHandler);
+    }
+
+    // Renumber line items
+    function renumberLineItems() {
+        const lineItems = document.querySelectorAll('#lineItemsContainer .line-item');
+        lineItems.forEach((item, index) => {
+            const header = item.querySelector('.line-item-header h3');
+            if (header) {
+                header.textContent = `Asset ${index + 1}`;
+            }
+        });
+    }
+
+    function updateAdjustmentAccountLabel(movementType) {
+        const title = document.getElementById('adjustment_section_title');
+        const label = document.getElementById('adjustment_account_label');
+        const requiredIndicator = document.getElementById('adjustment_required_indicator');
+
+        if (!title || !label) return;
+
+        switch (movementType) {
+            case 'sale':
+                title.textContent = 'Gain/Loss Account';
+                label.textContent = 'Gain/Loss Account';
+                requiredIndicator.style.display = 'inline';
+                break;
+            case 'donation_in':
+                title.textContent = 'Donation Income Account';
+                label.textContent = 'Donation Income Account';
+                requiredIndicator.style.display = 'inline';
+                break;
+            case 'donation_out':
+                title.textContent = 'Donation Expense Account';
+                label.textContent = 'Donation Expense Account';
+                requiredIndicator.style.display = 'inline';
+                break;
+            case 'disposal':
+                title.textContent = 'Loss on Disposal Account';
+                label.textContent = 'Loss on Disposal Account';
+                requiredIndicator.style.display = 'inline';
+                break;
+            default:
+                title.textContent = 'Adjustment Account';
+                label.textContent = 'Adjustment Account';
+                requiredIndicator.style.display = 'none';
+        }
+    }
+
+
+    // Update main summary - UPDATED FOR SALES
+    function updateSummary() {
+
+        const movementTypeSelect = document.getElementById('movement_type');
+        const movementTypeText = movementTypeSelect.options[movementTypeSelect.selectedIndex].text;
+        document.getElementById('summaryMovementType').textContent = movementTypeText;
+
+        const lineItems = document.querySelectorAll('#lineItemsContainer .line-item');
+        let totalAssets = lineItems.length; // Each line item is one asset
+        let totalValue = 0;
+        let totalSaleValue = 0;
+        let totalPurchaseValue = 0;
+
+        lineItems.forEach(item => {
+            const currentValue = parseFloat(item.querySelector('.current-value-input')?.value) || 0;
+            const salePrice = parseFloat(item.querySelector('.sale-price-input')?.value) || 0;
+            const purchasePrice = parseFloat(item.querySelector('.purchase-price-input')?.value) || 0;
+
+            totalValue += currentValue; // Add single asset value
+            totalSaleValue += salePrice;
+            totalPurchaseValue += purchasePrice;
+        });
+
+        document.getElementById('totalItems').textContent = totalAssets;
+
+
+        const currencySelect = document.getElementById('currency');
+        const currencyText = currencySelect.options[currencySelect.selectedIndex].text;
+        document.getElementById('summaryCurrency').textContent = currencyText || '-';
+
+
+        // Show appropriate total based on movement type
+        const movementType = document.getElementById('movement_type').value;
+        if (movementType === 'sale') {
+            document.getElementById('totalLineSubtotals').textContent = formatCurrency(totalSaleValue, "USD", false);
+            document.getElementById('generalTotal').textContent = formatCurrency(totalSaleValue, "USD", false);
+        } else if (movementType === 'acquisition') {
+            document.getElementById('totalLineSubtotals').textContent = formatCurrency(totalPurchaseValue, "USD", false);
+            document.getElementById('generalTotal').textContent = formatCurrency(totalPurchaseValue, "USD", false);
+        } else {
+            document.getElementById('totalLineSubtotals').textContent = formatCurrency(totalValue, "USD", false);
+            document.getElementById('generalTotal').textContent = formatCurrency(totalValue, "USD", false);
+        }
+    }
+
+    /**
+ * Calculate gain/loss for all assets and show/hide adjustment account
+ */
+    // Handle movement type changes - UPDATED FOR ACCOUNTING VISIBILITY
+    // Handle movement type changes - UPDATED FOR ACCOUNTING VISIBILITY
+    document.getElementById('movement_type').addEventListener('change', function () {
+        const movementType = this.value;
+        console.log(`Movement type changed to: ${movementType}`);
+
+        // Clear asset cache when movement type changes
+        clearAssetCache();
+
+
+        // Update adjustment account help
+        updateAdjustmentAccountHelp(movementType);
+
+        updateAdditionalDetailsVisibility(movementType);
+
+        // Refresh line items to show/hide current value field for donation_in
+        const lineItemsContainer = document.getElementById('lineItemsContainer');
+
+        // If there are no line items, add one
+        if (lineItemsContainer.children.length === 0) {
+            document.getElementById('addLineItem').click();
+        } else {
+            // Remove all existing line items and recreate them
+            // This ensures the HTML structure matches the new movement type
+            while (lineItemsContainer.firstChild) {
+                lineItemsContainer.removeChild(lineItemsContainer.firstChild);
+            }
+            // Add a new line item with the correct structure
+            document.getElementById('addLineItem').click();
+        }
+
+        // Update all line items
+        document.querySelectorAll('#lineItemsContainer .line-item').forEach((lineItem, index) => {
+            lineItem.dataset.movementType = movementType;
+
+            // Determine if we need to show existing asset dropdown
+            const showExistingAssetDropdown =
+                movementType === 'assignment' ||
+                movementType === 'return' ||
+                movementType === 'transfer' ||
+                movementType === 'sale' ||
+                movementType === 'donation_out' ||
+                movementType === 'disposal' ||
+                movementType === 'depreciation';
+
+
+            // Determine if we need to show new asset creation fields
+            const showNewAssetFields =
+                movementType === 'acquisition' ||
+                movementType === 'opening_balance' ||
+                movementType === 'donation_in';
+
+            // Get all section elements
+            const existingAssetSection = lineItem.querySelector('.existing-asset-section');
+            const newAssetSection = lineItem.querySelector('.new-asset-section');
+            const saleSection = lineItem.querySelector('.sale-section');
+            const assignmentSection = lineItem.querySelector('.assignment-section');
+            const transferSection = lineItem.querySelector('.transfer-section');
+            const disposalSection = lineItem.querySelector('.disposal-section');
+            const donationOutSection = lineItem.querySelector('.donation-out-section');
+            const financialSection = lineItem.querySelectorAll('.form-section.conditional-field')[0];
+            const warrantySection = lineItem.querySelectorAll('.form-section.conditional-field')[1];
+            const assetIdentificationSection = lineItem.querySelector('.asset-identification');
+            const existingAssetIdentificationSection = lineItem.querySelector('.existing-asset-identification');
+
+            // Show/hide Project field based on movement type
+            const projectField = document.getElementById('project_id').closest('.form-group');
+            const showProject = ['acquisition', 'opening_balance', 'donation_in'].includes(movementType);
+            projectField.style.display = showProject ? 'block' : 'none';
+
+            // Add this to the sections list
+            const depreciationSection = lineItem.querySelector('.depreciation-section');
+
+            // And update its visibility
+            if (depreciationSection) {
+                depreciationSection.style.display = movementType === 'depreciation' ? 'block' : 'none';
+            }
+
+            // Update field visibility - IMPORTANT: RESTORED FROM FIRST VERSION
+            if (existingAssetSection) {
+                existingAssetSection.style.display = showExistingAssetDropdown ? 'block' : 'none';
+            }
+
+            if (newAssetSection) {
+                newAssetSection.style.display = showNewAssetFields ? 'block' : 'none';
+            }
+
+            if (assetIdentificationSection) {
+                assetIdentificationSection.style.display = showNewAssetFields ? 'block' : 'none';
+            }
+
+            if (existingAssetIdentificationSection) {
+                existingAssetIdentificationSection.style.display = showExistingAssetDropdown ? 'block' : 'none';
+            }
+
+            if (saleSection) {
+                saleSection.style.display = movementType === 'sale' ? 'block' : 'none';
+            }
+
+            if (assignmentSection) {
+                assignmentSection.style.display = movementType === 'assignment' ? 'block' : 'none';
+            }
+
+            if (transferSection) {
+                transferSection.style.display = movementType === 'transfer' ? 'block' : 'none';
+            }
+
+            if (disposalSection) {
+                disposalSection.style.display = movementType === 'disposal' ? 'block' : 'none';
+            }
+
+            if (donationOutSection) {
+                donationOutSection.style.display = movementType === 'donation_out' ? 'block' : 'none';
+            }
+
+            if (financialSection) {
+                financialSection.style.display =
+                    (movementType === 'acquisition' || movementType === 'opening_balance' || movementType === 'donation_in')
+                        ? 'block' : 'none';
+            }
+
+            if (warrantySection) {
+                warrantySection.style.display = movementType === 'acquisition' ? 'block' : 'none';
+            }
+
+            // ============================================================
+            // ADD THIS SECTION: Update supplier/donor label dynamically
+            // ============================================================
+            const supplierLabel = lineItem.querySelector('.form-group label[for="supplier_id"]');
+            const supplierInput = lineItem.querySelector('.asset-supplier-name');
+            const supplierSection = lineItem.querySelector('.form-row.conditional-field[style*="display:"]');
+
+            if (supplierLabel && supplierInput && supplierSection) {
+                // Check if supplier section should be visible
+                const shouldShowSupplier = movementType === 'acquisition' || movementType === 'donation_in';
+                supplierSection.style.display = shouldShowSupplier ? 'block' : 'none';
+
+                if (shouldShowSupplier) {
+                    // Update label text
+                    supplierLabel.innerHTML = movementType === 'acquisition' ? 'From (Sender) <span class="required">*</span>' : 'Donor <span class="required">*</span>';
+
+                    // Update placeholder
+                    supplierInput.placeholder = movementType === 'acquisition' ? 'Select Sender' : 'Enter donor name';
+                }
+            }
+            // ============================================================
+            // END OF NEW CODE SECTION
+            // ============================================================
+
+
+
+            // If asset item is already selected and we need to show asset dropdown, reload assets
+            const assetItemDropdown = lineItem.querySelector('.asset-item-dropdown');
+            const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+
+            if (assetItemDropdown && assetItemDropdown.value) {
+                if (showExistingAssetDropdown) {
+                    console.log(`Reloading assets for line item ${index + 1} with movement type ${movementType}`);
+                    loadAvailableAssets(assetItemDropdown.value, lineItem, true);
+                } else {
+                    // Clear asset instance dropdown if not needed
+                    if (assetInstanceDropdown) {
+                        assetInstanceDropdown.innerHTML = '<option value="">Select Asset</option>';
+                        $(assetInstanceDropdown).val('').trigger('change');
+                    }
+                }
+            }
+
+            // Update required fields
+            updateRequiredFields(lineItem, movementType);
+            updateAssetSummary(lineItem);
+            // Update asset identification fields
+            updateAssetIdentificationFields(lineItem);
+            setupLineItemPartyEvents(lineItem, movementType);
+            updateAdjustmentAccountLabel(movementType);
+        });
+
+
+        // Update customer required status
+        document.querySelectorAll('.line-item').forEach(lineItem => {
+            const customerNameInput = lineItem.querySelector('.asset-customer-name');
+            if (customerNameInput) {
+                if (movementType === 'sale') {
+                    customerNameInput.setAttribute('required', 'required');
+                } else {
+                    customerNameInput.removeAttribute('required');
+                    customerNameInput.style.border = ''; // Clear any previous validation errors
+                }
+            }
+        });
+
+
+        updateSummary();
+    });
+
+
+
+    // Add this new function to update help text for sales
+    function updateAdjustmentAccountHelpForSales() {
+        const adjustmentHelp = document.querySelector('#adjustment_account_section small.text-muted');
+        if (!adjustmentHelp) return;
+
+        // Clear existing content
+        adjustmentHelp.innerHTML = '';
+
+        // Add new help text for sales
+        const salesHelpHTML = `
+        <div style="padding: 8px; background-color: #e7f3ff; border-left: 3px solid #007bff; margin-top: 5px; border-radius: 4px;">
+            <strong>💰 Asset Sale Gain/Loss:</strong>
+            <ul style="margin: 5px 0 5px 15px; font-size: 0.9em;">
+                <li><strong>If Sale Price > Book Value:</strong> Select an INCOME account for the gain (e.g., Gain on Sale)</li>
+                <li><strong>If Sale Price < Book Value:</strong> Select an EXPENSE account for the loss (e.g., Loss on Sale)</li>
+                <li><strong>If Sale Price = Book Value:</strong> No gain/loss account needed (leave empty)</li>
+            </ul>
+            <em>Example: Selling at SSP 5,000 with book value SSP 500 = SSP 4,500 gain (use income account)</em>
+        </div>
+    `;
+
+        adjustmentHelp.innerHTML = salesHelpHTML;
+    }
+
+
+
+    // Update required fields based on movement type - UPDATED FOR SALES
+    // In the updateRequiredFields function (around line 1010-1050):
+    function updateRequiredFields(lineItem, movementType) {
+        const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+        const disposalReasonSelect = lineItem.querySelector('select[name="disposal_reason[]"]');
+        const assetTagInput = lineItem.querySelector('.asset-tag-input');
+
+        if (assetInstanceDropdown) {
+            const showExistingAssetDropdown =
+                movementType === 'assignment' ||
+                movementType === 'return' ||
+                movementType === 'transfer' ||
+                movementType === 'sale' ||
+                movementType === 'donation_out' ||
+                movementType === 'disposal' ||
+                movementType === 'depreciation';
+
+            assetInstanceDropdown.required = showExistingAssetDropdown;
+        }
+
+
+
+        if (disposalReasonSelect) {
+            disposalReasonSelect.required = (movementType === 'disposal');
+        }
+
+        if (assetTagInput) {
+            const showNewAssetFields =
+                movementType === 'acquisition' ||
+                movementType === 'opening_balance' ||
+                movementType === 'donation_in';
+
+            assetTagInput.required = showNewAssetFields;
+        }
+
+        // Add depreciation validation
+        if (movementType === 'depreciation') {
+            const depreciationAmountInput = lineItem.querySelector('.depreciation-amount-input');
+            if (depreciationAmountInput) {
+                depreciationAmountInput.required = true;
+            }
+        }
+
+        // Add customer validation for sales
+        if (movementType === 'sale') {
+            const customerNameInput = lineItem.querySelector('.asset-customer-name');
+            const customerIdInput = lineItem.querySelector('.asset-customer-id');
+
+            if (customerNameInput) {
+                customerNameInput.required = true;
+            }
+        }
+    }
+
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        const lineItemsContainer = document.getElementById('lineItemsContainer');
+        if (lineItemsContainer.children.length === 0) {
+            document.getElementById('addLineItem').click();
+        }
+
+        // Set today's date as default
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0];
+        document.getElementById('transaction_date').value = formattedDate;
+
+        // Initialize accounting section visibility
+        const initialMovementType = document.getElementById('movement_type').value;
+
+
+
+        updateSummary();
+
+
+        // Initialize adjustment account visibility
+
+        updateAdditionalDetailsVisibility(initialMovementType);
+
+    });
+
+
+
+    // Form submission for assets
+    // Form submission for assets
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log("DOM fully loaded and parsed.");
+
+        // Get CSRF token from the hidden input
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+        fetchSuggestedReferenceAdvanced();
+
+        /**
+         * SUPPLIER HANDLING LOGIC - Same as inventory form
+         */
+        const supplierInput = document.getElementById('supplier_name');
+        const hiddenSupplierId = document.getElementById('supplier_id');
+
+        if (supplierInput && hiddenSupplierId) {
+            const supplierList = document.getElementById('supplier_list').options;
+
+            // Update hidden supplier_id based on user input
+            supplierInput.addEventListener('input', function () {
+                const enteredValue = this.value.trim();
+                hiddenSupplierId.value = ''; // Clear hidden input initially
+                console.log(`supplier input: ${enteredValue}`); // Log entered value
+
+                // Check if the entered value matches a datalist option
+                for (let option of supplierList) {
+                    if (option.value.toLowerCase() === enteredValue.toLowerCase()) {
+                        hiddenSupplierId.value = option.getAttribute('data-id'); // Set supplier_id if match found
+                        console.log(`Match found: ${option.value}, ID: ${hiddenSupplierId.value}`); // Log match
+                        break;
+                    }
+                }
+            });
+
+            // Handle blur event to check if the supplier is new
+            // Handle blur event to check if the supplier is new
+            supplierInput.addEventListener('blur', function () {
+                const enteredValue = this.value.trim();
+                console.log(`supplier input blur: ${enteredValue}`);
+
+                if (enteredValue === '') return;
+
+                if (!hiddenSupplierId.value) {
+                    // Use the new generic modal
+                    showNewPartyModal(enteredValue, 'supplier', function (newPartyId, newPartyName) {
+                        if (newPartyId) {
+                            console.log(`Callback received for supplier: ${newPartyName}, ID: ${newPartyId}`);
+
+                            // Update the input fields
+                            hiddenSupplierId.value = newPartyId;
+                            supplierInput.value = newPartyName;
+
+                            // Add to datalist if it's not a one-time party
+                            if (newPartyId !== newPartyName) { // If ID is different from name, it's in database
+                                addToDatalist('supplier_list', newPartyName, newPartyId);
+                            }
+                        }
+                    });
+                }
+            });
+
+        }
+
+        // Handle form submission for adding new vendors - SAME AS INVENTORY FORM
+        // Update the vendor form submission to check for duplicates
+        document.getElementById('vendorDetailsForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const vendorType = document.getElementById('vendorType').value;
+
+            fetch('/general_ledger/add_vendor', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData,
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Vendor added successfully!', 'success');
+
+                        // Determine which datalist to update
+                        const datalistId = vendorType === 'supplier' || vendorType === 'vendor' ? 'supplier_list' : 'customer_list';
+
+                        // Check if vendor already exists in datalist before adding
+                        const datalist = document.getElementById(datalistId);
+                        let alreadyExists = false;
+
+                        if (datalist) {
+                            const options = datalist.querySelectorAll('option');
+                            for (let option of options) {
+                                if (option.value === data.vendorName || option.getAttribute('data-id') === data.vendorId.toString()) {
+                                    alreadyExists = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Only add if not already present
+                        if (!alreadyExists) {
+                            addToDatalist(datalistId, data.vendorName, data.vendorId);
+                        }
+
+                        // Call the pending callback if it exists
+                        if (window.pendingPartyCallback) {
+                            window.pendingPartyCallback(data.vendorId, data.vendorName);
+                        }
+
+                        // Close modal
+                        document.getElementById('vendorModal').style.display = 'none';
+                        this.reset();
+                    } else {
+                        showNotification('Failed to add vendor: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('An error occurred while adding the vendor: ' + error.message, 'error');
+                });
+        });
+        // Close modal event
+        document.getElementById('closeModal').addEventListener('click', function () {
+            document.getElementById('vendorModal').style.display = 'none';
+        });
+
+        // Add event listeners for save buttons
+        const saveAndNewBtn = document.getElementById('saveAndNewBtn');
+        const saveAndExitBtn = document.getElementById('saveAndExitBtn');
+
+        if (saveAndNewBtn) {
+            saveAndNewBtn.addEventListener('click', function () {
+                console.log('Save and New button clicked');
+                processFormSubmission('save-new');
+            });
+        }
+
+        if (saveAndExitBtn) {
+            saveAndExitBtn.addEventListener('click', function () {
+                console.log('Save and Exit button clicked');
+                processFormSubmission('save-exit');
+            });
+        }
+
+        // New function to handle form submission with different actions
+        function processFormSubmission(action) {
+            console.log(`Processing form submission with action: ${action}`);
+
+            const movementType = document.getElementById('movement_type').value;
+            const form = document.getElementById('inventoryForm');
+
+            // Disable buttons immediately when form submission starts
+            disableSubmitButtonsWithTimeout(form);
+
+            // Update required attributes based on current visibility
+            updateRequiredAttributes();
+
+            // Validate the form
+            if (!validateForm()) {
+                enableAllSubmitButtons(); // Re-enable if validation fails
+                return;
+            }
+
+            // Prepare form data manually (do not initialize from the form)
+            const formData = new FormData();
+
+
+
+            // If supplier_id is empty, ensure supplier_name is included - SAME AS INVENTORY FORM
+            const hiddenSupplierId = document.getElementById('supplier_id');
+            const supplierInputField = document.getElementById('supplier_name');
+
+            // SAME LOGIC AS INVENTORY FORM
+            if (supplierInputField && supplierInputField.value.trim()) {
+                formData.append('supplier_name', supplierInputField.value.trim());
+
+                // Include supplier_id if it exists
+                if (hiddenSupplierId && hiddenSupplierId.value && hiddenSupplierId.value.trim() !== '') {
+                    formData.append('supplier_id', hiddenSupplierId.value);
+                    console.log(`Appended supplier_id: ${hiddenSupplierId.value}`);
+                } else {
+                    // If no supplier_id, use the name as the ID (for one-time suppliers)
+                    formData.append('supplier_id', supplierInputField.value.trim());
+                    console.log(`Using supplier name as ID: ${supplierInputField.value.trim()}`);
+                }
+
+                console.log(`Appended supplier_name: ${supplierInputField.value.trim()}`);
+            }
+
+
+
+            // Append static form fields
+            const staticFields = [
+                // Basic Information
+                'reference',
+                'transaction_date',
+                'movement_type',
+                'currency',
+
+                // Supplier Information
+
+                'is_one_time',
+
+
+                // Additional Details
+                'project_id',
+            ];
+
+            staticFields.forEach(field => {
+                const element = document.getElementById(field);
+                if (element) {
+                    formData.append(field, element.value);
+                    console.log(`Appended ${field}: ${element.value}`);
+                }
+            });
+
+            // Process each line item and store the data in the array
+            document.querySelectorAll('.line-item').forEach((row, index) => {
+                try {
+                    console.log(`Processing Asset Line Item ${index + 1}:`, row);
+
+                    // Asset Item ID (always required)
+                    const assetItemId = row.querySelector('.asset-item-dropdown').value || '';
+                    console.log(`Asset Item ID: ${assetItemId}`);
+                    formData.append(`asset_item_id[]`, assetItemId);
+
+                    // Asset Instance ID (for existing assets)
+                    const assetId = row.querySelector('.asset-instance-dropdown')?.value || '';
+                    if (assetId) {
+                        console.log(`Asset Instance ID: ${assetId}`);
+                        formData.append(`asset_id[]`, assetId);
+                    }
+
+                    // Asset Tag (for new assets)
+                    const assetTag = row.querySelector('.asset-tag-input')?.value || '';
+                    if (assetTag) {
+                        console.log(`Asset Tag: ${assetTag}`);
+                        formData.append(`asset_tag[]`, assetTag);
+                    }
+
+                    // Serial Number
+                    const serialNumber = row.querySelector('.serial-number-input')?.value || '';
+                    if (serialNumber) {
+                        console.log(`Serial Number: ${serialNumber}`);
+                        formData.append(`serial_number[]`, serialNumber);
+                    }
+
+                    // Financial Information
+                    const purchasePrice = parseFloat(row.querySelector('.purchase-price-input')?.value) || 0;
+                    const currentValue = parseFloat(row.querySelector('.current-value-input')?.value) || 0;
+                    const salePrice = parseFloat(row.querySelector('.sale-price-input')?.value) || 0;
+                    const disposalValue = parseFloat(row.querySelector('input[name="disposal_value[]"]')?.value) || 0;
+
+                    console.log(`Purchase Price: ${purchasePrice}`);
+                    console.log(`Current Value: ${currentValue}`);
+                    console.log(`Sale Price: ${salePrice}`);
+                    console.log(`Disposal Value: ${disposalValue}`);
+
+                    formData.append(`current_value[]`, currentValue);
+                    formData.append(`sale_price[]`, salePrice);
+                    formData.append(`disposal_value[]`, disposalValue);
+
+                    // Supplier per asset (for acquisitions)
+                    const assetSupplierId = row.querySelector('.asset-supplier-id')?.value || '';
+                    const assetSupplierName = row.querySelector('.asset-supplier-name')?.value || '';
+                    if (assetSupplierId || assetSupplierName) {
+                        formData.append(`supplier_id[]`, assetSupplierId);
+                        formData.append(`supplier_name[]`, assetSupplierName);
+                    }
+
+
+
+                    // Customer for sales
+                    const customerId = row.querySelector('.asset-customer-id')?.value || '';
+                    const customerName = row.querySelector('.asset-customer-name')?.value || '';
+                    if (customerId || customerName) {
+                        formData.append(`customer_id[]`, customerId);
+                        formData.append(`customer_name[]`, customerName);
+                    }
+
+                    // Depreciation Information
+                    const usefulLifeYears = row.querySelector('.useful-life-input')?.value || '';
+                    const depreciationMethod = row.querySelector('.depreciation-method-input')?.value || '';
+                    const capitalizationDate = row.querySelector('.capitalization-date-input')?.value || '';
+
+                    if (usefulLifeYears) {
+                        formData.append(`useful_life_years[]`, usefulLifeYears);
+                    }
+                    if (depreciationMethod) {
+                        formData.append(`depreciation_method[]`, depreciationMethod);
+                    }
+                    if (capitalizationDate) {
+                        formData.append(`capitalization_date[]`, capitalizationDate);
+                    }
+
+                    // Warranty Information
+                    const warrantyMonths = row.querySelector('.warranty-months-input')?.value || '';
+                    const warrantyExpiry = row.querySelector('.warranty-expiry-input')?.value || '';
+                    if (warrantyMonths) {
+                        formData.append(`warranty_months[]`, warrantyMonths);
+                    }
+                    if (warrantyExpiry) {
+                        formData.append(`warranty_expiry[]`, warrantyExpiry);
+                    }
+
+                    // Condition
+                    const condition = row.querySelector('.condition-input')?.value || '';
+                    if (condition) {
+                        formData.append(`condition[]`, condition);
+                    }
+
+                    // Assignment Information
+                    const assignedToId = row.querySelector('.employee-dropdown')?.value || '';
+                    const departmentId = row.querySelector('.department-dropdown')?.value || '';
+                    const expectedReturnDate = row.querySelector('input[name="expected_return_date[]"]')?.value || '';
+                    const assignmentNotes = row.querySelector('textarea[name="assignment_notes[]"]')?.value || '';
+
+                    if (assignedToId) formData.append(`assigned_to_id[]`, assignedToId);
+                    if (departmentId) formData.append(`department_id[]`, departmentId);
+                    if (expectedReturnDate) formData.append(`expected_return_date[]`, expectedReturnDate);
+                    if (assignmentNotes) formData.append(`assignment_notes[]`, assignmentNotes);
+
+                    // Transfer Information
+                    const toLocationId = row.querySelector('select[name="to_location_id[]"]')?.value || '';
+                    const toDepartmentId = row.querySelector('select[name="to_department_id[]"]')?.value || '';
+                    const transferReason = row.querySelector('textarea[name="transfer_reason[]"]')?.value || '';
+
+                    if (toLocationId) formData.append(`to_location_id[]`, toLocationId);
+                    if (toDepartmentId) formData.append(`to_department_id[]`, toDepartmentId);
+                    if (transferReason) formData.append(`transfer_reason[]`, transferReason);
+
+                    // Disposal Information
+                    const disposalReason = row.querySelector('select[name="disposal_reason[]"]')?.value || '';
+                    const disposalMethod = row.querySelector('select[name="disposal_method[]"]')?.value || '';
+                    const disposalNotes = row.querySelector('textarea[name="disposal_notes[]"]')?.value || '';
+
+                    if (disposalReason) formData.append(`disposal_reason[]`, disposalReason);
+                    if (disposalMethod) formData.append(`disposal_method[]`, disposalMethod);
+                    if (disposalNotes) formData.append(`disposal_notes[]`, disposalNotes);
+
+
+                    // Depreciation Information
+                    const depreciationAmount = parseFloat(row.querySelector('.depreciation-amount-input')?.value) || 0;
+                    const depreciationNotes = row.querySelector('.depreciation-notes-input')?.value || '';
+
+                    console.log(`Depreciation Amount: ${depreciationAmount}`);
+
+                    if (depreciationAmount > 0) {
+                        formData.append(`depreciation_amount[]`, depreciationAmount);
+                    }
+
+
+                    if (depreciationNotes) {
+                        formData.append(`depreciation_notes[]`, depreciationNotes);
+                    }
+
+
+                    // Donation Out Information
+                    const recipientName = row.querySelector('input[name="customer_name[]"]')?.value || '';
+                    const donationReason = row.querySelector('textarea[name="donation_reason[]"]')?.value || '';
+
+                    if (recipientName) formData.append(`customer_name[]`, recipientName);
+                    if (donationReason) formData.append(`donation_reason[]`, donationReason);
+
+                    // Sale Reference and Notes
+                    const saleNotes = row.querySelector('textarea[name="sale_notes[]"]')?.value || '';
+
+                    if (saleNotes) formData.append(`sale_notes[]`, saleNotes);
+
+                } catch (error) {
+                    console.error(`Error processing Asset Line Item ${index + 1}:`, error);
+                }
+            });
+
+            // Log FormData for debugging
+            console.log("🚀 Final FormData before submission:");
+            for (let pair of formData.entries()) {
+                console.log(`${pair[0]}: ${pair[1]}`);
+            }
+
+            // Send the form data to the server
+            fetch("{{ url_for('assets.asset_entry') }}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                },
+                body: formData,
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Server response:', data);
+                    if (data.status === 'success') {
+                        showNotification('Asset movement recorded successfully!', 'success');
+
+                        // Handle different actions
+                        if (action === 'save-exit') {
+                            window.location.href = '/assets/movement_history'; // Redirect to asset movements page
+                        } else if (action === 'save-new') {
+                            // Reset form for new entry
+                            resetFormForNewEntry();
+                            showNotification('Asset movement saved successfully! Ready for new entry.', 'success');
+                        }
+
+                        enableAllSubmitButtons();
+                    } else {
+                        showNotification('Error recording asset movement: ' + data.message, 'error');
+                        enableAllSubmitButtons();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('There was an issue recording your asset movement. Please try again later.', 'error');
+                    enableAllSubmitButtons();
+                }).finally(() => {
+                    // Clear the timeout
+                    if (window.submissionTimeout) {
+                        clearTimeout(window.submissionTimeout);
+                    }
+                });
+        }
+
+        // Function to reset form for new entry
+        function resetFormForNewEntry() {
+            // Store movement type before reset
+            const movementType = document.getElementById('movement_type').value;
+            const transactionDate = document.getElementById('transaction_date').value;
+
+            // Clear line items
+            document.getElementById('lineItemsContainer').innerHTML = '';
+
+            // List of fields to preserve
+            const fieldsToPreserve = ['movement_type', 'transaction_date', 'currency'];
+
+            // Reset all form fields
+            document.querySelectorAll('#inventoryForm input, #inventoryForm select, #inventoryForm textarea').forEach(field => {
+                if (!fieldsToPreserve.includes(field.id)) {
+                    resetField(field);
+                }
+            });
+
+            // Reset specific elements that might not be caught above
+            resetSpecificElements();
+
+            document.getElementById('transaction_date').value = transactionDate;
+
+            // Add one empty line item
+            document.getElementById('addLineItem').click();
+
+            // Update UI state
+            updateUIAfterReset(movementType);
+
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+
+        // Helper function to reset individual fields
+        function resetField(field) {
+            const fieldType = field.tagName.toLowerCase();
+
+            switch (fieldType) {
+                case 'select':
+                    if ($(field).hasClass('select2-hidden-accessible')) {
+                        // For Select2 dropdowns
+                        $(field).val('').trigger('change');
+
+                        // Also reset the visible Select2 display
+                        const select2Container = field.nextElementSibling;
+                        if (select2Container && select2Container.classList.contains('select2-container')) {
+                            const selection = select2Container.querySelector('.select2-selection__rendered');
+                            if (selection) {
+                                selection.title = '';
+                                selection.textContent = 'Select an option';
+                            }
+                        }
+                    } else {
+                        // Regular select dropdown
+                        field.selectedIndex = 0;
+                    }
+                    break;
+
+                case 'input':
+                    if (field.type === 'checkbox' || field.type === 'radio') {
+                        field.checked = false;
+                    } else {
+                        field.value = '';
+                        // Clear any validation states
+                        field.classList.remove('is-valid', 'is-invalid');
+                    }
+                    break;
+
+                case 'textarea':
+                    field.value = '';
+                    field.classList.remove('is-valid', 'is-invalid');
+                    break;
+            }
+
+            // Clear any validation messages
+            const errorElement = field.nextElementSibling;
+            if (errorElement && errorElement.classList.contains('error-message')) {
+                errorElement.remove();
+            }
+        }
+
+        // Helper function to reset specific elements
+        function resetSpecificElements() {
+            // Reset hidden fields (exclude currency)
+            if (document.getElementById('supplier_id')) {
+                document.getElementById('supplier_id').value = '';
+            }
+            if (document.getElementById('is_one_time_hidden')) {
+                document.getElementById('is_one_time_hidden').value = '0';
+            }
+
+            // Reset Select2 dropdowns except currency
+            const select2Selectors = [
+                '.asset-item-dropdown',
+                '.asset-instance-dropdown',
+                '.account-dropdown',
+                '#project_id',
+            ];
+
+            select2Selectors.forEach(selector => {
+                const elements = document.querySelectorAll(selector);
+                elements.forEach(el => {
+                    if (el.id !== 'currency' && $(el).hasClass('select2-hidden-accessible')) {
+                        $(el).val('').trigger('change');
+                    }
+                });
+            });
+
+            // Clear any dynamic datalist dropdowns
+            const dynamicDropdowns = document.querySelectorAll('datalist');
+            dynamicDropdowns.forEach(datalist => {
+                while (datalist.children.length > 1) {
+                    datalist.removeChild(datalist.lastChild);
+                }
+            });
+        }
+
+        // Helper function to update UI after reset
+        function updateUIAfterReset(movementType) {
+            updateSummary();
+
+            // Clear any error states
+            document.querySelectorAll('.field-error').forEach(el => {
+                el.classList.remove('.field-error');
+            });
+
+            // Clear notifications
+            const notifications = document.querySelectorAll('.alert, .notification, .flash-message');
+            notifications.forEach(notification => {
+                notification.remove();
+            });
+
+            // Refresh Reference Number
+            fetchSuggestedReferenceAdvanced();
+
+        }
+
+        // Asset form validation function
+        function validateForm() {
+            console.log('Validating form...');
+            const movementType = document.getElementById('movement_type').value;
+            let isValid = true;
+            let errorMessages = [];
+
+            currencyText = document.getElementById('currency').options[document.getElementById('currency').selectedIndex].text;
+
+            // Get all required fields that are currently visible
+            const visibleRequiredFields = Array.from(document.querySelectorAll('#inventoryForm [required]')).filter(field => {
+                return isFieldVisible(field);
+            });
+
+            // Validate visible required fields
+            visibleRequiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    isValid = false;
+                    field.style.border = '2px solid red';
+                    const fieldLabel = field.closest('.form-group')?.querySelector('label')?.textContent || 'Field';
+                    errorMessages.push(`${fieldLabel} is required`);
+                } else {
+                    field.style.border = '';
+                }
+            });
+
+            // Movement-specific validations
+            switch (movementType) {
+                case 'acquisition':
+                    // Validate sender for acquisitions
+                    const supplierSection = document.querySelector('.form-row.conditional-field');
+                    if (supplierSection && supplierSection.style.display !== 'none') {
+                        const supplierId = document.querySelector('.asset-supplier-id')?.value;
+                        const supplierName = document.querySelector('.asset-supplier-name')?.value.trim();
+
+                        if (!supplierId && !supplierName) {
+                            isValid = false;
+                            const supplierNameInput = document.querySelector('.asset-supplier-name');
+                            if (supplierNameInput) supplierNameInput.style.border = '2px solid red';
+                            errorMessages.push('Sender is required for receiving assets');
+                        }
+                    }
+                    break;
+
+                case 'sale':
+                    // NEW: Only validate adjustment account if it's visible (meaning there's gain/loss)
+                    const adjustmentAccount = document.getElementById('adjustment_account');
+
+
+
+                    // ADD THIS: Validate customer for sales
+                    document.querySelectorAll('.line-item').forEach((lineItem, index) => {
+                        const customerNameInput = lineItem.querySelector('.asset-customer-name');
+                        const customerIdInput = lineItem.querySelector('.asset-customer-id');
+
+                        // Check if either customer name or ID is provided
+                        if (lineItem.dataset.movementType === 'sale') {
+                            const hasCustomer = customerNameInput?.value.trim() || customerIdInput?.value.trim();
+                            if (!hasCustomer) {
+                                isValid = false;
+                                if (customerNameInput) {
+                                    customerNameInput.style.border = '2px solid red';
+                                }
+                                errorMessages.push(`Customer is required for sale in line item ${index + 1}`);
+                            }
+                        }
+                    });
+                    break;
+
+
+                case 'disposal':
+                case 'donation_out':
+                    // Validate adjustment account for disposals/donations
+                    if (isFieldVisible(document.getElementById('adjustment_account_section')) && !document.getElementById('adjustment_account').value) {
+                        isValid = false;
+                        document.getElementById('adjustment_account').style.border = '2px solid red';
+                        errorMessages.push('Adjustment account is required for disposals/donations');
+                    }
+                    break;
+
+                case 'opening_balance':
+                case 'donation_in':
+                    // Validate adjustment account for opening balances/donations in
+                    if (isFieldVisible(document.getElementById('adjustment_account_section')) && !document.getElementById('adjustment_account').value) {
+                        isValid = false;
+                        document.getElementById('adjustment_account').style.border = '2px solid red';
+                        errorMessages.push('Adjustment account is required for opening balances/donations in');
+                    }
+                    break;
+            }
+
+
+
+            // Validate line items
+            const lineItems = document.querySelectorAll('.line-item');
+            if (lineItems.length === 0) {
+                isValid = false;
+                errorMessages.push('At least one asset line item is required');
+                enableAllSubmitButtons();
+            }
+
+            // Validate line item details
+            // Validate line item details
+            lineItems.forEach((lineItem, index) => {
+                const assetItemSelect = lineItem.querySelector('.asset-item-dropdown');
+
+                // Check asset type
+                if (!assetItemSelect?.value) {
+                    isValid = false;
+                    assetItemSelect.style.border = '2px solid red';
+                    errorMessages.push(`Asset type is required for line item ${index + 1}`);
+                }
+
+                // Check if existing asset is selected for movements that require it
+                const movementType = lineItem.dataset.movementType;
+                const assetInstanceSelect = lineItem.querySelector('.asset-instance-dropdown');
+
+                if (movementType === 'assignment' || movementType === 'return' || movementType === 'transfer' ||
+                    movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal') {
+                    if (!assetInstanceSelect?.value) {
+                        isValid = false;
+                        assetInstanceSelect.style.border = '2px solid red';
+                        errorMessages.push(`Asset instance is required for line item ${index + 1}`);
+                    }
+                }
+
+                // Check if new asset details are provided for movements that require it
+                if (movementType === 'acquisition' || movementType === 'opening_balance' || movementType === 'donation_in') {
+                    const assetTagInput = lineItem.querySelector('.asset-tag-input');
+
+                    if (!assetTagInput?.value) {
+                        isValid = false;
+                        assetTagInput.style.border = '2px solid red';
+                        errorMessages.push(`Asset tag is required for line item ${index + 1}`);
+                    }
+
+
+
+
+
+
+                    // ========== END OF NEW VALIDATION ==========
+                }
+
+
+
+                // For depreciation, check asset instance is selected
+                if (movementType === 'depreciation') {
+                    const assetInstanceSelect = lineItem.querySelector('.asset-instance-dropdown');
+                    if (!assetInstanceSelect?.value) {
+                        isValid = false;
+                        assetInstanceSelect.style.border = '2px solid red';
+                        errorMessages.push(`Asset instance is required for depreciation in line item ${index + 1}`);
+                    }
+
+                    const depreciationAmountInput = lineItem.querySelector('.depreciation-amount-input');
+                    if (!depreciationAmountInput?.value || parseFloat(depreciationAmountInput.value) <= 0) {
+                        isValid = false;
+                        depreciationAmountInput.style.border = '2px solid red';
+                        errorMessages.push(`Valid depreciation amount is required for line item ${index + 1}`);
+                    }
+                    const assetInstanceDropdown = lineItem.querySelector('.asset-instance-dropdown');
+                    const selectedAsset = assetInstanceDropdown?.options[assetInstanceDropdown.selectedIndex];
+
+                    const bookValue = parseFloat(selectedAsset?.dataset?.currentValue) || 0;
+                    const currentValue = bookValue
+                    const depreciationAmount = parseFloat(depreciationAmountInput?.value) || 0;
+                    if (depreciationAmount > currentValue) {
+                        isValid = false;
+                        depreciationAmountInput.style.border = '2px solid red';
+                        errorMessages.push(`Depreciation amount (${formatCurrency(depreciationAmount, currencyText, true)}) cannot exceed current value (${formatCurrency(currentValue, currencyText, true)}) for line item ${index + 1}`);
+                    }
+                }
+            });
+            // Show error messages if any
+            if (!isValid && errorMessages.length > 0) {
+                showNotification(errorMessages.join('<br>'), 'error');
+            }
+
+            console.log(`Form validation result: ${isValid}`);
+            return isValid;
+        }
+        // Helper function to check if a field is visible
+        function isFieldVisible(field) {
+            if (!field) return false;
+
+            // Check if the field itself is hidden
+            if (field.offsetParent === null) {
+                return false;
+            }
+
+            // Check if any parent element is hidden
+            let parent = field.parentElement;
+            while (parent) {
+                // Check if parent has conditional-field class and is not visible
+                if (parent.classList.contains('conditional-field') &&
+                    !parent.classList.contains('visible')) {
+                    return false;
+                }
+
+                const style = window.getComputedStyle(parent);
+                if (style.display === 'none' || style.visibility === 'hidden') {
+                    return false;
+                }
+                parent = parent.parentElement;
+            }
+
+            return true;
+        }
+
+        // Helper function to dynamically update required attributes based on visibility
+        function updateRequiredAttributes() {
+            const movementType = document.getElementById('movement_type').value;
+
+            // Fields that should be required only when visible
+            const conditionalRequiredFields = [
+                '#supplier_name',
+                '#payable_account',
+                '#adjustment_account',
+                '#sales_account',
+                '#currency'
+            ];
+
+            conditionalRequiredFields.forEach(selector => {
+                const field = document.querySelector(selector);
+                if (field) {
+                    if (isFieldVisible(field)) {
+                        field.setAttribute('required', 'required');
+                    } else {
+                        field.removeAttribute('required');
+                    }
+                }
+            });
+        }
+
+        // Advanced reference suggestion function with callback support
+        function fetchSuggestedReferenceAdvanced(options = {}) {
+            const {
+                endpoint = "{{ url_for('assets.suggest_asset_reference') }}", // Use asset-specific endpoint
+                referenceFieldId = 'reference',
+                defaultReference = 'AST-1',
+                triggerEvents = true,
+                onSuccess = null,
+                onError = null,
+                onComplete = null
+            } = options;
+
+            fetch(endpoint)
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    const referenceInput = document.getElementById(referenceFieldId);
+
+                    if (referenceInput) {
+                        const previousValue = referenceInput.value;
+
+                        if (data.suggested_reference && !referenceInput.value) {
+                            referenceInput.value = data.suggested_reference;
+
+                            // Trigger events if specified
+                            if (triggerEvents) {
+                                referenceInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                referenceInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+
+                            // Call success callback
+                            if (onSuccess && typeof onSuccess === 'function') {
+                                onSuccess(data.suggested_reference, previousValue);
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching suggested reference:', error);
+
+                    const referenceInput = document.getElementById(referenceFieldId);
+                    if (referenceInput && !referenceInput.value) {
+                        const previousValue = referenceInput.value;
+                        referenceInput.value = defaultReference;
+
+                        // Call error callback
+                        if (onError && typeof onError === 'function') {
+                            onError(error, defaultReference, previousValue);
+                        }
+                    }
+                })
+                .finally(() => {
+                    // Call complete callback
+                    if (onComplete && typeof onComplete === 'function') {
+                        onComplete();
+                    }
+                });
+        }
+    });
+
+</script>
+{% endblock %}

@@ -1,0 +1,826 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<title>Add New Asset Type</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
+<style>
+    /* Flexbox layout for horizontal alignment */
+    .flex-row {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        /* Adjust the space between the fields */
+    }
+
+    /* NAV TABS CONTAINER */
+    .nav-tabs {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        margin-bottom: 15px;
+        gap: 12px;
+        padding: 8px;
+        background: var(--white);
+    }
+
+    /* REMOVE BULLETS */
+    .nav-tabs .nav-item {
+        list-style: none;
+        margin: 0;
+    }
+
+    /* TAB LINK DEFAULT STYLE */
+    .nav-tabs .nav-link {
+        padding: 10px 18px;
+        font-size: var(--font-size-normal);
+        font-weight: 500;
+        color: var(--primary-color);
+        background: #f8f8f8;
+        border-radius: 20px;
+        transition: all 0.3s ease-in-out;
+        text-transform: capitalize;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        text-decoration: none;
+    }
+
+    /* REMOVE UNDERLINE */
+    .nav-tabs .nav-link:focus,
+    .nav-tabs .nav-link:hover {
+        outline: none;
+        text-decoration: none;
+        color: var(--highlight-color);
+        background-color: rgba(0, 51, 102, 0.1);
+    }
+
+    /* ACTIVE TAB STYLE */
+    .nav-tabs .nav-link.active {
+        color: var(--white);
+        background: var(--highlight-color);
+        border-radius: 20px;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* TAB CONTENT AREA */
+    .form-section {
+        display: none;
+        padding: 20px;
+        background-color: var(--main-content-area-bg-color);
+        border-radius: 6px;
+        box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    /* SHOW ACTIVE TAB CONTENT */
+    .form-section.active {
+        display: block;
+    }
+
+    /* MOBILE RESPONSIVENESS */
+    @media (max-width: 768px) {
+        .nav-tabs {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 25px;
+        }
+
+        .nav-tabs .nav-link {
+            font-size: var(--cta-font-size);
+            padding: 8px 14px;
+        }
+    }
+
+    .input-container {
+        position: relative;
+        border: none !important;
+        padding: 0;
+        margin: 0;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+
+    .button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .button:disabled:hover {
+        transform: none;
+        box-shadow: none;
+    }
+</style>
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Add New Asset Item</h1>
+        <button type="button" id="submitButton" class="button cta-button success" onclick="submitAssetItemForm(event)">
+            <i class="fas fa-save"></i> Create Asset Item
+        </button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link active" href="javascript:void(0)" onclick="showSection('section-1')">Basic
+                Information</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="javascript:void(0)" onclick="showSection('section-2')">Asset Specifications</a>
+        </li>
+
+    </ul>
+
+    <form id="addAssetItemForm" method="POST" action="{{ url_for('assets.add_new_asset_type') }}" autocomplete="off"
+        enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <!-- Basic Information Section -->
+        <div class="form-section active" id="section-1">
+            <div class="form-grid">
+                <div class="form-group mb-3">
+                    <label for="asset_name">Asset Name: <span class="required">*</span></label>
+                    <input type="text" id="asset_name" name="asset_name" class="form-control" required>
+                    <div class="text-muted">Name of the asset type (e.g., "Dell XPS 13 Laptop")</div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="asset_code">Asset Code:</label>
+                    <input type="text" id="asset_code" name="asset_code" class="form-control">
+                    <div class="text-muted">Unique code for internal tracking (e.g., "AST-LAP-DELL")</div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="brand_id">Brand:</label>
+                    <select id="brand_id" name="brand_id" class="form-control">
+                        <option value=""></option>
+                        {% for brand in brands %}
+                        <option value="{{ brand.id }}">{{ brand.name }}</option>
+                        {% endfor %}
+                        <option value="add_new_brand">Add new brand...</option>
+                    </select>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="category">Category: <span class="required">*</span></label>
+                    <select id="category" name="category" class="form-control" required>
+                        <option value=""></option>
+                        {% for category in categories %}
+                        <option value="{{ category.id }}">{{ category.category_name }}</option>
+                        {% endfor %}
+                        <option value="add_new_category">Add new category...</option>
+                    </select>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="subcategory">Subcategory: <span class="required">*</span></label>
+                    <select id="subcategory" name="subcategory" class="form-control">
+                        <option value=""></option>
+                        {% for subcategory in subcategories %}
+                        <option value="{{ subcategory.id }}" data-category="{{ subcategory.item_category_id }}">
+                            {{ subcategory.subcategory_name }}
+                        </option>
+                        {% endfor %}
+                        <option value="add_new_subcategory">Add new subcategory...</option>
+                    </select>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="description">Description:</label>
+                    <textarea id="description" name="description" class="form-control" rows="3"></textarea>
+                    <div class="text-muted">Brief description of the asset type</div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="asset_image">Asset Image:</label>
+                    <input type="file" id="asset_image" name="asset_image" accept="image/*"
+                        onchange="previewAssetImage()">
+                    <small class="text-muted">Upload an image of the asset (optional). Max size: 1MB</small>
+                    <img id="image_preview" src="#" alt="Image Preview"
+                        style="display: none; max-width: 200px; margin-top: 10px;">
+                    <span id="image-error" style="color: red; display: none;">Image size exceeds 1MB</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Asset Specifications Section -->
+        <div class="form-section" id="section-2">
+            <div class="form-grid">
+                <div class="form-group mb-3">
+                    <label for="expected_useful_life_years">Useful Life (Years):</label>
+                    <input type="number" id="expected_useful_life_years" name="expected_useful_life_years"
+                        class="form-control" value="5" min="1" max="50">
+                    <div class="text-muted">Expected useful life of the asset for depreciation</div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="depreciation_method">Depreciation Method:</label>
+                    <select id="depreciation_method" name="depreciation_method" class="form-control">
+                        <option value="straight_line">Straight Line</option>
+                        <option value="reducing_balance">Reducing Balance</option>
+                        <option value="none">No Depreciation</option>
+                    </select>
+                    <div class="text-muted">Method used to calculate depreciation</div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="salvage_value_percentage">Salvage Value (%):</label>
+                    <input type="number" id="salvage_value_percentage" name="salvage_value_percentage"
+                        class="form-control" value="10.00" step="0.01" min="0" max="100">
+                    <div class="text-muted">Percentage of original cost remaining as salvage value</div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="maintenance_interval_days">Maintenance Interval (Days):</label>
+                    <input type="number" id="maintenance_interval_days" name="maintenance_interval_days"
+                        class="form-control" value="365" min="30" max="3650">
+                    <div class="text-muted">How often this asset type requires maintenance</div>
+                </div>
+            </div>
+        </div>
+
+
+    </form>
+
+    <!-- Modals (same as inventory) -->
+    <div class="modal fade" id="addCategoryModal" tabindex="-1" role="dialog" aria-labelledby="addCategoryModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addCategoryModalLabel">Add New Category</h5>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="addCategoryForm">
+                        <div class="form-group">
+                            <label for="newCategoryName">Category Name: <span class="required">*</span></label>
+                            <input type="text" id="newCategoryName" name="category_name" class="form-control" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="button cta-button" form="addCategoryForm">Add Category</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="addSubcategoryModal" class="modal fade" tabindex="-1" role="dialog"
+        aria-labelledby="addSubcategoryModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Subcategory</h5>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="addSubcategoryForm">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="newSubcategoryName">Subcategory Name: <span class="required">*</span></label>
+                            <input type="text" id="newSubcategoryName" name="subcategory_name" class="form-control"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label for="relatedCategory">Related Category: <span class="required">*</span></label>
+                            <select id="relatedCategory" name="category_id" class="form-control" required>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.category_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" form="addSubcategoryForm" class="button cta-button">Add
+                            Subcategory</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addBrandModal" tabindex="-1" aria-labelledby="addBrandModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addBrandModalLabel">Add New Brand</h5>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="add-brand-form" method="POST" action="{{ url_for('add_brand') }}">
+                        <div class="form-group mb-3">
+                            <label for="brand_name">Brand Name:</label>
+                            <input type="text" id="brand_name" name="name" class="form-control" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="brand_description">Description:</label>
+                            <textarea id="brand_description" name="description" class="form-control"></textarea>
+                        </div>
+                        <button type="button" class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="button cta-button">Add Brand</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Global variables
+    let isSubmitting = false;
+    let newCategories = [];
+    let newSubcategories = [];
+
+    // Tab navigation
+    function showSection(sectionId) {
+        document.querySelectorAll('.form-section').forEach(section => {
+            section.classList.remove('active');
+        });
+        document.getElementById(sectionId).classList.add('active');
+
+        document.querySelectorAll('.nav-link').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelector(`[onclick="showSection('${sectionId}')"]`).classList.add('active');
+    }
+
+    // Form submission
+    function submitAssetItemForm(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        if (isSubmitting) {
+            return false;
+        }
+
+        const form = document.getElementById('addAssetItemForm');
+        const submitButton = document.getElementById('submitButton');
+
+        if (!validateForm()) {
+            return false;
+        }
+
+        isSubmitting = true;
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+
+        // Create FormData for file upload
+        const formData = new FormData(form);
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Asset item created successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.href = "{{ url_for('assets.add_new_asset_type') }}";
+                    }, 1500);
+                } else {
+                    showNotification(data.message || 'Error creating asset item', 'error');
+                    resetSubmitButton();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred. Please try again.', 'error');
+                resetSubmitButton();
+            });
+
+        return false;
+    }
+
+    function resetSubmitButton() {
+        isSubmitting = false;
+        const submitButton = document.getElementById('submitButton');
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-save"></i> Create Asset Item';
+        }
+    }
+
+    // Form validation
+    function validateForm() {
+        const requiredFields = [
+            { id: 'asset_name', name: 'Asset Name' },
+            { id: 'category', name: 'Category' }
+
+        ];
+
+        for (const field of requiredFields) {
+            const element = document.getElementById(field.id);
+            if (!element || !element.value.trim()) {
+                showNotification(`Please fill in the ${field.name} field.`, 'error');
+                element?.focus();
+                return false;
+            }
+        }
+
+        // Validate numeric fields
+        const numericFields = [
+            { id: 'expected_useful_life_years', name: 'Useful Life', min: 1, max: 50 },
+            { id: 'salvage_value_percentage', name: 'Salvage Value', min: 0, max: 100 },
+            { id: 'maintenance_interval_days', name: 'Maintenance Interval', min: 30, max: 3650 }
+        ];
+
+        for (const field of numericFields) {
+            const element = document.getElementById(field.id);
+            if (element.value) {
+                const value = parseFloat(element.value);
+                if (isNaN(value) || value < field.min || value > field.max) {
+                    showNotification(`${field.name} must be between ${field.min} and ${field.max}`, 'error');
+                    element.focus();
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    // Image preview
+    function previewAssetImage() {
+        const fileInput = document.getElementById('asset_image');
+        const file = fileInput.files[0];
+        const imagePreview = document.getElementById('image_preview');
+        const errorElement = document.getElementById('image-error');
+        const maxSize = 1024 * 1024; // 1MB
+
+        if (file) {
+            if (file.size > maxSize) {
+                errorElement.textContent = 'Image size exceeds 1MB';
+                errorElement.style.display = 'block';
+                fileInput.value = '';
+                imagePreview.style.display = 'none';
+                return;
+            }
+
+            errorElement.style.display = 'none';
+            const reader = new FileReader();
+            reader.onloadend = function () {
+                imagePreview.src = reader.result;
+                imagePreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            imagePreview.style.display = 'none';
+            errorElement.style.display = 'none';
+        }
+    }
+
+    // Load account dropdowns
+    function loadAssetAccountDropdowns() {
+        const accounts = [
+            { id: 'fixed_asset_account_id', type: 'Asset', label: 'Fixed Asset Account', filter: 'asset' },
+            { id: 'depreciation_expense_account_id', type: 'Expense', label: 'Depreciation Expense Account', filter: 'depreciation' },
+            { id: 'accumulated_depreciation_account_id', type: 'Asset', label: 'Accumulated Depreciation Account', filter: 'accumulated' }
+        ];
+
+        accounts.forEach(account => {
+            const dropdown = document.getElementById(account.id);
+            if (dropdown) {
+                dropdown.innerHTML = `<option value="">Loading ${account.label}...</option>`;
+            }
+        });
+
+        fetch('/api/chart_of_accounts_grouped')
+            .then(response => response.json())
+            .then(data => {
+                accounts.forEach(account => {
+                    populateAccountDropdown(account.id, data, account.filter);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading accounts:', error);
+                accounts.forEach(account => {
+                    const dropdown = document.getElementById(account.id);
+                    if (dropdown) {
+                        dropdown.innerHTML = `<option value="">Error loading accounts</option>`;
+                    }
+                });
+                showNotification("Failed to load account options. Please try again.", "error");
+            });
+    }
+
+    function populateAccountDropdown(dropdownId, data, filterType) {
+        const dropdown = document.getElementById(dropdownId);
+        if (!dropdown) return;
+
+        dropdown.innerHTML = `<option value="">Select ${dropdown.previousElementSibling?.textContent || 'Account'}</option>`;
+
+        const sortedCategories = data.chart_of_accounts_grouped?.sort((a, b) =>
+            a.category.localeCompare(b.category)
+        ) || [];
+
+        sortedCategories.forEach(cat => {
+            let filteredAccounts = cat.accounts || [];
+
+            // Filter based on account type and keywords
+            if (filterType === 'asset') {
+                filteredAccounts = filteredAccounts.filter(acc =>
+                    acc.account_type === 'Asset' &&
+                    (acc.is_cash !== true) && // Exclude cash accounts
+                    (acc.is_receivable !== true) && // Exclude accounts receivable
+                    (acc.is_payable !== true) && // Exclude accounts payable
+                    (acc.is_bank !== true) // Exclude bank accounts
+                );
+            } else if (filterType === 'depreciation') {
+                filteredAccounts = filteredAccounts.filter(acc =>
+                    acc.account_type === 'Expense'
+                );
+            } else if (filterType === 'accumulated') {
+                filteredAccounts = filteredAccounts.filter(acc =>
+                    acc.account_type === 'Asset' &&
+                    (acc.is_cash !== true) && // Exclude cash accounts
+                    (acc.is_receivable !== true) && // Exclude accounts receivable
+                    (acc.is_payable !== true) && // Exclude accounts payable
+                    (acc.is_bank !== true) // Exclude bank accounts
+                );
+            }
+
+            if (filteredAccounts.length > 0) {
+                const optGroup = document.createElement('optgroup');
+                optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                filteredAccounts.forEach(acc => {
+                    const option = document.createElement('option');
+                    option.value = acc.sub_category_id;
+                    option.textContent = `${acc.sub_category} (${acc.sub_category_code})`;
+                    option.setAttribute('data-account-type', acc.account_type);
+                    optGroup.appendChild(option);
+                });
+
+                dropdown.appendChild(optGroup);
+            }
+        });
+
+        if (dropdown.options.length <= 1) {
+            // Fallback to all accounts of appropriate type
+            populateFallbackAccounts(dropdown, data, filterType);
+        }
+    }
+
+    function populateFallbackAccounts(dropdown, data, filterType) {
+        let accountType = 'Asset';
+        if (filterType === 'depreciation') accountType = 'Expense';
+
+        const sortedCategories = data.chart_of_accounts_grouped?.sort((a, b) =>
+            a.category.localeCompare(b.category)
+        ) || [];
+
+        sortedCategories.forEach(cat => {
+            const filteredAccounts = (cat.accounts || []).filter(acc =>
+                acc.account_type === accountType
+            );
+
+            if (filteredAccounts.length > 0) {
+                const optGroup = document.createElement('optgroup');
+                optGroup.label = `${cat.category} (${cat.category_code})`;
+
+                filteredAccounts.forEach(acc => {
+                    const option = document.createElement('option');
+                    option.value = acc.sub_category_id;
+                    option.textContent = `${acc.sub_category} (${acc.sub_category_code})`;
+                    option.setAttribute('data-account-type', acc.account_type);
+                    optGroup.appendChild(option);
+                });
+
+                dropdown.appendChild(optGroup);
+            }
+        });
+    }
+
+    // Filter subcategories based on selected category
+    document.getElementById('category').addEventListener('change', function () {
+        const categoryId = this.value;
+        const subcategorySelect = document.getElementById('subcategory');
+
+        // Show all options first
+        for (let i = 0; i < subcategorySelect.options.length; i++) {
+            subcategorySelect.options[i].style.display = '';
+        }
+
+        // Hide options that don't belong to selected category
+        if (categoryId) {
+            for (let i = 0; i < subcategorySelect.options.length; i++) {
+                const option = subcategorySelect.options[i];
+                const dataCategory = option.getAttribute('data-category');
+
+                if (option.value && dataCategory && dataCategory !== categoryId) {
+                    option.style.display = 'none';
+                }
+            }
+        }
+
+        // Reset selection
+        subcategorySelect.value = '';
+    });
+
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize Select2
+        $('select').select2({
+            width: '100%',
+            placeholder: "Select an option",
+            allowClear: true
+        });
+
+        // Load account dropdowns
+        loadAssetAccountDropdowns();
+
+        // Category/Subcategory modal handlers
+        $('#category').on('change', function () {
+            if ($(this).val() === 'add_new_category') {
+                $('#addCategoryModal').modal('show');
+                $(this).val('').trigger('change');
+            }
+        });
+
+        $('#subcategory').on('change', function () {
+            if ($(this).val() === 'add_new_subcategory') {
+                $('#addSubcategoryModal').modal('show');
+                $(this).val('').trigger('change');
+            }
+        });
+
+        $('#brand_id').on('change', function () {
+            if ($(this).val() === 'add_new_brand') {
+                $('#addBrandModal').modal('show');
+                $(this).val('').trigger('change');
+            }
+        });
+
+        // Modal form submissions (reuse your existing inventory handlers)
+        $('#addCategoryForm').submit(function (event) {
+            event.preventDefault();
+            $.ajax({
+                type: 'POST',
+                url: '/add_inventory_category',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                data: $(this).serialize(),
+                success: function (data) {
+                    if (data.id) {
+                        newCategories.push({ id: data.id, name: data.category_name });
+
+                        $('#addCategoryModal').modal('hide');
+                        $('#newCategoryName').val('');
+
+                        // Update category dropdowns
+                        const updateCategoryDropdown = (selector) => {
+                            const $select = $(selector);
+                            const newOption = new Option(data.category_name, data.id, true, true);
+                            $select.append(newOption).trigger('change');
+                        };
+
+                        updateCategoryDropdown('#category');
+                        updateCategoryDropdown('#relatedCategory');
+                        enableAllSubmitButtons();
+                    } else if (data.error) {
+                        alert(data.error);
+                        enableAllSubmitButtons();
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error(error);
+                }
+            });
+        });
+
+
+        $('#addSubcategoryForm').submit(function (event) {
+            event.preventDefault();
+            // Reuse your existing add subcategory AJAX call
+        });
+
+        // Handle form submission for adding new subcategory
+        $('#addSubcategoryForm').submit(function (event) {
+            event.preventDefault();
+            $.ajax({
+                type: 'POST',
+                url: '/add_inventory_subcategory',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                data: $(this).serialize(),
+                success: function (data) {
+                    if (data.id) {
+                        newSubcategories.push({ id: data.id, name: data.subcategory_name, category_id: data.category_id });
+
+                        $('#addSubcategoryModal').modal('hide');
+                        $('#newSubcategoryName').val('');
+
+                        // Update subcategory dropdowns
+                        const updateSubcategoryDropdown = (selector) => {
+                            const $select = $(selector);
+                            const newOption = new Option(data.subcategory_name, data.id, true, true);
+                            $select.append(newOption).trigger('change');
+                        };
+
+                        updateSubcategoryDropdown('#subcategory');
+                        enableAllSubmitButtons();
+                    } else if (data.error) {
+                        alert(data.error);
+                        enableAllSubmitButtons();
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error(error);
+                }
+            });
+        });
+
+
+        // Handle form submission for adding new brand
+        $('#add-brand-form').submit(function (event) {
+            event.preventDefault();
+            $.ajax({
+                type: 'POST',
+                url: $(this).attr('action'),
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                data: $(this).serialize(),
+                success: function (data) {
+                    if (data.id) {
+                        $('#addBrandModal').modal('hide');
+                        $('#brand_name, #brand_description').val('');
+
+                        const $select = $('#brand_id');
+                        const newOption = new Option(data.name, data.id, true, true);
+                        $select.append(newOption).trigger('change');
+                        enableAllSubmitButtons();
+                    } else if (data.error) {
+                        alert(data.error);
+                        enableAllSubmitButtons();
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error(error);
+                }
+            });
+        });
+
+
+        // Handle the form submission via AJAX
+        $('#add-uom-form').submit(function (event) {
+            event.preventDefault(); // Prevent the form from submitting normally
+
+            $.ajax({
+                type: 'POST',
+                url: $(this).attr('action'),  // Use the form's action attribute
+                data: $(this).serialize(),    // Send the form data
+                success: function (response) {
+                    // Assuming the backend response is a single UOM object
+                    if (response && response.id) {
+                        // Construct a new UOM option HTML string
+                        newUOMOptions.push(`<option value="${response.id}">${response.full_name} (${response.abbreviation})</option>`);
+
+                        // Add the new UOM to the main UOM dropdown
+                        $('#uom').append(newUOMOptions.join(''));
+
+                        // Update all line items' UOM dropdowns after the new UOM is successfully added
+                        $('select[name="uom_ids[]"]').each(function () {
+                            $(this).append(newUOMOptions.join(''));
+                        });
+
+                        // Close the modal
+                        $('#addUOMModal').modal('hide');
+
+                        // Reset the modal form
+                        $('#add-uom-form')[0].reset();
+
+                        // Optionally, set the new UOM as selected in the main dropdown
+                        $('#uom').val(response.id);
+                    } else {
+                        // If the response is not as expected
+                        console.error('Error: Missing or invalid UOM data.');
+                        alert('There was an error adding the UOM. Please try again.');
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error adding UOM:', error);
+                    alert('An unexpected error occurred. Please try again later.');
+                }
+            });
+        });
+
+    });
+
+</script>
+
+{% endblock %}

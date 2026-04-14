@@ -1,0 +1,160 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+    .module-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        padding: 20px;
+    }
+
+    .module-card {
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px;
+        text-align: center;
+        width: 200px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .module-card .icon {
+        font-size: 40px;
+        margin-bottom: 10px;
+    }
+
+    .module-card label {
+        display: block;
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
+
+    .module-card input[type="checkbox"] {
+        margin-right: 10px;
+    }
+
+    .notification {
+        display: none;
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background-color: #4CAF50; /* Green */
+        color: white;
+        padding: 15px;
+        border-radius: 4px;
+        z-index: 1000;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .notification.show {
+        display: block;
+        animation: fadein 0.5s, fadeout 0.5s 2.5s;
+    }
+
+    @keyframes fadein {
+        from {opacity: 0;}
+        to {opacity: 1;}
+    }
+
+    @keyframes fadeout {
+        from {opacity: 1;}
+        to {opacity: 0;}
+    }
+</style>
+
+<div class="container">
+    <main>
+        <div class="container-fluid px-4">
+            <h1 class="mt-4">User Modules</h1>
+
+            <div class="module-container">
+                <div class="module-card">
+                    <div class="icon"><i class="fas fa-dollar-sign"></i></div>
+                    <label>
+                        <input type="checkbox" name="modules" value="Payroll" {% if 'Payroll' in included_modules %}checked{% endif %}>
+                        Payroll
+                    </label>
+                </div>
+                <div class="module-card">
+                    <div class="icon"><i class="fas fa-boxes"></i></div>
+                    <label>
+                        <input type="checkbox" name="modules" value="Inventory" {% if 'Inventory' in included_modules %}checked{% endif %}>
+                        Inventory
+                    </label>
+                </div>
+                <div class="module-card">
+                    <div class="icon"><i class="fas fa-receipt"></i></div>
+                    <label>
+                        <input type="checkbox" name="modules" value="Purchases" {% if 'Purchase Order' in included_modules %}checked{% endif %}>
+                        Purchases
+                    </label>
+                </div>
+                <div class="module-card">
+                    <div class="icon"><i class="fas fa-file-invoice"></i></div>
+                    <label>
+                        <input type="checkbox" name="modules" value="Sales" {% if 'Sales' in included_modules %}checked{% endif %}>
+                        Sales
+                    </label>
+                </div>
+                <div class="module-card">
+                    <div class="icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <label>
+                        <input type="checkbox" name="modules" value="Invoices" {% if 'Invoices' in included_modules %}checked{% endif %}>
+                        Invoices
+                    </label>
+                </div>
+                <div class="module-card">
+                    <div class="icon"><i class="fas fa-landmark"></i></div>
+                    <label>
+                        <input type="checkbox" name="modules" value="Asset Management" {% if 'Asset Management' in included_modules %}checked{% endif %}>
+                        Asset Management
+                    </label>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<div class="notification" id="notification"></div>
+
+<script>
+    document.querySelectorAll('input[type="checkbox"][name="modules"]').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const moduleName = this.value;
+            const included = this.checked ? 'yes' : 'no';
+
+            fetch('/update_module', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({module_name: moduleName, included: included})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`${moduleName} module ${included === 'yes' ? 'enabled' : 'disabled'}`);
+                } else {
+                    showNotification(`Error updating ${moduleName} module`);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    });
+
+    function showNotification(message) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.className = 'notification show';
+
+        setTimeout(() => {
+            notification.className = 'notification';
+        }, 3000);
+    }
+</script>
+
+{% endblock %}

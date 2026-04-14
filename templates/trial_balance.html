@@ -1,0 +1,398 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        font-size: 0.9em;
+        text-align: left;
+    }
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 6px;
+    }
+
+    th {
+        background-color: #f4f4f4;
+    }
+
+    .category-row {
+        font-weight: bold;
+        background-color: #f9f9f9;
+    }
+
+    .subtotal-row,
+    .total-row {
+        font-style: italic;
+    }
+
+    .total-row {
+        font-weight: bold;
+    }
+
+    .total-row td {
+        text-align: right;
+    }
+
+    tfoot tr td {
+        border-top: 2px solid #ddd;
+    }
+
+    .description-column {
+        width: 80.66%;
+    }
+
+    .amount-column,
+    .amount {
+        width: 33.33%;
+        text-align: right;
+    }
+
+    .category-column {
+        width: 40%;
+    }
+
+    .subcategory-column {
+        width: 40%;
+    }
+
+    /* Loading spinner */
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    #loading-spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        border-left: 4px solid var(--primary-color);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Trial Balance Report</h1>
+
+        <div class="view-toggle-buttons">
+            <button class="cta-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <button class="button cta-button" id="download-pdf">
+                <i class="fas fa-file-pdf"></i> Download
+            </button>
+        </div>
+    </div>
+
+    <div id="loading-overlay">
+        <div id="loading-spinner"></div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section date-filter date-filter-form" id="filter-section">
+        <div class="filter-group">
+            <label for="currency-select" class="filter-label">Filter By</label>
+            <select id="currency-select" name="filter_type" class="form-select"></select>
+        </div>
+
+        <div class="filter-group">
+            <label for="start-date" class="filter-label">Start Date</label>
+            <input type="date" id="start-date" name="start-date" class="form-control">
+        </div>
+
+        <div class="filter-group">
+            <label for="end-date" class="filter-label">End Date</label>
+            <input type="date" id="end-date" name="end-date" class="form-control">
+        </div>
+
+        <div class="filter-actions">
+            <button id="apply-filter" class="add-button">Apply Filter</button>
+            <a href="{{ url_for('trial_balance') }}" class="btn reset-button">Reset</a>
+        </div>
+    </div>
+
+    <!-- Trial Balance Table -->
+    <table id="trial-balance-table">
+        <thead>
+            <tr>
+                <th class="category-column">Account</th>
+                <th class="subcategory-column">Sub Account</th>
+                <th class="amount-column">Debit (<span class="currency-symbol"></span>)</th>
+                <th class="amount-column">Credit (<span class="currency-symbol"></span>)</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+            <tr id="total-trial-balance-row">
+                <td colspan="2"><strong>Total</strong></td>
+                <td class="amount"><strong id="total-debit"></strong></td>
+                <td class="amount"><strong id="total-credit"></strong></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<script>
+    const companyName = "{{ company.name }}";
+    const apiKey = "{{ api_key }}";
+
+    document.addEventListener('DOMContentLoaded', () => {
+        function formatNumber(number) {
+            return number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function showLoading() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+        // Fetch currencies and set up the default currency
+        function fetchCurrencies() {
+            showLoading();
+            return fetch('/get_currency')
+                .then(response => response.json())
+                .then(currencies => {
+                    const currencySelect = document.getElementById('currency-select');
+                    if (!currencySelect) {
+                        console.error('Currency select element not found.');
+                        hideLoading();
+                        return null;
+                    }
+                    currencySelect.innerHTML = '';
+
+                    let defaultCurrency = null;
+                    currencies.forEach(currency => {
+                        const option = document.createElement('option');
+                        option.value = currency.user_currency;
+                        option.textContent = currency.user_currency;
+
+                        if (currency.currency_index === 1) {
+                            option.selected = true;
+                            defaultCurrency = currency.user_currency;
+                        }
+
+                        currencySelect.appendChild(option);
+                    });
+
+                    updateCurrencySymbol(defaultCurrency);
+                    hideLoading();
+                    return defaultCurrency;
+                })
+                .catch(error => {
+                    console.error('Error fetching currencies:', error);
+                    hideLoading();
+                    return null;
+                });
+        }
+
+        function fetchTransactions(user_currency) {
+            showLoading();
+
+            return fetch(`/get_transactions?currency=${encodeURIComponent(user_currency)}`, {
+                headers: {
+                    'X-API-Key': apiKey,
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(transactions => {
+                    const startDate = document.getElementById('start-date').value;
+                    const endDate = document.getElementById('end-date').value;
+
+                    const filteredTransactions = transactions.filter(transaction => {
+                        const transactionDate = new Date(transaction.date);
+                        return (!startDate || transactionDate >= new Date(startDate)) &&
+                            (!endDate || transactionDate <= new Date(endDate)) &&
+                            (transaction.currency === user_currency);
+                    });
+
+                    const trialBalanceData = {};
+
+                    filteredTransactions.forEach(transaction => {
+                        const category = transaction.category || 'Uncategorized';
+                        const subcategory = transaction.subcategory || 'No Subcategory';
+                        const amount = parseFloat(transaction.amount);
+
+                        if (!trialBalanceData[category]) {
+                            trialBalanceData[category] = { totalDebit: 0, totalCredit: 0, subcategories: {} };
+                        }
+
+                        if (!trialBalanceData[category].subcategories[subcategory]) {
+                            trialBalanceData[category].subcategories[subcategory] = { debit: 0, credit: 0 };
+                        }
+
+                        if (transaction.dr_cr === 'D') {
+                            trialBalanceData[category].subcategories[subcategory].debit += amount;
+                            trialBalanceData[category].totalDebit += amount;
+                        } else if (transaction.dr_cr === 'C') {
+                            trialBalanceData[category].subcategories[subcategory].credit += amount;
+                            trialBalanceData[category].totalCredit += amount;
+                        }
+                    });
+
+                    const trialBalanceTableBody = document.getElementById('trial-balance-table').getElementsByTagName('tbody')[0];
+                    trialBalanceTableBody.innerHTML = '';
+
+                    let totalDebit = 0;
+                    let totalCredit = 0;
+
+                    for (const [category, data] of Object.entries(trialBalanceData)) {
+                        const categoryRow = document.createElement('tr');
+                        categoryRow.classList.add('category-row');
+                        categoryRow.innerHTML = `
+                    <td colspan="4"><strong>${category}</strong></td>
+                `;
+                        trialBalanceTableBody.appendChild(categoryRow);
+
+                        for (const [subcategory, balances] of Object.entries(data.subcategories)) {
+                            const subcategoryRow = document.createElement('tr');
+                            subcategoryRow.innerHTML = `
+                        <td></td>
+                        <td>${subcategory}</td>
+                        <td class="amount">${formatNumber(balances.debit)}</td>
+                        <td class="amount">${formatNumber(balances.credit)}</td>
+                    `;
+                            trialBalanceTableBody.appendChild(subcategoryRow);
+                        }
+
+                        const subtotalRow = document.createElement('tr');
+                        subtotalRow.classList.add('subtotal-row');
+                        subtotalRow.innerHTML = `
+                    <td></td>
+                    <td><strong>Subtotal</strong></td>
+                    <td class="amount"><strong>${formatNumber(data.totalDebit)}</strong></td>
+                    <td class="amount"><strong>${formatNumber(data.totalCredit)}</strong></td>
+                `;
+                        trialBalanceTableBody.appendChild(subtotalRow);
+
+                        totalDebit += data.totalDebit;
+                        totalCredit += data.totalCredit;
+                    }
+
+                    document.getElementById('total-debit').textContent = formatNumber(totalDebit);
+                    document.getElementById('total-credit').textContent = formatNumber(totalCredit);
+
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error fetching transactions:', error);
+                    hideLoading();
+                });
+        }
+
+        function setupCurrencySelector() {
+            const currencySelect = document.getElementById('currency-select');
+            if (!currencySelect) {
+                console.error('Currency select element not found.');
+                return;
+            }
+
+            currencySelect.addEventListener('change', (event) => {
+                const selectedCurrency = event.target.value;
+                updateCurrencySymbol(selectedCurrency);
+                fetchTransactions(selectedCurrency);
+            });
+        }
+
+        // Set up the initial state
+        fetchCurrencies().then(defaultCurrency => {
+            if (defaultCurrency) {
+                setupCurrencySelector();
+                fetchTransactions(defaultCurrency);
+            } else {
+                console.error('Default currency not found.');
+            }
+        });
+
+        // Apply filter button click event
+        document.getElementById('apply-filter').addEventListener('click', () => {
+            const currencySelect = document.getElementById('currency-select');
+            if (currencySelect) {
+                const selectedCurrency = currencySelect.value;
+                fetchTransactions(selectedCurrency);
+            } else {
+                console.error('Currency select element not found.');
+            }
+        });
+
+        function updateCurrencySymbol(currencySymbol) {
+            const currencySymbols = document.querySelectorAll('.currency-symbol');
+            currencySymbols.forEach(symbol => {
+                symbol.textContent = currencySymbol;
+            });
+        }
+
+        // Event listener for "Download as PDF" button
+        document.getElementById("download-pdf").addEventListener("click", () => {
+            const currencySelect = document.getElementById('currency-select');
+            const selectedCurrency = currencySelect.value;
+
+            fetch("/download_trial_balance_report", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+
+                    'X-CSRFToken': csrfToken  // Include the CSRF token in the headers
+                },
+                body: JSON.stringify({
+                    currency: selectedCurrency,
+                    startDate: document.getElementById('start-date').value,
+                    endDate: document.getElementById('end-date').value
+                }),
+            })
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${companyName} - Trial Balance Report.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(error => console.error("Error:", error));
+        });
+
+        // Toggle the filter section visibility with animation
+        document.getElementById('toggleFilterForm').addEventListener('click', function () {
+            const filterSection = document.getElementById('filter-section');
+            filterSection.classList.toggle('visible');
+        });
+    });
+</script>
+
+{% endblock %}

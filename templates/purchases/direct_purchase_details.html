@@ -1,0 +1,3150 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .direct_purchase-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+    }
+
+    .company-logo img {
+        max-width: 150px;
+        height: auto;
+    }
+
+    .company-logo h2 {
+        font-size: 24px;
+        color: #2c3e50;
+        margin-top: 10px;
+    }
+
+    .direct_purchase-meta h1 {
+        font-size: 28px;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    .direct_purchase-meta p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .status {
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        color: #fff;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    .status.draft {
+        background: #f0ad4e;
+    }
+
+    .status.unpaid {
+        background: #5bc0de;
+    }
+
+    .status.partially_paid {
+        background: #5cb85c;
+    }
+
+    .status.paid {
+        background: #2e8b57;
+    }
+
+    .status.rejected {
+        background: #d9534f;
+    }
+
+    .status.canceled {
+        background: #d9534f;
+    }
+
+    .status.expired {
+        background: #777;
+    }
+
+    .status.purchaseOrderd {
+        background: #777;
+    }
+
+    .direct_purchase-vendor {
+        margin-bottom: 20px;
+    }
+
+    .direct_purchase-vendor h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin: 0 0 10px;
+    }
+
+    .direct_purchase-vendor p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .terms-and-conditions {
+        margin-top: 20px;
+    }
+
+    .terms-and-conditions h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin-bottom: 10px;
+    }
+
+    .terms-and-conditions p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f9f9f9;
+        font-weight: bold;
+        color: #333;
+        font-weight: 600;
+    }
+
+    td {
+        color: #222;
+
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    .numeric {
+        text-align: right;
+        color: #222;
+    }
+
+    .grande {
+        font-weight: 600;
+        font-size: 1.2rem;
+    }
+
+    .direct_purchase-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+
+
+    textarea {
+        width: 200px;
+        padding: 10px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+        resize: vertical;
+    }
+
+    textarea:focus {
+        outline: none;
+        border-color: #0275d8;
+    }
+
+    select {
+        padding: 2px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+    }
+
+    table {
+        border: none;
+    }
+
+    table tr:hover {
+        background-color: white;
+        /* Hover effect for rows */
+    }
+
+    /* Remove borders and background for all table cells */
+    table td,
+    table th {
+        border: none !important;
+        background-color: transparent !important;
+    }
+
+
+    table th {
+        border: 1px solid #ddd !important;
+        background: #f9f9f9 !important
+    }
+
+    /* Add borders only to the last two columns */
+    table td:nth-last-child(1),
+    table td:nth-last-child(2),
+    table th:nth-last-child(1),
+    table th:nth-last-child(2) {
+        border: 1px solid #ddd !important;
+        /* Add border to the last two columns */
+    }
+
+    /* Add borders to all rows in the table body */
+    table tbody tr td {
+        border: 1px solid #ddd !important;
+
+
+    }
+
+    tr:nth-child(even) {
+        background: white;
+    }
+
+
+
+    /* Align totals section to the right */
+    .totals-row td {
+        text-align: right;
+    }
+
+    /* Increase font weight for totals rows */
+    .totals-row td {
+        font-weight: 600;
+        /* Semi-bold */
+    }
+
+    /* Change background color of the last two columns in totals-row */
+    .totals-row td:nth-last-child(1) {
+        background-color: #f9f9f9 !important;
+        /* Light gray background */
+    }
+
+    /* Change background color of the last two columns in totals-row */
+    .totals-row td:nth-last-child(2) {
+        border: none !important;
+        /* Light gray background */
+    }
+
+    /* Grand Total specific styling */
+    .grande {
+        font-weight: 700;
+        /* Bold */
+        font-size: 1.1rem;
+    }
+</style>
+
+<div class="content-container">
+
+    <div class="direct_purchase-header">
+
+        <div class="company-logo">
+            <!-- Back Button at the Top -->
+            <div class="back-button-container" style="margin-bottom: 5px;">
+                <a href="javascript:void(0);" class="back-button" onclick="window.history.back();">
+                    <i class="fas fa-chevron-left"></i> Back
+                </a>
+            </div>
+            {% if company.logo %}
+            <img src="{{ url_for('serve_logo', filename=company.logo) }}" alt="Company Logo">
+            {% endif %}
+            <h2>{{ company.name }}</h2>
+        </div>
+
+        <div class="direct_purchase-meta">
+            <h1>Purchase #{{ direct_purchase.direct_purchase_number }}</h1>
+            <p><strong>Date:</strong> {{ direct_purchase.purchase_date }}</p>
+            <p><strong>Delivery Date:</strong> {{ direct_purchase.delivery_date or "N/A" }}</p>
+            <p><strong>Currency:</strong> {{ direct_purchase.currency }}</p>
+
+
+            <span class="status {{ direct_purchase.status.name|lower }}">{{ direct_purchase.status.value }}</span>
+        </div>
+    </div>
+
+    <div class="direct_purchase-vendor">
+        <h3>Vendor Details:</h3>
+        <p><strong>{{ direct_purchase.vendor.name }}</strong></p>
+        <p>{{ direct_purchase.vendor.address or "" }}</p>
+        <p>{{ direct_purchase.vendor.city_country or "" }}</p>
+        <p><strong>Contact:</strong> {{ direct_purchase.vendor.contact or "N/A" }}</p>
+    </div>
+
+    <div class="direct_purchase-items">
+
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Discount</th>
+                        <th>Tax</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in direct_purchase.direct_purchase_items %}
+                    <tr>
+                        <td>{{ item.item_name }}</td>
+                        <td>{{ item.description or "-" }}</td>
+                        <td>{{ item.quantity }} {{ item.uom }}</td>
+                        <td class="numeric">{{ "{:,.2f}".format(item.unit_price) }}</td>
+                        <td class="numeric">
+                            {% if item.discount_amount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(item.discount_amount) }} ({{ item.discount_rate }}%)
+                            {% endif %}
+                        </td>
+                        <td class="numeric">
+                            {% if item.tax_amount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(item.tax_amount) }} ({{ item.tax_rate }}%)
+                            {% endif %}
+                        </td>
+                        <td class="numeric">{{ "{:,.2f}".format(item.total_price) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <!-- Subtotal -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Subtotal</td>
+                        <td class="numeric">{{ "{:,.2f}".format(direct_purchase.subtotal) }}</td>
+                    </tr>
+                    <!-- Discount -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Discount</td>
+                        <td class="numeric">
+                            {% if direct_purchase.direct_purchase_discount == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(direct_purchase.direct_purchase_discount) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Tax -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Tax(%)</td>
+                        <td class="numeric">
+                            {% if direct_purchase.direct_purchase_tax_rate == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(direct_purchase.direct_purchase_tax_rate) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Shipping Cost -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Shipping Cost</td>
+                        <td class="numeric">
+                            {% if direct_purchase.shipping_cost == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(direct_purchase.shipping_cost) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Handling Cost -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric">Handling Cost</td>
+                        <td class="numeric">
+                            {% if direct_purchase.handling_cost == 0 %}
+                            -
+                            {% else %}
+                            {{ "{:,.2f}".format(direct_purchase.handling_cost) }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Grand Total -->
+                    <tr class="totals-row">
+                        <td colspan="5"></td>
+                        <td class="numeric grande">Grand Total</td>
+                        <td class="numeric grande">{{ "{:,.2f}".format(direct_purchase.total_amount) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+    </div>
+
+
+    <div class="terms-and-conditions">
+        <h3>Terms and Conditions</h3>
+        <p class="preserve-newlines">{{ direct_purchase.terms_and_conditions or "N/A" }}</p>
+    </div>
+
+
+    <!-- Payments History Section -->
+    <div class="payments-history terms-and-conditions">
+        <h3>Payments History</h3>
+
+        <p><strong>Total Paid:</strong> {{ "{:,.2f}".format(direct_purchase.amount_paid or 0) }}</p>
+        <p><strong>Remaining Balance:</strong> {{ "{:,.2f}".format(direct_purchase.remaining_balance or 0) }}</p>
+
+        {% if direct_purchase.payment_allocations %}
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Payment Date</th>
+                        <th>Payment Mode</th>
+                        <th>Amount Paid</th>
+                        <th>Payment Account</th>
+                        <th>Reference</th>
+                        <th>Ledger Status</th>
+
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for allocation in direct_purchase.payment_allocations %}
+                    {% if allocation.amount_paid != 0 %}
+                    <tr>
+                        <td>{{ allocation.payment_date if allocation.payment_date else '-' }}</td>
+                        <td>{{ allocation.payment_mode if allocation.payment_mode else '-' }}</td>
+                        <td class="numeric">
+                            {{ "{:,.2f}".format(allocation.amount_paid) if allocation.amount_paid is not none else '-'
+                            }}
+                        </td>
+                        <td>{{ allocation.chart_of_accounts_asset.sub_category if allocation.chart_of_accounts_asset
+                            else '-' }}</td>
+                        <td>{{ allocation.reference or "-" }}</td>
+                        <!-- Ledger Posting Status -->
+                        <td>
+                            {% if allocation.is_posted_to_ledger %}
+                            <span class="badge bg-success">Posted</span>
+                            {% else %}
+                            <div class="custom-tooltip-container">
+                                <i class="fas fa-info-circle"
+                                    style="color: #007bff; margin-left: 4px; cursor: pointer;"></i>
+                                <span class="custom-tooltip left">
+                                    {% if direct_purchase.status.name == 'draft' %}
+                                    This payment can't be posted to the ledger until the purchase is approved.
+                                    {% else %}
+                                    To post this payment to the ledger, go to
+                                    <a href="/purchases/transactions"
+                                        style="color: #fff; text-decoration: underline;">Purchase Transactions</a>.
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <span class="badge bg-danger">Not Posted</span>
+
+
+                            {% endif %}
+                        </td>
+
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No payments have been recorded for this direct purchase.</p>
+        {% endif %}
+    </div>
+
+    <!-- Purchase Fulfillment Section -->
+    <div class="purchase-fulfillment terms-and-conditions">
+        <h3>Purchase Fulfillment</h3>
+
+        <div class="fulfillment-status">
+            <div class="status-card completed">
+                <div class="status-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="status-content">
+                    <h4>Fulfillment Status</h4>
+                    <p class="status-badge status-completed">
+                        Completed
+                    </p>
+                    <small>Direct purchases are processed immediately upon creation</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Processing Summary -->
+        <div class="processing-summary">
+            <h4>Processing Status</h4>
+            <div class="impact-summary">
+                <div class="impact-item">
+                    <span class="impact-label">Inventory Processing:</span>
+                    <span class="impact-value badge bg-success">
+                        {% if direct_purchase.flags.has_inventory %}
+                        Completed
+                        {% else %}
+                        Not Applicable
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="impact-item">
+                    <span class="impact-label">Ledger Posting:</span>
+                    <span
+                        class="impact-value badge {% if direct_purchase.is_posted_to_ledger %}bg-success{% else %}bg-warning{% endif %}">
+                        {% if direct_purchase.is_posted_to_ledger %}
+                        Posted
+                        {% else %}
+                        Pending
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="impact-item">
+                    <span class="impact-label">Payment Status:</span>
+                    <span class="impact-value badge 
+                        {% if direct_purchase.payment_status == 'full' %}bg-success
+                        {% elif direct_purchase.payment_status == 'partial' %}bg-warning
+                        {% else %}bg-secondary
+                        {% endif %}">
+                        {{ direct_purchase.payment_status|title }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Impact Summary -->
+        {% if direct_purchase.flags.has_inventory %}
+        <div class="inventory-impact">
+            <h4>Inventory Impact</h4>
+            <div class="impact-summary">
+                <div class="impact-item">
+                    <span class="impact-label">Items Added:</span>
+                    <span class="impact-value">{{ direct_purchase.direct_purchase_items|selectattr('item_type',
+                        'equalto', 'inventory')|list|length }}</span>
+                </div>
+                <div class="impact-item">
+                    <span class="impact-label">Total Quantity:</span>
+                    <span class="impact-value">
+                        {{ direct_purchase.direct_purchase_items|selectattr('item_type', 'equalto',
+                        'inventory')|map(attribute='quantity')|sum|float }}
+                    </span>
+                </div>
+                <div class="impact-item">
+                    <span class="impact-label">Inventory Value:</span>
+                    <span class="impact-value">{{ "{:,.2f}".format(direct_purchase.inventory_total) }}</span>
+                </div>
+                <div class="impact-item">
+                    <span class="impact-label">Status:</span>
+                    <span class="impact-value badge bg-success">
+                        Inventory Updated
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Financial Impact Summary -->
+        <div class="financial-impact">
+            <h4>Financial Impact</h4>
+            <div class="impact-summary">
+                <div class="impact-item">
+                    <span class="impact-label">Total Purchase:</span>
+                    <span class="impact-value">{{ "{:,.2f}".format(direct_purchase.total_amount) }}</span>
+                </div>
+
+                <!-- Inventory Allocation -->
+                {% if direct_purchase.flags.has_inventory and direct_purchase.inventory_total > 0 %}
+                <div class="impact-item">
+                    <span class="impact-label">Inventory Items:</span>
+                    <span class="impact-value">{{ "{:,.2f}".format(direct_purchase.inventory_total) }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Non-Inventory Allocation -->
+                {% if direct_purchase.flags.has_non_inventory and direct_purchase.non_inventory_total > 0 %}
+                <div class="impact-item">
+                    <span class="impact-label">Non-Inventory Items:</span>
+                    <span class="impact-value">{{ "{:,.2f}".format(direct_purchase.non_inventory_total) }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Services Allocation -->
+                {% if direct_purchase.flags.has_service and direct_purchase.services_total > 0 %}
+                <div class="impact-item">
+                    <span class="impact-label">Services:</span>
+                    <span class="impact-value">{{ "{:,.2f}".format(direct_purchase.services_total) }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Shipping and Handling Costs -->
+                {% if direct_purchase.expenses_total > 0 %}
+                <div class="impact-item">
+                    <span class="impact-label">Shipping and Handling Cost:</span>
+                    <span class="impact-value">{{ "{:,.2f}".format(direct_purchase.expenses_total) }}</span>
+                </div>
+                {% endif %}
+
+
+                <div class="impact-item">
+                    <span class="impact-label">Amount Paid:</span>
+                    <span class="impact-value">{{ "{:,.2f}".format(direct_purchase.amount_paid) }}</span>
+                </div>
+
+                {% if direct_purchase.remaining_balance > 0 %}
+                <div class="impact-item">
+                    <span class="impact-label">Remaining Balance:</span>
+                    <span class="impact-value text-warning">{{ "{:,.2f}".format(direct_purchase.remaining_balance)
+                        }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Purchase Items Summary -->
+        <div class="purchase-items-summary">
+            <h4>Purchased Items</h4>
+            <div class="table-responsive">
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Item Type</th>
+                            <th>Item Name</th>
+                            <th>Quantity</th>
+                            <th>Unit Cost</th>
+                            <th>Total</th>
+                            <th>Processing Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in direct_purchase.direct_purchase_items %}
+                        <tr>
+                            <td>
+                                <span class="badge 
+                                    {% if item.item_type == 'inventory' %}bg-primary
+                                    {% elif item.item_type == 'service' %}bg-info
+                                    {% else %}bg-secondary
+                                    {% endif %}">
+                                    {{ item.item_type|title }}
+                                </span>
+                            </td>
+                            <td>{{ item.item_name }}</td>
+                            <td>{{ "{:,.2f}".format(item.quantity) }} {{ item.uom }}</td>
+                            <td>{{ "{:,.2f}".format(item.unit_cost) }}</td>
+                            <td>{{ "{:,.2f}".format(item.total_cost) }}</td>
+                            <td>
+                                <span class="badge bg-success">
+                                    {% if item.item_type == 'inventory' %}
+                                    Inventory Processed
+                                    {% else %}
+                                    Recorded
+                                    {% endif %}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shipping and Handling Section -->
+    <div class="shipping-handling terms-and-conditions" style="display: none;">
+        <h3>Shipping & Handling</h3>
+
+        {% if direct_purchase.shipping_cost or direct_purchase.handling_cost %}
+        <div class="table-responsive">
+            <table class="shipping-handling-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Amount</th>
+                        <th>Ledger Status</th>
+
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if direct_purchase.shipping_cost %}
+                    <tr>
+                        <td>Shipping</td>
+                        <td>{{ "{:,.2f}".format(direct_purchase.shipping_cost) }}</td>
+                        <td>
+                            {% if direct_purchase.shipping_handling_posted %}
+                            <span class="status approved">Posted</span>
+                            {% else %}
+                            <span class="status danger">Not Posted</span>
+                            {% endif %}
+                        </td>
+
+                    </tr>
+                    {% endif %}
+
+                    {% if direct_purchase.handling_cost %}
+                    <tr>
+                        <td>Handling</td>
+                        <td>{{ "{:,.2f}".format(direct_purchase.handling_cost) }}</td>
+                        <td>
+                            {% if direct_purchase.shipping_handling_posted %}
+                            <span class="status approved">Posted</span>
+                            {% else %}
+                            <span class="status danger">Not Posted</span>
+                            {% endif %}
+                        </td>
+
+                    </tr>
+                    {% endif %}
+                </tbody>
+                {% if direct_purchase.status.name not in ['draft', 'canceled'] and
+                (direct_purchase.shipping_cost or direct_purchase.handling_cost) %}
+                <tfoot>
+                    <tr>
+                        <td><strong>Total</strong></td>
+                        <td><strong>{{ "{:,.2f}".format(direct_purchase.shipping_cost + direct_purchase.handling_cost)
+                                }}</strong></td>
+                        <td colspan="1">
+                        </td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+        {% else %}
+        <p>No shipping or handling costs recorded for this purchase order.</p>
+        {% endif %}
+    </div>
+
+
+
+    <!-- New Purchase Returns Section -->
+    <div class="purchase-returns terms-and-conditions" style="display: none;">
+        <h3>Purchase Returns</h3>
+        {% if direct_purchase.purchase_returns %}
+        <div class="table-responsive">
+            <table class="returns-table">
+                <thead>
+                    <tr>
+                        <th>Return #</th>
+                        <th>Date</th>
+                        <th>Item</th>
+                        <th>Quantity</th>
+                        <th>Amount</th>
+                        <th>Tax</th>
+                        <th>Total</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for return in direct_purchase.purchase_returns %}
+                    <tr>
+                        <td>{{ return.return_number }}</td>
+                        <td>{{ return.return_date }}</td>
+                        <td>
+
+                            {{ return.item_name }}
+
+                        </td>
+                        <td>{{ "{:,.2f}".format(return.quantity) }}</td>
+                        <td>{{ "{:,.2f}".format(return.amount) }}</td>
+                        <td>{{ "{:,.2f}".format(return.tax_amount) }}</td>
+                        <td>{{ "{:,.2f}".format(return.total_amount) }}</td>
+                        <td>{{ return.reason|truncate(30) }}</td>
+                        <td>
+                            {% if return.is_posted_to_ledger %}
+                            <span class="status approved">Posted</span>
+                            {% else %}
+                            <span class="status cancelled">Not Posted</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-icons">
+
+                                {% if return.status == 'draft' %}
+                                <form method="POST" action="{{ url_for('approve_purchase_return') }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="return_id" value="{{ return.id }}">
+                                    <button type="submit" class="btn btn-link p-0" data-tooltip="Approve Return"
+                                        onclick="return confirm('Are you sure you want to approve this return?')">
+                                        <i class="fas fa-check-circle view-icon"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+
+
+                                <!-- Cancel Return Button -->
+                                <a href="#" data-bs-toggle="modal" data-bs-target="#cancelReturnModal"
+                                    onclick="setupCancelReturnModal('{{ return.id }}')" data-tooltip="Cancel Return">
+                                    <i class="fas fa-times-circle delete-icon"></i>
+                                </a>
+
+                                <!-- Post to Ledger Button -->
+                                {% if return.status == 'approved' and not return.is_posted_to_ledger %}
+                                <a href="#" class="post-to-ledger-btn" data-return-id="{{ return.id }}"
+                                    data-return-number="{{ return.return_number }}"
+                                    data-original-amount="{{ return.total_amount|default(0) }}" data-bs-toggle="modal"
+                                    data-bs-target="#postPurchaseReturnModal" data-tooltip="Post to Ledger">
+                                    <i class="fas fa-book ledger-icon"></i>
+                                </a>
+                                {% endif %}
+
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4"><strong>Total Returns</strong></td>
+                        <td><strong>{{ "{:,.2f}".format(direct_purchase.total_returned_amount) }}</strong></td>
+                        <td><strong>{{ "{:,.2f}".format(direct_purchase.total_returned_tax) }}</strong></td>
+                        <td><strong>{{ "{:,.2f}".format(direct_purchase.total_returned_amount +
+                                direct_purchase.total_returned_tax) }}</strong></td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <p>No purchase returns recorded for this order.</p>
+        {% endif %}
+    </div>
+
+
+    <!-- Audit -->
+    <!-- Audit -->
+    <div class="audit-info">
+        <span><strong>Created:</strong> <span class="audit-created-at"
+                data-utc="{{ direct_purchase.created_at if direct_purchase.created_at else '' }}"></span>
+            by {{ direct_purchase.created_by.name if direct_purchase.created_by else 'Unknown' }}</span>
+        {% if direct_purchase.updated_at %}
+        | <span><strong>Updated:</strong> <span class="audit-updated-at"
+                data-utc="{{ direct_purchase.updated_at }}"></span></span>
+        {% endif %}
+    </div>
+
+
+
+    <!-- direct_purchase Actions -->
+    <!-- direct_purchase Actions -->
+    <div class="direct_purchase-actions transaction-actions">
+        {% if direct_purchase.status.name == 'draft' %}
+        <button class="button cta-button" id="approve-direct-purchase-button">
+            <i class="fas fa-check-circle"></i> Approve Purchase
+        </button>
+
+        {% elif direct_purchase.status.name == 'approved' %}
+        <!-- Form to send the purchase order to the customer -->
+        <form action="/purchases/send_to_customer/{{ direct_purchase.id }}" method="POST" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="button cta-button">
+                <i class="fas fa-paper-plane"></i> Send to Customer
+            </button>
+        </form>
+
+        {% endif %}
+
+        <!-- Edit Button - Show for all statuses EXCEPT canceled -->
+        {% if direct_purchase.status.name != 'canceled' %}
+        <button class="button add-button"
+            onclick="window.location.href='/purchases/edit_direct_purchase_transaction/{{ direct_purchase.id }}'">
+            <i class="fas fa-edit"></i> Edit Purchase
+        </button>
+        {% endif %}
+
+        <!-- Record Payment when status is 'unpaid' or 'partially_paid' (but not 'draft') -->
+        {% if direct_purchase.status.name in ['unpaid', 'partially_paid'] %}
+        <button class="button success" id="record-payment" onclick="openPurchaseOrderPaymentModal()">
+            <i class="fas fa-file-invoice"></i> Record Payment
+        </button>
+        {% endif %}
+
+        <!-- Add Receipt Button -->
+        {% if not direct_purchase.is_complete_receipt and direct_purchase.status.name not in ['draft', 'canceled',
+        'rejected'] %}
+        <button class="button add-button" id="add-goods-receipt-button" style="display: none;">
+            <i class="fas fa-plus-circle"></i> Goods/Service Receipt
+        </button>
+        {% endif %}
+
+        <!-- Download Button (Visible for all statuses except maybe draft?) -->
+        <button class="button download-button info"
+            onclick="window.location.href='/download_direct_purchase/{{ direct_purchase.id }}'">
+            <i class="fas fa-download"></i> Download Purchase
+        </button>
+
+        <!-- Cancel Button - Show for draft and other non-final statuses -->
+        {% if direct_purchase.status.name in ['draft', 'approved', 'unpaid', 'partially_paid'] %}
+        <button type="button" class="button remove-button cancel-direct-purchase-btn"
+            data-purchase-id="{{ direct_purchase.id }}"
+            data-purchase-number="{{ direct_purchase.direct_purchase_number }}">
+            <i class="fas fa-times-circle"></i> Cancel Purchase Transaction
+        </button>
+        {% endif %}
+
+        <!-- Return Button -->
+        <button class="button closed" onclick="window.location.href='/purchases/transactions'">
+            <i class="fas fa-undo-alt"></i> Return to Purchase Transactions
+        </button>
+    </div>
+</div>
+
+
+
+
+<!-- Record Payment Modal -->
+<div class="modal fade" id="purchaseOrderPaymentModal" tabindex="-1" aria-labelledby="purchaseOrderePaymentModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="purchaseOrderPaymentModalLabel">Record Purchase Order Payment</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="paymentForm" action="/api/record_purchase_payment" method="POST" autocomplete="off">
+                    <input type="hidden" id="direct_purchase_id" name="direct_purchase_id"
+                        value="{{direct_purchase.id}}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="transaction_type" name="transaction_type" value="direct_purchase">
+
+
+                    <!-- Amount Field -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="amount" class="form-label fw-bold">Payment Amount <span
+                                    class="required">*</span></label>
+                            <input type="text" id="amount" name="amount" class="form-control"
+                                value="{{direct_purchase.remaining_balance}}" required>
+                        </div>
+
+                        <!-- Payment Date Field -->
+                        <div class=" form-group">
+                            <label for="paymentDate" class="form-label fw-bold">Payment Date <span
+                                    class="required">*</span></label>
+                            <input type="date" id="paymentDate" name="paymentDate" class="form-control" required>
+                        </div>
+                    </div>
+
+
+
+                    <!-- Payment Account Allocation -->
+                    <div id="paymentAccountSection" style="display: block;">
+                        <h4 class="mb-3">Payment Account Allocation
+                            <span class="input-helper" data-toggle="tooltip"
+                                data-tooltip="Select the cash equivalent account. ">
+                                <i class="fas fa-question-circle"></i>
+                            </span>
+                        </h4>
+
+                        <div class="form-grid">
+                            <!-- Payment Account Category -->
+                            <div class="form-group mb-4">
+                                <label for="assetAccount" class="form-label fw-bold">Payment Account Category
+                                    <span class="required">*</span></label>
+                                <select id="assetAccount" name="assetAccount" class="form-select"
+                                    onchange="filterFundingAccounts()">
+                                    <option value="">Select Funding Account Category</option>
+                                    <!-- Categories dynamically populated -->
+                                </select>
+                            </div>
+
+                            <!-- Funding Account -->
+                            <div class="form-group mb-4">
+                                <label for="fundingAccount" class="form-label fw-bold">Funding Account <span
+                                        class="required">*</span></label>
+                                <select id="fundingAccount" name="fundingAccount" class="form-select" required>
+                                    <option value="">Select Funding Account</option>
+                                    <!-- Accounts dynamically populated -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+
+
+
+
+                    <div class="form-grid">
+                        <!-- Reference Field -->
+                        <div class="form-group mb-4">
+                            <label for="reference" class="form-label fw-bold">Reference</label>
+                            <input type="text" id="reference" name="reference" class="form-control">
+                            <small class="form-text text-muted">Enter transaction reference (e.g., cheque
+                                number).</small>
+                        </div>
+
+                        <!-- Payment Method Section -->
+                        <div class="form-group mb-4">
+                            <label for="paymentMethod" class="form-label fw-bold">Payment Method</label>
+                            <select id="paymentMethod" name="paymentMethod" class="form-select">
+                                <option value="">Select Payment Method</option>
+                                {% for mode in payment_modes %}
+                                <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+
+
+                    <!-- Submit Button -->
+                    <div>
+                        <button type="submit" class="button cta-button">Submit Payment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<!-- Add Goods/Service Receipt Modal -->
+<div class="modal fade" id="addGoodsReceiptModal" tabindex="-1" aria-labelledby="addGoodsReceiptModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addGoodsReceiptModalLabel">Add Goods/Service Receipt</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="goodsReceiptForm" action="/add_goods_receipt" method="POST">
+                    <input type="hidden" name="direct_purchase_id" value="{{ direct_purchase.id }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="receiptDate" class="form-label fw-bold">Receipt Date <span
+                                    class="required">*</span></label>
+                            <input type="date" id="receiptDate" name="receiptDate" class="form-control" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="receivedBy" class="form-label fw-bold">Received By <span
+                                    class="required">*</span></label>
+                            <input type="text" id="receivedBy" name="receivedBy" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <h4 class="mb-3">Items Received</h4>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Ordered Qty</th>
+                                    <th>Quantity Received</th>
+                                    <th>UOM</th>
+                                    <th>Condition</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in direct_purchase.direct_purchase_items %}
+                                <tr>
+                                    <td>{{ item.item_name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>
+                                        <input type="text" name="quantity_received_{{ item.id }}" class="form-control"
+                                            style="width: 90%;" value="{{ item.quantity }}" step="any">
+                                    </td>
+                                    <td>{{ item.uom }}</td>
+                                    <td>
+                                        <select name="condition_{{ item.id }}" class="form-select">
+                                            <option value="Good">Good</option>
+                                            <option value="Damaged">Damaged</option>
+                                            <option value="Partial">Partial</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" style="width: 90%;" name="notes_{{ item.id }}"
+                                            class="form-control">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="submit" class="button cta-button">Save Receipt</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+
+<!-- Edit Payment Modal -->
+<div class="modal fade" id="editPaymentModal" tabindex="-1" aria-labelledby="editPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editPaymentModalLabel">Edit Purchase Order Payment</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+
+                <!-- Warning Alert (hidden by default) -->
+                <div id="ledgerPostedWarning" class="alert alert-warning mb-4" style="display: none;">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <h6 class="mb-0 fw-bold">Ledger Alert: This transaction was already posted</h6>
+                    </div>
+                    <hr>
+                    <div class="text-start">
+                        <p class="mb-2"><strong>To maintain accurate books:</strong></p>
+                        <ul class="mb-2 ps-3">
+                            <li><strong>You must create reverse entries (contra entries)</strong> for the original
+                                transaction</li>
+                            <li>Then record the corrected transaction separately</li>
+                            <li>Editing here will <u>not</u> automatically adjust your ledger</li>
+                            <li>All changes will be tracked in an audit log for transparency</li>
+                        </ul>
+
+                        <p class="mb-0 text-danger"><i class="fas fa-hand-paper me-1"></i> <strong>Do not
+                                proceed</strong> unless you understand these accounting requirements.</p>
+                    </div>
+                </div>
+
+
+                <form id="editPaymentForm" action="/api/update_direct_purchase_payment" method="POST"
+                    autocomplete="off">
+                    <input type="hidden" id="editPurchaseOrderId" name="purchaseOrderId" value="{{direct_purchase.id}}">
+                    <input type="hidden" id="editTransactionId" name="transactionId">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="editTransactionType" name="transaction_type" value="direct_purchase">
+
+                    <!-- Amount Field -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="editAmount" class="form-label fw-bold">Payment Amount <span
+                                    class="required">*</span></label>
+                            <input type="text" id="editAmount" name="amount" class="form-control" required>
+                        </div>
+
+                        <!-- Payment Date Field -->
+                        <div class="form-group">
+                            <label for="editPaymentDate" class="form-label fw-bold">Payment Date <span
+                                    class="required">*</span></label>
+                            <input type="date" id="editPaymentDate" name="paymentDate" class="form-control" required>
+                        </div>
+                    </div>
+
+
+
+                    <!-- Payment Account Allocation -->
+                    <div id="editPaymentAccountSection" style="display: block;">
+                        <h4 class="mb-3">Payment Account Allocation
+                            <span class="input-helper" data-toggle="tooltip"
+                                data-tooltip="Select the cash equivalent account. ">
+                                <i class="fas fa-question-circle"></i>
+                            </span>
+                        </h4>
+
+                        <div class="form-grid">
+                            <!-- Payment Account Category -->
+                            <div class="form-group mb-4">
+                                <label for="editAssetAccount" class="form-label fw-bold">Payment Account Category
+                                    <span class="required">*</span></label>
+                                <select id="editAssetAccount" name="assetAccount" class="form-select"
+                                    onchange="filterEditFundingAccounts()">
+                                    <option value="">Select Funding Account Category</option>
+                                    <!-- Categories dynamically populated -->
+                                </select>
+                            </div>
+
+                            <!-- Funding Account -->
+                            <div class="form-group mb-4">
+                                <label for="editFundingAccount" class="form-label fw-bold">Funding Account <span
+                                        class="required">*</span></label>
+                                <select id="editFundingAccount" name="fundingAccount" class="form-select" required>
+                                    <option value="">Select Funding Account</option>
+                                    <!-- Accounts dynamically populated -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <!-- Reference Field -->
+                        <div class="form-group mb-4">
+                            <label for="editReference" class="form-label fw-bold">Reference</label>
+                            <input type="text" id="editReference" name="reference" class="form-control">
+                            <small class="form-text text-muted">Enter transaction reference (e.g., cheque
+                                number).</small>
+                        </div>
+
+                        <!-- Payment Method Section -->
+                        <div class="form-group mb-4">
+                            <label for="editPaymentMethod" class="form-label fw-bold">Payment Method</label>
+                            <select id="editPaymentMethod" name="paymentMethod" class="form-select">
+                                <option value="">Select Payment Method</option>
+                                {% for mode in payment_modes %}
+                                <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+
+                    <!-- Submit and Delete Buttons -->
+                    <div class="d-flex justify-content-between">
+
+                        <button type="submit" class="button cta-button">Update Payment</button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Cancel Confirmation Modal -->
+<div class="modal fade" id="cancelConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Cancellation</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="cancelPaymentForm" action="/api/cancel_direct_payment" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="cancelTransactionId" name="transaction_id" value="">
+
+                    <p id="cancelMessage">Are you sure you want to cancel this payment?</p>
+
+                    <div class="alert alert-warning" id="ledgerWarning" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>This payment was posted to the ledger.</strong><br>
+                        After cancellation, you must manually create reversal entries in the journal.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button remove-button" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="button cta-button">Confirm Cancellation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Add this modal to your template -->
+
+
+<div class="modal fade" id="editReceiptModal" tabindex="-1" aria-labelledby="editReceiptModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editReceiptModalLabel">Edit Goods Receipt</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="editReceiptForm" action="/api/update_goods_receipt" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="editReceiptId" name="receipt_id">
+                    <input type="hidden" id="editReceiptItemId" name="receipt_item_id">
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="editReceiptNumber" class="form-label">Receipt Number</label>
+                            <input type="text" id="editReceiptNumber" name="receipt_number" class="form-control"
+                                readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="editReceiptDate" class="form-label">Receipt Date</label>
+                            <input type="date" id="editReceiptDate" name="receipt_date" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editReceivedBy" class="form-label">Received By</label>
+                        <input type="text" id="editReceivedBy" name="received_by" class="form-control" required>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="editItemName" class="form-label">Item Name</label>
+                            <input type="text" id="editItemName" class="form-control" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="editQuantityReceived" class="form-label">Quantity Received</label>
+                            <input type="text" id="editQuantityReceived" name="quantity_received" class="form-control"
+                                required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editReceivedCondition" class="form-label">Received Condition</label>
+                        <select required id="editReceivedCondition" name="received_condition" class="form-control">
+                            <option value="">Select Condition</option>
+                            <option value="Good">Good</option>
+                            <option value="Damaged">Damaged</option>
+                            <option value="Partial">Partial</option>
+
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editReceiptNotes" class="form-label">Notes</label>
+                        <textarea id="editReceiptNotes" name="notes" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button remove-button" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="button cta-button">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Cancel Receipt Confirmation Modal -->
+<div class="modal fade" id="cancelReceiptModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Receipt Cancellation</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="cancelReceiptForm" action="/api/cancel_receipt" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="cancelReceiptId" name="receipt_id" value="">
+                    <input type="hidden" id="cancelReceiptItemId" name="receipt_item_id" value="">
+
+                    <p id="cancelReceiptMessage">Are you sure you want to cancel this receipt item?</p>
+
+                    <div class="alert alert-warning" id="receiptLedgerWarning" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>This receipt was posted to ledger.</strong><br>
+                        After cancellation, you must manually create reversal entries in the journal.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button remove-button" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="button cta-button">Confirm Cancellation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Return Item Modal -->
+<div class="modal fade" id="returnItemModal" tabindex="-1" aria-labelledby="returnItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="returnItemModalLabel">Return Inventory Item: <span
+                        id="returnItemName"></span></h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form method="POST" action="{{ url_for('create_purchase_return') }}" id="returnItemForm">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="returnReceiptItemId" name="receipt_item_id">
+                    <input type="hidden" id="returnReceiptId" name="receipt_id">
+
+
+                    <!-- Date Picker Field -->
+                    <div class="form-grid">
+                        <div class="form-group mb-3">
+                            <label for="returnDate" class="form-label">Return Date</label>
+                            <input type="date" class="form-control" id="returnDate" name="return_date" required>
+                        </div>
+
+
+
+
+
+                        <div class="form-group mb-3">
+                            <label for="returnQuantity" class="form-label">Quantity to Return</label>
+                            <input type="text" class="form-control" id="returnQuantity" name="quantity" required>
+                            <small class="text-muted">Max available: <span id="maxReturnQuantity">0</span></small>
+                        </div>
+
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="returnReason" class="form-label">Reason</label>
+                        <textarea class="form-control" id="returnReason" name="reason" required></textarea>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="button cta-button">Submit Return</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Cancel Return Modal -->
+<div class="modal fade" id="cancelReturnModal" tabindex="-1" aria-labelledby="cancelReturnModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cancelReturnModalLabel">Cancel Return</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form action="{{ url_for('cancel_purchase_return') }}" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="cancelReturnId" name="return_id">
+                    <p>Are you sure you want to cancel this return?</p>
+                    <div class="mb-3">
+                        <label for="cancelReason" class="form-label">Reason for Cancellation</label>
+                        <textarea class="form-control" id="cancelReason" name="reason" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button remove-button" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="button cta-button">Confirm Cancellation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+
+<script>
+
+    // Open Payment Modal function
+    function openPurchaseOrderPaymentModal() {
+        // Reset the form
+        $('#paymentForm')[0].reset();
+
+        // Set today's date in the payment date field
+        setTodayDate();
+
+        // Load Asset and Tax Payable accounts
+        loadAssetAccounts();
+
+
+        // Show the modal
+        $('#purchaseOrderPaymentModal').modal('show');
+    }
+
+
+
+    // Function to set today's date in the payment date field
+    function setTodayDate() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('paymentDate').value = today;
+    }
+
+
+    function setupReturnPostToLedger() {
+        console.log('Setting up return post to ledger modal...');
+
+        document.querySelectorAll('.post-to-ledger-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                // Get return data
+                const returnId = this.dataset.returnId;
+                const returnNumber = this.dataset.returnNumber;
+                const originalAmount = parseFloat(this.dataset.originalAmount) || 0;
+
+                // Set basic info
+                document.getElementById('postPurchaseReturnId').value = returnId;
+                document.getElementById('postPurchaseReturnNumber').textContent = returnNumber;
+                document.getElementById('originalPurchaseAmount').value = originalAmount;
+                document.getElementById('returnAmount').value = ''; // Reset refund amount
+
+                // Get elements
+                const returnAmountInput = document.getElementById('returnAmount');
+                const refundAccountSection = document.getElementById('refundAccountSection');
+                const partialRefundOptionsSection = document.getElementById('partialRefundOptionsSection');
+                const supplierCreditSection = document.getElementById('supplierCreditSection');
+                const writeOffSection = document.getElementById('writeOffSection');
+                const optionCreditSupplier = document.getElementById('optionCreditSupplier');
+                const optionWriteOff = document.getElementById('optionWriteOff');
+                const balanceAmountSpan = document.getElementById('balanceAmount');
+                const balanceAmountWriteOffSpan = document.getElementById('balanceAmountWriteOff');
+
+                // Function to update balance display
+                function updateBalanceDisplay(balanceAmount) {
+                    balanceAmountSpan.textContent = balanceAmount.toFixed(2);
+                    balanceAmountWriteOffSpan.textContent = balanceAmount.toFixed(2);
+                }
+
+                // Function to toggle sections
+                function toggleSections() {
+                    const refundAmount = parseFloat(returnAmountInput.value) || 0;
+                    const balanceAmount = originalAmount - refundAmount;
+                    const isPartialRefund = refundAmount > 0 && balanceAmount > 0;
+                    const isFullRefund = refundAmount >= originalAmount;
+                    const isNoRefund = refundAmount === 0 && originalAmount > 0;
+
+                    // Update balance display
+                    if (isPartialRefund || isNoRefund) {
+                        updateBalanceDisplay(balanceAmount);
+                    }
+
+                    // Reset all sections
+                    refundAccountSection.style.display = 'none';
+                    partialRefundOptionsSection.style.display = 'none';
+                    supplierCreditSection.style.display = 'none';
+                    writeOffSection.style.display = 'none';
+
+                    // Reset required fields
+                    document.getElementById('refundAccount').required = false;
+                    document.getElementById('supplierCreditAccount').required = false;
+                    document.getElementById('lossAccount').required = false;
+
+                    loadInventoryReturnAccounts(); // Load inventory return accounts
+
+                    loadAssetRefundAccounts(); // Load asset refund accounts
+                    loadCreditReturnAccounts(); // Load credit return accounts
+                    loadfilterLossAccounts(); // Load loss accounts
+
+                    const today = new Date().toISOString().split('T')[0];
+                    document.getElementById('returnPostingDate').value = today;
+
+                    // 1. Full refund
+                    if (isFullRefund) {
+                        refundAccountSection.style.display = 'block';
+                        document.getElementById('refundAccount').required = true;
+
+
+                    }
+                    // 2. Partial refund
+                    else if (isPartialRefund) {
+                        refundAccountSection.style.display = 'block';
+                        partialRefundOptionsSection.style.display = 'block';
+                        document.getElementById('refundAccount').required = true;
+
+                        // Show either supplier credit or write-off for balance
+                        if (optionCreditSupplier.checked) {
+                            supplierCreditSection.style.display = 'block';
+                            document.getElementById('supplierCreditAccount').required = true;
+                        } else {
+                            writeOffSection.style.display = 'block';
+                            document.getElementById('lossAccount').required = true;
+                        }
+                    }
+                    // 3. No refund
+                    else if (isNoRefund) {
+                        partialRefundOptionsSection.style.display = 'block';
+
+                        if (optionCreditSupplier.checked) {
+                            supplierCreditSection.style.display = 'block';
+                            document.getElementById('supplierCreditAccount').required = true;
+                        } else {
+                            writeOffSection.style.display = 'block';
+                            document.getElementById('lossAccount').required = true;
+                        }
+                    }
+                }
+
+                // Set up event listeners
+                returnAmountInput.addEventListener('input', toggleSections);
+                optionCreditSupplier.addEventListener('change', toggleSections);
+                optionWriteOff.addEventListener('change', toggleSections);
+
+                // Initialize
+                toggleSections();
+            });
+        });
+    }
+
+
+    async function setupReturnItemModal(receiptId, receiptItemId, itemName) {
+        try {
+            // Fetch available quantity from server
+            const response = await fetch(`/api/receipt_items/${receiptItemId}/available_quantity`);
+            const data = await response.json();
+
+            console.log('Available quantity data:', data);
+
+            if (!response.ok) throw new Error(data.message || "Failed to get available quantity");
+
+            const availableQty = parseFloat(data.available_quantity);
+
+            document.getElementById('returnReceiptId').value = receiptId;
+            document.getElementById('returnReceiptItemId').value = receiptItemId;
+            document.getElementById('returnItemName').textContent = itemName;
+
+            console.log('Setting up Return Item Modal with:', {
+                receiptId, receiptItemId, itemName, availableQty
+            });
+
+            const quantityInput = document.getElementById('returnQuantity');
+            quantityInput.max = availableQty;
+            quantityInput.value = Math.min(1, availableQty).toFixed(2);
+            document.getElementById('maxReturnQuantity').textContent = availableQty;
+
+            // Set today's date as default
+            document.getElementById('returnDate').value = new Date().toISOString().split('T')[0];
+
+
+
+        } catch (error) {
+            console.error("Error setting up return modal:", error);
+            alert("Failed to initialize return. Please try again.");
+        }
+    }
+
+
+    // Cancel Return Modal
+    function setupCancelReturnModal(returnId) {
+        document.getElementById('cancelReturnId').value = returnId;
+    }
+
+
+
+    // Show/hide sections based on payment type
+    $('#postToLedgerModal').on('show.bs.modal', function (event) {
+        const trigger = $(event.relatedTarget);
+
+        // Get data attributes from the trigger
+        const allocationId = trigger.data('allocation-id');
+        const paymentAmount = trigger.data('payment-amount');
+        const paymentType = trigger.data('payment-type');
+        const hasInventory = trigger.data('has-inventory') === true || trigger.data('has-inventory') === 'true';
+        const hasNonInventory = trigger.data('has-non-inventory') === true || trigger.data('has-non-inventory') === 'true';
+        const hasService = trigger.data('has-service') === true || trigger.data('has-service') === 'true';
+        const hasTaxReceivable = trigger.data('has-tax-receivable') === true || trigger.data('has-tax-receivable') === 'true';
+        const hasTaxPayable = trigger.data('has-tax-payable') === true || trigger.data('has-tax-payable') === 'true';
+        const hasCreditPurchase = trigger.data('has-credit-purchase') === true || trigger.data('has-credit-purchase') === 'true';
+        const hasOtherExpenses = trigger.data('has-other-expenses') === true || trigger.data('has-other-expenses') === 'true';
+        const isFirstPayment = trigger.data('is-first-payment') === true || trigger.data('is-first-payment') === 'true';
+        const discountExists = trigger.data('discount-exists') === true || trigger.data('discount-exists') === 'true';
+        const canPost = trigger.data('can-post') === true || trigger.data('can-post') === 'True';
+
+        console.log('Post to Ledger Modal Triggered with:', {
+            allocationId, paymentAmount, paymentType, hasInventory, hasNonInventory, hasService,
+            hasTaxReceivable, hasTaxPayable, hasCreditPurchase, hasOtherExpenses, isFirstPayment, canPost, discountExists
+        });
+
+        // If can't post, show alert and prevent modal from opening
+        if (!canPost) {
+            event.preventDefault(); // Stop modal from showing
+            alert("Action Required:\n\nPlease complete and post the initial payment allocation before continuing.");
+
+            return;
+        }
+
+        // Set the values in the hidden inputs
+        $('#purchasePaymentId').val(allocationId);
+        $('#ledgerPurchaseOrderAmount').val(paymentAmount);
+
+        $('#paymentType').val(paymentType);
+        $('#hasInventory').val(hasInventory);
+        $('#hasNonInventory').val(hasNonInventory);
+        $('#hasService').val(hasService);
+        $('#hasTaxReceivable').val(hasTaxReceivable);
+        $('#hasTaxPayable').val(hasTaxPayable);
+        $('#hasCreditPurchase').val(hasCreditPurchase);
+        $('#hasOtherExpenses').val(hasOtherExpenses);
+        $('#isFirstPayment').val(isFirstPayment);
+        $('#discountExists').val(discountExists);
+
+
+
+        const flags = {
+            inventory: trigger.data('has-inventory') === true || trigger.data('has-inventory') === 'true',
+            nonInventory: trigger.data('has-non-inventory') === true || trigger.data('has-non-inventory') === 'true',
+            service: trigger.data('has-service') === true || trigger.data('has-service') === 'true',
+            creditPurchase: trigger.data('has-credit-purchase') === true || trigger.data('has-credit-purchase') === 'true',
+            otherExpenses: trigger.data('has-other-expenses') === true || trigger.data('has-other-expenses') === 'true',
+
+            discountExists: discountExists
+        };
+
+        // Define sections
+        const sections = {
+            inventory: $('#inventorySection'),
+            nonInventory: $('#nonInventoryExpenseSection'),
+            service: $('#serviceExpenseSection'),
+            creditPurchase: $('#accountPayableSection'),
+            otherExpenses: $('#otherExpenseSection'),
+            discountExists: $('#discountSection'),
+        };
+
+        // Logic based on whether it is the first payment
+        if (isFirstPayment) {
+            // Show all sections as before
+            for (const [key, section] of Object.entries(sections)) {
+                if (flags[key]) {
+                    section.show();
+                    sections.creditPurchase.hide();
+                    sections.creditPurchase.find('select[required]').removeAttr('required');
+
+                    // Add required attributes if the section is shown
+                    section.find('select[required]').attr('required', true);
+                } else {
+                    section.hide();
+                    // Remove required attributes if the section is hidden
+                    section.find('select[required]').removeAttr('required');
+                }
+            }
+        } else {
+            // If not the first payment, only show the credit purchase section
+            for (const [key, section] of Object.entries(sections)) {
+                if (key === 'creditPurchase' && flags.creditPurchase) {
+                    section.show();
+                    // Add required attributes if the section is shown
+                    section.find('select[required]').attr('required', true);
+                    // loadCreditAccounts(); // Load credit accounts if the section is shown
+                } else {
+                    section.hide();
+                    // Remove required attributes if the section is hidden
+                    section.find('select[required]').removeAttr('required');
+                }
+            }
+        }
+
+        // Load accounts only for the visible sections
+
+
+        if (flags.inventory) {
+            loadInventoryAccounts();
+        }
+        if (flags.nonInventory) {
+            loadNonInventoryExpenseAccounts();
+        }
+        if (flags.service) {
+            loadServiceExpenseAccounts();
+        }
+        if (flags.otherExpenses) {
+            loadOtherExpenseAccounts();
+        }
+        if (flags.discountExists) {
+            $('#discountSection').show();
+            $('#discountAccount').attr('required', true);
+            loadDiscountAccounts();
+        } else {
+            $('#discountSection').hide();
+            $('#discountAccount').removeAttr('required');
+        }
+    });
+
+
+
+
+
+
+    // Function to fetch and populate Asset Accounts
+
+    function loadAssetAccounts() {
+        fetch('/api/chart_of_accounts')  // Fetch the chart of accounts
+            .then(response => response.json())
+            .then(data => {
+                console.log('Chart of Accounts:', data);
+                const paymentCategoryDropdown = document.getElementById('assetAccount');
+                const fundingAccountDropdown = document.getElementById('fundingAccount');
+
+                // Filter Asset accounts and populate Payment Account Categories
+                const assetAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Asset');
+
+                // Populate Payment Account Category dropdown
+                paymentCategoryDropdown.innerHTML = '<option value="">Select Account Category</option>';
+                const categories = [...new Set(assetAccounts.map(account => account.category_id))];  // Get unique categories
+
+                // Check if categories exist
+                if (categories.length === 0) {
+                    alert("No categories found. Please add a Chart of Accounts first.");
+
+                    // Close the modal
+                    $(modal).modal('hide');  // If using Bootstrap modal
+
+                    return;  // Exit the function if no categories exist
+                }
+
+                // Populate category options
+                categories.forEach(categoryId => {
+                    const category = assetAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`  // Display account name as category
+                    paymentCategoryDropdown.appendChild(option);
+                });
+
+                // Reset Funding Account dropdown
+                fundingAccountDropdown.innerHTML = '<option value="">Select Payment Account</option>';
+            })
+            .catch(error => console.error('Error fetching chart of accounts:', error));
+    }
+
+    function filterFundingAccounts() {
+        const categoryId = document.getElementById('assetAccount').value;
+        const fundingAccountDropdown = document.getElementById('fundingAccount');
+
+        console.log('Filtering funding accounts for category ID:', categoryId);
+        // If no category is selected, reset the Funding Account dropdown
+        if (!categoryId) {
+            fundingAccountDropdown.innerHTML = '<option value="">Select Payment Account</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')  // Fetch the chart of accounts again
+            .then(response => response.json())
+            .then(data => {
+                // Filter subcategories based on selected category
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Asset');
+
+                // Populate Funding Account dropdown with filtered subcategories
+                fundingAccountDropdown.innerHTML = '<option value="">Select Payment Account</option>';  // Reset options
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;  // Display account name as subcategory
+                    fundingAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching funding accounts:', error));
+    }
+
+
+
+
+
+
+    // Function to fetch and populate Credit Accounts (Credit pruchase or Accounts payable)
+    function loadReceiptCreditAccounts() {
+        fetch('/api/chart_of_accounts')  // Fetch the chart of accounts
+            .then(response => response.json())
+            .then(data => {
+                console.log('Chart of Accounts:', data);
+                const creditCategoryDropdown = document.getElementById('receiptPayableAccountCategory');
+                const creditAccountDropdown = document.getElementById('receiptPayableAccount');
+
+                // Filter Revenue accounts (for Sales Revenue)
+                const revenueAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Liability');
+
+                // Populate Credit Account Category dropdown
+                creditCategoryDropdown.innerHTML = '<option value="">Select Payable Account Category</option>';
+                const categories = [...new Set(revenueAccounts.map(account => account.category_id))];  // Get unique categories
+
+                // Check if categories exist
+                if (categories.length === 0) {
+                    alert("No categories found. Please add a Chart of Accounts first.");
+                    return;  // Exit the function if no categories exist
+                }
+
+                // Populate category options
+                categories.forEach(categoryId => {
+                    const category = revenueAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;  // Display account name as category
+                    creditCategoryDropdown.appendChild(option);
+                });
+
+                // Reset Credit Account dropdown
+                creditAccountDropdown.innerHTML = '<option value="">Select Revenue Account</option>';
+            })
+            .catch(error => console.error('Error fetching chart of accounts:', error));
+    }
+
+    // Function to filter Credit Accounts based on selected category
+    function filterReceiptPayableAccounts() {
+        const categoryId = document.getElementById('receiptPayableAccountCategory').value;
+        const creditAccountDropdown = document.getElementById('receiptPayableAccount');
+
+        // If no category is selected, reset the Credit Account dropdown
+        if (!categoryId) {
+            creditAccountDropdown.innerHTML = '<option value="">Select Account Account Payable</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')  // Fetch the chart of accounts again
+            .then(response => response.json())
+            .then(data => {
+                // Filter subcategories based on selected category
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Liability');
+
+                // Populate Credit Account dropdown with filtered subcategories
+                creditAccountDropdown.innerHTML = '<option value="">Select Account Payable</option>';  // Reset options
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;  // Display account name as subcategory
+                    creditAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching credit accounts:', error));
+    }
+
+
+
+
+    // Function to fetch and populate Inventory Accounts
+    function loadInventoryAccounts() {
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const inventoryCategoryDropdown = document.getElementById('inventoryAccountCategory');
+                const inventoryAccountDropdown = document.getElementById('inventoryAccount');
+
+                // Filter Inventory accounts
+                const inventoryAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Asset');
+
+                // Populate Inventory Account Category dropdown
+                inventoryCategoryDropdown.innerHTML = '<option value="">Select Inventory Account Category</option>';
+                const categories = [...new Set(inventoryAccounts.map(account => account.category_id))];
+
+                if (categories.length === 0) {
+                    alert("No inventory categories found. Please add a Chart of Accounts first.");
+                    return;
+                }
+
+                categories.forEach(categoryId => {
+                    const category = inventoryAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    inventoryCategoryDropdown.appendChild(option);
+                });
+
+                // Reset Inventory Account dropdown
+                inventoryAccountDropdown.innerHTML = '<option value="">Select Inventory Account</option>';
+            })
+            .catch(error => console.error('Error fetching inventory accounts:', error));
+    }
+
+
+
+    // Function to filter Inventory Accounts based on selected category
+    function filterInventoryAccounts() {
+        const categoryId = document.getElementById('inventoryAccountCategory').value;
+        const inventoryAccountDropdown = document.getElementById('inventoryAccount');
+
+        if (!categoryId) {
+            inventoryAccountDropdown.innerHTML = '<option value="">Select Inventory Account</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Asset');
+
+                inventoryAccountDropdown.innerHTML = '<option value="">Select Inventory Account</option>';
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    inventoryAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching inventory accounts:', error));
+    }
+
+
+
+    // Function to Expense
+    function loadNonInventoryExpenseAccounts() {
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const cogsCategoryDropdown = document.getElementById('expenseAccountCategory');
+                const expenseAccountDropdown = document.getElementById('expenseAccount');
+
+                // Filter COGS accounts
+                const expenseAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Expense');
+
+                // Populate COGS Account Category dropdown
+                cogsCategoryDropdown.innerHTML = '<option value="">Select Expense Account Category</option>';
+                const categories = [...new Set(expenseAccounts.map(account => account.category_id))];
+
+                if (categories.length === 0) {
+                    alert("No COGS categories found. Please add a Chart of Accounts first.");
+                    return;
+                }
+
+                categories.forEach(categoryId => {
+                    const category = expenseAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    cogsCategoryDropdown.appendChild(option);
+                });
+
+                // Reset COGS Account dropdown
+                expenseAccountDropdown.innerHTML = '<option value="">Select Expense Account</option>';
+            })
+            .catch(error => console.error('Error fetching COGS accounts:', error));
+    }
+
+    // Function to filterexpense
+    function filterNonInventoryExpenseAccounts() {
+        const categoryId = document.getElementById('expenseAccountCategory').value;
+        const expenseAccountDropdown = document.getElementById('expenseAccount');
+
+        if (!categoryId) {
+            expenseAccountDropdown.innerHTML = '<option value="">Select Expense Account</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Expense');
+
+                expenseAccountDropdown.innerHTML = '<option value="">Select Expense Account</option>';
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    expenseAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching COGS accounts:', error));
+    }
+
+    // Function to Expense
+    function loadServiceExpenseAccounts() {
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const cogsCategoryDropdown = document.getElementById('serviceExpenseAccountCategory');
+                const expenseAccountDropdown = document.getElementById('serviceExpenseAccount');
+
+                // Filter COGS accounts
+                const expenseAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Expense');
+
+                // Populate COGS Account Category dropdown
+                cogsCategoryDropdown.innerHTML = '<option value="">Select Expense Account Category</option>';
+                const categories = [...new Set(expenseAccounts.map(account => account.category_id))];
+
+                if (categories.length === 0) {
+                    alert("No COGS categories found. Please add a Chart of Accounts first.");
+                    return;
+                }
+
+                categories.forEach(categoryId => {
+                    const category = expenseAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    cogsCategoryDropdown.appendChild(option);
+                });
+
+                // Reset COGS Account dropdown
+                expenseAccountDropdown.innerHTML = '<option value="">Select Expense Account</option>';
+            })
+            .catch(error => console.error('Error fetching Expense accounts:', error));
+    }
+
+    // Function to filterexpense
+    function filterServiceExpenseAccounts() {
+        const categoryId = document.getElementById('serviceExpenseAccountCategory').value;
+        const expenseAccountDropdown = document.getElementById('serviceExpenseAccount');
+
+        if (!categoryId) {
+            expenseAccountDropdown.innerHTML = '<option value="">Select Expense Account</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Expense');
+
+                expenseAccountDropdown.innerHTML = '<option value="">Select Expense Account</option>';
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    expenseAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching COGS accounts:', error));
+    }
+
+
+
+    // Function to Expense
+    function loadOtherExpenseAccounts() {
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const cogsCategoryDropdown = document.getElementById('otherExpenseAccountCategory');
+                const expenseAccountDropdown = document.getElementById('otherExpenseAccount');
+
+                // Filter COGS accounts
+                const expenseAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Expense');
+
+                // Populate COGS Account Category dropdown
+                cogsCategoryDropdown.innerHTML = '<option value="">Select Expense Account Category</option>';
+                const categories = [...new Set(expenseAccounts.map(account => account.category_id))];
+
+                if (categories.length === 0) {
+                    alert("No COGS categories found. Please add a Chart of Accounts first.");
+                    return;
+                }
+
+                categories.forEach(categoryId => {
+                    const category = expenseAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    cogsCategoryDropdown.appendChild(option);
+                });
+
+                // Reset COGS Account dropdown
+                expenseAccountDropdown.innerHTML = '<option value="">Select Expense Account</option>';
+            })
+            .catch(error => console.error('Error fetching COGS accounts:', error));
+    }
+
+    // Function to filterexpense
+    function filterOtherExpenseAccounts() {
+        const categoryId = document.getElementById('otherExpenseAccountCategory').value;
+        const expenseAccountDropdown = document.getElementById('otherExpenseAccount');
+
+        if (!categoryId) {
+            expenseAccountDropdown.innerHTML = '<option value="">Select Expense Account</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Expense');
+
+                expenseAccountDropdown.innerHTML = '<option value="">Select Expense Account</option>';
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    expenseAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching COGS accounts:', error));
+    }
+
+
+
+
+
+    // Function to fetch and populate Prepaid Accounts
+    function loadPrepaidAccounts() {
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Prepaid Accounts Data:', data);
+                const prepaidCategoryDropdown = document.getElementById('prepaidAccountCategory');
+
+                // Filter Prepaid accounts (Asset accounts with prepaid subtype)
+                const prepaidAccounts = data.chart_of_accounts.filter(account =>
+                    account.account_type === 'Asset'
+                );
+
+                // Populate Prepaid Account Category dropdown
+                prepaidCategoryDropdown.innerHTML = '<option value="">Select Prepaid Account Category</option>';
+                const categories = [...new Set(prepaidAccounts.map(account => account.category_id))];
+
+                // Check if categories exist
+                if (categories.length === 0) {
+                    console.warn("No prepaid account categories found");
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No prepaid categories available';
+                    prepaidCategoryDropdown.appendChild(option);
+                    return;
+                }
+
+                // Populate category options
+                categories.forEach(categoryId => {
+                    const category = prepaidAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    prepaidCategoryDropdown.appendChild(option);
+                });
+
+                // Reset Prepaid Account dropdown
+                document.getElementById('prepaidAccount').innerHTML = '<option value="">Select Prepaid Account</option>';
+            })
+            .catch(error => console.error('Error fetching prepaid accounts:', error));
+    }
+
+    // Function to filter prepaid accounts based on selected category
+    function filterPrepaidAccounts() {
+        const categoryId = document.getElementById('prepaidAccountCategory').value;
+        const prepaidAccountDropdown = document.getElementById('prepaidAccount');
+
+        console.log('Filtering prepaid accounts for category ID:', categoryId);
+
+        // If no category is selected, reset the dropdown
+        if (!categoryId) {
+            prepaidAccountDropdown.innerHTML = '<option value="">Select Prepaid Account</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                // Filter prepaid accounts for selected category
+                const prepaidAccounts = data.chart_of_accounts.filter(account =>
+                    account.category_id == categoryId &&
+                    account.account_type === 'Asset'
+                );
+
+                // Populate Prepaid Account dropdown
+                prepaidAccountDropdown.innerHTML = '<option value="">Select Prepaid Account</option>';
+
+                if (prepaidAccounts.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No prepaid accounts in this category';
+                    prepaidAccountDropdown.appendChild(option);
+                    return;
+                }
+
+                prepaidAccounts.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = `${account.sub_category} - ${account.sub_category_code}`;
+                    prepaidAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error filtering prepaid accounts:', error));
+    }
+
+    function setupEditPaymentModal(transactionId) {
+        fetch(`/api/get_purchase_payment_details/${transactionId}`)
+            .then(response => response.json())
+            .then(responseData => {
+                if (!responseData.success) {
+                    console.error('Error fetching data:', responseData.message);
+                    return;
+                }
+
+                let data = responseData.data;
+                console.log('Transaction Data:', data);
+
+                // Populate basic fields
+                document.getElementById('editTransactionId').value = transactionId;
+                document.getElementById('editAmount').value = data.amount_paid;
+                document.getElementById('editPaymentDate').value = data.payment_date;
+                document.getElementById('editReference').value = data.reference_number || '';
+
+
+                // Set payment method dropdown
+                if (data.payment_method_id) {
+                    document.getElementById('editPaymentMethod').value = data.payment_method_id;
+                }
+
+                // Select elements
+                const assetAccountSelect = document.getElementById('editAssetAccount');
+                const fundingAccountSelect = document.getElementById('editFundingAccount');
+
+                // Function to ensure correct selection
+                function setSelectValue(selectElement, value, text) {
+                    let option = selectElement.querySelector(`option[value="${value}"]`);
+                    if (option) {
+                        selectElement.value = value; // Select existing option
+                    } else {
+                        // Create and add the missing option
+                        let newOption = document.createElement('option');
+                        newOption.value = value;
+                        newOption.textContent = text;
+                        selectElement.appendChild(newOption);
+                        selectElement.value = value;
+                    }
+                }
+
+                // Set dropdown values
+                if (data.asset_account_category) {
+                    setSelectValue(assetAccountSelect, data.asset_account_category, data.asset_account_category_name);
+                }
+                if (data.asset_account_id) {
+                    setSelectValue(fundingAccountSelect, data.asset_account_id, data.asset_account_subcategory_name);
+                }
+
+
+
+                // Show status field if payment is posted to ledger
+                if (data.is_posted_to_ledger) {
+
+                    console.log('Payment has been posted to ledger:', data.is_posted_to_ledger);
+
+                    console.log('Status:', data.is_posted_to_ledger);
+                    ledgerPostedWarning.style.display = 'block';  // Show the warning message
+
+                    // Disable fields to prevent editing after posting
+                    ['editAssetAccount', 'editFundingAccount'].forEach(id => {
+                        document.getElementById(id).disabled = true;
+                    });
+                }
+
+
+                // Load accounts only when payment account field is focused
+                assetAccountSelect.addEventListener('focus', function () {
+                    if (!assetAccountSelect.dataset.loaded) {
+                        loadEditAssetAccounts();
+                        assetAccountSelect.dataset.loaded = "true"; // Mark as loaded
+                    }
+                });
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+
+    // Function to fetch and populate Asset Accounts
+
+    function loadEditAssetAccounts() {
+        fetch('/api/chart_of_accounts')  // Fetch the chart of accounts
+            .then(response => response.json())
+            .then(data => {
+                console.log('Chart of Accounts:', data);
+                const paymentCategoryDropdown = document.getElementById('editAssetAccount');
+                const fundingAccountDropdown = document.getElementById('editFundingAccount');
+
+                // Filter Asset accounts and populate Payment Account Categories
+                const assetAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Asset');
+
+                // Populate Payment Account Category dropdown
+                paymentCategoryDropdown.innerHTML = '<option value="">Select Account Category</option>';
+                const categories = [...new Set(assetAccounts.map(account => account.category_id))];  // Get unique categories
+
+                // Check if categories exist
+                if (categories.length === 0) {
+                    alert("No categories found. Please add a Chart of Accounts first.");
+
+                    // Close the modal
+                    $(modal).modal('hide');  // If using Bootstrap modal
+
+                    return;  // Exit the function if no categories exist
+                }
+
+                // Populate category options
+                categories.forEach(categoryId => {
+                    const category = assetAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`  // Display account name as category
+                    paymentCategoryDropdown.appendChild(option);
+                });
+
+                // Reset Funding Account dropdown
+                fundingAccountDropdown.innerHTML = '<option value="">Select Payment Account</option>';
+            })
+            .catch(error => console.error('Error fetching chart of accounts:', error));
+    }
+
+    function filterEditFundingAccounts() {
+        const categoryId = document.getElementById('editAssetAccount').value;
+        const fundingAccountDropdown = document.getElementById('editFundingAccount');
+
+        console.log('Filtering funding accounts for category ID:', categoryId);
+        // If no category is selected, reset the Funding Account dropdown
+        if (!categoryId) {
+            fundingAccountDropdown.innerHTML = '<option value="">Select Payment Account</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')  // Fetch the chart of accounts again
+            .then(response => response.json())
+            .then(data => {
+                // Filter subcategories based on selected category
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Asset');
+
+                // Populate Funding Account dropdown with filtered subcategories
+                fundingAccountDropdown.innerHTML = '<option value="">Select Payment Account</option>';  // Reset options
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;  // Display account name as subcategory
+                    fundingAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching funding accounts:', error));
+    }
+
+
+
+    // Setup function for cancel modal
+    function setupCancelModal(transactionId, isPostedToLedger) {
+        document.getElementById('cancelTransactionId').value = transactionId;
+
+        const warningDiv = document.getElementById('ledgerWarning');
+        if (isPostedToLedger) {
+            warningDiv.style.display = 'block';
+            document.getElementById('cancelMessage').textContent =
+                'This payment has been posted to ledger. Are you sure you want to cancel and create a reversal entry?';
+        } else {
+            warningDiv.style.display = 'none';
+            document.getElementById('cancelMessage').textContent =
+                'Are you sure you want to cancel this payment?';
+        }
+    }
+
+
+    function setupEditReceiptModal(receiptId, receiptItemId) {
+        // Clear all form fields and reset buttons
+        const form = document.getElementById('editReceiptForm');
+        if (form) {
+            // Reset form fields
+            form.reset();
+
+            // Manually clear non-form elements
+            document.getElementById('editItemName').value = '';
+
+            // Remove any existing ledger warning
+            const existingWarning = form.querySelector('.alert-warning');
+            if (existingWarning) {
+                existingWarning.remove();
+            }
+
+            // Reset all fields and buttons to default state
+            const elementsToReset = [
+                'editQuantityReceived',
+                'editReceivedCondition',
+                'editReceiptId',
+                'editReceiptItemId',
+                'editReceiptNumber',
+                'editReceiptDate',
+                'editReceivedBy',
+                'editReceiptNotes'
+            ];
+
+            elementsToReset.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.disabled = false;
+                    element.classList.remove('disabled-field');
+                    element.value = '';
+                }
+            });
+
+            // Reset submit button
+            const submitButton = form.querySelector('button[type="submit"]');
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.classList.remove('disabled-btn');
+
+                // Reset button content if it was modified
+                if (submitButton.dataset.originalHtml) {
+                    submitButton.innerHTML = submitButton.dataset.originalHtml;
+                } else {
+                    submitButton.innerHTML = 'Save Changes';
+                }
+            }
+        }
+
+        // Now fetch and populate new data
+        fetch(`/api/get_goods_receipt_details/${receiptId}/${receiptItemId}`)
+            .then(response => response.json())
+            .then(responseData => {
+                if (!responseData.success) {
+                    console.error('Error fetching receipt details:', responseData.message);
+                    alert('Failed to load receipt details: ' + responseData.message);
+                    return;
+                }
+
+                const data = responseData.data;
+                console.log('Receipt Data:', data);
+
+                // Populate form fields
+                document.getElementById('editReceiptId').value = data.receipt_id;
+                document.getElementById('editReceiptItemId').value = data.receipt_item_id;
+                document.getElementById('editReceiptNumber').value = data.receipt_number;
+                document.getElementById('editReceiptDate').value = data.receipt_date;
+                document.getElementById('editReceivedBy').value = data.received_by;
+                document.getElementById('editItemName').value = data.item_name;
+                document.getElementById('editQuantityReceived').value = data.quantity_received;
+                document.getElementById('editReceiptNotes').value = data.notes || '';
+
+                // Set the received condition value
+                const conditionSelect = document.getElementById('editReceivedCondition');
+                if (conditionSelect) {
+                    conditionSelect.value = data.received_condition || 'good';
+                    console.log('Set received condition to:', conditionSelect.value);
+                } else {
+                    console.error('Condition select element not found');
+                }
+
+                // Disable fields if posted to ledger
+                if (data.is_posted_to_ledger) {
+                    const fields = ['editQuantityReceived', 'editReceivedCondition'];
+                    fields.forEach(field => {
+                        const element = document.getElementById(field);
+                        if (element) {
+                            element.disabled = true;
+                            element.classList.add('disabled-field');
+                        }
+                    });
+
+                    // Add tooltip or explanation
+                    const warningDiv = document.createElement('div');
+                    warningDiv.className = 'alert alert-warning mt-3';
+                    warningDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> This receipt has been posted to ledger. Some fields cannot be edited.';
+                    document.querySelector('#editReceiptForm .modal-body').appendChild(warningDiv);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching receipt details:', error);
+                alert('Failed to load receipt details. Please try again.');
+            });
+    }
+
+
+    // Setup function for cancel receipt modal
+    function setupCancelReceiptModal(receiptId, receiptItemId, isPostedToLedger) {
+        document.getElementById('cancelReceiptId').value = receiptId;
+        document.getElementById('cancelReceiptItemId').value = receiptItemId;
+
+        const warningDiv = document.getElementById('receiptLedgerWarning');
+        if (isPostedToLedger) {
+            warningDiv.style.display = 'block';
+            document.getElementById('cancelReceiptMessage').textContent =
+                'This receipt has been posted to ledger. Are you sure you want to cancel and create a reversal entry?';
+        } else {
+            warningDiv.style.display = 'none';
+            document.getElementById('cancelReceiptMessage').textContent =
+                'Are you sure you want to cancel this receipt item?';
+        }
+    }
+
+
+
+    // Return modal accounts section loads
+
+    // Function to fetch and populate Inventory Accounts
+    function loadInventoryReturnAccounts() {
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const inventoryCategoryDropdown = document.getElementById('inventoryReturnAccountCategory');
+                const inventoryAccountDropdown = document.getElementById('inventoryReturnAccount');
+
+                // Filter Inventory accounts
+                const inventoryAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Asset');
+
+                // Populate Inventory Account Category dropdown
+                inventoryCategoryDropdown.innerHTML = '<option value="">Select Inventory Return Category</option>';
+                const categories = [...new Set(inventoryAccounts.map(account => account.category_id))];
+
+                if (categories.length === 0) {
+                    alert("No inventory categories found. Please add a Chart of Accounts first.");
+                    return;
+                }
+
+                categories.forEach(categoryId => {
+                    const category = inventoryAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    inventoryCategoryDropdown.appendChild(option);
+                });
+
+                // Reset Inventory Account dropdown
+                inventoryAccountDropdown.innerHTML = '<option value="">Select Inventory Return Category</option>';
+            })
+            .catch(error => console.error('Error fetching inventory accounts:', error));
+    }
+
+    // Function to filter Inventory Accounts based on selected category
+    function filterInventoryReturnAccounts() {
+        const categoryId = document.getElementById('inventoryReturnAccountCategory').value;
+        const inventoryAccountDropdown = document.getElementById('inventoryReturnAccount');
+
+        if (!categoryId) {
+            inventoryAccountDropdown.innerHTML = '<option value="">Select Inventory Return Account</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Asset');
+
+                inventoryAccountDropdown.innerHTML = '<option value="">Select Inventory Return Account</option>';
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    inventoryAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching inventory accounts:', error));
+    }
+
+    function loadAssetRefundAccounts() {
+        fetch('/api/chart_of_accounts')  // Fetch the chart of accounts
+            .then(response => response.json())
+            .then(data => {
+                console.log('Chart of Accounts:', data);
+                const paymentCategoryDropdown = document.getElementById('refundAccountCategory');
+                const fundingAccountDropdown = document.getElementById('refundAccount');
+
+                // Filter Asset accounts and populate Payment Account Categories
+                const assetAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Asset');
+
+                // Populate Payment Account Category dropdown
+                paymentCategoryDropdown.innerHTML = '<option value="">Select Refund Account Category</option>';
+                const categories = [...new Set(assetAccounts.map(account => account.category_id))];  // Get unique categories
+
+                // Check if categories exist
+                if (categories.length === 0) {
+                    alert("No categories found. Please add a Chart of Accounts first.");
+
+                    // Close the modal
+                    $(modal).modal('hide');  // If using Bootstrap modal
+
+                    return;  // Exit the function if no categories exist
+                }
+
+                // Populate category options
+                categories.forEach(categoryId => {
+                    const category = assetAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`  // Display account name as category
+                    paymentCategoryDropdown.appendChild(option);
+                });
+
+                // Reset Funding Account dropdown
+                fundingAccountDropdown.innerHTML = '<option value="">Select Refund Account</option>';
+            })
+            .catch(error => console.error('Error fetching chart of accounts:', error));
+    }
+
+    function filterRefundAccounts() {
+        const categoryId = document.getElementById('refundAccountCategory').value;
+        const fundingAccountDropdown = document.getElementById('refundAccount');
+
+        console.log('Filtering funding accounts for category ID:', categoryId);
+        // If no category is selected, reset the Funding Account dropdown
+        if (!categoryId) {
+            fundingAccountDropdown.innerHTML = '<option value="">Select Refund Account Category</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')  // Fetch the chart of accounts again
+            .then(response => response.json())
+            .then(data => {
+                // Filter subcategories based on selected category
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Asset');
+
+                // Populate Funding Account dropdown with filtered subcategories
+                fundingAccountDropdown.innerHTML = '<option value="">Select Refund Account</option>';  // Reset options
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;  // Display account name as subcategory
+                    fundingAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching funding accounts:', error));
+    }
+
+
+    // Function to fetch and populate Credit Accounts (Credit pruchase or Accounts payable)
+    function loadCreditReturnAccounts() {
+        fetch('/api/chart_of_accounts')  // Fetch the chart of accounts
+            .then(response => response.json())
+            .then(data => {
+                console.log('Chart of Accounts:', data);
+                const creditCategoryDropdown = document.getElementById('supplierCreditAccountCategory');
+                const creditAccountDropdown = document.getElementById('supplierCreditAccount');
+
+                // Filter Revenue accounts (for Sales Revenue)
+                const revenueAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Liability');
+
+                // Populate Credit Account Category dropdown
+                creditCategoryDropdown.innerHTML = '<option value="">Select Supplier Account Category</option>';
+                const categories = [...new Set(revenueAccounts.map(account => account.category_id))];  // Get unique categories
+
+                // Check if categories exist
+                if (categories.length === 0) {
+                    alert("No categories found. Please add a Chart of Accounts first.");
+                    return;  // Exit the function if no categories exist
+                }
+
+                // Populate category options
+                categories.forEach(categoryId => {
+                    const category = revenueAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;  // Display account name as category
+                    creditCategoryDropdown.appendChild(option);
+                });
+
+                // Reset Credit Account dropdown
+                creditAccountDropdown.innerHTML = '<option value="">Select Supplier Account</option>';
+            })
+            .catch(error => console.error('Error fetching chart of accounts:', error));
+    }
+
+    // Function to filter Credit Accounts based on selected category
+    function filterSupplierCreditAccounts() {
+        const categoryId = document.getElementById('supplierCreditAccountCategory').value;
+        const creditAccountDropdown = document.getElementById('supplierCreditAccount');
+
+        // If no category is selected, reset the Credit Account dropdown
+        if (!categoryId) {
+            creditAccountDropdown.innerHTML = '<option value="">Select Supplier Account</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')  // Fetch the chart of accounts again
+            .then(response => response.json())
+            .then(data => {
+                // Filter subcategories based on selected category
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Liability');
+
+                // Populate Credit Account dropdown with filtered subcategories
+                creditAccountDropdown.innerHTML = '<option value="">Select Supplier Account</option>';  // Reset options
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;  // Display account name as subcategory
+                    creditAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching credit accounts:', error));
+    }
+
+
+    // Function to Expense
+    function loadfilterLossAccounts() {
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const cogsCategoryDropdown = document.getElementById('lossAccountCategory');
+                const expenseAccountDropdown = document.getElementById('lossAccount');
+
+                // Filter COGS accounts
+                const expenseAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Expense');
+
+                // Populate COGS Account Category dropdown
+                cogsCategoryDropdown.innerHTML = '<option value="">Select Loss Account Category</option>';
+                const categories = [...new Set(expenseAccounts.map(account => account.category_id))];
+
+                if (categories.length === 0) {
+                    alert("No COGS categories found. Please add a Chart of Accounts first.");
+                    return;
+                }
+
+                categories.forEach(categoryId => {
+                    const category = expenseAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    cogsCategoryDropdown.appendChild(option);
+                });
+
+                // Reset COGS Account dropdown
+                expenseAccountDropdown.innerHTML = '<option value="">Select Loss Account Category</option>';
+            })
+            .catch(error => console.error('Error fetching COGS accounts:', error));
+    }
+
+    // Function to filterexpense
+    function filterLossAccounts() {
+        const categoryId = document.getElementById('lossAccountCategory').value;
+        const expenseAccountDropdown = document.getElementById('lossAccount');
+
+        if (!categoryId) {
+            expenseAccountDropdown.innerHTML = '<option value="">Select Loss Account</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Expense');
+
+                expenseAccountDropdown.innerHTML = '<option value="">Select Loss Account</option>';
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    expenseAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching COGS accounts:', error));
+    }
+
+
+    function loadDiscountAccounts() {
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const discountCategoryDropdown = document.getElementById('discountAccountCategory');
+                const discountAccountDropdown = document.getElementById('discountAccount');
+
+                // Filter Discount accounts
+                const discountAccounts = data.chart_of_accounts.filter(account => account.account_type === 'Income');
+
+                // Populate Discount Account Category dropdown
+                discountCategoryDropdown.innerHTML = '<option value="">Select Discount Account Category</option>';
+                const categories = [...new Set(discountAccounts.map(account => account.category_id))];
+
+                if (categories.length === 0) {
+                    alert("No discount categories found. Please add a Chart of Accounts first.");
+                    return;
+                }
+
+                categories.forEach(categoryId => {
+                    const category = discountAccounts.find(account => account.category_id === categoryId);
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = `${category.category} - ${category.category_code}`;
+                    discountCategoryDropdown.appendChild(option);
+                });
+
+                // Reset Discount Account dropdown
+                discountAccountDropdown.innerHTML = '<option value="">Select Discount Account</option>';
+            })
+            .catch(error => console.error('Error fetching discount accounts:', error));
+    }
+
+    function filterDiscountAccounts() {
+        const categoryId = document.getElementById('discountAccountCategory').value;
+        const discountAccountDropdown = document.getElementById('discountAccount');
+
+        if (!categoryId) {
+            discountAccountDropdown.innerHTML = '<option value="">Select Discount Account</option>';
+            return;
+        }
+
+        fetch('/api/chart_of_accounts')
+            .then(response => response.json())
+            .then(data => {
+                const subcategories = data.chart_of_accounts.filter(account => account.category_id == categoryId && account.account_type === 'Income');
+
+                discountAccountDropdown.innerHTML = '<option value="">Select Discount Account</option>';
+                subcategories.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.sub_category_id;
+                    option.textContent = account.sub_category + ' - ' + account.sub_category_code;
+                    discountAccountDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching discount accounts:', error));
+    }
+
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+
+        setupReturnPostToLedger();
+
+        // In your cancel modal form submission
+        document.getElementById('cancelPaymentForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+
+            try {
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    body: new FormData(this)
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('cancelConfirmModal'));
+                    modal.hide();
+
+                    if (data.requires_reversal) {
+                        // Show special alert for posted transactions
+                        Swal.fire({
+                            title: 'Cancellation Complete',
+                            html: `Payment marked as cancelled.<br><br>
+                           <strong>Important:</strong> This transaction was posted to ledger.
+                           Please create manual reversal entries in the journal.`,
+                            icon: 'warning',
+                            confirmButtonText: 'Go to Journal',
+                            showCancelButton: true,
+                            cancelButtonText: 'Close'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = '/journal/new?reference=CANCEL-' + data.transaction_id;
+                            } else {
+                                window.location.reload();
+                            }
+                        });
+                    } else {
+                        showNotification('Payment cancelled successfully', 'success');
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                } else {
+                    showNotification(data.message, 'errror');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('An error occurred while cancelling the payment', 'error');
+            } finally {
+                submitBtn.disabled = False;
+                submitBtn.textContent = 'Confirm Cancellation';
+            }
+        });
+
+
+        // Cancel receipt form submission
+        document.getElementById('cancelReceiptForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('cancelReceiptSubmitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+
+            try {
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    body: new FormData(this)
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('cancelReceiptModal'));
+                    modal.hide();
+
+                    if (data.requires_reversal) {
+                        // Show special alert for posted transactions
+                        Swal.fire({
+                            title: 'Cancellation Complete',
+                            html: `Receipt marked as cancelled.<br><br>
+                    <strong>Important:</strong> This receipt was posted to ledger.
+                    Please create manual reversal entries in the journal.`,
+                            icon: 'warning',
+                            confirmButtonText: 'Go to Journal',
+                            showCancelButton: true,
+                            cancelButtonText: 'Close'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = '/journal/new?reference=CANCEL-RECEIPT-' + data.receipt_id;
+                            } else {
+                                window.location.reload();
+                            }
+                        });
+                    } else {
+                        showNotification('Receipt cancelled successfully', 'success');
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                } else {
+                    showNotification(data.message || 'Failed to cancel receipt', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('An error occurred while cancelling the receipt', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Confirm Cancellation';
+            }
+        });
+
+
+        // Handle form submission
+        document.getElementById('editReceiptForm')?.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+
+
+
+
+            fetch(this.action, {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Receipt updated successfully', 'success');
+                        // Close modal and refresh after delay
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('editReceiptModal'));
+                        modal.hide();
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                        showNotification('Failed to update receipt' + data.message, 'error');
+
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while updating the receipt');
+
+                });
+        });
+
+
+        document.getElementById('add-goods-receipt-button')?.addEventListener('click', function () {
+            console.log('Add Goods Receipt button clicked');
+
+            // Set today's date as default
+            const today = new Date().toISOString().split('T')[0];
+            const receiptDateInput = document.getElementById('receiptDate');
+
+            if (receiptDateInput) {
+                receiptDateInput.value = today;
+            } else {
+                console.warn('Receipt date input not found');
+            }
+
+            // Show the modal
+            const goodsReceiptModal = new bootstrap.Modal(document.getElementById('addGoodsReceiptModal'));
+            goodsReceiptModal.show();
+        });
+
+
+        console.log('Purchase Order Details Page Loaded');
+
+
+
+        // JavaScript for approving and canceling direct_purchases
+        document.getElementById('approve-direct-purchase-button').addEventListener('click', function () {
+            const direct_purchaseId = "{{ direct_purchase.id }}";
+            const csrfTokenElement = document.querySelector('input[name="csrf_token"]');
+            const csrfToken = csrfTokenElement ? csrfTokenElement.value : "";
+
+            console.log('Approving direct purchase with ID:', direct_purchaseId);
+
+            fetch('/approve_direct_purchase', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    direct_purchase_id: direct_purchaseId
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        showNotification(data.message, "success");
+                        location.reload();
+                    } else {
+                        showNotification(data.message || "Failed to approve", "error");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification("An error occurred while approving the direct purchase.", "error");
+                });
+        });
+
+
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        // Cancel Direct Purchase functionality
+        const cancelPurchaseBtns = document.querySelectorAll(".cancel-direct-purchase-btn");
+
+        cancelPurchaseBtns.forEach(btn => {
+            btn.addEventListener("click", function () {
+                const purchaseId = this.getAttribute("data-purchase-id");
+                const purchaseNumber = this.getAttribute("data-purchase-number");
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+                Swal.fire({
+                    title: 'Cancel Purchase Transaction?',
+                    html: `Are you sure you want to cancel purchase transaction <strong>${purchaseNumber}</strong>?<br><br>
+                       <span class="text-warning"><i class="fas fa-exclamation-triangle"></i> This will reverse inventory and accounting entries.</span>`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, cancel purchase!',
+                    cancelButtonText: 'No, keep it',
+                    reverseButtons: true,
+                    customClass: {
+                        popup: 'custom-swal-popup',
+                        title: 'custom-swal-title',
+                        content: 'custom-swal-content',
+                        confirmButton: 'custom-swal-confirm-btn',
+                        cancelButton: 'custom-swal-cancel-btn',
+                        icon: 'custom-swal-icon'
+                    },
+                    showLoaderOnConfirm: true,
+                    preConfirm: () => {
+                        return fetch('/purchases/cancel_direct_purchase', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken
+                            },
+                            body: JSON.stringify({
+                                direct_purchase_id: purchaseId
+                            })
+                        })
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error(response.statusText);
+                                }
+                                return response.json();
+                            })
+                            .catch(error => {
+                                Swal.showValidationMessage(`Request failed: ${error}`);
+                            });
+                    },
+                    allowOutsideClick: () => !Swal.isLoading()
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        if (result.value && result.value.success) {
+                            showNotification(
+                                `Purchase transaction <strong>${purchaseNumber}</strong> has been cancelled successfully.`,
+                                'success'
+                            );
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            const errorMessage = result.value && result.value.message
+                                ? result.value.message
+                                : "An error occurred while cancelling the purchase transaction.";
+
+                            showNotification("error", errorMessage);
+                        }
+                    }
+                });
+            });
+        });
+    });
+
+</script>
+
+{% endblock %}

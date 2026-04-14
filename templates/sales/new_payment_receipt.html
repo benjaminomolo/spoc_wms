@@ -1,0 +1,1017 @@
+{% extends "transaction_base_template.html" %} {% block content %}
+<script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
+<!-- Add Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+
+<!-- Add Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+
+<style>
+    /* Base styling */
+
+
+    .container {
+        display: flex;
+        gap: 20px;
+        width: 100%;
+        max-width: 1200px;
+        margin: 20px auto;
+    }
+
+    .receipt_sidebar {
+        width: 350px;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 10px;
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+
+    }
+
+    .receipt-main-content {
+        flex: 1;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+
+
+    .form-section {
+        margin-bottom: 20px;
+    }
+
+    .form-section h2 {
+        font-size: 1.25rem;
+        color: #34495e;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+
+
+    .line-item {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        background-color: #f8f9fa;
+    }
+
+    .line-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .line-item-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: #2c3e50;
+        font-weight: 600;
+    }
+
+    .line-item-header button {
+        background-color: #dc3545;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .line-item-header button:hover {
+        background-color: #c82333;
+    }
+
+    .add-line-item {
+        margin-bottom: 15px;
+    }
+
+    .add-line-item button {
+        background-color: #28a745;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .add-line-item button:hover {
+        background-color: #218838;
+    }
+
+    .discount-tax-section {
+        margin-top: 12px;
+    }
+
+    .discount-tax-section button {
+        background-color: #17a2b8;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        margin-right: 8px;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .discount-tax-section button:hover {
+        background-color: #138496;
+    }
+
+    .line-item-total {
+        font-weight: bold;
+        margin-top: 12px;
+        color: #2c3e50;
+        font-size: 0.9rem;
+    }
+
+    .general-total {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-top: 15px;
+        color: #007bff;
+    }
+
+    .file-upload-section {
+        margin-top: 15px;
+    }
+
+    .file-upload-section label {
+        font-weight: 500;
+        margin-bottom: 6px;
+        display: block;
+        color: #495057;
+    }
+
+    .file-upload-section input[type="file"] {
+        margin-bottom: 8px;
+    }
+
+    .notes-section {
+        margin-top: 12px;
+    }
+
+    .notes-section textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .inventory-dropdown {
+        display: none;
+    }
+
+    .inventory-dropdown.active {
+        display: block;
+    }
+
+    /* Confirmation Modal */
+    #confirmationModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+    }
+
+    #confirmationModal p {
+        margin-bottom: 15px;
+    }
+
+    #confirmationModal button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        margin-right: 10px;
+    }
+
+    #confirmDelete {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    #cancelDelete {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    /* Summary Section Styling */
+    .summary-section {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        margin-top: 15px;
+    }
+
+    .summary-section h3 {
+        font-size: 1.1rem;
+        color: #2c3e50;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    .summary-section p {
+        font-size: 0.9rem;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+
+    .summary-section p span {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+
+    /* Vendor Modal Styling */
+    #vendorModal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        width: 600px;
+        /* Adjust width as needed */
+
+        /* Ensure it doesn't overflow on small screens */
+        overflow-y: auto;
+        /* Enable vertical scrolling */
+        overflow-x: hidden;
+    }
+
+    #vendorModal h3 {
+        font-size: 1.25rem;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        font-weight: 600;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 6px;
+    }
+
+    #vendorModal .form-group {
+        margin-bottom: 15px;
+    }
+
+    #vendorModal label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 6px;
+        color: #495057;
+    }
+
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        #vendorModal {
+            width: 95%;
+            /* Increase width for medium screens */
+            padding: 15px;
+            /* Reduce padding for smaller screens */
+        }
+
+        #vendorModal h3 {
+            font-size: 1.1rem;
+            /* Reduce font size for smaller screens */
+        }
+    }
+
+    @media (max-width: 480px) {
+        #vendorModal {
+            width: 100%;
+            /* Full width for very small screens */
+            padding: 10px;
+            /* Further reduce padding */
+            border-radius: 0;
+            /* Remove border radius for full-width modals */
+        }
+
+        #vendorModal h3 {
+            font-size: 1rem;
+            /* Further reduce font size */
+        }
+
+        #vendorModal .form-group {
+            margin-bottom: 10px;
+            /* Reduce margin for smaller screens */
+        }
+
+        #vendorModal label {
+            font-size: 0.9rem;
+            /* Reduce label font size */
+        }
+    }
+
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+            /* Stack sidebar and main content vertically */
+        }
+
+        .receipt_sidebar,
+        .receipt-main-content {
+            width: 90%;
+            /* Full width on mobile */
+        }
+
+        .receipt_sidebar {
+            position: static;
+            /* Ensure sidebar doesn't overlap main content */
+            margin-bottom: 20px;
+            /* Add space between sidebar and main content */
+        }
+    }
+
+    @media (max-width: 480px) {
+
+        .receipt_sidebar,
+        .receipt-main-content {
+            padding: 15px;
+            /* Reduce padding for smaller screens */
+        }
+
+        .receipt_sidebar h2,
+        .receipt-main-content h1 {
+            font-size: 1.1rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .form-section h2 {
+            font-size: 1rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .line-item-header h3 {
+            font-size: 0.9rem;
+            /* Reduce font size for smaller screens */
+        }
+
+        .summary-section h3 {
+            font-size: 1rem;
+            /* Reduce font size for smaller screens */
+        }
+    }
+</style>
+
+<div class="content-container">
+
+    <div class="container">
+        <!-- receipt_sidebar -->
+        <div class="receipt_sidebar">
+
+            <div class="summary-section">
+                <h3>Summary</h3>
+                <p>
+                    receipt Number:
+                    <span id="summaryreceiptNumber">{{ payment_receipt_number }}</span>
+                </p>
+                <p>Customer: <span id="summaryCustomer">-</span></p>
+                <p>Currency: <span id="summaryCurrency">-</span></p>
+
+                <p>Amount Received: <span id="amountReceived">0.00</span></p>
+
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="receipt-main-content">
+            <h1>Record Payment Received</h1>
+            <form id="receiptForm" enctype="multipart/form-data">
+
+
+                <!-- Basic Information Section -->
+                <div class="form-section">
+                    <h2>Basic Information</h2>
+                    <div class="form-group">
+                        <label for="payment_receipt_number">Receipt Number</label>
+                        <input type="text" id="payment_receipt_number" name="payment_receipt_number"
+                            value="{{ payment_receipt_number }}" readonly />
+                    </div>
+                    <div class="form-group">
+                        <label for="receipt_date">Receipt Date <span class="required">*</span></label>
+                        <input type="date" id="receipt_date" name="receipt_date" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="customer_name">Customer <span class="required">*</span></label>
+                        <input type="text" id="customer_name" name="customer_name" list="customer_list" required
+                            placeholder="Select or type customer name">
+
+                        <datalist id="customer_list" auto-complete="off">
+                            {% for customer in customers %}
+                            <option value="{{ customer.vendor_name }}" data-id="{{ customer.id }}"></option>
+                            {% endfor %}
+                        </datalist>
+
+                        <!-- Hidden input to store the customer ID -->
+                        <input type="hidden" id="customer_id" name="customer_id">
+                    </div>
+
+
+
+
+                    <div class="form-group">
+                        <input type="hidden" id="is_one_time_hidden" name="is_one_time" value="0" />
+                    </div>
+
+                </div>
+
+                <!-- Payment Information Section -->
+                <div class="form-section">
+                    <h2>Payment Information</h2>
+
+                    <div class="form-group">
+                        <label for="amount_received">Amount Received <span class="required">*</span></label>
+                        <input type="text" id="amount_received" name="amount_received" required
+                            oninput="formatAmount(this)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="balance_due">Balance Due <span class="required">*</span></label>
+                        <input type="text" id="balance_due" name="balance_due" oninput="formatAmount(this)" required />
+                    </div>
+
+
+
+                    <div class="form-group">
+                        <label for="currency">Currency <span class="required">*</span></label>
+                        <select id="currency" name="currency" required>
+                            <option value="">Select Currency</option>
+                            {% for currency in currencies %}
+                            <option value="{{ currency.id }}">
+                                {{ currency.user_currency }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="payment_mode">Payment Mode <span class="required">*</span></label>
+                        <select id="payment_mode" name="payment_mode" required>
+                            <option value="">Select Payment Mode</option>
+                            {% for mode in payment_modes %}
+                            <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="reference_number">Reference Number</label>
+                        <input type="text" id="reference_number" name="reference_number" />
+                    </div>
+                    <div class="form-group">
+                        <label for="payment_description">Payment Description</label>
+                        <textarea id="payment_description" name="payment_description" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notes">Notes</label>
+                        <textarea id="notes" name="notes" rows="4"
+                            placeholder="Enter any additional notes here"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="received_by">Received by Name </label>
+                        <input type="text" id="received_by" name="received_by" />
+                    </div>
+                    <div class="form-group">
+                        <label for="issued_by">Issued by Name <span class="required">*</span></label>
+                        <input type="text" id="issued_by" name="issued_by" required />
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="button" class="button remove-button" onclick="window.history.back()">Cancel</button>
+                    <button type="submit" class="button cta-button">Save receipt</button>
+                </div>
+            </form>
+        </div>
+
+
+
+
+        <!-- Modal for New Customer -->
+        <div id="newCustomerModal" class="confirmationModal">
+            <p>"<span id="enteredCustomerName"></span>" is not in the database. Is this a one-time customer?</p>
+            <div>
+                <button id="oneTimeCustomerBtn" class="confirmDelete">Yes, One-Time Customer</button>
+                <button id="addToDatabaseBtn" class="cancelDelete">No, Add to Database</button>
+            </div>
+        </div>
+
+        <!-- Vendor Modal -->
+        <div id="vendorModal" style="display: none">
+            <div style="
+      background: white;
+      padding: 15px;
+      border: 1px solid #ccc;
+      width: 95%;
+      margin-right: 40px;
+      max-height: 80vh;
+      overflow-y: auto;
+    ">
+                <h3>Add New Client/Customer</h3>
+                <form id="vendorDetailsForm" method="POST" action="{{ url_for('general_ledger.add_vendor') }}">
+                    <!-- Party Type -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="vendorType">Party Type:</label>
+                            <select id="vendorType" name="vendorType" required>
+                                <option value="customer">Customer</option>
+                                <option value="vendor">Vendor</option>
+
+                                <option value="client">Client</option>
+                                <option value="partner">Partner</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Vendor Name -->
+                        <div class="form-group">
+                            <label for="vendorName">Name:</label>
+                            <input type="text" id="vendorName" name="vendorName" required />
+                        </div>
+
+                        <!-- Vendor ID -->
+                        <div class="form-group">
+                            <label for="vendorId">ID:</label>
+                            <input type="text" id="vendorId" name="vendorId" />
+                        </div>
+
+                        <!-- Designation -->
+                        <div class="form-group">
+                            <label for="designation">Designation:</label>
+                            <input type="text" id="designation" name="designation" />
+                        </div>
+
+                        <!-- Tel Contact -->
+                        <div class="form-group">
+                            <label for="telContact">Tel Contact:</label>
+                            <input type="text" id="telContact" name="telContact" />
+                        </div>
+
+                        <!-- Email Contact -->
+                        <div class="form-group">
+                            <label for="email">Email Contact:</label>
+                            <input type="text" id="email" name="email" />
+                        </div>
+
+                        <!-- Address -->
+                        <div class="form-group">
+                            <label for="address">Address:</label>
+                            <input type="text" id="address" name="address" />
+                        </div>
+
+                        <!-- City -->
+                        <div class="form-group">
+                            <label for="city">City:</label>
+                            <input type="text" id="city" name="city" />
+                        </div>
+
+                        <!-- State/Province -->
+                        <div class="form-group">
+                            <label for="stateProvince">State/Province:</label>
+                            <input type="text" id="stateProvince" name="stateProvince" />
+                        </div>
+
+                        <!-- Postal Code -->
+                        <div class="form-group">
+                            <label for="postalCode">Postal Code:</label>
+                            <input type="text" id="postalCode" name="postalCode" />
+                        </div>
+
+                        <!-- Country -->
+                        <div class="form-group">
+                            <label for="country">Country:</label>
+                            <select id="country" name="country">
+                                <option value="">Loading countries...</option>
+                            </select>
+                        </div>
+
+                        <!-- Website -->
+                        <div class="form-group">
+                            <label for="website">Website:</label>
+                            <input type="text" id="website" name="website" />
+                        </div>
+
+                        <!-- Payment Terms -->
+                        <div class="form-group">
+                            <label for="paymentTerms">Payment Terms:</label>
+                            <input type="text" id="paymentTerms" name="paymentTerms" />
+                        </div>
+
+                        <!-- Tax ID -->
+                        <div class="form-group">
+                            <label for="taxId">Tax ID:</label>
+                            <input type="text" id="taxId" name="taxId" />
+                        </div>
+
+                        <!-- Preferred Communication Method -->
+                        <div class="form-group">
+                            <label for="preferredCommunicationMethod">Preferred Communication Method:</label>
+                            <select id="preferredCommunicationMethod" name="preferredCommunicationMethod">
+                                <option value="Phone">Phone</option>
+                                <option value="Email">Email</option>
+                                <option value="Whatsapp">Whatsapp</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Primary Contact Person -->
+                        <div class="form-group">
+                            <label for="primaryContactPerson">Primary Contact Person:</label>
+                            <input type="text" id="primaryContactPerson" name="primaryContactPerson" />
+                        </div>
+
+                        <!-- Secondary Contact Person -->
+                        <div class="form-group">
+                            <label for="secondaryContactPerson">Secondary Contact Person:</label>
+                            <input type="text" id="secondaryContactPerson" name="secondaryContactPerson" />
+                        </div>
+
+                        <!-- Certifications -->
+                        <div class="form-group">
+                            <label for="certifications">Certifications:</label>
+                            <textarea id="certifications" name="certifications"></textarea>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="form-group">
+                            <label for="notes">Notes:</label>
+                            <textarea id="notes" name="notes"></textarea>
+                        </div>
+
+                        <!-- Submit and Close Buttons -->
+                        <div class="form-actions">
+                            <button type="submit" class="button cta-button">Save Client/Customer</button>
+                            <button type="button" class="button add-button" id="closeModal">Close</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+
+
+    </div>
+</div>
+<script>
+
+    // Fetch countries from the REST Countries API
+    fetch('https://restcountries.com/v3.1/all')
+        .then(response => response.json())
+        .then(data => {
+            const countrySelect = document.getElementById('country');
+            countrySelect.innerHTML = '<option value="">Select a country</option>'; // Clear loading message
+            data.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country.name.common;
+                option.textContent = country.name.common;
+                countrySelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching countries:', error);
+            document.getElementById('country').innerHTML = '<option value="">Failed to load countries</option>';
+        });
+    // Function to update summary section
+    function updateSummary() {
+        // Get the amount received value
+        const amountReceived = document.getElementById('amount_received').value || '0.00';
+
+        // Update totals in the summary
+        document.getElementById('amountReceived').textContent = amountReceived;
+
+        // Optionally, update the customer and currency section
+        const customerInput = document.getElementById('customer_name');
+        const currencySelect = document.getElementById('currency');
+
+        const customerName = customerInput.value.trim();
+        document.getElementById('summaryCustomer').textContent = customerName || '-';
+
+        const currencyText = currencySelect.options[currencySelect.selectedIndex].text;
+        document.getElementById('summaryCurrency').textContent = currencyText || '-';
+    }
+
+
+    document.getElementById('amount_received').addEventListener('input', updateSummary);
+    document.getElementById('customer_name').addEventListener('input', updateSummary);
+    document.getElementById('currency').addEventListener('change', updateSummary);
+
+
+
+    // Set today's date as the default value for the receipt date field
+    document.addEventListener('DOMContentLoaded', function () {
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        document.getElementById('receipt_date').value = formattedDate;
+    });
+
+
+
+    // Handle form submission for adding new vendors
+    document.getElementById('vendorDetailsForm').addEventListener('submit', function (e) {
+        e.preventDefault(); // Prevent default form submission
+        const vendorformData = new FormData(e.target);
+        const hiddenCustomerId = document.getElementById('customer_id');
+        const customerInput = document.getElementById('customer_name');
+
+        fetch('/general_ledger/add_vendor', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: vendorformData,
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                return response.json(); // Ensure server returns JSON
+            })
+            .then(data => {
+                if (data.success) {
+                    showNotification('Vendor added successfully!', 'success');
+
+                    // Add new option to the datalist dynamically
+                    let newOption = document.createElement('option');
+                    newOption.value = data.vendorName; // Ensure vendorName exists
+                    newOption.setAttribute('data-id', data.vendorId); // Assign data-id
+                    console.log('Vendor ID:', vendorformData.get('vendorId')); // Print the vendor ID
+                    document.getElementById('customer_list').appendChild(newOption);
+
+                    console.log('New option added:', newOption.value);
+
+                    // Pre-fill the input field with the new vendor name
+                    customerInput.value = newOption.value;
+                    hiddenCustomerId.value = data.vendorId; // Ensure hidden value also has the new ID
+                    console.log('Hidden Customer ID:', hiddenCustomerId.value);
+                    updateSummary(); // Update summary after adding new vendor
+                    // Hide modal & reset form
+                    vendorModal.style.display = 'none';
+                    e.target.reset();
+                } else {
+                    showNotification('Failed to add vendor: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while adding the vendor: ' + error.message);
+            });
+    });
+
+
+    /**
+     * Customer hanling logic
+     */
+    document.addEventListener('DOMContentLoaded', function () {
+        const customerInput = document.getElementById('customer_name');
+        const hiddenCustomerId = document.getElementById('customer_id');
+        const customerList = document.getElementById('customer_list').options;
+
+        // Update hidden customer_id based on user input
+        customerInput.addEventListener('input', function () {
+            const enteredValue = this.value.trim();
+            hiddenCustomerId.value = ''; // Clear hidden input initially
+            console.log(`Customer input: ${enteredValue}`); // Log entered value
+
+            // Check if the entered value matches a datalist option
+            for (let option of customerList) {
+                if (option.value.toLowerCase() === enteredValue.toLowerCase()) {
+                    hiddenCustomerId.value = option.getAttribute('data-id'); // Set customer_id if match found
+                    console.log(`Match found: ${option.value}, ID: ${hiddenCustomerId.value}`); // Log match
+                    break;
+                }
+            }
+        });
+
+        // Handle blur event to check if the customer is new
+        // Handle blur event to check if the customer is new
+        customerInput.addEventListener('blur', function () {
+            const enteredValue = this.value.trim();
+            console.log(`Customer input blur: ${enteredValue}`); // Log blur event
+
+            if (enteredValue === '') return; // Skip if empty
+
+            if (!hiddenCustomerId.value) {
+                // Handle new customer case
+                const modal = document.getElementById('newCustomerModal');
+                const enteredCustomerNameSpan = document.getElementById('enteredCustomerName');
+                const oneTimeCustomerBtn = document.getElementById('oneTimeCustomerBtn');
+                const addToDatabaseBtn = document.getElementById('addToDatabaseBtn');
+
+                // Set the entered customer name in the modal
+                enteredCustomerNameSpan.textContent = enteredValue;
+
+                // Show the modal
+                modal.style.display = 'block';
+
+                // Handle "One-Time Customer" button click
+                oneTimeCustomerBtn.addEventListener('click', function () {
+                    // Mark as one-time customer
+                    document.getElementById('is_one_time_hidden').value = '1';
+                    console.log('Marked as one-time customer'); // Log one-time customer
+
+                    // Close the modal
+                    modal.style.display = 'none';
+                });
+
+                // Handle "Add to Database" button click
+                addToDatabaseBtn.addEventListener('click', function () {
+                    // Open modal to add new customer
+                    document.getElementById('vendorName').value = enteredValue;
+                    document.getElementById('vendorModal').style.display = 'block';
+                    console.log('Opened modal to add new customer'); // Log modal opening
+
+                    // Close this modal
+                    modal.style.display = 'none';
+                });
+
+                // Close modal if user clicks outside of it
+                window.addEventListener('click', function (event) {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            }
+        });
+    });
+
+
+
+
+
+    // Handle the receipt form submission via AJAX
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log("DOM fully loaded and parsed.");
+
+        // Function to update the required attributes based on item type selection
+        function updateRequiredAttributes(row) {
+            let itemTypeSelect = row.querySelector('.item-type-field');
+            let itemField = row.querySelector('.item-field');
+            let inventoryDropdown = row.querySelector('.inventory-dropdown');
+
+            if (itemTypeSelect.value === 'inventory') {
+                console.log("Inventory item selected. Setting inventory dropdown as required.");
+                inventoryDropdown.setAttribute('required', 'required');
+                itemField.removeAttribute('required');
+            } else {
+                console.log(`Non-inventory item selected (${itemTypeSelect.value}). Setting item field as required.`);
+                itemField.setAttribute('required', 'required');
+                inventoryDropdown.removeAttribute('required');
+            }
+        }
+
+        // Event delegation to handle dynamically added line items
+        document.addEventListener('change', function (event) {
+            if (event.target.classList.contains('item-type-field')) {
+                let row = event.target.closest('.line-item');
+                updateRequiredAttributes(row);
+            }
+        });
+
+        // Ensure validation for initially loaded items
+        document.querySelectorAll('.line-item').forEach(updateRequiredAttributes);
+
+        // Customer ID validation logic
+        let customerInput = document.getElementById('customer_id');
+        let customerDatalist = document.getElementById('customer_list');
+
+        customerInput.addEventListener('input', function () {
+            let selectedValue = this.value;
+            let optionExists = Array.from(customerDatalist.options).some(option => option.value === selectedValue);
+
+            console.log(`Customer input changed: ${selectedValue}`);
+            console.log(`Option exists in datalist: ${optionExists}`);
+
+            if (optionExists) {
+                console.log("Customer selected from the list, removing required attribute.");
+                customerInput.removeAttribute('required');
+            } else {
+                console.log("Customer manually entered or not selected from the list, making it required.");
+                customerInput.setAttribute('required', 'required');
+            }
+        });
+
+        // Handle the receipt form submission via AJAX
+        document.getElementById('receiptForm').addEventListener('submit', function (event) {
+            event.preventDefault(); // Prevent form submission
+            console.log('Submit button clicked!'); // Log when the submit button is clicked
+
+            let formIsValid = true; // Flag to track validation status
+            let invalidFields = []; // Array to track invalid field names
+
+            // Check for required fields and highlight any that are missing
+            const requiredFields = document.querySelectorAll('#receiptForm [required]');
+            requiredFields.forEach(function (field) {
+                if (!field.value.trim()) {
+                    formIsValid = false;
+                    field.style.border = '2px solid red';
+                    invalidFields.push(field.closest('.form-group').querySelector('label').textContent);
+                    console.log(`Missing required field: ${field.closest('.form-group').querySelector('label').textContent}`);
+                } else {
+                    field.style.border = '';
+                }
+            });
+
+            if (!formIsValid) {
+                console.log('Form contains invalid fields.');
+                let errorMessage = 'Please fill in all required fields: ' + invalidFields.join(', ');
+                alert(errorMessage);
+                return;
+            }
+
+            // Prepare form data manually (do not initialize from the form)
+            formData = new FormData();
+
+            // If customer_id is empty, ensure customer_name is included
+            const hiddenCustomerId = document.getElementById('customer_id');
+            const customerInput = document.getElementById('customer_name');
+            if (!hiddenCustomerId.value) {
+                formData.append('customer_name', customerInput.value.trim());
+                hiddenCustomerId.value = customerInput.value.trim(); // Ensure customer_id is set to customerInput value
+                console.log(`Appended customer_name: ${customerInput.value.trim()}`);
+            }
+
+
+            // Append static form fields
+            const staticFields = [
+                'payment_receipt_number', 'receipt_date',
+                'customer_id', 'is_one_time', 'currency', 'payment_mode',
+                'reference_number', 'payment_description', 'received_by', 'issued_by', 'amount_received',
+                'balance_due', 'notes'
+            ];
+
+
+            staticFields.forEach(field => {
+                const element = document.getElementById(field);
+                if (element) {
+                    formData.append(field, element.value);
+                    console.log(`Appended ${field}: ${element.value}`);
+                }
+            });
+
+
+
+            console.log("Sending form data to server...");
+
+
+
+            fetch("{{ url_for('sales.add_payment_receipt') }}", {
+                method: "POST",
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                },
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Server Response:", data);
+                    if (data.success) {
+                        showNotification("receipt submitted successfully!", "success");
+                        window.location.href = "/sales/payment_receipts";
+                    } else {
+                        showNotification("Error submitting receipt: " + data.message, "error");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("There was an issue submitting your receipt. Please try again later.");
+                });
+        });
+    });
+
+
+
+    // Update Summary Section on initial load
+    updateSummary();
+</script>
+{% endblock %}

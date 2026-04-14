@@ -1,0 +1,221 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .hidden {
+        display: none;
+    }
+
+    .edit-btn,
+    .save-btn {
+        cursor: pointer;
+        padding: 5px 10px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 3px;
+    }
+
+    .edit-btn {
+        background-color: #ff9800;
+    }
+
+    .save-btn {
+        background-color: #4CAF50;
+    }
+
+    .cancel-btn {
+        padding: 5px 10px;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: 3px;
+    }
+</style>
+
+<div class="content-container">
+    <!-- Tab Links -->
+    <div class="tab">
+        <button class="tablinks" onclick="openTab(event, 'addDepartment')" id="defaultOpen">Add Department</button>
+        <button class="tablinks" onclick="openTab(event, 'addBenefit')">Add Benefit</button>
+        <button class="tablinks" onclick="openTab(event, 'addDeduction')">Add Deduction</button>
+        <button class="tablinks" onclick="openTab(event, 'viewLists')">View Lists</button>
+    </div>
+
+    <!-- Tab Content for Viewing Lists -->
+    <div id="viewLists" class="tabcontent">
+        <h1>View Lists</h1>
+
+        <!-- Departments Table -->
+        <h3>Departments</h3>
+        <table id="department-list" class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Head ID</th>
+                    <th>Location</th>
+                    <th>Description</th>
+                    <th>Budget</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for department in departments %}
+                <tr data-id="{{ department.id }}">
+                    <td class="editable" contenteditable="true">{{ department.department_name }}</td>
+                    <td class="editable" contenteditable="true">{{ department.department_head_id }}</td>
+                    <td class="editable" contenteditable="true">{{ department.location }}</td>
+                    <td class="editable" contenteditable="true">{{ department.description }}</td>
+                    <td class="editable" contenteditable="true">{{ department.budget }}</td>
+                    <td>
+                        <button class="edit-btn" onclick="editRow(this)">Edit</button>
+                        <button class="save-btn hidden" onclick="saveRow(this)">Save</button>
+                        <button class="cancel-btn hidden" onclick="cancelEdit(this)">Cancel</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Benefits Table -->
+        <h3>Benefits</h3>
+        <table id="benefit-list" class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Type</th>
+                    <th>Rate/Fixed Amount</th>
+                    <th>Currency</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for benefit in benefits %}
+                <tr data-id="{{ benefit.id }}">
+                    <td class="editable" contenteditable="true">{{ benefit.name }}</td>
+                    <td class="editable" contenteditable="true">{{ benefit.description }}</td>
+                    <td class="editable" contenteditable="true">{{ 'Rate' if benefit.is_rate else 'Fixed Amount' }}</td>
+                    <td class="editable" contenteditable="true">{{ benefit.rate if benefit.is_rate else
+                        benefit.fixed_amount }}</td>
+                    <td class="editable" contenteditable="true">{{ benefit.currency.name if benefit.currency else 'N/A'
+                        }}</td>
+                    <td>
+                        <button class="edit-btn" onclick="editRow(this)">Edit</button>
+                        <button class="save-btn hidden" onclick="saveRow(this)">Save</button>
+                        <button class="cancel-btn hidden" onclick="cancelEdit(this)">Cancel</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Deductions Table -->
+        <h3>Deductions</h3>
+        <table id="deduction-list" class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Type</th>
+                    <th>Rate/Fixed Amount</th>
+                    <th>Currency</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for deduction in deductions %}
+                <tr data-id="{{ deduction.id }}">
+                    <td class="editable" contenteditable="true">{{ deduction.name }}</td>
+                    <td class="editable" contenteditable="true">{{ deduction.description }}</td>
+                    <td class="editable" contenteditable="true">{{ 'Rate' if deduction.is_rate else 'Fixed Amount' }}
+                    </td>
+                    <td class="editable" contenteditable="true">{{ deduction.rate if deduction.is_rate else
+                        deduction.fixed_amount }}</td>
+                    <td class="editable" contenteditable="true">{{ deduction.currency.name if deduction.currency else
+                        'N/A' }}</td>
+                    <td>
+                        <button class="edit-btn" onclick="editRow(this)">Edit</button>
+                        <button class="save-btn hidden" onclick="saveRow(this)">Save</button>
+                        <button class="cancel-btn hidden" onclick="cancelEdit(this)">Cancel</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Function to open tabs
+    function openTab(evt, tabName) {
+        const tabcontent = document.getElementsByClassName("tabcontent");
+        for (let i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+        const tablinks = document.getElementsByClassName("tablinks");
+        for (let i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+
+    // Set default tab
+    document.getElementById("defaultOpen").click();
+
+    // Edit row
+    function editRow(button) {
+        const row = button.closest('tr');
+        const cells = row.getElementsByClassName('editable');
+        Array.from(cells).forEach(cell => {
+            cell.contentEditable = true;
+        });
+        row.querySelector('.edit-btn').classList.add('hidden');
+        row.querySelector('.save-btn').classList.remove('hidden');
+        row.querySelector('.cancel-btn').classList.remove('hidden');
+    }
+
+    // Save changes to row
+    function saveRow(button) {
+        const row = button.closest('tr');
+        const cells = row.getElementsByClassName('editable');
+        const data = {};
+
+        Array.from(cells).forEach(cell => {
+            data[cell.getAttribute('name')] = cell.textContent;
+            cell.contentEditable = false;
+        });
+
+        // Send AJAX request to update the data
+        fetch(`/update_data/${row.getAttribute('data-id')}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        }).then(response => response.json()).then(result => {
+            if (result.success) {
+                row.querySelector('.edit-btn').classList.remove('hidden');
+                row.querySelector('.save-btn').classList.add('hidden');
+                row.querySelector('.cancel-btn').classList.add('hidden');
+            } else {
+                alert('Error saving changes');
+            }
+        });
+    }
+
+    // Cancel editing
+    function cancelEdit(button) {
+        const row = button.closest('tr');
+        const cells = row.getElementsByClassName('editable');
+        Array.from(cells).forEach(cell => {
+            cell.contentEditable = false;
+        });
+        row.querySelector('.edit-btn').classList.remove('hidden');
+        row.querySelector('.save-btn').classList.add('hidden');
+        row.querySelector('.cancel-btn').classList.add('hidden');
+    }
+</script>
+
+{% endblock %}

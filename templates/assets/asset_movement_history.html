@@ -1,0 +1,784 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Asset History</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Supervisor' or role == 'Viewer' %}
+                    <li><a href="{{ url_for('assets.asset_types') }}">Asset Types</a></li>
+                    {% endif %}
+                    <li><a href="{{ url_for('assets.asset_list') }}">Asset List</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Header buttons and controls -->
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+            <!-- Multi-select button -->
+            <button class="btn button-outline" type="button" id="toggleMultiSelect">
+                <i class="fas fa-check-square"></i> Select
+            </button>
+
+            <!-- Hide button (initially hidden) -->
+            <button class="btn button-outline" type="button" id="hideMultiSelect" style="display: none;">
+                <i class="fas fa-eye-slash"></i> Hide
+            </button>
+
+            <!-- Bulk action buttons (hidden by default) -->
+            <div class="bulk-actions" id="bulkActions" style="gap: 10px; display: none;">
+                <div>
+                    <button class="button-outline" type="button" id="bulkDelete">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+
+            <!-- Export button -->
+            <button class="button-outline" type="button" id="exportBtn">
+                <i class="fas fa-download"></i> Export
+            </button>
+
+            <!-- Quick Search -->
+            <input type="text" id="assetSearch" class="form-control search-input" placeholder="Search asset history...">
+
+            <div class="custom-tooltip-container">
+                <!-- Refresh Button -->
+                <button class="refresh-btn" id="refreshBtn">
+                    <span class="icon">🔄</span>
+                </button>
+                <span class="custom-tooltip">Refresh Page</span>
+            </div>
+        </div>
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
+                <li class="shortcut-item"><a href="{{ url_for('assets.asset_entry') }}">New Asset</a></li>
+                {% endif %}
+                <li class="shortcut-item"><a href="#">Asset List</a></li>
+                <li class="shortcut-item"><a href="#">Asset Types</a></li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section" id="filter-section">
+        <form class="date-filter-form" id="filter-form">
+            <!-- Asset Type Filter -->
+            <div class="filter-group">
+                <label for="asset_item" class="filter-label">Asset Type</label>
+                <select id="asset_item" name="asset_item" class="form-select select2">
+                    <option value="">All Asset Types</option>
+                    {% for item in asset_items %}
+                    <option value="{{ item.id }}">{{ item.asset_name }}{% if item.asset_code %} ({{ item.asset_code
+                        }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Movement Type Filter -->
+            <div class="filter-group">
+                <label for="movement_type" class="filter-label">Movement Type</label>
+                <select id="movement_type" name="movement_type" class="form-select select2">
+                    <option value="">All Movements</option>
+                    {% for type in movement_types %}
+                    <option value="{{ type.value }}">{{ type.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Reference Filter -->
+            <div class="filter-group">
+                <label for="reference" class="filter-label">Reference</label>
+                <select id="reference" name="reference" class="form-select select2">
+                    <option value="">All References</option>
+                    {% for ref in references %}
+                    <option value="{{ ref }}">{{ ref }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Project Filter -->
+            <div class="filter-group">
+                <label for="project" class="filter-label">Project</label>
+                <select id="project" name="project" class="form-select select2">
+                    <option value="">All Projects</option>
+                    {% for project in projects %}
+                    <option value="{{ project.id }}">{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Date Range Filter -->
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control">
+            </div>
+
+            <!-- Items Per Page -->
+            <div class="filter-group">
+                <label for="per_page" class="filter-label">Items Per Page</label>
+                <select id="per_page" name="per_page" class="form-select">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="button" class="filter-section-button filter" id="applyFilter">Apply Filter</button>
+                <button type="button" class="filter-section-button reset" id="resetFilters">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Asset Movement History Table -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" id="assetMovementTable">
+            <thead class="table-light">
+                <tr>
+                    <th id="selectAllHeader" style="display: none; width: 40px;">
+                        <input type="checkbox" id="selectAll">
+                    </th>
+                    <th style="width: 20px;">Date & Type</th>
+                    <th>Reference</th>
+                    <th>Asset Tag/Serial</th>
+                    <th>Asset Type</th>
+                    <th>Sender/Recipient</th>
+
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Project</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="assetMovementBody">
+                <!-- Content loaded via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <nav>
+        <ul class="pagination" id="pagination"></ul>
+        <div id="paginationInfo" class="mt-2"></div>
+    </nav>
+</div>
+
+<script>
+    // Initialize Select2
+    $('#asset_item').select2({
+        placeholder: 'Select Asset Type',
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('#movement_type').select2({
+        placeholder: 'Select Movement Type',
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('#reference').select2({
+        placeholder: 'Select Reference',
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('#project').select2({
+        placeholder: 'Select Project',
+        allowClear: true,
+        width: '100%'
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        let currentPage = 1;
+        let perPage = 20;
+        let assetItemId = '';
+        let movementType = '';
+        let reference = '';
+        let projectId = '';
+        let startDate = '';
+        let endDate = '';
+        let isMultiSelectMode = false;
+        let selectedMovements = new Set();
+
+        const assetMovementBody = document.getElementById('assetMovementBody');
+        const paginationElement = document.getElementById('pagination');
+        const paginationInfoElement = document.getElementById('paginationInfo');
+        const applyFilterBtn = document.getElementById('applyFilter');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+        const exportBtn = document.getElementById('exportBtn');
+        const toggleMultiSelectBtn = document.getElementById('toggleMultiSelect');
+        const bulkActionsDiv = document.getElementById('bulkActions');
+        const bulkDeleteBtn = document.getElementById('bulkDelete');
+        const hideMultiSelectBtn = document.getElementById('hideMultiSelect');
+        const selectAllHeader = document.getElementById('selectAllHeader');
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const filterButton = document.getElementById('toggleFilterForm');
+        const shortcutButton = document.getElementById('shortcutToggleBtn');
+        const dashboardShortcuts = document.querySelector('.dashboard-shortcuts');
+        const searchInput = document.getElementById('assetSearch');
+        const refreshBtn = document.getElementById('refreshBtn');
+
+        const BASE_CURRENCY_CODE = "{{ base_currency.user_currency }}";
+
+        // Movement type display labels (no colors - using global CSS classes)
+        const movementTypeLabels = {
+            'acquisition': 'Acquisition',
+            'donation_in': 'Donation Received',
+            'opening_balance': 'Opening Balance',
+            'sale': 'Dispatch',  // Changed from 'Sale'
+            'donation_out': 'Donation Given',
+            'disposal': 'Disposal',
+            'transfer': 'Transfer',
+            'assignment': 'Assignment',
+            'return': 'Return',
+            'depreciation': 'Depreciation'
+        };
+
+        let currentMovements = [];
+
+        // Toggle multi-select mode
+        toggleMultiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = !isMultiSelectMode;
+            updateMultiSelectUI();
+        });
+
+        // Hide multi-select mode
+        hideMultiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = false;
+            selectedMovements.clear();
+            updateMultiSelectUI();
+            renderAssetMovements(currentMovements);
+        });
+
+        // Select all checkbox
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.movement-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+                const movementId = checkbox.getAttribute('data-movement-id');
+                if (e.target.checked) {
+                    selectedMovements.add(movementId);
+                } else {
+                    selectedMovements.delete(movementId);
+                }
+            });
+            updateBulkActionButtons();
+            updateMultiSelectUI();
+        });
+
+        // Bulk delete
+        bulkDeleteBtn.addEventListener('click', () => {
+            if (selectedMovements.size === 0) return;
+
+            Swal.fire({
+                title: 'Delete Movements?',
+                text: `Are you sure you want to delete ${selectedMovements.size} movement(s)? This action cannot be undone!`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete them!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    deleteMovements(Array.from(selectedMovements));
+                }
+            });
+        });
+
+        function updateMultiSelectUI() {
+            if (isMultiSelectMode) {
+                // Hide other buttons and elements
+                filterButton.style.display = 'none';
+                exportBtn.style.display = 'none';
+                if (dashboardShortcuts) dashboardShortcuts.style.display = 'none';
+                if (searchInput) searchInput.style.display = 'none';
+
+                // Show multi-select elements
+                toggleMultiSelectBtn.style.display = 'none';
+                hideMultiSelectBtn.style.display = '';
+                selectAllHeader.style.display = '';
+
+                document.querySelectorAll('.action-icons-clean').forEach(el => {
+                    el.style.display = 'none';
+                });
+
+                // Show checkboxes in existing rows
+                document.querySelectorAll('#assetMovementBody tr td:first-child').forEach(td => {
+                    td.style.display = '';
+                });
+            } else {
+                // Show other buttons and elements
+                filterButton.style.display = '';
+                exportBtn.style.display = '';
+                if (dashboardShortcuts) dashboardShortcuts.style.display = '';
+                if (searchInput) searchInput.style.display = '';
+
+                // Hide multi-select elements
+                toggleMultiSelectBtn.style.display = '';
+                hideMultiSelectBtn.style.display = 'none';
+                selectAllHeader.style.display = 'none';
+
+                document.querySelectorAll('.action-icons-clean').forEach(el => {
+                    el.style.display = 'flex';
+                });
+
+                // Hide checkboxes in existing rows
+                document.querySelectorAll('#assetMovementBody tr td:first-child').forEach(td => {
+                    td.style.display = 'none';
+                });
+            }
+
+            // Show/hide bulk actions based on selections
+            if (selectedMovements.size > 0 && isMultiSelectMode) {
+                bulkActionsDiv.style.display = 'flex';
+            } else {
+                bulkActionsDiv.style.display = 'none';
+            }
+
+            updateBulkActionButtons();
+        }
+
+        function updateBulkActionButtons() {
+            const hasSelections = selectedMovements.size > 0;
+            bulkDeleteBtn.disabled = !hasSelections;
+
+            if (hasSelections) {
+                bulkDeleteBtn.textContent = `Delete (${selectedMovements.size})`;
+            } else {
+                bulkDeleteBtn.textContent = 'Delete';
+            }
+        }
+
+        // Load asset movement history
+        function loadAssetMovementHistory() {
+            setLoadingState(true);
+
+            const columnCount = 12; // Updated column count (removed Created By)
+            assetMovementBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center py-3">Loading asset history...</td></tr>`;
+
+            const params = new URLSearchParams({
+                page: currentPage,
+                per_page: perPage,
+                asset_item_id: assetItemId,
+                movement_type: movementType,
+                reference: reference,
+                project_id: projectId,
+                start_date: startDate,
+                end_date: endDate
+            });
+
+            fetch(`/assets/api/movement_history?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentMovements = data.movements;
+                        renderAssetMovements(data.movements);
+                        renderPagination(data.pagination);
+                    } else {
+                        assetMovementBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center text-danger py-3">${data.message}</td></tr>`;
+                    }
+                    setLoadingState(false);
+                })
+                .catch(err => {
+                    assetMovementBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center text-danger py-3">Error loading asset history</td></tr>`;
+                    console.error(err);
+                    setLoadingState(false);
+                });
+        }
+
+        // Render asset movements - SIMPLIFIED like inventory template
+        // Render asset movements - WITH PROPER BADGE COLORS like inventory template
+        function renderAssetMovements(movements) {
+            if (movements.length === 0) {
+                assetMovementBody.innerHTML = `<tr><td colspan="12" class="text-center py-3">No asset history records found</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            movements.forEach(movement => {
+                // Determine movement type badge class - ensure movement_type is treated as string
+                let movementType = movement.movement_type ? String(movement.movement_type) : '';
+                let movementClass = 'bg-secondary';
+                let movementLabel = movementType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+                switch (movementType) {
+                    case 'acquisition':
+                        movementClass = 'bg-success';
+                        movementLabel = 'Acquisition';
+                        break;
+                    case 'donation_in':
+                        movementClass = 'bg-info';
+                        movementLabel = 'Donation Received';
+                        break;
+                    case 'opening_balance':
+                        movementClass = 'bg-primary';
+                        movementLabel = 'Opening Balance';
+                        break;
+                    case 'sale':
+                        movementClass = 'bg-warning';
+                        movementLabel = 'Dispatch';
+                        break;
+                    case 'donation_out':
+                        movementClass = 'bg-secondary';
+                        movementLabel = 'Donation Given';
+                        break;
+                    case 'disposal':
+                        movementClass = 'bg-danger';
+                        movementLabel = 'Disposal';
+                        break;
+                    case 'transfer':
+                        movementClass = 'bg-info';
+                        movementLabel = 'Transfer';
+                        break;
+                    case 'assignment':
+                        movementClass = 'bg-primary';
+                        movementLabel = 'Assignment';
+                        break;
+                    case 'return':
+                        movementClass = 'bg-success';
+                        movementLabel = 'Return';
+                        break;
+                    case 'depreciation':
+                        movementClass = 'bg-secondary';
+                        movementLabel = 'Depreciation';
+                        break;
+                }
+
+                const isChecked = selectedMovements.has(movement.id.toString());
+
+                // Build asset tags/serials display
+                let assetDisplay = '';
+                if (movement.line_items && movement.line_items.length > 0) {
+                    assetDisplay = movement.line_items.map(item =>
+                        `${item.asset_tag || 'No Tag'}${item.serial_number ? ` (SN: ${item.serial_number})` : ''}`
+                    ).join('<br>');
+                }
+
+                // Build party display
+                let partyDisplay = '';
+                if (movement.line_items && movement.line_items.length > 0) {
+                    const parties = [...new Set(movement.line_items.map(item => item.party_name).filter(Boolean))];
+                    partyDisplay = parties.join('<br>');
+                }
+
+                // Build location/department display
+                let fromDisplay = '';
+                let toDisplay = '';
+                if (movement.line_items && movement.line_items.length > 0) {
+                    const fromItems = movement.line_items.map(item => {
+                        if (item.from_location_name) return `Loc: ${item.from_location_name}`;
+                        if (item.from_department_name) return `Dept: ${item.from_department_name}`;
+                        return null;
+                    }).filter(Boolean);
+
+                    const toItems = movement.line_items.map(item => {
+                        if (item.to_location_name) return `Loc: ${item.to_location_name}`;
+                        if (item.to_department_name) return `Dept: ${item.to_department_name}`;
+                        if (item.assigned_to_name) return `Emp: ${item.assigned_to_name}`;
+                        return null;
+                    }).filter(Boolean);
+
+                    fromDisplay = [...new Set(fromItems)].join('<br>');
+                    toDisplay = [...new Set(toItems)].join('<br>');
+                }
+
+                html += `
+        <tr>
+            <td style="display: ${isMultiSelectMode ? '' : 'none'};">
+                <input type="checkbox" class="movement-checkbox" 
+                       data-movement-id="${movement.id}" 
+                       ${isChecked ? 'checked' : ''}>
+            </td>
+            <td style="width: 120px;">
+                ${movement.transaction_date}
+                <span class="badge ${movementClass} ms-2">${movementLabel}</span>
+            </td>
+            <td>
+                <a href="/assets/view_movement/${movement.id}" class="reference-link">
+                    ${movement.reference || '-'}
+                </a>
+            </td>
+            <td>${assetDisplay || '-'}</td>
+            <td>${movement.line_items?.[0]?.asset_item_name || '-'}</td>
+            <td>${partyDisplay || '-'}</td>
+
+            <td>${fromDisplay || '-'}</td>
+            <td>${toDisplay || '-'}</td>
+            <td>${movement.project_name || '-'}</td>
+            <td style="width:40px;" class="text-center">
+                <div class="action-icons-clean" style="display: ${isMultiSelectMode ? 'none' : 'flex'};">
+                    <div class="custom-tooltip-container">
+                        <a href="/assets/asset_edit/${movement.id}" class="edit-icon">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <span class="custom-tooltip left">Edit Movement</span>
+                    </div>
+                    <div class="custom-tooltip-container">
+                        <a href="/assets/view_movement/${movement.id}" class="view-icon">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <span class="custom-tooltip left">View Details</span>
+                    </div>
+                </div>
+            </td>
+        </tr>
+        `;
+            });
+
+            assetMovementBody.innerHTML = html;
+
+            // Add event listeners to checkboxes
+            document.querySelectorAll('.movement-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const movementId = e.target.getAttribute('data-movement-id');
+                    if (e.target.checked) {
+                        selectedMovements.add(movementId);
+                    } else {
+                        selectedMovements.delete(movementId);
+                        selectAllCheckbox.checked = false;
+                    }
+                    updateBulkActionButtons();
+                    updateMultiSelectUI();
+                });
+            });
+        }
+        // Delete movements
+        function deleteMovements(movementIds) {
+            fetch('/assets/api/bulk_delete_movements', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ movement_ids: movementIds })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Movements deleted successfully', 'success');
+                        selectedMovements.clear();
+                        isMultiSelectMode = false;
+                        updateMultiSelectUI();
+                        loadAssetMovementHistory();
+                    } else {
+                        showNotification(data.message || 'Error deleting movements', 'error');
+                    }
+                })
+                .catch(err => {
+                    showNotification('Error deleting movements', 'error');
+                });
+        }
+
+        // Pagination functions
+        function renderPagination(pagination) {
+            const { page, per_page, total_pages, total_items, has_next, has_prev } = pagination;
+            paginationInfoElement.textContent = `Showing ${(page - 1) * per_page + 1} to ${Math.min(page * per_page, total_items)} of ${total_items} entries`;
+
+            let html = '';
+
+            if (has_prev) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page - 1}">‹ Previous</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">‹ Previous</a></li>`;
+            }
+
+            const maxVisiblePages = 7;
+            let startPage = Math.max(1, page - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(total_pages, startPage + maxVisiblePages - 1);
+
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<li class="page-item ${i === page ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+            }
+
+            if (has_next) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${page + 1}">Next ›</a></li>`;
+            } else {
+                html += `<li class="page-item disabled"><a class="page-link">Next ›</a></li>`;
+            }
+
+            paginationElement.innerHTML = html;
+
+            document.querySelectorAll('.page-link[data-page]').forEach(el => {
+                el.addEventListener('click', e => {
+                    e.preventDefault();
+                    currentPage = parseInt(el.getAttribute('data-page'));
+                    loadAssetMovementHistory();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            });
+        }
+
+        function setLoadingState(loading) {
+            const applyBtn = document.getElementById("applyFilter");
+            const resetBtn = document.getElementById("resetFilters");
+            const exportBtn = document.getElementById("exportBtn");
+
+            if (loading) {
+                applyBtn.disabled = true;
+                resetBtn.disabled = true;
+                exportBtn.disabled = true;
+                applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            } else {
+                applyBtn.disabled = false;
+                resetBtn.disabled = false;
+                exportBtn.disabled = false;
+                applyBtn.innerHTML = "Apply Filter";
+            }
+        }
+
+        // Format currency
+        function formatCurrency(amount, currency = BASE_CURRENCY_CODE, showSymbol = true) {
+            if (amount === undefined || amount === null) return '0.00';
+            const formatted = parseFloat(amount).toFixed(2);
+            return showSymbol ? `${currency} ${formatted}` : formatted;
+        }
+
+        // Event listeners
+        applyFilterBtn.addEventListener('click', () => {
+            currentPage = 1;
+            assetItemId = document.getElementById('asset_item').value;
+            movementType = document.getElementById('movement_type').value;
+            reference = document.getElementById('reference').value;
+            projectId = document.getElementById('project').value;
+            startDate = document.getElementById('start_date').value;
+            endDate = document.getElementById('end_date').value;
+            perPage = document.getElementById('per_page').value;
+            loadAssetMovementHistory();
+        });
+
+        resetFiltersBtn.addEventListener('click', () => {
+            document.getElementById('filter-form').reset();
+            $('#asset_item').val(null).trigger('change');
+            $('#movement_type').val(null).trigger('change');
+            $('#reference').val(null).trigger('change');
+            $('#project').val(null).trigger('change');
+            currentPage = 1;
+            assetItemId = '';
+            movementType = '';
+            reference = '';
+            projectId = '';
+            startDate = '';
+            endDate = '';
+            perPage = '20';
+            loadAssetMovementHistory();
+        });
+
+        document.getElementById('toggleFilterForm').addEventListener('click', () => {
+            document.getElementById('filter-section').classList.toggle('visible');
+        });
+
+        // Quick Search
+        searchInput.addEventListener('input', function () {
+            const searchValue = this.value.toLowerCase();
+            const rows = assetMovementBody.getElementsByTagName('tr');
+            Array.from(rows).forEach(row => {
+                const rowText = row.textContent.toLowerCase();
+                row.style.display = rowText.includes(searchValue) ? '' : 'none';
+            });
+        });
+
+        // Export
+        exportBtn.addEventListener('click', () => {
+            const filters = {
+                asset_item_id: document.getElementById('asset_item').value,
+                movement_type: document.getElementById('movement_type').value,
+                reference: document.getElementById('reference').value,
+                project_id: document.getElementById('project').value,
+                start_date: document.getElementById('start_date').value,
+                end_date: document.getElementById('end_date').value
+            };
+
+            exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+            exportBtn.disabled = true;
+
+            fetch('/assets/export/movement_history', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(filters)
+            })
+                .then(response => {
+                    if (response.ok) {
+                        return response.blob();
+                    }
+                    throw new Error('Network response was not ok.');
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+
+                    let filename = 'asset_movements';
+                    if (filters.start_date) filename += `_from_${filters.start_date}`;
+                    if (filters.end_date) filename += `_to_${filters.end_date}`;
+                    filename += '.csv';
+
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+
+                    exportBtn.innerHTML = '<i class="fas fa-download"></i> Export';
+                    exportBtn.disabled = false;
+                })
+                .catch(error => {
+                    console.error('Error downloading report:', error);
+                    showNotification('Error downloading report', 'error');
+                    exportBtn.innerHTML = '<i class="fas fa-download"></i> Export';
+                    exportBtn.disabled = false;
+                });
+        });
+
+        // Refresh
+        refreshBtn.addEventListener('click', function () {
+            const originalHtml = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            this.disabled = true;
+
+            location.reload();
+        });
+
+        // Initialize
+        loadAssetMovementHistory();
+    });
+</script>
+
+
+{% endblock %}

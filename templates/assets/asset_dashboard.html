@@ -1,0 +1,1240 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+    .asset-condition {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .asset-condition.excellent {
+        background-color: rgba(76, 201, 240, 0.1);
+        color: #4cc9f0;
+    }
+
+    .asset-condition.good {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: #4361ee;
+    }
+
+    .asset-condition.fair {
+        background-color: rgba(248, 150, 30, 0.1);
+        color: #f8961e;
+    }
+
+    .asset-condition.poor {
+        background-color: rgba(255, 107, 107, 0.1);
+        color: #ff6b6b;
+    }
+
+
+
+    /* Charts container */
+
+
+
+    /* Table cards */
+    .table-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.5rem;
+    }
+
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .table-header h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    .table-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .table-filter {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+
+
+    .filter-btn:hover:not(.active) {
+        background: #f8f9fa;
+        border-color: #adb5bd;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+        width: 100%;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th,
+    td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    th {
+        font-weight: 600;
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background-color: #f8f9fa;
+    }
+
+    td {
+        font-size: 0.85rem;
+        vertical-align: middle;
+    }
+
+    .text-end {
+        text-align: right;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        border-radius: 4px;
+    }
+
+    .badge.primary {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: #4361ee;
+    }
+
+    .badge.success {
+        background-color: rgba(76, 201, 240, 0.1);
+        color: #4cc9f0;
+    }
+
+    .badge.warning {
+        background-color: rgba(248, 150, 30, 0.1);
+        color: #f8961e;
+    }
+
+    .badge.danger {
+        background-color: rgba(255, 107, 107, 0.1);
+        color: #ff6b6b;
+    }
+
+    .badge.secondary {
+        background-color: rgba(108, 117, 125, 0.1);
+        color: #6c757d;
+    }
+
+    .asset-tag-link {
+        color: #4361ee;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .asset-tag-link:hover {
+        text-decoration: underline;
+    }
+
+    .warranty-urgent {
+        color: #ff6b6b;
+        font-weight: 600;
+    }
+
+    .warranty-warning {
+        color: #f8961e;
+        font-weight: 600;
+    }
+
+    .table-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #e9ecef;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .table-info {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    /* Responsive */
+    @media (max-width: 992px) {
+        .dashboards-charts-container {
+            grid-template-columns: 1fr;
+        }
+
+        .secondary-metric {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="content-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="header-top-row">
+            <h1>Asset Dashboard</h1>
+            <button class="mobile-filter-btn" id="mobileFilterBtn">
+                <svg class="filter-icon" viewBox="0 0 24 24">
+                    <path d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+                <span class="filter-text">Filters</span>
+            </button>
+        </div>
+
+        <!-- Time Period Controls -->
+        <div class="dashboard-controls">
+            <div class="dashboard-dropdown">
+                <button class="button add-button" id="timePeriodDropdown">
+                    <span class="icon">📅</span>This Month
+                </button>
+                <div class="dashboard-dropdown-menu">
+                    <a class="dashboard-dropdown-item time-filter" data-value="today">Today</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="yesterday">Yesterday</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="week">This Week</a>
+                    <a class="dashboard-dropdown-item time-filter active" data-value="month">This Month</a>
+                    <a class="dashboard-dropdown-item time-filter" data-value="last_month">Last Month</a>
+                    <!-- <a class="dashboard-dropdown-item time-filter" data-value="quarter">This Quarter</a> -->
+                    <a class="dashboard-dropdown-item time-filter" data-value="year">This Year</a>
+                    <div class="dashboard-dropdown-divider"></div>
+                    <a class="dashboard-dropdown-item time-filter" data-value="custom">Custom Range</a>
+                </div>
+            </div>
+            <div id="customRangePicker" class="hidden">
+                <div class="date-range-picker">
+                    <input type="date" id="startDate">
+                    <span>to</span>
+                    <input type="date" id="endDate">
+                    <button id="applyDateRange">Apply</button>
+                </div>
+            </div>
+
+            <button class="refresh-btn" id="refreshData">
+                <span class="icon">🔄</span>
+            </button>
+
+
+
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="filter-wrapper">
+            <div class="filter-controls">
+                <!-- Asset Type Filter -->
+                <div class="filter-group">
+                    <label for="asset-type-select">Asset Type</label>
+                    <select id="asset-type-select" class="form-select form-select2">
+                        <option value="">All Asset Types</option>
+                        {% for type in asset_types %}
+                        <option value="{{ type.id }}">{{ type.asset_name }}{% if type.asset_code %} ({{ type.asset_code
+                            }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Status Filter -->
+                <div class="filter-group">
+                    <label for="status-select">Status</label>
+                    <select id="status-select" class="form-select">
+                        <option value="">All Statuses</option>
+                        {% for status in status_options %}
+                        <option value="{{ status }}">{{ status.replace('_', ' ').title() }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Location Filter -->
+                <div class="filter-group">
+                    <label for="location-select">Location</label>
+                    <select id="location-select" class="form-select form-select2">
+                        <option value="">All Locations</option>
+                        {% for loc in locations %}
+                        <option value="{{ loc.id }}">{{ loc.location }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Department Filter -->
+                <div class="filter-group">
+                    <label for="department-select">Department</label>
+                    <select id="department-select" class="form-select form-select2">
+                        <option value="">All Departments</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}">{{ dept.department_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Assigned To Filter -->
+                <div class="filter-group">
+                    <label for="assigned-select">Assigned To</label>
+                    <select id="assigned-select" class="form-select form-select2">
+                        <option value="">All Employees</option>
+                        {% for emp in employees %}
+                        <option value="{{ emp.id }}">{{ emp.first_name }} {{ emp.last_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Category Filter -->
+                <div class="filter-group">
+                    <label for="category-select">Category</label>
+                    <select id="category-select" class="form-select form-select2">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}">{{ cat.category_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Brand Filter -->
+                <div class="filter-group">
+                    <label for="brand-select">Brand</label>
+                    <select id="brand-select" class="form-select form-select2">
+                        <option value="">All Brands</option>
+                        {% for brand in brands %}
+                        <option value="{{ brand.id }}">{{ brand.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Supplier Filter -->
+                <div class="filter-group">
+                    <label for="supplier-select">Supplier</label>
+                    <select id="supplier-select" class="form-select form-select2">
+                        <option value="">All Suppliers</option>
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}">{{ supplier.vendor_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Project Filter -->
+                <div class="filter-group">
+                    <label for="project-select">Project</label>
+                    <select id="project-select" class="form-select form-select2">
+                        <option value="">All Projects</option>
+                        {% for project in projects %}
+                        <option value="{{ project.id }}">{{ project.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="metrics-grid">
+        <div class="metric-card" style="height: 60px">
+            <div class="metric-content">
+                <div>
+                    <h3>Total Assets</h3>
+                    <p class="metric-value" id="totalAssets">0</p>
+                </div>
+                <div class="metric-icon">📦</div>
+            </div>
+        </div>
+
+        <div class="metric-card" style="height: 60px">
+            <div class="metric-content">
+                <div>
+                    <h3>Current Value (<span class="currency-symbol">{{ base_currency }}</span>)</h3>
+                    <p class="metric-value" id="totalCurrentValue">0.00</p>
+                </div>
+                <div class="metric-icon">💰</div>
+            </div>
+        </div>
+
+        <div class="metric-card" style="height: 60px">
+            <div class="metric-content">
+                <div>
+                    <h3>Total Depreciation</h3>
+                    <p class="metric-value" id="totalDepreciation">0.00</p>
+                    <small class="text-muted" id="depreciationRate" style="display: block; margin-top: -20px;">0% of
+                        cost</small>
+                </div>
+                <div class="metric-icon">📉</div>
+            </div>
+        </div>
+
+        <div class="metric-card" style="height: 60px">
+            <div class="metric-content">
+                <div>
+                    <h3>Movements (Period)</h3>
+                    <p class="metric-value" id="totalMovements">0</p>
+                </div>
+                <div class="metric-icon">🔄</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="dashboards-charts-container">
+        <div class="chart-card main-chart">
+            <div class="chart-header">
+                <div class="custom-tooltip-container lower">
+                    <h3>
+                        <a href="/assets/asset_types" style="color: inherit; text-decoration: none; cursor: pointer;">
+                            Assets by Type
+                        </a>
+                    </h3>
+                    <span class="custom-tooltip lower">View asset types</span>
+                </div>
+                <div class="chart-period-selector">
+                    <button class="period-btn active" data-value="count">By Count</button>
+                    <button class="period-btn" data-value="value">By Value</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="assetTypeChart" height="300"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card secondary-chart">
+            <div class="chart-header">
+                <h3>Asset Status Distribution</h3>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="assetStatusChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Secondary Metrics -->
+    <div class="dashboards-charts-container">
+        <div class="chart-card">
+            <div class="chart-header">
+                <div class="custom-tooltip-container lower">
+                    <h3>
+                        <a href="/assets/asset_list" style="color: inherit; text-decoration: none; cursor: pointer;">
+                            Assets by Location
+                        </a>
+                    </h3>
+                    <span class="custom-tooltip lower">View asset list</span>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="assetLocationChart" height="250"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <div class="custom-tooltip-container lower">
+                    <h3>
+                        <a href="/assets/movement_history"
+                            style="color: inherit; text-decoration: none; cursor: pointer;">
+                            Asset Movement Trend
+                        </a>
+                    </h3>
+                    <span class="custom-tooltip lower">View movement history</span>
+                </div>
+                <div class="chart-period-selector">
+                    <button class="period-btn active" data-value="monthly">Monthly</button>
+                    <button class="period-btn" data-value="quarterly">Quarterly</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="assetMovementChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Assets Table -->
+    <div class="table-card">
+        <div class="table-header">
+            <div class="custom-tooltip-container">
+                <h3 style="margin-bottom: -5px;">
+                    <a href="/assets/asset_list" style="color: inherit; text-decoration: none; cursor: pointer;">
+                        Top Assets by Value
+                    </a>
+                </h3>
+                <span class="custom-tooltip lower">View all assets</span>
+            </div>
+            <div class="table-controls">
+                <div class="table-filter">
+                    <button class="filter-btn active" data-value="value">By Value</button>
+                    <button class="filter-btn" data-value="depreciation">By Depreciation</button>
+                    <button class="filter-btn" data-value="age">By Age</button>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table id="topAssetsTable">
+                <thead>
+                    <tr>
+                        <th>Asset Tag</th>
+                        <th>Asset Type</th>
+                        <th>Serial Number</th>
+                        <th>Status</th>
+                        <th>Location</th>
+                        <th>Purchase Date</th>
+                        <th class="text-end">Purchase Price</th>
+                        <th class="text-end">Current Value</th>
+                        <th class="text-center">Depreciation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+        <div class="table-footer">
+            <div class="table-info" id="topAssetsInfo">Showing top 10 assets by value</div>
+            <a href="/assets/asset_list" class="button-outline" style="text-decoration: none !important;">
+                View All Assets
+            </a>
+
+        </div>
+    </div>
+
+    <!-- Warranty Section -->
+    <div class="secondary-metric">
+        <!-- Warranty Expiring Soon -->
+        <div class="table-card">
+            <div class="table-header">
+                <h3>
+                    <span class="icon" style="margin-right: 8px;">🛡️</span>
+                    Warranty Expiring Soon
+                </h3>
+                <div class="table-controls">
+                    <span class="badge warning">Next 90 Days</span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table id="warrantyTable">
+                    <thead>
+                        <tr>
+                            <th>Asset Tag</th>
+                            <th>Asset Type</th>
+                            <th>Serial</th>
+                            <th>Location</th>
+                            <th>Expiry Date</th>
+                            <th>Days Left</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="table-footer">
+                <div class="table-info" id="warrantyInfo">Loading warranty data...</div>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+
+<script>
+    const apiKey = "{{ api_key }}";
+    const baseCurrency = "{{ base_currency }}";
+
+    // Initialize Select2
+    // Initialize Select2
+    $('.form-select2').select2({
+        placeholder: 'All',
+        allowClear: true,
+        width: '100%'
+    });
+
+    class AssetDashboard {
+        constructor() {
+            this.apiResponse = null;
+            this.transactionData = [];
+            this.filteredData = [];
+            this.currentTimeFilter = 'month';
+            this.chartView = 'count';
+            this.topAssetsFilter = 'value';
+
+            this.initElements();
+            this.initEventListeners();
+            this.loadInitialData();
+        }
+
+        initElements() {
+            // Charts
+            this.assetTypeChart = this.createChart('assetTypeChart', 'bar');
+            this.assetStatusChart = this.createChart('assetStatusChart', 'doughnut');
+            this.assetLocationChart = this.createChart('assetLocationChart', 'bar');
+            this.assetMovementChart = this.createChart('assetMovementChart', 'line');
+
+            // Tables
+            this.topAssetsTable = document.getElementById('topAssetsTable').querySelector('tbody');
+            this.warrantyTable = document.getElementById('warrantyTable').querySelector('tbody');
+        }
+
+        initEventListeners() {
+            // Time filters dropdown
+            const timeDropdown = document.querySelector('.dashboard-dropdown');
+            const timeDropdownToggle = document.getElementById('timePeriodDropdown');
+
+            timeDropdownToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelector('.dashboard-dropdown-menu').classList.toggle('show');
+            });
+
+
+            // Listen for Select2 change events on ALL form-select2 elements
+            $('.form-select2').on('select2:select select2:unselect', () => {
+                this.loadData();
+            });
+
+
+            // Time filter selection
+            document.querySelectorAll('.time-filter').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelector('.time-filter.active')?.classList.remove('active');
+                    item.classList.add('active');
+                    this.currentTimeFilter = item.dataset.value;
+                    timeDropdownToggle.innerHTML = `<span class="icon">📅</span>${item.textContent}`;
+                    document.querySelector('.dashboard-dropdown-menu').classList.remove('show');
+
+                    if (this.currentTimeFilter === 'custom') {
+                        document.getElementById('customRangePicker').classList.remove('hidden');
+                    } else {
+                        document.getElementById('customRangePicker').classList.add('hidden');
+                        this.loadData();
+                    }
+                });
+            });
+
+
+
+            // Apply custom date range
+            document.getElementById('applyDateRange').addEventListener('click', () => {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+
+                if (startDate && endDate) {
+                    this.currentTimeFilter = 'custom';
+                    this.loadData(startDate, endDate);
+                } else {
+                    alert('Please select both start and end dates');
+                }
+            });
+
+            // Chart view toggle
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const button = e.target;
+                    const chartSelector = button.closest('.chart-period-selector');
+
+                    if (chartSelector) {
+                        chartSelector.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+                        button.classList.add('active');
+
+                        const chartHeader = chartSelector.closest('.chart-header');
+                        const h3Element = chartHeader.querySelector('h3');
+                        const chartTitle = h3Element.textContent.trim();
+
+                        if (chartTitle.includes('Assets by Type')) {
+                            this.chartView = button.dataset.value;
+                            this.updateAssetTypeChart();
+                        } else if (chartTitle.includes('Asset Movement')) {
+                            this.movementPeriod = button.dataset.value;
+                            this.updateAssetMovementChart();
+                        }
+                    }
+                });
+            });
+
+            // Filter change listeners
+            ['asset-type-select', 'status-select', 'location-select', 'department-select',
+                'assigned-select', 'category-select', 'brand-select', 'supplier-select', 'project-select'
+            ].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.addEventListener('change', () => this.loadData());
+                }
+            });
+
+            // Top assets filter
+            document.querySelectorAll('.table-filter .filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.table-filter .filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    this.topAssetsFilter = btn.dataset.value;
+                    this.updateTopAssetsTable();
+                });
+            });
+
+            // Refresh button
+            document.getElementById('refreshData').addEventListener('click', () => {
+                const refreshBtn = document.getElementById('refreshData');
+                refreshBtn.classList.add('refreshing');
+                this.loadData(null, null, true).then(() => {
+                    setTimeout(() => {
+                        refreshBtn.classList.remove('refreshing');
+                    }, 500);
+                });
+            });
+
+            // Mobile filter toggle
+            document.getElementById('mobileFilterBtn').addEventListener('click', () => {
+                document.querySelector('.filter-wrapper').classList.toggle('visible');
+            });
+        }
+
+        createChart(elementId, type) {
+            const ctx = document.getElementById(elementId).getContext('2d');
+            return new Chart(ctx, {
+                type: type,
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: type === 'doughnut' ? 'bottom' : 'top',
+                            labels: { boxWidth: 12, padding: 15 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+
+                                    // Check if this is the asset type chart in value mode
+                                    const isValueMode = this.chartView === 'value' &&
+                                        context.dataset.label === 'Current Value';
+
+                                    if (context.parsed.y !== undefined) {
+                                        if (isValueMode) {
+                                            label += this.formatCurrency(context.parsed.y, false);
+                                        } else {
+                                            label += this.formatValue(context.parsed.y, 'number');
+                                        }
+                                    } else if (context.raw !== undefined) {
+                                        if (isValueMode) {
+                                            label += this.formatCurrency(context.raw, false);
+                                        } else {
+                                            label += this.formatValue(context.raw, 'number');
+                                        }
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: type !== 'doughnut' ? {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: (value) => {
+                                    // Check if this is the asset type chart in value mode
+                                    const isValueMode = this.chartView === 'value' &&
+                                        elementId === 'assetTypeChart';
+
+                                    if (isValueMode) {
+                                        return this.formatCurrency(value, false);
+                                    } else {
+                                        return this.formatValue(value, 'number');
+                                    }
+                                }
+                            }
+                        }
+                    } : {}
+                }
+            });
+        }
+        formatValue(value, type = 'currency') {
+            if (value === undefined || value === null) return '0';
+
+            if (type === 'currency' || type === 'value') {
+                return new Intl.NumberFormat('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }).format(value);
+            } else {
+                return new Intl.NumberFormat('en-US').format(value);
+            }
+        }
+
+        formatCurrency(value, showSymbol = true) {
+            if (value === undefined || value === null) return '0.00';
+            const formatted = this.formatValue(value, 'currency');
+            return showSymbol ? `${baseCurrency} ${formatted}` : formatted;
+        }
+
+
+        setLoadingState(isLoading) {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (!loadingOverlay) {
+                // Create a loading overlay if it doesn't exist
+                const overlay = document.createElement('div');
+                overlay.id = 'loadingOverlay';
+                overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(255,255,255,0.7);
+                display: none;
+                justify-content: center;
+                align-items: center;
+                z-index: 9999;
+            `;
+                overlay.innerHTML = '<div style="font-size: 24px;">Loading...</div>';
+                document.body.appendChild(overlay);
+            }
+
+            const overlay = document.getElementById('loadingOverlay');
+            if (isLoading) {
+                overlay.style.display = 'flex';
+            } else {
+                overlay.style.display = 'none';
+            }
+        }
+
+
+        async fetchData(startDate, endDate, timeFilter = 'month', additionalFilters = {}, refreshCache = false) {
+            let url = '/api/assets/transactions';
+            const params = new URLSearchParams();
+
+            if (startDate && endDate) {
+                params.append('start_date', startDate);
+                params.append('end_date', endDate);
+                params.append('time_filter', 'custom');
+            } else {
+                params.append('time_filter', timeFilter);
+            }
+
+            if (refreshCache) {
+                params.append('_', Date.now());
+            }
+
+            Object.entries(additionalFilters).forEach(([key, value]) => {
+                if (value) params.append(key, value);
+            });
+
+            const headers = { 'X-API-Key': apiKey };
+            const response = await fetch(url + (params.toString() ? `?${params.toString()}` : ''), { headers });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+            return await response.json();
+        }
+
+        getCurrentFilters() {
+            return {
+                asset_type_id: document.getElementById('asset-type-select')?.value,
+                status: document.getElementById('status-select')?.value,
+                location_id: document.getElementById('location-select')?.value,
+                department_id: document.getElementById('department-select')?.value,
+                assigned_to_id: document.getElementById('assigned-select')?.value,
+                category_id: document.getElementById('category-select')?.value,
+                brand_id: document.getElementById('brand-select')?.value,
+                supplier_id: document.getElementById('supplier-select')?.value,
+                project_id: document.getElementById('project-select')?.value
+            };
+        }
+
+
+
+        async loadInitialData() {
+            try {
+                this.setLoadingState(true);
+                console.log('Loading initial asset dashboard data...');
+
+                const filters = this.getCurrentFilters();
+                const data = await this.fetchData(null, null, this.currentTimeFilter, filters, false);
+
+                this.handleApiResponse(data);
+                this.updateDashboard();
+                this.updateCharts();
+                this.updateTables();
+
+            } catch (error) {
+                console.error('Error loading initial asset data:', error);
+                alert('Failed to load asset data. Please try again.');
+            } finally {
+                this.setLoadingState(false);
+            }
+        }
+
+        async loadData(startDate = null, endDate = null, refreshCache = false) {
+            try {
+                this.setLoadingState(true);
+
+                const filters = this.getCurrentFilters();
+                const data = await this.fetchData(
+                    startDate,
+                    endDate,
+                    this.currentTimeFilter,
+                    filters,
+                    refreshCache
+                );
+
+                this.handleApiResponse(data);
+                this.updateDashboard();
+                this.updateCharts();
+                this.updateTables();
+
+            } catch (error) {
+                console.error('Error loading asset data:', error);
+                alert('Failed to load asset data. Please try again.');
+            } finally {
+                this.setLoadingState(false);
+            }
+        }
+
+        handleApiResponse(data) {
+            this.apiResponse = data || [];
+
+            // Extract data sections
+            this.summaryMetrics = data[0] || [];
+            this.statusData = data[1] || [];
+            this.conditionData = data[2] || [];
+            this.movementData = data[3] || [];
+            this.assetTypeData = data[4] || [];
+            this.locationData = data[5] || [];
+            this.timelineData = data[6] || [];
+            this.warrantyData = data[7] || [];
+            this.topAssetsData = data[8] || [];
+
+            console.log('Asset dashboard data loaded:', {
+                totalAssets: this.summaryMetrics?.[0]?.total_assets,
+                movements: this.movementData?.length,
+                assetTypes: this.assetTypeData?.length
+            });
+        }
+
+        updateDashboard() {
+            if (!this.summaryMetrics || this.summaryMetrics.length < 5) return;
+
+            const metrics = this.summaryMetrics;
+
+            document.getElementById('totalAssets').textContent = this.formatValue(metrics[0]?.total_assets || 0, 'number');
+            document.getElementById('totalCurrentValue').textContent = this.formatCurrency(metrics[1]?.total_current_value || 0, false);
+            document.getElementById('totalDepreciation').textContent = this.formatCurrency(metrics[2]?.total_depreciation || 0, false);
+            document.getElementById('depreciationRate').textContent = `${metrics[3]?.depreciation_rate || 0}% of cost`;
+            document.getElementById('totalMovements').textContent = this.formatValue(metrics[4]?.total_movements || 0, 'number');
+        }
+
+        updateCharts() {
+            this.updateAssetTypeChart();
+            this.updateAssetStatusChart();
+            this.updateAssetLocationChart();
+            this.updateAssetMovementChart();
+        }
+
+        updateAssetTypeChart() {
+            if (!this.assetTypeData || this.assetTypeData.length === 0) {
+                this.assetTypeChart.data.labels = [];
+                this.assetTypeChart.data.datasets = [];
+                this.assetTypeChart.update();
+                return;
+            }
+
+            const topTypes = this.assetTypeData.slice(0, 8);
+            const labels = topTypes.map(t => t.name.length > 20 ? t.name.substring(0, 20) + '...' : t.name);
+            const values = topTypes.map(t => this.chartView === 'count' ? t.asset_count : t.total_current);
+
+            this.assetTypeChart.data.labels = labels;
+            this.assetTypeChart.data.datasets = [{
+                label: this.chartView === 'count' ? 'Number of Assets' : 'Current Value',
+                data: values,
+                backgroundColor: '#4361ee',
+                borderColor: '#3a0ca3',
+                borderWidth: 1
+                // REMOVED the invalid 'type' property
+            }];
+
+            this.assetTypeChart.options.scales.y.ticks.callback = (value) => {
+                return this.chartView === 'value'
+                    ? this.formatCurrency(value, false)
+                    : this.formatValue(value, 'number');
+            };
+
+            this.assetTypeChart.update();
+        }
+
+        updateAssetStatusChart() {
+            if (!this.statusData || this.statusData.length === 0) {
+                this.assetStatusChart.data.labels = [];
+                this.assetStatusChart.data.datasets = [];
+                this.assetStatusChart.update();
+                return;
+            }
+
+            const labels = this.statusData.map(s => s.status);
+            const counts = this.statusData.map(s => s.count);
+
+            const colors = {
+                'In Stock': '#4cc9f0',
+                'Assigned': '#4361ee',
+                'Disposed': '#6c757d',
+                'Sold': '#ff6b6b'
+            };
+
+            const backgroundColors = labels.map(label => colors[label] || '#6c757d');
+
+            this.assetStatusChart.data.labels = labels;
+            this.assetStatusChart.data.datasets = [{
+                data: counts,
+                backgroundColor: backgroundColors,
+                borderWidth: 1
+                // REMOVED type: 'number'
+            }];
+
+            this.assetStatusChart.update();
+        }
+
+        updateAssetLocationChart() {
+            if (!this.locationData || this.locationData.length === 0) {
+                this.assetLocationChart.data.labels = [];
+                this.assetLocationChart.data.datasets = [];
+                this.assetLocationChart.update();
+                return;
+            }
+
+            const topLocations = this.locationData.slice(0, 6);
+            const labels = topLocations.map(l => l.name.length > 15 ? l.name.substring(0, 15) + '...' : l.name);
+            const values = topLocations.map(l => l.asset_count);
+
+            this.assetLocationChart.data.labels = labels;
+            this.assetLocationChart.data.datasets = [{
+                label: 'Assets by Location',
+                data: values,
+                backgroundColor: '#f8961e',
+                borderColor: '#e07c1c',
+                borderWidth: 1
+                // REMOVED type: 'number'
+            }];
+
+            this.assetLocationChart.update();
+        }
+
+
+
+        updateAssetMovementChart() {
+            if (!this.movementData || this.movementData.length === 0) {
+                this.assetMovementChart.data.labels = [];
+                this.assetMovementChart.data.datasets = [];
+                this.assetMovementChart.update();
+                return;
+            }
+
+            // Group by date
+            const movementsByDate = {};
+            this.movementData.forEach(m => {
+                const date = m.transaction_date;
+                if (!movementsByDate[date]) {
+                    movementsByDate[date] = {
+                        acquisitions: 0,
+                        disposals: 0,
+                        transfers: 0,
+                        assignments: 0
+                    };
+                }
+
+                switch (m.movement_type) {
+                    case 'acquisition':
+                    case 'donation_in':
+                    case 'opening_balance':
+                        movementsByDate[date].acquisitions += 1;
+                        break;
+                    case 'sale':
+                    case 'donation_out':
+                    case 'disposal':
+                        movementsByDate[date].disposals += 1;
+                        break;
+                    case 'transfer':
+                        movementsByDate[date].transfers += 1;
+                        break;
+                    case 'assignment':
+                    case 'return':
+                        movementsByDate[date].assignments += 1;
+                        break;
+                }
+            });
+
+            const sortedDates = Object.keys(movementsByDate).sort();
+            const last7Dates = sortedDates.slice(-7);
+
+            this.assetMovementChart.data.labels = last7Dates;
+            this.assetMovementChart.data.datasets = [
+                {
+                    label: 'Acquisitions',
+                    data: last7Dates.map(d => movementsByDate[d].acquisitions),
+                    borderColor: '#4cc9f0',
+                    backgroundColor: 'rgba(76, 201, 240, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    fill: true
+                    // REMOVED the invalid 'type' property
+                },
+                {
+                    label: 'Disposals',
+                    data: last7Dates.map(d => movementsByDate[d].disposals),
+                    borderColor: '#ff6b6b',
+                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    fill: true
+                    // REMOVED the invalid 'type' property
+                },
+                {
+                    label: 'Transfers',
+                    data: last7Dates.map(d => movementsByDate[d].transfers),
+                    borderColor: '#f8961e',
+                    backgroundColor: 'rgba(248, 150, 30, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    fill: true
+                    // REMOVED the invalid 'type' property
+                }
+            ];
+
+            this.assetMovementChart.update();
+        }
+
+
+
+
+        updateTables() {
+            this.updateTopAssetsTable();
+            this.updateWarrantyTable();
+        }
+
+        updateTopAssetsTable() {
+            if (!this.topAssetsData || this.topAssetsData.length === 0) {
+                this.topAssetsTable.innerHTML = '<tr><td colspan="9" class="text-center">No asset data available</td></tr>';
+                document.getElementById('topAssetsInfo').textContent = 'No assets found';
+                return;
+            }
+
+            let sortedAssets = [...this.topAssetsData];
+
+            switch (this.topAssetsFilter) {
+                case 'depreciation':
+                    sortedAssets.sort((a, b) => b.depreciation - a.depreciation);
+                    break;
+                case 'age':
+                    sortedAssets.sort((a, b) => {
+                        if (!a.purchase_date || a.purchase_date === '—') return 1;
+                        if (!b.purchase_date || b.purchase_date === '—') return -1;
+                        return new Date(a.purchase_date) - new Date(b.purchase_date);
+                    });
+                    break;
+                case 'value':
+                default:
+                    sortedAssets.sort((a, b) => b.current_value - a.current_value);
+            }
+
+            const topAssets = sortedAssets.slice(0, 10);
+            const filterText = this.topAssetsFilter === 'value' ? 'value' :
+                this.topAssetsFilter === 'depreciation' ? 'depreciation' : 'age';
+            document.getElementById('topAssetsInfo').textContent = `Showing top 10 assets by ${filterText}`;
+
+            this.topAssetsTable.innerHTML = topAssets.map(asset => {
+                let statusClass = 'bg-success';
+                if (asset.status === 'assigned') statusClass = 'bg-primary';
+                else if (asset.status === 'maintenance') statusClass = 'bg-warning';
+                else if (asset.status === 'disposed') statusClass = 'bg-danger';
+                else if (asset.status === 'sold') statusClass = 'bg-secondary';
+
+                let depClass = 'bg-success';
+                if (asset.depreciation_pct > 50) depClass = 'bg-danger';
+                else if (asset.depreciation_pct > 25) depClass = 'bg-warning';
+
+                return `
+            <tr>
+                <td>
+                    <a href="/assets/asset/${asset.id}/view" class="reference-link">
+                        ${asset.asset_tag}
+                    </a>
+                </td>
+                <td>${asset.asset_type}</td>
+                <td><span style="font-family: monospace;">${asset.serial_number}</span></td>
+                <td><span class="badge ${statusClass}">${asset.status_label}</span></td>
+                <td>${asset.location}</td>
+                <td>${asset.purchase_date}</td>
+                <td class="text-end">${this.formatCurrency(asset.purchase_price, false)}</td>
+                <td class="text-end">${this.formatCurrency(asset.current_value, false)}</td>
+                <td class="text-center">
+                    <span class="badge ${depClass}">
+                        ${asset.depreciation_pct}%
+                    </span>
+                </td>
+            </tr>
+        `;
+            }).join('');
+        }
+        updateWarrantyTable() {
+            if (!this.warrantyData || this.warrantyData.length === 0) {
+                this.warrantyTable.innerHTML = '<tr><td colspan="6" class="text-center">No warranties expiring soon</td></tr>';
+                document.getElementById('warrantyInfo').textContent = 'No warranties expiring in next 90 days';
+                return;
+            }
+
+            this.warrantyTable.innerHTML = this.warrantyData.slice(0, 5).map(w => {
+                const daysClass = w.days_until <= 30 ? 'warranty-urgent' :
+                    w.days_until <= 60 ? 'warranty-warning' : '';
+
+                return `
+                    <tr>
+                        <td>
+                            <a href="/assets/asset/${w.id}/view" class="asset-tag-link">
+                                ${w.asset_tag}
+                            </a>
+                        </td>
+                        <td>${w.asset_type || '—'}</td>
+                        <td><span style="font-family: monospace;">${w.serial_number || '—'}</span></td>
+                        <td>${w.location || w.assigned_to || '—'}</td>
+                        <td>${w.warranty_expiry || '—'}</td>
+                        <td class="${daysClass}">${w.days_until} days</td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('warrantyInfo').textContent = `${this.warrantyData.length} warranties expiring in next 90 days`;
+        }
+
+
+
+
+
+
+    }
+
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', () => {
+        new AssetDashboard();
+    });
+</script>
+
+{% endblock %}

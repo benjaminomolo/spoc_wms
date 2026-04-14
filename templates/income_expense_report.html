@@ -1,0 +1,550 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        font-size: 0.9em;
+        text-align: left;
+    }
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 6px;
+    }
+
+    th {
+        background-color: #f4f4f4;
+    }
+
+    .category-row {
+        font-weight: bold;
+        background-color: #f9f9f9;
+    }
+
+    .subtotal-row,
+    .total-row {
+        font-style: italic;
+    }
+
+    .total-row {
+        font-weight: bold;
+    }
+
+    .total-row td {
+        text-align: right;
+    }
+
+    tfoot tr td {
+        border-top: 2px solid #ddd;
+    }
+
+    .description-column {
+        width: 80.66%;
+    }
+
+    .amount-column,
+    .amount {
+        width: 33.33%;
+        text-align: right;
+    }
+
+    .category-column {
+        width: 40%;
+    }
+
+    .subcategory-column {
+        width: 40%;
+    }
+
+
+    /* Loading spinner */
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: none;
+        /* Hidden by default */
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        /* Ensure it appears above other content */
+    }
+
+    #loading-spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        /* Light grey */
+        border-left: 4px solid var(--primary-color);
+        /* Blue */
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+
+
+
+
+<div class="content-container">
+    <div class="header-section">
+
+        <h1>Income and Expense Report</h1>
+
+        <div class="view-toggle-buttons">
+            <button class="cta-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <button class="button cta-button" id="download-pdf">
+                <i class="fas fa-file-pdf"></i> Download
+            </button>
+        </div>
+
+    </div>
+
+
+    <div id="loading-overlay">
+        <div id="loading-spinner"></div>
+    </div>
+
+
+    <!-- Filter Section -->
+    <div class="filter-section date-filter date-filter-form" id="filter-section">
+
+        <div class="filter-group">
+            <label for="currency-select" class="filter-label">Filter By</label>
+            <select id="currency-select" name="filter_type" class="form-select">
+
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="start-date" class="filter-label">Start Date</label>
+            <input type="date" id="start-date" name="start-date" class="form-control">
+        </div>
+
+        <div class="filter-group">
+            <label for="end-date" class="filter-label">End Date</label>
+            <input type="date" id="end-date" name="end-date" class="form-control">
+        </div>
+
+        <div class="filter-actions">
+            <button id="apply-filter" class="add-button">Apply Filter</button>
+            <a href="{{ url_for('income_expense_report') }}" class="btn reset-button">Reset</a>
+        </div>
+
+    </div>
+
+
+
+
+    <h2 class="transaction-headings">Income</h2>
+    <table id="income-table">
+        <thead>
+            <tr>
+                <th class="category-column">Category</th>
+                <th class="subcategory-column">Subcategory</th>
+                <th class="amount-column">Amount (<span class="currency-symbol"></span></span>)</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+            <tr id="total-income-row">
+                <td colspan="2"><strong>Total Income</strong></td>
+                <td class="amount"><strong id="total-income"></strong></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <h2 class="transaction-headings">Expense</h2>
+    <table id="expense-table">
+        <thead>
+            <tr>
+                <th class="category-column">Category</th>
+                <th class="subcategory-column">Subcategory</th>
+                <th class="amount-column">Amount (<span class="currency-symbol"></span>)</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+            <tr id="total-expenses-row">
+                <td colspan="2"><strong>Total Expenses</strong></td>
+                <td class="amount"><strong id="total-expenses"></strong></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <h2 class="transaction-headings">Net Income</h2>
+    <table id="net-income-table">
+        <thead>
+            <tr>
+                <th class="description-column">Description</th>
+                <th class="amount-column">Amount (<span class="currency-symbol"></span>)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="description-column"><strong>Net Income</strong></td>
+                <td class="amount-column"><strong id="net-income"></strong></td>
+            </tr>
+        </tbody>
+    </table>
+
+
+</div>
+
+<script>
+    const companyName = "{{ company.name }}";
+
+    // Set the API key in JavaScript
+    const apiKey = "{{ api_key }}";  // Safe to use in JS since it's set here directly from the backend
+
+    document.addEventListener('DOMContentLoaded', () => {
+        function formatNumber(number) {
+            return number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // Show the loading animation
+        function showLoading() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+
+        // Hide the loading animation
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+        // Fetch currencies and set up the default currency
+        function fetchCurrencies() {
+            showLoading(); // Show loading animation
+            return fetch('/get_currency')
+                .then(response => response.json())
+                .then(currencies => {
+                    const currencySelect = document.getElementById('currency-select');
+                    if (!currencySelect) {
+                        console.error('Currency select element not found.');
+                        hideLoading(); // Hide loading animation
+                        return null;
+                    }
+                    currencySelect.innerHTML = ''; // Clear existing options
+
+                    let defaultCurrency = null;
+
+                    // Create the currency map from the fetched currencies
+                    createCurrencyMap(currencies);
+
+                    currencies.forEach(currency => {
+                        const option = document.createElement('option');
+                        option.value = currency.user_currency;
+                        option.textContent = currency.user_currency;
+
+                        if (currency.currency_index === 1) {
+                            option.selected = true;
+                            defaultCurrency = currency.user_currency;
+                        }
+
+                        currencySelect.appendChild(option);
+                    });
+
+                    console.log('Fetched currencies:', currencies);
+                    //Update currency
+                    updateCurrencySymbol(defaultCurrency); // Update currency symbols in the table
+                    hideLoading(); // Hide loading animation
+                    return defaultCurrency;
+                })
+                .catch(error => {
+                    console.error('Error fetching currencies:', error);
+                    hideLoading(); // Hide loading animation
+                    return null;
+                });
+        }
+
+        function fetchTransactions(user_currency) {
+            showLoading(); // Show loading animation
+
+            return fetch(`/get_transactions?currency=${encodeURIComponent(user_currency)}`, {
+                headers: {
+                    'X-API-Key': apiKey, // Set the API key in headers
+                    'Content-Type': 'application/json'
+                }
+            })
+
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json(); // Convert response to JSON
+                })
+                .then(transactions => {
+                    console.log('Fetched transactions:', transactions);
+
+                    const startDate = document.getElementById('start-date').value;
+                    const endDate = document.getElementById('end-date').value;
+
+                    console.log('Selected dates:', startDate, endDate);
+
+                    const filteredTransactions = transactions.filter(transaction => {
+                        const transactionDate = new Date(transaction.date);
+                        return (!startDate || transactionDate >= new Date(startDate)) &&
+                            (!endDate || transactionDate <= new Date(endDate)) &&
+                            (transaction.currency === user_currency);
+                    });
+
+                    console.log('Filtered transactions:', filteredTransactions);
+
+                    const incomeSummary = {};
+                    const expenseSummary = {};
+                    let totalIncome = 0;
+                    let totalExpenses = 0;
+
+                    filteredTransactions.forEach(transaction => {
+                        const category = transaction.category || 'Uncategorized';
+                        const subcategory = transaction.subcategory || 'Uncategorized';
+                        const amount = transaction.amount;
+
+                        if (transaction.transaction_type === 'Income' && transaction.dr_cr === 'C') {
+                            if (!incomeSummary[category]) {
+                                incomeSummary[category] = { total: 0, subcategories: {} };
+                            }
+                            if (!incomeSummary[category].subcategories[subcategory]) {
+                                incomeSummary[category].subcategories[subcategory] = 0;
+                            }
+                            incomeSummary[category].subcategories[subcategory] += amount;
+                            incomeSummary[category].total += amount;
+                            totalIncome += amount;
+                        } else if (transaction.transaction_type === 'Expense' && transaction.dr_cr === 'D') {
+                            if (!expenseSummary[category]) {
+                                expenseSummary[category] = { total: 0, subcategories: {} };
+                            }
+                            if (!expenseSummary[category].subcategories[subcategory]) {
+                                expenseSummary[category].subcategories[subcategory] = 0;
+                            }
+                            expenseSummary[category].subcategories[subcategory] += amount;
+                            expenseSummary[category].total += amount;
+                            totalExpenses += amount;
+                        }
+                    });
+
+                    console.log('Income Summary:', incomeSummary);
+                    console.log('Expense Summary:', expenseSummary);
+
+                    const netIncome = totalIncome - totalExpenses;
+                    console.log('Net Income:', netIncome);
+
+                    // Populate tables
+                    populateTables(incomeSummary, expenseSummary, totalIncome, totalExpenses, netIncome);
+                    hideLoading(); // Hide loading animation
+                })
+                .catch(error => {
+                    console.error('Error fetching transactions:', error);
+
+
+
+                    hideLoading(); // Hide loading animation
+                });
+        }
+
+        function populateTables(incomeSummary, expenseSummary, totalIncome, totalExpenses, netIncome) {
+            const incomeTableBody = document.getElementById('income-table').getElementsByTagName('tbody')[0];
+            incomeTableBody.innerHTML = '';
+            Object.entries(incomeSummary).forEach(([category, data]) => {
+                let categoryRow = document.createElement('tr');
+                categoryRow.classList.add('category-row');
+                categoryRow.innerHTML = `<td colspan="3"><strong>${category}</strong></td>`;
+                incomeTableBody.appendChild(categoryRow);
+
+                Object.entries(data.subcategories).forEach(([subcategory, amount]) => {
+                    let subcategoryRow = document.createElement('tr');
+                    subcategoryRow.innerHTML = `<td></td><td>${subcategory}</td><td class="amount">${formatNumber(amount)}</td>`;
+                    incomeTableBody.appendChild(subcategoryRow);
+                });
+
+                let subtotalRow = document.createElement('tr');
+                subtotalRow.classList.add('subtotal-row');
+                subtotalRow.innerHTML = `<td></td><td><strong>Subtotal</strong></td><td class="amount"><strong>${formatNumber(data.total)}</strong></td>`;
+                incomeTableBody.appendChild(subtotalRow);
+            });
+
+            document.getElementById('total-income').textContent = formatNumber(totalIncome);
+
+            const expenseTableBody = document.getElementById('expense-table').getElementsByTagName('tbody')[0];
+            expenseTableBody.innerHTML = '';
+            Object.entries(expenseSummary).forEach(([category, data]) => {
+                let categoryRow = document.createElement('tr');
+                categoryRow.classList.add('category-row');
+                categoryRow.innerHTML = `<td colspan="3"><strong>${category}</strong></td>`;
+                expenseTableBody.appendChild(categoryRow);
+
+                Object.entries(data.subcategories).forEach(([subcategory, amount]) => {
+                    let subcategoryRow = document.createElement('tr');
+                    subcategoryRow.innerHTML = `<td></td><td>${subcategory}</td><td class="amount">${formatNumber(amount)}</td>`;
+                    expenseTableBody.appendChild(subcategoryRow);
+                });
+
+                let subtotalRow = document.createElement('tr');
+                subtotalRow.classList.add('subtotal-row');
+                subtotalRow.innerHTML = `<td></td><td><strong>Subtotal</strong></td><td class="amount"><strong>${formatNumber(data.total)}</strong></td>`;
+                expenseTableBody.appendChild(subtotalRow);
+            });
+
+            document.getElementById('total-expenses').textContent = formatNumber(totalExpenses);
+            document.getElementById('net-income').textContent = formatNumber(netIncome);
+        }
+
+        function setupCurrencySelector() {
+            const currencySelect = document.getElementById('currency-select');
+            if (!currencySelect) {
+                console.error('Currency select element not found.');
+                return;
+            }
+
+            currencySelect.addEventListener('change', (event) => {
+                const selectedCurrency = event.target.value;
+                updateCurrencySymbol(selectedCurrency);
+                fetchTransactions(selectedCurrency);
+            });
+        }
+
+        function updateCurrencySymbol(currencySymbol) {
+            const currencySymbols = document.querySelectorAll('.currency-symbol');
+            currencySymbols.forEach(symbol => {
+                symbol.textContent = currencySymbol;
+            });
+        }
+
+
+
+        // Set up the initial state
+        fetchCurrencies().then(defaultCurrency => {
+            if (defaultCurrency) {
+                setupCurrencySelector(); // Set up event listener after fetching currencies
+                fetchTransactions(defaultCurrency); // Fetch transactions with default currency
+            } else {
+                console.error('Default currency not found.');
+            }
+        });
+
+        // Apply filter button click event
+        document.getElementById('apply-filter').addEventListener('click', () => {
+            const currencySelect = document.getElementById('currency-select');
+            if (currencySelect) {
+                const selectedCurrency = currencySelect.value;
+                fetchTransactions(selectedCurrency);
+            } else {
+                console.error('Currency select element not found.');
+            }
+        });
+
+        // Download PDF button click event
+
+
+        // Initialize an empty object to store active filters
+        let activeFilters = {};
+        let currencyMap = {}; // Global mapping of user_currency to currency_id
+
+        function createCurrencyMap(currencies) {
+            currencies.forEach(currency => {
+                // Map user_currency to currency_id
+                currencyMap[currency.user_currency] = currency.currency_id;
+
+                // Log the mapping for debugging
+                console.log(`Mapped user_currency: ${currency.user_currency} to currency_id: ${currency.currency_id}`);
+            });
+
+            // Log the complete currencyMap after all mappings are done
+            console.log("Complete currencyMap:", currencyMap);
+        }
+
+        // Function to update active filters based on user input
+        function updateFilters() {
+            const currency = document.getElementById("currency-select").value;
+            const startDate = document.getElementById("start-date").value;
+            const endDate = document.getElementById("end-date").value;
+
+            console.log("Currency selected is:", currency);
+
+
+            // Get the currency_id from the mapping
+            const currencyId = currencyMap[currency];
+            console.log("Current Currency ID:", currencyId);
+            console.log("Complete currencyMap222222:", currencyMap);
+
+            // Only add to activeFilters if there's a value selected
+            if (currencyId) activeFilters.currency = currencyId;
+            else delete activeFilters.currency;
+
+            if (startDate) activeFilters.startDate = startDate;
+            else delete activeFilters.startDate;
+
+            if (endDate) activeFilters.endDate = endDate;
+            else delete activeFilters.endDate;
+
+            // Log the filters each time they are updated for debugging
+            console.log("Updated Active Filters:", activeFilters);
+        }
+
+        // Event listener for "Apply Filter" button
+        document.getElementById("apply-filter").addEventListener("click", () => {
+            updateFilters();
+            console.log("Active Filters after Apply Filter:", activeFilters);  // For debugging
+            // Optionally, you can send the filters to the backend here to update the displayed results
+        });
+
+        // Event listener for "Download as PDF" button
+        document.getElementById("download-pdf").addEventListener("click", () => {
+            updateFilters();  // Make sure filters are updated before sending the request
+            console.log("Active Filters before Download:", activeFilters);  // For debugging
+
+            fetch("/download_income_expense_report", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+
+                    'X-CSRFToken': csrfToken  // Include the CSRF token in the headers
+                },
+                body: JSON.stringify(activeFilters),
+            })
+                .then(response => response.blob())  // assuming backend responds with a PDF blob
+                .then(blob => {
+                    // Create a URL for the PDF blob and trigger a download
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${companyName} - Income and Expense Report.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(error => console.error("Error:", error));
+        });
+
+
+    })
+
+    // Toggle the filter section visibility with animation
+    document.getElementById('toggleFilterForm').addEventListener('click', function () {
+        const filterSection = document.getElementById('filter-section');
+        filterSection.classList.toggle('visible');
+    });
+
+</script>
+
+{% endblock %}

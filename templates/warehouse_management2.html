@@ -1,0 +1,934 @@
+{% extends "transaction_base_template.html" %}
+
+{% block head %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+<!-- jQuery (required for DataTables) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<!-- Font Awesome for Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <main>
+        <div class="header-row">
+            <h1>Warehouse Management</h1>
+        </div>
+        <!-- Notification Container -->
+        <div id="notification"
+            style="display: none; position: fixed; top: 80px; right: 20px; padding: 15px; border-radius: 5px; color: white; z-index: 1000;">
+        </div>
+
+        <!-- Card-Based Dashboard -->
+        <div class="dashboard-cards">
+            <div class="card">
+                <div class="card-icon">
+                    <i class="fas fa-boxes"></i>
+                </div>
+                <div class="card-content">
+                    <h3>Total Items</h3>
+                    <p>{{ total_items }}</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="card-content">
+                    <h3>In Stock Items</h3>
+                    <p>{{ total_in_stock_items }}</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="card-content">
+                    <h3>Missing Items</h3>
+                    <p>{{ total_missing_items }}</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon">
+                    <i class="fas fa-tachometer-alt"></i>
+                </div>
+                <div class="card-content">
+                    <h3>Low Stock Items</h3>
+                    <p>{{ total_low_stock_items }}</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon">
+                    <i class="fas fa-warehouse"></i>
+                </div>
+                <div class="card-content">
+                    <h3>Warehouses</h3>
+                    <p>{{ total_warehouses }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Location Dropdown, Edit Button, Add Location Button, and Batch Toggle -->
+        <div class="controls">
+            <!-- Location Dropdown -->
+            <form method="get" action="{{ url_for('warehouse_management') }}" class="location-form">
+                <label for="location">Select Warehouse:</label>
+                <select name="location_id" id="location" onchange="this.form.submit()">
+                    {% for location in locations %}
+                    <option value="{{ location.id }}" {% if location.id==selected_location_id %}selected{% endif %}>
+                        {{ location.location }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+
+            <!-- Edit Warehouse Button -->
+            <button id="edit-warehouse-btn" class="edit-warehouse-btn" onclick="openEditWarehouseModal()">
+                <i class="fas fa-edit"></i> Edit Warehouse
+            </button>
+
+            <!-- Add New Location Button -->
+            <button id="add-location-btn" class="add-location-btn" data-bs-toggle="modal"
+                data-bs-target="#addLocationModal">
+                <i class="fas fa-plus"></i> Add New Location
+            </button>
+
+            <!-- Batch Grouping Toggle -->
+            <button id="toggle-batch-grouping" class="batch-toggle-btn" data-group="{{ group_by_batch|lower }}">
+                {% if group_by_batch %}
+                Hide Batch Details
+                {% else %}
+                Show Batch Details
+                {% endif %}
+            </button>
+        </div>
+
+        <!-- Stock Summary Table -->
+        <div class="stock-summary table-container" id="inventoryTable">
+            <h4>Stock Summary for {{ selected_location_name if selected_location_name else "No Location Selected" }}
+            </h4>
+            <!-- Table for Normal View (without Batch column) -->
+            <table id="inventory-normal" class="stock-list-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Item</th>
+                        <th>Brand</th>
+                        <th>Attribute</th>
+                        <th>Variation</th>
+                        <th>Quantity</th>
+                        <th>Missing Items</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="search-row">
+                        <th><input type="text" placeholder="Search Category" /></th>
+                        <th><input type="text" placeholder="Search Item" /></th>
+                        <th><input type="text" placeholder="Search Brand" /></th>
+                        <th><input type="text" placeholder="Search Attribute" /></th>
+                        <th><input type="text" placeholder="Search Variation" /></th>
+                        <th><input type="text" placeholder="Search Quantity" /></th>
+                        <th><input type="text" placeholder="Search Missing Items" /></th>
+                        <th><input type="text" placeholder="Search Status" /></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for category, items in stock_by_category.items() %}
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ category }}</td>
+                        <td>{{ item.item_name }}</td>
+                        <td>{{ item.brand }}</td>
+                        <td>{{ item.attribute }}</td>
+                        <td>{{ item.variation }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.missing_items }}</td>
+                        <td class="status-{{ item.status|lower|replace(' ', '-') }}">{{ item.status }}</td>
+                        <td class="action-buttons">
+                            <button class="action-btn transfer-btn" title="Transfer"
+                                onclick="openTransferModal({{ item.id }}, '{{ item.item_name }}', {{ item.quantity }}, '{{ item.variation_id }}', '{{ item.batch_id }}')">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
+                            <button class="action-btn missing-item-btn" title="Record Missing Item"
+                                onclick="openMissingItemModal({{ item.id }}, '{{ item.item_name }}', '{{ item.variation }}', '{{ item.batch }}', {{ item.quantity }})">
+                                <i class="fas fa-exclamation-circle"></i>
+                            </button>
+                            <a href="{{ url_for('inventory_item_details', item_id=item.id) }}">
+                                <button title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="8">Total Quantity:</td>
+                        <td id="totalQuantityNormal">0</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <!-- Table for Batch View (with Batch column) -->
+            <table id="inventory-batch" class="stock-list-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Item</th>
+                        <th>Brand</th>
+                        <th>Attribute</th>
+                        <th>Variation</th>
+                        <th>Batch</th>
+                        <th>Quantity</th>
+                        <th>Missing Items</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="search-row">
+                        <th><input type="text" placeholder="Search Category" /></th>
+                        <th><input type="text" placeholder="Search Item" /></th>
+                        <th><input type="text" placeholder="Search Brand" /></th>
+                        <th><input type="text" placeholder="Search Attribute" /></th>
+                        <th><input type="text" placeholder="Search Variation" /></th>
+                        <th><input type="text" placeholder="Search Batch" /></th>
+                        <th><input type="text" placeholder="Search Quantity" /></th>
+                        <th><input type="text" placeholder="Search Missing Items" /></th>
+                        <th><input type="text" placeholder="Search Status" /></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for category, items in stock_by_category.items() %}
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ category }}</td>
+                        <td>{{ item.item_name }}</td>
+                        <td>{{ item.brand }}</td>
+                        <td>{{ item.attribute }}</td>
+                        <td>{{ item.variation }}</td>
+                        <td>{{ item.batch }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.missing_items }}</td>
+                        <td class="status-{{ item.status|lower|replace(' ', '-') }}">{{ item.status }}</td>
+                        <td class="action-buttons">
+                            <button class="action-btn transfer-btn" title="Transfer"
+                                onclick="openTransferModal({{ item.id }}, '{{ item.item_name }}', {{ item.quantity }}, '{{ item.variation_id }}', '{{ item.batch_id }}')">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
+                            <button class="action-btn missing-item-btn" title="Record Missing Item"
+                                onclick="openMissingItemModal({{ item.id }}, '{{ item.item_name }}', '{{ item.variation }}', '{{ item.batch }}', {{ item.quantity }})">
+                                <i class="fas fa-exclamation-circle"></i>
+                            </button>
+                            <a href="{{ url_for('inventory_item_details', item_id=item.id) }}">
+                                <button title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="9">Total Quantity:</td>
+                        <td id="totalQuantityBatch">0</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </main>
+</div>
+
+<!-- Transfer Modal -->
+<div id="transferModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeTransferModal()">&times;</span>
+        <h3>Transfer Item</h3>
+        <form method="post" action="{{ url_for('transfer_item') }}">
+            <input type="hidden" name="item_id" id="transfer-item-id">
+            <input type="hidden" name="variation" id="transfer-item-variation">
+            <input type="hidden" name="batch" id="transfer-item-batch">
+            <p><strong>Item:</strong> <span id="transfer-item-name"></span></p>
+            <label for="to_location">Transfer to:</label>
+            <select name="to_location" id="to_location" required>
+                {% for location in locations %}
+                {% if location.id != selected_location_id %}
+                <option value="{{ location.id }}">{{ location.location }}</option>
+                {% endif %}
+                {% endfor %}
+            </select>
+            <label for="quantity">Quantity:</label>
+            <input type="number" name="quantity" id="quantity" min="1" required>
+            <button type="submit">Transfer</button>
+        </form>
+    </div>
+</div>
+
+<!-- Missing Item Modal -->
+<div id="missingItemModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeMissingItemModal()">&times;</span>
+        <h3>Mark Item as Missing</h3>
+        <form id="missingItemForm" method="post" action="{{ url_for('missing_item') }}">
+            <!-- Hidden fields for item details -->
+            <input type="hidden" name="item_id" id="missing-item-id">
+            <input type="hidden" name="variation" id="missing-item-variation">
+            <input type="hidden" name="batch" id="missing-item-batch">
+            <input type="hidden" name="from_location" id="from_location" value="{{ selected_location_id }}">
+
+            <!-- Display item name -->
+            <p><strong>Item:</strong> <span id="missing-item-name"></span></p>
+
+            <!-- Display current location as plain text -->
+            <p><strong>From Location:</strong> {{ selected_location_name if selected_location_name else "No Location
+                Selected" }}</p>
+
+            <!-- Quantity input -->
+            <label for="quantity">Quantity:</label>
+            <input type="number" name="quantity" id="quantity" min="1" required>
+
+            <!-- Submit button -->
+            <button type="submit">Mark as Missing</button>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Warehouse Modal -->
+<div id="editWarehouseModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeEditWarehouseModal()">&times;</span>
+        <h3>Edit Warehouse Name</h3>
+        <form method="post" action="{{ url_for('edit_warehouse') }}">
+            <input type="hidden" name="location_id" id="edit-location-id" value="{{ selected_location_id }}">
+            <label for="new_location_name">New Warehouse Name:</label>
+            <input type="text" name="new_location_name" id="new_location_name" required>
+            <button type="submit">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<!-- Add Location Modal -->
+<div class="modal fade" id="addLocationModal" tabindex="-1" aria-labelledby="addLocationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addLocationModalLabel">Add New Inventory Location</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-location-form" method="POST" action="{{ url_for('add_inventory_location') }}">
+                    <div class="form-group mb-3">
+                        <label for="location_name">Location Name: <span class="required-mark">*</span></label>
+                        <input type="text" id="location_name" name="location" class="form-control" maxlength="100"
+                            required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="location_description">Location Description:</label>
+                        <textarea id="location_description" name="description" class="form-control" maxlength="300"
+                            rows="3"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Location</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for DataTables and Modal Handling -->
+<script>
+    // Function to initialize DataTable for a specific table
+    function initializeDataTable(tableId, groupByBatch) {
+        console.log('Initializing DataTable for:', tableId); // Debugging
+
+        // Destroy existing DataTable instance (if any)
+        if ($.fn.DataTable.isDataTable(tableId)) {
+            console.log('Destroying existing DataTable instance...'); // Debugging
+            $(tableId).DataTable().destroy();
+        }
+
+        // Initialize DataTable
+        var table = $(tableId).DataTable({
+            paging: true,
+            ordering: true,
+            info: true,
+            searching: true, // Enable the general search bar
+            responsive: true,
+            columnDefs: [
+                { "orderable": false, "targets": [groupByBatch ? 9 : 8] } // Disable sorting on Actions column
+            ],
+            footerCallback: function (row, data, start, end, display) {
+                var api = this.api();
+                var totalQuantity = api.column(groupByBatch ? 6 : 5, { page: 'current' }).data().reduce(function (a, b) {
+                    return a + b * 1; // Summing up the quantities (assuming they are numbers)
+                }, 0);
+                $(tableId + ' #totalQuantity' + (groupByBatch ? 'Batch' : 'Normal')).html(totalQuantity);
+            },
+            initComplete: function () {
+                console.log('DataTable initialization complete for:', tableId); // Debugging
+
+                // Apply search for each column
+                this.api().columns().every(function () {
+                    var column = this;
+                    var header = $(column.header());
+                    var searchInput = header.find('input');
+
+                    if (searchInput.length > 0) {
+                        searchInput.on('keyup change clear', function () {
+                            if (column.search() !== this.value) {
+                                column.search(this.value).draw();
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    // Function to toggle between tables
+    function toggleTables(groupByBatch) {
+        if (groupByBatch) {
+            $('#inventory-normal').hide();
+            $('#inventory-batch').show();
+            initializeDataTable('#inventory-batch', true);
+        } else {
+            $('#inventory-batch').hide();
+            $('#inventory-normal').show();
+            initializeDataTable('#inventory-normal', false);
+        }
+    }
+
+    // Function to open the edit warehouse modal
+    function openEditWarehouseModal() {
+        const selectedLocationId = document.getElementById('location').value;
+        document.getElementById('edit-location-id').value = selectedLocationId;
+        document.getElementById('editWarehouseModal').style.display = 'block';
+    }
+
+    // Function to close the edit warehouse modal
+    function closeEditWarehouseModal() {
+        document.getElementById('editWarehouseModal').style.display = 'none';
+    }
+
+    // Initialize DataTable on page load
+    $(document).ready(function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const groupByBatch = urlParams.get('group_by_batch') === 'true'; // Get the current state
+        toggleTables(groupByBatch);
+    });
+
+    // Handle batch grouping toggle
+    const toggleBatchButton = document.getElementById('toggle-batch-grouping');
+    if (toggleBatchButton) {
+        toggleBatchButton.addEventListener('click', function () {
+            console.log('Toggle Batch Button Clicked'); // Debugging
+            const url = new URL(window.location.href);
+            const currentGroupByBatch = url.searchParams.get('group_by_batch') === 'true'; // Convert to boolean
+            url.searchParams.set('group_by_batch', !currentGroupByBatch); // Toggle the boolean
+            window.location.href = url.toString(); // Reload the page with the updated parameter
+        });
+    } else {
+        console.error('Toggle batch button not found'); // Debugging
+    }
+
+    // Function to open the transfer modal
+    function openTransferModal(itemId, itemName, quantity, variation, batch) {
+        if (quantity <= 0) {
+            alert('Quantity is 0 or lower. Cannot transfer.');
+            return;
+        }
+        document.getElementById('transfer-item-id').value = itemId;
+        document.getElementById('transfer-item-name').textContent = itemName;
+        document.getElementById('transfer-item-variation').value = variation;
+        document.getElementById('transfer-item-batch').value = batch;
+        document.getElementById('transferModal').style.display = 'block';
+    }
+
+    // Function to close the transfer modal
+    function closeTransferModal() {
+        document.getElementById('transferModal').style.display = 'none';
+    }
+
+    // Function to open the missing item modal
+    function openMissingItemModal(itemId, itemName, variation, batch, quantity) {
+        if (quantity <= 0) {
+            alert('Quantity is 0 or lower. Cannot record missing.');
+            return;
+        }
+        document.getElementById('missing-item-id').value = itemId;
+        document.getElementById('missing-item-name').textContent = itemName;
+        document.getElementById('missing-item-variation').value = variation;
+        document.getElementById('missing-item-batch').value = batch;
+        document.getElementById('missingItemModal').style.display = 'block';
+    }
+
+    // Function to close the missing item modal
+    function closeMissingItemModal() {
+        document.getElementById('missingItemModal').style.display = 'none';
+    }
+
+    // Other Functionality (in its own DOMContentLoaded event listener)
+    document.addEventListener('DOMContentLoaded', function () {
+        // Handle transfer form submission
+        const transferForm = document.querySelector('#transferModal form');
+        const notification = document.getElementById('notification');
+
+        // Function to show notifications
+        function showNotification(message, isError = false) {
+            notification.textContent = message;
+            notification.style.backgroundColor = isError ? '#ff4444' : '#4CAF50'; // Red for error, green for success
+            notification.style.display = 'block';
+
+            // Hide the notification after 5 seconds
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 5000);
+        }
+
+        // Handle missing item form submission
+        document.getElementById('missingItemForm').addEventListener('submit', async function (event) {
+            event.preventDefault(); // Prevent default form submission
+
+            const formData = new FormData(this); // Get form data
+            const notification = document.getElementById('notification');
+
+            try {
+                // Send the form data to the server using fetch
+                const response = await fetch("{{ url_for('missing_item') }}", {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json(); // Parse the JSON response
+
+                if (response.ok) {
+                    // Show success message
+                    showNotification(result.message);
+
+                    // Close the modal
+                    closeMissingItemModal();
+
+                    // Reload the page to reflect changes
+                    location.reload();
+                } else {
+                    // Show error message
+                    showNotification(result.error, true);
+                }
+            } catch (error) {
+                // Handle network or other errors
+                showNotification('An error occurred while recording missing items.', true);
+                console.error('Error:', error);
+            }
+        });
+
+        // Close the modal when the user clicks the close button (×)
+        document.querySelector('#missingItemModal .close').addEventListener('click', closeMissingItemModal);
+
+        // Close the modal when the user clicks outside the modal
+        window.addEventListener('click', function (event) {
+            const modal = document.getElementById('missingItemModal');
+            if (event.target === modal) {
+                closeMissingItemModal();
+            }
+        });
+
+        // Handle form submission
+        if (transferForm) {
+            transferForm.addEventListener('submit', async function (event) {
+                event.preventDefault(); // Prevent default form submission
+
+                const formData = new FormData(transferForm);
+                const itemId = document.getElementById('transfer-item-id').value;
+
+                // Get the selected location from the dropdown
+                const locationDropdown = document.querySelector('.location-form select[name="location_id"]');
+                console.log('Location Dropdown:', locationDropdown); // Debugging
+
+                if (!locationDropdown) {
+                    console.error('Location dropdown not found');
+                    return;
+                }
+
+                const fromLocation = locationDropdown.value; // Get the selected value
+                console.log('Selected Location:', fromLocation); // Debugging
+
+                if (!fromLocation) {
+                    showNotification('Please select a warehouse location.', true); // Show error message
+                    return;
+                }
+
+                // Add from_location to the form data
+                formData.append('from_location', fromLocation);
+
+                // Debugging: Log FormData
+                for (let [key, value] of formData.entries()) {
+                    console.log(key, value);
+                }
+
+                try {
+                    const response = await fetch("{{ url_for('transfer_item') }}", {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        showNotification(result.message); // Show success message
+                        closeTransferModal(); // Close the modal
+                        location.reload(); // Reload the page to reflect changes
+                    } else {
+                        closeTransferModal(); // Close the modal;
+                        showNotification(result.error, true); // Show error message
+                    }
+                } catch (error) {
+                    showNotification('An error occurred while transferring the item.', true); // Show generic error message
+                    console.error('Error:', error);
+                }
+            });
+        }
+
+        // Handle Add Location Form Submission
+        document.getElementById('add-location-form').addEventListener('submit', async function (event) {
+            event.preventDefault(); // Prevent default form submission
+
+            const formData = new FormData(this);
+            const notification = document.getElementById('notification');
+
+            try {
+                const response = await fetch("{{ url_for('add_inventory_location') }}", {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Show success message
+                    showNotification(result.message, false);
+
+                    // Close the modal
+                    bootstrap.Modal.getInstance(document.getElementById('addLocationModal')).hide();
+
+                    // Reload the page to reflect the new location
+                    location.reload();
+                } else {
+                    // Show error message
+                    showNotification(result.error, true);
+                }
+            } catch (error) {
+                showNotification('An error occurred while adding the location.', true);
+                console.error('Error:', error);
+            }
+        });
+    });
+</script>
+
+<style>
+    /* Add this CSS for the batch toggle button */
+    .controls {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .batch-toggle-btn {
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.3s;
+    }
+
+    .batch-toggle-btn:hover {
+        background-color: #0056b3;
+    }
+
+    .warehouse-management {
+        margin: 20px;
+    }
+
+    .container {
+        width: 90%;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .header-row {
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #dcdde1;
+    }
+
+    .header-row h1 {
+        margin: 0;
+        font-size: 2rem;
+        color: #333;
+    }
+
+
+
+    /* Card-Based Dashboard */
+    .dashboard-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        /* Reduce card width */
+        gap: 15px;
+        /* Reduce gap between cards */
+        margin-bottom: 20px;
+    }
+
+    .card {
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        /* Reduce padding */
+        text-align: center;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .card-icon {
+        font-size: 1.5rem;
+        /* Reduce icon size */
+        color: #007bff;
+        margin-bottom: 10px;
+    }
+
+    .card-content h3 {
+        margin: 0;
+        font-size: 1rem;
+        /* Reduce font size */
+        color: #333;
+    }
+
+    .card-content p {
+        margin: 0;
+        font-size: 1.2rem;
+        /* Reduce font size */
+        font-weight: bold;
+        color: #007bff;
+    }
+
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .stock-list-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        min-width: 600px;
+    }
+
+    .stock-list-table th,
+    .stock-list-table td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+    }
+
+    .stock-list-table th {
+        background-color: #007bff;
+        color: #fff;
+    }
+
+    .stock-list-table tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    /* Tooltip for buttons */
+
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        white-space: nowrap;
+    }
+
+    .action-buttons button {
+        position: relative;
+    }
+
+    .action-buttons button::after {
+        content: attr(title);
+        position: absolute;
+        bottom: -25px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #333;
+        color: #fff;
+        padding: 5px;
+        border-radius: 5px;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s, visibility 0.3s;
+    }
+
+    .action-buttons button:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+        background-color: white;
+        margin: 15% auto;
+        padding: 20px;
+        width: 50%;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .close {
+        float: right;
+        font-size: 24px;
+        cursor: pointer;
+    }
+
+    thead input {
+        width: 100%;
+        padding: 5px;
+        box-sizing: border-box;
+    }
+
+    /* Status Colors */
+    .status-in-stock {
+        color: #008000;
+        /* green */
+    }
+
+    .status-out-of-stock {
+        color: #FF0000;
+        /* red */
+    }
+
+    .status-low-stock {
+        color: #FFA500;
+        /* orange */
+    }
+
+    .status-backordered {
+        color: #666666;
+        /* gray */
+    }
+
+    .status-discontinued {
+        color: #999999;
+        /* light gray */
+    }
+
+    /* Dropdown Container */
+    form {
+        margin-bottom: 20px;
+    }
+
+    /* Dropdown Label */
+    form label {
+        font-size: 1rem;
+        font-weight: bold;
+        color: #333;
+        margin-right: 10px;
+    }
+
+    /* Dropdown Select Box */
+    form select {
+        padding: 8px 12px;
+        font-size: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        background-color: #fff;
+        color: #333;
+        cursor: pointer;
+        transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    /* Dropdown Hover State */
+    form select:hover {
+        border-color: #007bff;
+    }
+
+    /* Dropdown Focus State */
+    form select:focus {
+        border-color: #007bff;
+        outline: none;
+        box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+    }
+
+    /* Dropdown Arrow Styling */
+    form select {
+        appearance: none;
+        /* Remove default arrow */
+        -webkit-appearance: none;
+        /* For Safari */
+        -moz-appearance: none;
+        /* For Firefox */
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23333'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 12px;
+        padding-right: 30px;
+        /* Space for custom arrow */
+    }
+
+    /* Dropdown Option Styling */
+    form select option {
+        padding: 8px;
+        background-color: #fff;
+        color: #333;
+    }
+
+    /* Dropdown Option Hover State */
+    form select option:hover {
+        background-color: #007bff;
+        color: #fff;
+    }
+
+    @media (max-width: 768px) {
+        .search-row {
+            display: none;
+        }
+
+        .stock-list-table th,
+        .stock-list-table td {
+            padding: 8px;
+        }
+
+        .stock-summary {
+            overflow-x: auto;
+        }
+    }
+</style>
+{% endblock %}

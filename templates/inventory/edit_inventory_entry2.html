@@ -1,0 +1,610 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
+<!-- Add Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+
+<!-- Add Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+
+<style>
+    /* Edit-specific styles */
+    .edit-header {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--highlight-color) 100%);
+        color: var(--white);
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+
+    .entry-details-badge {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        margin-right: 1rem;
+    }
+
+    .original-values {
+        background: var(--body-bg-color);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid var(--info-color);
+    }
+
+    .original-value-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        padding: 0.5rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+    }
+
+    .batch-info {
+        background: var(--light-primary-color);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+
+    .readonly-field {
+        background-color: #f8f9fa;
+        border: 1px solid #ced4da;
+        padding: 0.75rem;
+        border-radius: 6px;
+        min-height: 38px;
+    }
+
+    .warning-banner {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border: 1px solid #ffc107;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        color: #856404;
+    }
+
+    .warning-banner h5 {
+        margin: 0 0 0.5rem 0;
+        color: #856404;
+    }
+
+    .audit-info {
+        background: var(--body-bg-color);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1.5rem;
+        font-size: 0.9rem;
+    }
+
+    .audit-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .audit-item:last-child {
+        border-bottom: none;
+    }
+</style>
+
+<div class="content-container">
+    <div class="edit-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-edit me-2"></i>Edit Inventory Entry</h1>
+            <div class="d-flex">
+                <span class="entry-details-badge">
+                    <i class="fas fa-hashtag me-1"></i>Entry #{{ entry.id }}
+                </span>
+                <span class="entry-details-badge">
+                    <i class="fas fa-exchange-alt me-1"></i>{{ entry.stock_movement|title }}
+                </span>
+            </div>
+        </div>
+
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('inventory.stock_movement_history') }}">Stock
+                        History</a></li>
+                <li class="breadcrumb-item active">Edit Entry</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Warning Banner -->
+    <div class="warning-banner">
+        <h5><i class="fas fa-exclamation-triangle me-2"></i>Important Notice</h5>
+        <p class="mb-0">
+            Editing this entry will reverse the original batch operation and create a new one.
+            This may affect inventory valuations and accounting records. Proceed with caution.
+        </p>
+    </div>
+
+    <!-- Original Values Display -->
+    <div class="original-values">
+        <h6><i class="fas fa-history me-2"></i>Original Entry Values</h6>
+        <div class="original-value-item">
+            <span>Date:</span>
+            <strong>{{ entry.transaction_date.strftime('%Y-%m-%d') if entry.transaction_date else 'N/A' }}</strong>
+        </div>
+        <div class="original-value-item">
+            <span>Quantity:</span>
+            <strong>{{ entry.quantity }}</strong>
+        </div>
+        <div class="original-value-item">
+            <span>Unit Price:</span>
+            <strong>{{ (entry.unit_price) if entry.unit_price else 'N/A' }}</strong>
+        </div>
+        {% if entry.from_inventory_location %}
+        <div class="original-value-item">
+            <span>From Location:</span>
+            <strong>{{ entry.from_inventory_location.location }}</strong>
+        </div>
+        {% endif %}
+        {% if entry.to_inventory_location %}
+        <div class="original-value-item">
+            <span>To Location:</span>
+            <strong>{{ entry.to_inventory_location.location }}</strong>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Batch Information -->
+    {% if entry.batch_variation %}
+    <div class="batch-info">
+        <h6><i class="fas fa-boxes me-2"></i>Batch Information</h6>
+        <div class="original-value-item">
+            <span>Batch ID:</span>
+            <strong>{{ entry.batch_variation.id }}</strong>
+        </div>
+        <div class="original-value-item">
+            <span>Current Batch Qty:</span>
+            <strong>{{ entry.batch_variation.quantity }}</strong>
+        </div>
+        <div class="original-value-item">
+            <span>Unit Cost:</span>
+            <strong>{{ (entry.batch_variation.unit_cost) if entry.batch_variation.unit_cost else 'N/A'
+                }}</strong>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="container">
+        <!-- Main Content -->
+        <div class="inventory-main-content">
+            <form id="editInventoryForm" method="post" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <!-- Basic Information Section -->
+                <div class="form-section">
+                    <h2>Basic Information</h2>
+
+                    <div class="form-group">
+                        <label for="movement_type">Movement Type: <span class="required">*</span></label>
+                        <select id="movement_type" name="movement_type" required>
+                            <option value="in" {% if entry.stock_movement=='in' %}selected{% endif %}>Stock In (Purchase
+                                / Receipt)</option>
+                            <option value="out" {% if entry.stock_movement=='out' %}selected{% endif %}>Stock Out (Sale
+                                / Usage)</option>
+                            <option value="transfer" {% if entry.stock_movement=='transfer' %}selected{% endif %}>
+                                Transfer (Between Locations)</option>
+                            <option value="adjustment" {% if entry.stock_movement=='adjustment' %}selected{% endif %}>
+                                Adjustment (Manual Correction)</option>
+                            <option value="missing" {% if entry.stock_movement=='missing' %}selected{% endif %}>Missing
+                                (Unaccounted Loss)</option>
+                            <option value="expired" {% if entry.stock_movement=='expired' %}selected{% endif %}>Expired
+                                (Shelf Life / Out of Date)</option>
+                            <option value="damaged" {% if entry.stock_movement=='damaged' %}selected{% endif %}>Damaged
+                                (Broken / Unusable)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transaction_date">Transaction Date: <span class="required">*</span></label>
+                        <input type="date" id="transaction_date" name="transaction_date"
+                            value="{{ entry.transaction_date.strftime('%Y-%m-%d') if entry.transaction_date else '' }}"
+                            required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reference">Reference:</label>
+                        <input type="text" id="reference" name="reference" value="{{ entry.reference or '' }}">
+                    </div>
+
+                    <!-- Inventory Item (Read-only) -->
+                    <div class="form-group">
+                        <label>Inventory Item:</label>
+                        <div class="readonly-field">
+                            {{ entry.inventory_item_variation_link.inventory_item.item_name }}
+                            {% if entry.inventory_item_variation_link.inventory_item_variation %}
+                            - {{ entry.inventory_item_variation_link.inventory_item_variation.variation_name }}
+                            {% endif %}
+                        </div>
+                        <input type="hidden" name="inventory_item_id" value="{{ entry.item_id }}">
+                    </div>
+
+                    <!-- Location Fields -->
+                    <div class="form-group">
+                        <label for="location">Location: <span class="required">*</span></label>
+                        <select id="location" name="location" required>
+                            <option value="">Select Location</option>
+                            {% for location in locations %}
+                            <option value="{{ location.id }}" {% if entry.from_location==location.id or
+                                entry.to_location==location.id %}selected{% endif %}>
+                                {{ location.location }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- To Location (for transfers) -->
+                    <div class="form-group conditional-field" id="to_location_group"
+                        style="{% if entry.stock_movement != 'transfer' %}display: none;{% endif %}">
+                        <label for="to_location">To Location:</label>
+                        <select id="to_location" name="to_location">
+                            <option value="">Select To Location</option>
+                            {% for location in locations %}
+                            <option value="{{ location.id }}" {% if entry.to_location==location.id %}selected{% endif
+                                %}>
+                                {{ location.location }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Supplier -->
+                    <div class="form-group">
+                        <label for="supplier_id">Supplier/Customer:</label>
+                        <select id="supplier_id" name="supplier_id">
+                            <option value="">Select Supplier/Customer</option>
+                            {% for supplier in suppliers %}
+                            <option value="{{ supplier.id }}" {% if entry.supplier_id==supplier.id %}selected{% endif
+                                %}>
+                                {{ supplier.vendor_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Currency -->
+                    <div class="form-group">
+                        <label for="currency">Currency <span class="required">*</span></label>
+                        <select id="currency" name="currency" required>
+                            <option value="">Select Currency</option>
+                            {% for currency in currencies %}
+                            <option value="{{ currency.id }}" {% if entry.currency_id==currency.id %}selected{% endif
+                                %}>
+                                {{ currency.user_currency }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Item Details Section -->
+                <div class="form-section">
+                    <h2>Item Details</h2>
+
+                    <div class="form-group">
+                        <label for="quantity">Quantity: <span class="required">*</span></label>
+                        <input type="number" step="0.01" class="form-control" name="quantity"
+                            value="{{ entry.quantity }}" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="unit_price">Unit Price: <span class="required">*</span></label>
+                        <input type="number" step="0.01" class="form-control" name="unit_price"
+                            value="{{ entry.unit_price }}" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="selling_price">Selling Price:</label>
+                        <input type="number" step="0.01" class="form-control" name="selling_price"
+                            value="{{ entry.selling_price or '' }}">
+                    </div>
+
+                    <!-- Adjustment Fields -->
+                    <div class="form-group conditional-field" id="adjustment_fields"
+                        style="{% if entry.stock_movement != 'adjustment' %}display: none;{% endif %}">
+                        <label for="adjustment_amount">Adjustment Amount:</label>
+                        <input type="number" step="0.01" class="form-control" name="adjustment_amount"
+                            value="{{ entry.adjustment_amount or '' }}">
+
+                        <label for="system_quantity">System Quantity:</label>
+                        <input type="number" step="0.01" class="form-control" name="system_quantity"
+                            value="{{ entry.system_quantity or '' }}">
+                    </div>
+                </div>
+
+                <!-- Accounting Information Section -->
+                <div class="form-section">
+                    <h2>Accounting Information</h2>
+
+                    <!-- Funding Account -->
+                    <div class="form-group">
+                        <label for="funding_account_id">Funding Account:</label>
+                        <select id="funding_account_id" name="funding_account_id" class="account-dropdown">
+                            <option value="">Select Funding Account</option>
+                            {% for account in accounts %}
+                            <option value="{{ account.id }}" {% if entry.funding_account_id==account.id %}selected{%
+                                endif %}>
+                                {{ account.sub_category }} ({{ account.sub_category_id }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Payable Account -->
+                    <div class="form-group">
+                        <label for="payable_account_id">Payable Account:</label>
+                        <select id="payable_account_id" name="payable_account_id" class="account-dropdown">
+                            <option value="">Select Payable Account</option>
+                            {% for account in accounts %}
+                            <option value="{{ account.id }}" {% if entry.payable_account_id==account.id %}selected{%
+                                endif %}>
+                                {{ account.sub_category }} ({{ account.sub_category_id }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Adjustment Account -->
+                    <div class="form-group">
+                        <label for="adjustment_account_id">Adjustment Account:</label>
+                        <select id="adjustment_account_id" name="adjustment_account_id" class="account-dropdown">
+                            <option value="">Select Adjustment Account</option>
+                            {% for account in accounts %}
+                            <option value="{{ account.id }}" {% if entry.adjustment_account_id==account.id %}selected{%
+                                endif %}>
+                                {{ account.sub_category }} ({{ account.sub_category_id }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Sales Account -->
+                    <div class="form-group">
+                        <label for="sales_account_id">Sales Account:</label>
+                        <select id="sales_account_id" name="sales_account_id" class="account-dropdown">
+                            <option value="">Select Sales Account</option>
+                            {% for account in accounts %}
+                            <option value="{{ account.id }}" {% if entry.sales_account_id==account.id %}selected{% endif
+                                %}>
+                                {{ account.sub_category }} ({{ account.sub_category_id }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Additional Details Section -->
+                <div class="form-section">
+                    <h2>Additional Details</h2>
+
+                    <div class="form-group">
+                        <label for="project_id">Project:</label>
+                        <select id="project_id" name="project_id">
+                            <option value="">Select Project</option>
+                            {% for project in projects %}
+                            <option value="{{ project.id }}" {% if entry.project_id==project.id %}selected{% endif %}>
+                                {{ project.name }} - {{ project.project_id }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="expiration_date">Expiration Date:</label>
+                        <input type="date" id="expiration_date" name="expiration_date"
+                            value="{{ entry.expiration_date.strftime('%Y-%m-%d') if entry.expiration_date else '' }}">
+                    </div>
+                </div>
+
+                <!-- Audit Information -->
+                <div class="audit-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Audit Information</h6>
+                    <div class="audit-item">
+                        <span>Created By:</span>
+                        <strong>{{ entry.created_user.username if entry.created_user else 'System' }}</strong>
+                    </div>
+                    <div class="audit-item">
+                        <span>Created At:</span>
+                        <strong>{{ entry.date_added.strftime('%Y-%m-%d %H:%M') if entry.date_added else 'N/A'
+                            }}</strong>
+                    </div>
+                    {% if entry.updated_user %}
+                    <div class="audit-item">
+                        <span>Last Updated By:</span>
+                        <strong>{{ entry.updated_user.username }}</strong>
+                    </div>
+                    <div class="audit-item">
+                        <span>Last Updated At:</span>
+                        <strong>{{ entry.updated_at.strftime('%Y-%m-%d %H:%M') if entry.updated_at else 'N/A'
+                            }}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions mt-4">
+                    <button type="button" class="button remove-button" onclick="window.history.back()">Cancel</button>
+                    <button type="button" class="button add-button" onclick="resetForm()">Reset</button>
+                    <button type="submit" class="button cta-button">Update Entry</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize Select2 dropdowns
+        $('.account-dropdown').select2({
+            width: '100%',
+            placeholder: "Select an account",
+            allowClear: true
+        });
+
+        $('#supplier_id').select2({
+            width: '100%',
+            placeholder: "Select supplier/customer",
+            allowClear: true
+        });
+
+        $('#currency').select2({
+            width: '100%',
+            placeholder: "Select currency",
+            allowClear: true
+        });
+
+        $('#project_id').select2({
+            width: '100%',
+            placeholder: "Select project",
+            allowClear: true
+        });
+
+        // Movement type change handler
+        $('#movement_type').change(function () {
+            updateFormVisibility($(this).val());
+        });
+
+        // Form submission handler
+        $('#editInventoryForm').submit(function (e) {
+            e.preventDefault();
+
+            if (validateForm()) {
+                submitForm();
+            }
+        });
+
+        // Initial form setup
+        updateFormVisibility($('#movement_type').val());
+    });
+
+    function updateFormVisibility(movementType) {
+        // Show/hide transfer location field
+        if (movementType === 'transfer') {
+            $('#to_location_group').show();
+            $('#to_location').prop('required', true);
+        } else {
+            $('#to_location_group').hide();
+            $('#to_location').prop('required', false);
+        }
+
+        // Show/hide adjustment fields
+        if (movementType === 'adjustment') {
+            $('#adjustment_fields').show();
+            $('#adjustment_amount').prop('required', true);
+            $('#system_quantity').prop('required', true);
+        } else {
+            $('#adjustment_fields').hide();
+            $('#adjustment_amount').prop('required', false);
+            $('#system_quantity').prop('required', false);
+        }
+    }
+
+    function validateForm() {
+        let isValid = true;
+        const movementType = $('#movement_type').val();
+
+        // Clear previous errors
+        $('.field-error').removeClass('field-error');
+        $('.error-message').remove();
+
+        // Required field validation
+        const requiredFields = [
+            '#movement_type',
+            '#transaction_date',
+            '#quantity',
+            '#unit_price',
+            '#currency'
+        ];
+
+        requiredFields.forEach(field => {
+            const element = $(field);
+            if (!element.val()) {
+                element.addClass('field-error');
+                element.after('<span class="error-message">This field is required</span>');
+                isValid = false;
+            }
+        });
+
+        // Quantity validation
+        const quantity = parseFloat($('#quantity').val());
+        if (quantity <= 0 && movementType !== 'adjustment') {
+            $('#quantity').addClass('field-error');
+            $('#quantity').after('<span class="error-message">Quantity must be positive</span>');
+            isValid = false;
+        }
+
+        // Unit price validation
+        const unitPrice = parseFloat($('#unit_price').val());
+        if (unitPrice < 0) {
+            $('#unit_price').addClass('field-error');
+            $('#unit_price').after('<span class="error-message">Unit price cannot be negative</span>');
+            isValid = false;
+        }
+
+        if (!isValid) {
+            showNotification('Please fix the validation errors before submitting.', 'error');
+        }
+
+        return isValid;
+    }
+
+    function submitForm() {
+        const formData = new FormData($('#editInventoryForm')[0]);
+
+        // Show loading state
+        $('button[type="submit"]').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Updating...');
+
+        fetch("{{ url_for('inventory.edit_inventory_entry', entry_id=entry.id) }}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Inventory entry updated successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.href = "{{ url_for('inventory.stock_movement_history') }}";
+                    }, 1500);
+                } else {
+                    showNotification(data.message || 'Error updating inventory entry', 'error');
+                    $('button[type="submit"]').prop('disabled', false).html('Update Entry');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred while updating the entry.', 'error');
+                $('button[type="submit"]').prop('disabled', false).html('Update Entry');
+            });
+    }
+
+    function resetForm() {
+        if (confirm('Are you sure you want to reset all changes?')) {
+            // Reload the page to reset everything
+            window.location.reload();
+        }
+    }
+
+    function showNotification(message, type) {
+        // Use your existing notification system
+        if (typeof window.showNotification === 'function') {
+            window.showNotification(message, type);
+        } else {
+            // Fallback notification
+            alert(`${type.toUpperCase()}: ${message}`);
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,1447 @@
+{% extends "transaction_base_template.html" %}
+{% block content %}
+
+<style>
+    /* Salary Input Styling */
+    .salary-input {
+        border: 1px solid #e0e0e0;
+        /* Border for salary input */
+        padding: 8px;
+        border-radius: 4px;
+        width: 100%;
+        font-size: 14px;
+    }
+
+    .salary-input:focus {
+        border-color: #007bff;
+        outline: none;
+    }
+
+    .employee-details-container {
+
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: box-shadow 0.3s ease;
+    }
+
+    .employee-details-container:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Left Panel (Employee Profile) Styling */
+    .employee-profile {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        width: 35%;
+        float: left;
+    }
+
+    .employee-profile h3 {
+        margin-bottom: 15px;
+        color: #333;
+        font-size: 20px;
+    }
+
+    .profile-info {
+        width: 100%;
+    }
+
+    .profile-info p {
+        margin: 10px 0;
+        font-size: 14px;
+        color: #555;
+    }
+
+    .profile-info strong {
+        color: #333;
+    }
+
+    /* Right Section (Deductions and Benefits) Styling */
+    .deductions-benefits-section {
+        width: 60%;
+        float: right;
+    }
+
+    .deductions-section,
+    .benefits-section,
+    .advance-payments-section {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+
+    .deductions-section h4,
+    .benefits-section h4,
+    .advance-payments-section h4 {
+        margin-bottom: 15px;
+        color: #333;
+        font-size: 18px;
+    }
+
+    .deductions-section table,
+    .benefits-section table,
+    .advance-payments-section table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .deductions-section th,
+    .benefits-section th,
+    .advance-payments-section th {
+        background-color: #f1f1f1;
+        padding: 10px;
+        text-align: left;
+        font-size: 14px;
+        color: #333;
+    }
+
+    .deductions-section td,
+    .benefits-section td,
+    .advance-payments-section td {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        font-size: 14px;
+        color: #555;
+    }
+
+    .deductions-section input[type="text"],
+    .benefits-section input[type="text"],
+    .advance-payments-section input[type="text"] {
+        width: 100%;
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+
+
+
+
+    /* Clear floats */
+    .employee-details-container::after {
+        content: "";
+        display: table;
+        clear: both;
+    }
+
+    /* Step 4: Pay Run Summary Styling */
+    .pay-run-summary h3 {
+        margin-bottom: 20px;
+        color: #333;
+        font-size: 24px;
+    }
+
+    .summary-section {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .summary-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+
+    .summary-table th,
+    .summary-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .summary-table th {
+        background-color: #f9f9f9;
+        color: #333;
+        font-weight: 600;
+    }
+
+    .summary-table tfoot th {
+        background-color: #f1f1f1;
+    }
+
+    .summary-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .search-container {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    .search-icon {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #aaa;
+        pointer-events: none;
+
+        /* Makes the icon non-interactive */
+    }
+
+    .salary-input {
+        width: 100%;
+        padding-right: 30px;
+        /* Adjust padding to accommodate the icon */
+        box-sizing: border-box;
+        /* Ensures padding is included in the width */
+    }
+
+    /* Mobile Styles */
+    @media (max-width: 768px) {
+        .employee-details-container {
+            display: flex;
+            flex-direction: column;
+            /* Stack children vertically */
+        }
+
+        .employee-profile {
+            width: 80%;
+            /* Full width for the employee profile */
+            float: none;
+            /* Remove float */
+            margin-bottom: 20px;
+            /* Add spacing between sections */
+        }
+
+        .deductions-benefits-section {
+            width: 100%;
+            /* Full width for deductions and benefits */
+            float: none;
+            /* Remove float */
+        }
+
+        .deductions-section,
+        .benefits-section {
+            margin-bottom: 20px;
+            /* Add spacing between sections */
+        }
+
+        .deductions-section table,
+        .benefits-section table {
+            width: 100%;
+            /* Ensure tables take full width */
+        }
+
+
+    }
+
+    .no-deductions,
+    .no-benefits {
+        padding: 10px;
+        background-color: #f5f5f5;
+        border-radius: 4px;
+        text-align: center;
+        margin: 10px 0;
+        color: #666;
+    }
+</style>
+
+<div class="content-container">
+    <h1>Create Pay Run</h1>
+    <!-- Scroll to Bottom Icon -->
+    <div id="scrollToBottom2" class="scroll-icon">
+        <i class="fas fa-arrow-circle-down"></i>
+    </div>
+
+    <div class="progress-bar">
+        <div class="progress-line"></div>
+        <div class="progress-steps">
+            <div class="progress-step active" id="step1-progress">Step 1: Select Pay Period</div>
+            <div class="progress-step" id="step2-progress">Step 2: Select Employees</div>
+            <div class="progress-step" id="step3-progress">Step 3: Variable Inputs</div>
+            <div class="progress-step" id="step4-progress">Step 4: Review and Confirm</div>
+        </div>
+    </div>
+
+    <!-- Step 1: Select Pay Period -->
+    <div class="step" id="step1">
+
+        <form id="selectPayPeriodForm" style="width: 200px;">
+
+            <input type="hidden" id="base_currency_id" name="base_currency_id"
+                value="{{ base_currency.id if base_currency else '' }}">
+
+            <div class="form-group">
+                <label for="payPeriodStart">Start Date <span class="required">*</span></label>
+                <input type="date" class="form-control" id="payPeriodStart" name="pay_period_start" required>
+            </div>
+            <div class="form-group">
+                <label for="payPeriodEnd">End Date <span class="required">*</span></label>
+                <input type="date" class="form-control" id="payPeriodEnd" name="pay_period_end" required>
+            </div>
+            <button type="button" class="button cta-button" onclick="proceedToStep2()">Next</button>
+        </form>
+        <div class="form-group" hidden>
+            <label style="padding: 20px;">Generated Pay Run Period:</label>
+            <p id="payRunPeriod"></p>
+        </div>
+    </div>
+
+    <!-- Step 2: Select Employees -->
+    <div class="step" id="step2" style="display: none;">
+
+        <table class="table" id="employeeSelectionTable">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="selectAllEmployees"></th>
+                    <th>Employee ID</th>
+                    <th>Employee Name</th>
+                    <th>Department</th>
+                    <th>Salary Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for department, employees in grouped_employees.items() %}
+                <tr>
+                    <td><input type="checkbox" class="selectDepartment" data-department="{{ department }}"
+                            onchange="toggleDepartmentSelection(this)"></td>
+                    <td colspan="4"><strong>{{ department }}</strong></td>
+                </tr>
+                {% for employee in employees %}
+                <tr class="employee-row" data-department="{{ department }}">
+                    <td><input type="checkbox" class="employeeCheckbox" value="{{ employee.id }}"></td>
+                    <td>{{ employee.employee_id or "N/A" }}</td>
+                    <td>{{ employee.first_name }} {{ employee.last_name }}</td>
+                    <td>{{ employee.department.department_name }}</td>
+                    <td>{{ employee.salary_type }} </td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="button" class="button add-button" onclick="backToStep1()">Back</button>
+        <button type="button" class="button cta-button" onclick="proceedToStep3()">Next</button>
+    </div>
+
+    <!-- Step 3: Input Employee Details -->
+    <div class="step" id="step3" style="display: none;">
+        <div class="search-container">
+            <input type="text" id="employeeSearch" placeholder="Search for an employee..." onkeyup="filterEmployees()"
+                class="salary-input">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+        <div id="employeeDetailsContainer">
+            <!-- Employee details will be dynamically populated here -->
+        </div>
+        <button type="button" class="button add-button" onclick="backToStep2()">Back</button>
+        <button type="button" class="button cta-button" onclick="proceedToStep4()">Next</button>
+    </div>
+
+
+
+    <!-- Step 4: Review and Confirm -->
+    <div class="step" id="step4" style="display: none;">
+
+        <div id="payRunSummary" class="pay-run-summary">
+            <div class="summary-section">
+                <h3>Pay Run: <span id="payRunNumber"></span> Summary</h3>
+                <div id="departmentSummaries">
+                    <!-- Department-wise summaries will be dynamically populated here -->
+                </div>
+            </div>
+            <div class="summary-actions">
+                <button type="button" class="button add-button" onclick="backToStep3()">Back</button>
+                <button type="button" class="button cta-button" onclick="createPayRun()">Create Pay Run</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+
+
+    // Store pay run data that persists across steps
+    let payRunData = {
+        periodName: null,
+        startDate: null,
+        endDate: null
+    };
+
+
+    function filterEmployees() {
+        const input = document.getElementById('employeeSearch');
+        const filter = input.value.toLowerCase();
+        const employeeContainers = document.querySelectorAll('.employee-details-container');
+
+        employeeContainers.forEach(container => {
+            const employeeName = container.querySelector('h3').textContent.toLowerCase();
+            if (employeeName.includes(filter)) {
+                container.style.display = '';
+            } else {
+                container.style.display = 'none';
+            }
+        });
+    }
+
+
+    function updateProgressBar(step) {
+        console.log(`Updating progress after function is called bar to step ${step}`); // Debugging line
+        const steps = document.querySelectorAll('.progress-step');
+        const progressLine = document.querySelector('.progress-line');
+
+        // Check if progressLine exists
+        if (!progressLine) {
+            console.error('Progress line element not found!');
+            return;
+        }
+
+        // Check if steps exist
+        if (steps.length === 0) {
+            console.error('No progress steps found!');
+            return;
+        }
+
+        const totalSteps = steps.length;
+
+        // Update progress line width
+        const progressWidth = ((step - 1) / (totalSteps - 1)) * 100;
+        console.log(`Setting --progress-width to ${progressWidth}%`); // Debugging line
+        progressLine.style.setProperty('--progress-width', `${progressWidth}%`);
+
+        // Update step states
+        steps.forEach((stepElement, index) => {
+            if (index + 1 < step) {
+                stepElement.classList.remove('active');
+                stepElement.classList.add('completed');
+            } else if (index + 1 === step) {
+                stepElement.classList.add('active');
+                stepElement.classList.remove('completed');
+            } else {
+                stepElement.classList.remove('active', 'completed');
+            }
+        });
+    }
+
+    // Set Step 1 as active on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        updateProgressBar(1);
+    });
+
+
+    // Step Navigation
+    function proceedToStep2() {
+        const startDate = document.getElementById('payPeriodStart').value;
+        const endDate = document.getElementById('payPeriodEnd').value;
+
+        // Frontend validation (unchanged)
+        if (!startDate || !endDate) {
+            showNotification('Please select a valid pay period.', 'warning');
+            return;
+        }
+        const today = new Date().toISOString().split("T")[0];
+        if (startDate > today || endDate > today) {
+            showNotification('You cannot create a pay run for a future period.', 'warning');
+            return;
+        }
+        if (startDate > endDate) {
+            showNotification('Start Date cannot be after End Date.', 'warning');
+            return;
+        }
+
+        // ✅ FIX: Check if we already have a period name stored
+        if (payRunData.periodName) {
+            document.getElementById('payRunPeriod').innerText = payRunData.periodName;
+            document.getElementById('step1').style.display = 'none';
+            document.getElementById('step2').style.display = 'block';
+            updateProgressBar(2);
+            return;
+        }
+
+        // Fetch pay run period from the server
+        fetch('/payroll/generate_next_pay_run', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ startDate, endDate })
+        })
+            .then(async (response) => {
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => null);
+                    if (errorData?.error) {
+                        throw new Error(errorData.error);
+                    } else {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Show frequency notification
+                showNotification(`Payroll frequency: ${data.frequency}`, 'info');
+
+                if (data.error) {
+                    showNotification(data.error, "error");
+                    return;
+                }
+
+                // Store in our persistent variable
+                payRunData.periodName = data.pay_run_period;
+                payRunData.startDate = startDate;
+                payRunData.endDate = endDate;
+
+                document.getElementById('payRunPeriod').innerText = data.pay_run_period;
+                document.getElementById('step1').style.display = 'none';
+                document.getElementById('step2').style.display = 'block';
+                updateProgressBar(2);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification(error.message || "Failed to generate pay run period.", "error");
+                enableAllSubmitButtons();
+            });
+    }
+
+    function toggleDepartmentSelection(departmentCheckbox) {
+        const department = departmentCheckbox.getAttribute('data-department');
+        const employeeRows = document.querySelectorAll(`.employee-row[data-department="${department}"]`);
+        employeeRows.forEach(row => {
+            const employeeCheckbox = row.querySelector('.employeeCheckbox');
+            employeeCheckbox.checked = departmentCheckbox.checked;
+        });
+    }
+
+    // Select All Employees
+    document.getElementById('selectAllEmployees').addEventListener('change', function () {
+        const checkboxes = document.querySelectorAll('.employeeCheckbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+
+
+
+
+    function backToStep1() {
+        // Reset payRunData when going back to step 1
+        payRunData = {
+            periodName: null,
+            startDate: null,
+            endDate: null
+        };
+
+        document.getElementById('step2').style.display = 'none';
+        document.getElementById('step1').style.display = 'block';
+        updateProgressBar(1);
+    }
+
+
+    function backToStep2() {
+        document.getElementById('step3').style.display = 'none';
+        document.getElementById('step2').style.display = 'block';
+        updateProgressBar(2);
+    }
+
+    // Helper function to group employees by currency
+    function groupEmployeesByCurrency(employees) {
+        const employeesByCurrency = {};
+        employees.forEach(employee => {
+            const currency = employee.currency_user_currency;
+            if (!employeesByCurrency[currency]) {
+                employeesByCurrency[currency] = [];
+            }
+            employeesByCurrency[currency].push(employee);
+        });
+        return employeesByCurrency;
+    }
+
+    // Helper function to build exchange rate HTML for a currency group
+    function buildExchangeRateHTML(currency, currencyKey, endDate, currencyId) {
+        return `
+        <div id="exchange_rate_container_${currencyKey}" class="exchange-rate-container" style="margin-top: 10px; padding: 10px; background-color: #fff; border-radius: 6px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span style="font-weight: 500;">Exchange Rate:</span>
+                <span id="from_currency_display_${currencyKey}">1 ${currency}</span>
+                <span>=</span>
+                <input type="number" id="exchange_rate_${currencyKey}" name="exchange_rate_${currencyKey}" 
+                    step="0.0000000001" min="0.0000000001" placeholder="Enter rate"
+                    style="padding: 6px 10px; width: 150px; border-radius: 4px; border: 1px solid #ccc;">
+                <span id="to_currency_display_${currencyKey}">{{ base_currency.user_currency }}</span>
+            </div>
+            <div id="converted_amount_display_${currencyKey}" class="converted-amount" style="margin-top: 8px; display: none;">
+                <small>All amounts shown below in {{ base_currency.user_currency }} will use this rate</small>
+            </div>
+            <small class="form-text text-muted" style="margin-top: 5px; display: block;">
+                <i class="fas fa-info-circle"></i>
+                Rate at payroll period end date: ${endDate}
+            </small>
+        </div>
+        <select id="currency_select_${currencyKey}" style="display: none;">
+            <option value="${currencyId}" selected>${currency}</option>
+        </select>
+    `;
+    }
+
+    // Helper function to build employee HTML
+    function buildEmployeeHTML(employee, currency, isForeignCurrency) {
+        return `
+        <div class="employee-details-container" data-currency="${currency}" data-employee-id="${employee.id}">
+            <div class="employee-profile">
+                <h3>${employee.first_name} ${employee.last_name}</h3>
+                <div class="profile-info">
+                    <p><strong>Gross Salary:</strong> 
+                        <input type="text" placeholder="Enter Gross Salary" 
+                               id="salary-${employee.id}" 
+                               value="${employee.calculated_salary}" 
+                               onchange="updateTotals('${employee.id}')" 
+                               class="salary-input">
+                    </p>
+                    <p><strong>Currency:</strong> <span id="currency-${employee.id}">${employee.currency_user_currency}</span></p>
+                    ${isForeignCurrency ? `<p><strong>Converted Salary ({{ base_currency.user_currency }}):</strong> 
+                        <span id="converted-salary-${employee.id}">0.00</span>
+                    </p>` : ''}
+                    <p><strong>Salary Type:</strong> <span id="salary_type-${employee.salary_type}">${employee.salary_type}</span></p>
+                    <p><strong>Total Deductions:</strong> <span id="total-deductions-${employee.id}">0</span></p>
+                    <p><strong>Total Benefits:</strong> <span id="total-benefits-${employee.id}">0</span></p>
+                    <p><strong>Total Advance Payments:</strong> <span id="total-advance-${employee.id}">0</span></p>
+                </div>
+            </div>
+            <div class="deductions-benefits-section">
+                ${buildDeductionsHTML(employee)}
+                ${buildBenefitsHTML(employee)}
+                ${buildAdvancePaymentsHTML(employee)}
+            </div>
+        </div>
+    `;
+    }
+
+    // Helper function to build deductions HTML
+    function buildDeductionsHTML(employee) {
+        if (!employee.deduction_types || employee.deduction_types.length === 0) {
+            return '<p class="no-deductions">No deductions for this employee</p>';
+        }
+
+        return `
+        <div class="deductions-section">
+            <h4>Deductions</h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Deduction Type</th>
+                        <th>Rate (%)</th>
+                        <th>Fixed Amount</th>
+                        <th>Calculated Amount</th>
+                        <th>Action</th>
+                    </thead>
+                <tbody id="deductions-list-${employee.id}">
+                    ${employee.deduction_types.map(deduction => `
+                        <tr id="deduction-${deduction.deduction_id}">
+                            <td>${deduction.deduction_type}</td>
+                            <td><input type="text" value="${deduction.rate}" readonly></td>
+                            <td><input type="text" value="${deduction.amount}" readonly></td>
+                            <td><span id="deduction-calculated-${deduction.deduction_id}">0</span></td>
+                            <td><button class="button remove-button-table" onclick="deleteDeduction('${employee.id}', '${deduction.deduction_id}')">Delete</button></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    }
+
+    // Helper function to build benefits HTML
+    function buildBenefitsHTML(employee) {
+        if (!employee.benefit_types || employee.benefit_types.length === 0) {
+            return '<p class="no-benefits">No benefits for this employee</p>';
+        }
+
+        return `
+        <div class="benefits-section">
+            <h4>Benefits</h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Benefit Type</th>
+                        <th>Rate (%)</th>
+                        <th>Fixed Amount</th>
+                        <th>Calculated Amount</th>
+                        <th>Action</th>
+                    </thead>
+                <tbody id="benefits-list-${employee.id}">
+                    ${employee.benefit_types.map(benefit => `
+                        <tr id="benefit-${benefit.benefit_type_id}">
+                            <td>${benefit.benefit_type}</td>
+                            <td><input type="text" value="${benefit.rate}" readonly></td>
+                            <td><input type="text" value="${benefit.amount}" readonly></td>
+                            <td><span id="benefit-calculated-${benefit.benefit_type_id}">0</span></td>
+                            <td><button class="button remove-button-table" onclick="deleteBenefit('${employee.id}', '${benefit.benefit_type_id}')">Delete</button></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    }
+
+    // Helper function to build advance payments HTML
+    function buildAdvancePaymentsHTML(employee) {
+        if (!employee.advance_payments || employee.advance_payments.length === 0) {
+            return '';
+        }
+
+        return `
+        <div class="advance-payments-section">
+            <h4>Advance Payments</h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Advance Amount</th>
+                        <th>Remaining Balance</th>
+                        <th>Deduction Per Payroll</th>
+                        <th>Action</th>
+                    </thead>
+                <tbody id="advance-payments-list-${employee.id}">
+                    ${employee.advance_payments.map(advance => `
+                        <tr id="advance-${advance.id}">
+                            <td>${advance.advance_amount}</td>
+                            <td>${advance.remaining_balance}</td>
+                            <td><input type="text" value="${advance.deduction_per_payroll}" readonly></td>
+                            <td><button class="button remove-button-table" onclick="deleteAdvance('${employee.id}', '${advance.id}')">Delete</button></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    }
+
+    // Helper function to setup exchange rate input for a currency
+    function setupExchangeRateInput(currency, employees, endDate) {
+        const currencyKey = currency.replace(/\s/g, '');
+        const rateInput = document.getElementById(`exchange_rate_${currencyKey}`);
+        const convertedDisplay = document.getElementById(`converted_amount_display_${currencyKey}`);
+
+        if (!rateInput) return;
+
+        rateInput.placeholder = 'Enter rate manually';
+        rateInput.disabled = false;
+
+        if (convertedDisplay) {
+            convertedDisplay.style.display = 'block';
+        }
+
+        rateInput.addEventListener('input', function () {
+            const rate = parseFloat(this.value);
+            if (!isNaN(rate) && rate > 0) {
+                updateConvertedSalariesForCurrency(currency, rate);
+            }
+        });
+
+        // Optional: Fetch rate in background
+        fetch('/multi_currency/api/get_exchange_rate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                from_currency: employees[0].currency_id,
+                date: endDate,
+                app_id: '{{ app_id }}'
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.rate) {
+                    rateInput.value = data.rate;
+                    updateConvertedSalariesForCurrency(currency, data.rate);
+                }
+            })
+            .catch(error => console.log('Rate fetch optional, user can enter manually'));
+    }
+
+    // Refactored proceedToStep3 function
+    function proceedToStep3() {
+        const selectedEmployees = getSelectedEmployeeIds();
+
+        // Use stored pay run data instead of session storage
+        const { startDate, endDate, periodName } = payRunData;
+
+
+        if (selectedEmployees.length === 0) {
+            alert('Please select at least one employee.');
+            return;
+        }
+
+
+        fetchEmployeeDetails(selectedEmployees, periodName, startDate, endDate)
+            .then(data => {
+                if (data.error) {
+                    showNotification(data.message, 'error');
+                    return;
+                }
+
+                const employeesByCurrency = groupEmployeesByCurrency(data.employees);
+                const baseCurrency = getBaseCurrency();
+
+                // Build HTML
+                const detailsHtml = buildCurrencyGroupsHTML(employeesByCurrency, baseCurrency, endDate);
+                document.getElementById('employeeDetailsContainer').innerHTML = detailsHtml;
+
+                // Setup exchange rates
+                setupExchangeRates(employeesByCurrency, baseCurrency, endDate);
+
+                // Calculate totals
+                selectedEmployees.forEach(employeeId => updateTotals(employeeId));
+            })
+            .catch(error => console.error('Error:', error));
+
+        navigateToStep(3);
+    }
+
+    // Additional helper functions
+    function getSelectedEmployeeIds() {
+        return Array.from(document.querySelectorAll('.employeeCheckbox:checked'))
+            .map(checkbox => parseInt(checkbox.value));
+    }
+
+
+
+    function fetchEmployeeDetails(employeeIds, payrunNumber, startDate, endDate) {
+        return fetch('/payroll/get_employee_details', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                employee_ids: employeeIds,
+                payrun_number: payrunNumber,
+                start_date: startDate,
+                end_date: endDate
+            })
+        }).then(response => response.json());
+    }
+
+    function getBaseCurrency() {
+        return '{{ base_currency.user_currency }}';
+    }
+
+    function buildCurrencyGroupsHTML(employeesByCurrency, baseCurrency, endDate) {
+        let html = '';
+
+        for (const [currency, employees] of Object.entries(employeesByCurrency)) {
+            const isForeignCurrency = currency !== baseCurrency;
+            const currencyKey = currency.replace(/\s/g, '');
+
+            html += `
+            <div class="currency-group" data-currency="${currency}" style="margin-bottom: 30px; border: 1px solid #ddd; border-radius: 8px; padding: 15px;">
+                <div class="currency-header" style="background-color: #f8f9fa; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
+                    <h3 style="margin: 0;">Currency: ${currency}</h3>
+        `;
+
+            if (isForeignCurrency) {
+                html += buildExchangeRateHTML(currency, currencyKey, endDate, employees[0].currency_id);
+            } else {
+                html += `</div>`;
+            }
+
+            employees.forEach(employee => {
+                html += buildEmployeeHTML(employee, currency, isForeignCurrency);
+            });
+
+            html += `</div>`;
+        }
+
+        return html;
+    }
+
+    function setupExchangeRates(employeesByCurrency, baseCurrency, endDate) {
+        setTimeout(() => {
+            for (const [currency, employees] of Object.entries(employeesByCurrency)) {
+                if (currency !== baseCurrency) {
+                    setupExchangeRateInput(currency, employees, endDate);
+                }
+            }
+        }, 100);
+    }
+
+    function navigateToStep(step) {
+        document.getElementById('step2').style.display = 'none';
+        document.getElementById('step3').style.display = 'block';
+        updateProgressBar(step);
+    }
+
+    function updateConvertedSalariesForCurrency(currency, rate) {
+        const currencyKey = currency.replace(/\s/g, '');
+        const employees = document.querySelectorAll(`.employee-details-container[data-currency="${currency}"]`);
+
+        employees.forEach(employee => {
+            const employeeId = employee.getAttribute('data-employee-id');
+            const salary = parseFloat(document.getElementById(`salary-${employeeId}`).value) || 0;
+            const convertedSalary = salary * rate;
+            const convertedSpan = document.getElementById(`converted-salary-${employeeId}`);
+            if (convertedSpan) {
+                convertedSpan.textContent = formatCurrency(convertedSalary, '{{ base_currency.user_currency }}', false);
+            }
+        });
+    }
+
+
+    function handleDeductionSelection(selectElement, employeeId) {
+        const selectedDeductionId = selectElement.value;
+        const row = selectElement.closest('tr');
+        const rateInput = row.querySelector('td:nth-child(2) input');
+        const fixedAmountInput = row.querySelector('td:nth-child(3) input');
+
+        if (!selectedDeductionId) {
+            rateInput.value = 0;
+            fixedAmountInput.value = 0;
+            updateTotals(employeeId);
+            return;
+        }
+
+        fetch(`/payroll/get_deduction_details/${selectedDeductionId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    rateInput.value = data.deduction.rate || 0;
+                    fixedAmountInput.value = data.deduction.fixed_amount || 0;
+                } else {
+                    console.error(data.message);
+                }
+                updateTotals(employeeId);
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function handleBenefitSelection(selectElement, employeeId) {
+        const selectedBenefitId = selectElement.value;
+        const row = selectElement.closest('tr');
+        const rateInput = row.querySelector('td:nth-child(2) input');
+        const fixedAmountInput = row.querySelector('td:nth-child(3) input');
+
+        if (!selectedBenefitId) {
+            rateInput.value = 0;
+            fixedAmountInput.value = 0;
+            updateTotals(employeeId);
+            return;
+        }
+
+        fetch(`/payroll/get_benefit_details/${selectedBenefitId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    rateInput.value = data.benefit.rate || 0;
+                    fixedAmountInput.value = data.benefit.fixed_amount || 0;
+                } else {
+                    console.error(data.message);
+                }
+                updateTotals(employeeId);
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function updateTotals(employeeId) {
+        const salary = parseFloat(document.getElementById(`salary-${employeeId}`).value) || 0;
+
+
+
+
+        // Update converted salary if this employee is in a foreign currency
+        const employeeContainer = document.querySelector(`.employee-details-container[data-employee-id="${employeeId}"]`);
+        if (employeeContainer) {
+            const currency = employeeContainer.getAttribute('data-currency');
+            const baseCurrency = '{{ base_currency.user_currency }}';
+            if (currency !== baseCurrency) {
+                const currencyKey = currency.replace(/\s/g, '');
+                const rateInput = document.getElementById(`exchange_rate_${currencyKey}`);
+                if (rateInput && rateInput.value) {
+                    const rate = parseFloat(rateInput.value);
+                    if (!isNaN(rate) && rate > 0) {
+                        const convertedSalary = salary * rate;
+                        const convertedSpan = document.getElementById(`converted-salary-${employeeId}`);
+                        if (convertedSpan) {
+                            convertedSpan.textContent = formatCurrency(convertedSalary, '{{ base_currency.user_currency }}', false);
+                        }
+                    }
+                }
+            }
+        }
+
+
+        // Calculate total deductions
+        let totalDeductions = 0;
+        const deductionRows = document.querySelectorAll(`#deductions-list-${employeeId} tr`);
+        deductionRows.forEach(row => {
+            const rate = parseFloat(row.querySelector('td:nth-child(2) input').value) || 0;
+            const fixedAmount = parseFloat(row.querySelector('td:nth-child(3) input').value) || 0;
+            const calculatedAmount = (rate / 100) * salary + fixedAmount;
+            row.querySelector('td:nth-child(4) span').textContent = calculatedAmount.toFixed(2);
+            totalDeductions += calculatedAmount;
+        });
+
+        // Calculate total benefits
+        let totalBenefits = 0;
+        const benefitRows = document.querySelectorAll(`#benefits-list-${employeeId} tr`);
+        benefitRows.forEach(row => {
+            const rate = parseFloat(row.querySelector('td:nth-child(2) input').value) || 0;
+            const fixedAmount = parseFloat(row.querySelector('td:nth-child(3) input').value) || 0;
+            const calculatedAmount = (rate / 100) * salary + fixedAmount;
+            row.querySelector('td:nth-child(4) span').textContent = calculatedAmount.toFixed(2);
+            totalBenefits += calculatedAmount;
+        });
+
+        // Calculate total advance payments
+        let totalAdvance = 0;
+        const advanceRows = document.querySelectorAll(`#advance-payments-list-${employeeId} tr`);
+        advanceRows.forEach(row => {
+            const deductionPerPayroll = parseFloat(row.querySelector('td:nth-child(3) input').value) || 0;
+            totalAdvance += deductionPerPayroll;
+        });
+
+        // Update the totals
+        document.getElementById(`total-deductions-${employeeId}`).textContent = totalDeductions.toFixed(2);
+        document.getElementById(`total-benefits-${employeeId}`).textContent = totalBenefits.toFixed(2);
+        document.getElementById(`total-advance-${employeeId}`).textContent = totalAdvance.toFixed(2);
+    }
+
+
+
+
+    function deleteDeduction(employeeId, deductionId) {
+        const deductionRow = document.getElementById(`deduction-${deductionId}`);
+        if (deductionRow) {
+            deductionRow.remove();
+            updateTotals(employeeId);
+        }
+    }
+
+    function deleteBenefit(employeeId, benefitId) {
+        const benefitRow = document.getElementById(`benefit-${benefitId}`);
+        if (benefitRow) {
+            benefitRow.remove();
+            updateTotals(employeeId);
+        }
+    }
+
+
+    function deleteAdvance(employeeId, advanceId) {
+        const advanceRow = document.getElementById(`advance-${advanceId}`);
+        if (advanceRow) {
+            advanceRow.remove();
+            updateTotals(employeeId);
+        }
+    }
+
+    // Helper function to validate exchange rates
+    function validateExchangeRates() {
+        const currencyGroups = document.querySelectorAll('.currency-group');
+        const missingRates = [];
+
+        currencyGroups.forEach(group => {
+            const currency = group.getAttribute('data-currency');
+            const baseCurrency = '{{ base_currency.user_currency }}';
+            if (currency !== baseCurrency) {
+                const currencyKey = currency.replace(/\s/g, '');
+                const rateInput = document.getElementById(`exchange_rate_${currencyKey}`);
+                if (!rateInput || !rateInput.value || parseFloat(rateInput.value) <= 0) {
+                    missingRates.push(currency);
+                    if (rateInput) {
+                        rateInput.style.borderColor = 'red';
+                        rateInput.style.backgroundColor = '#fff0f0';
+                    }
+                } else {
+                    if (rateInput) {
+                        rateInput.style.borderColor = '#ccc';
+                        rateInput.style.backgroundColor = '';
+                    }
+                }
+            }
+        });
+
+        return missingRates;
+    }
+
+    // Helper function to highlight first missing rate
+    function highlightMissingRate(missingRates) {
+        if (missingRates.length === 0) return;
+
+        const firstMissing = document.getElementById(`exchange_rate_${missingRates[0].replace(/\s/g, '')}`);
+        if (firstMissing) {
+            firstMissing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstMissing.focus();
+        }
+    }
+
+    // Helper function to collect employee data by currency
+    function collectEmployeeDataByCurrency() {
+        const selectedEmployees = Array.from(document.querySelectorAll('.employeeCheckbox:checked'))
+            .map(checkbox => checkbox.value);
+
+        const employeesByCurrency = {};
+
+        selectedEmployees.forEach(id => {
+            const employeeRow = document.querySelector(`.employeeCheckbox[value="${id}"]`).closest('tr');
+            const currency = document.getElementById(`currency-${id}`).textContent;
+
+            if (!employeesByCurrency[currency]) {
+                employeesByCurrency[currency] = [];
+            }
+
+            const salary = parseFloat(document.getElementById(`salary-${id}`).value) || 0;
+            const totalDeductions = parseFloat(document.getElementById(`total-deductions-${id}`).textContent) || 0;
+            const totalBenefits = parseFloat(document.getElementById(`total-benefits-${id}`).textContent) || 0;
+            const totalAdvance = parseFloat(document.getElementById(`total-advance-${id}`).textContent) || 0;
+            const overallDeductions = totalDeductions + totalAdvance;
+            const netSalary = salary - overallDeductions + totalBenefits;
+
+            // Debug log
+            console.log(`Employee ${id}:`, {
+                salary,
+                totalDeductions,
+                totalBenefits,
+                totalAdvance,
+                overallDeductions,
+                netSalary
+            });
+
+            employeesByCurrency[currency].push({
+                id: id,
+                name: employeeRow.querySelector('td:nth-child(3)').textContent,
+                grossSalary: salary,
+                totalDeductions: overallDeductions,
+                totalBenefits: totalBenefits,
+                netSalary: netSalary,
+            });
+        });
+
+        console.log('Employees by currency:', employeesByCurrency);
+        return employeesByCurrency;
+    }
+
+
+    // Helper function to calculate totals
+    function calculateCurrencyTotals(employeesByCurrency) {
+        let totals = {
+            totalGrossSalary: 0,
+            totalDeductions: 0,
+            totalBenefits: 0,
+            totalNetSalary: 0
+        };
+
+        const summaries = Object.keys(employeesByCurrency).map(currency => {
+            const employees = employeesByCurrency[currency];
+            const currencyGrossSalary = employees.reduce((sum, emp) => sum + emp.grossSalary, 0);
+            const currencyDeductions = employees.reduce((sum, emp) => sum + emp.totalDeductions, 0);
+            const currencyBenefits = employees.reduce((sum, emp) => sum + emp.totalBenefits, 0);
+            const currencyNetSalary = employees.reduce((sum, emp) => sum + emp.netSalary, 0);
+
+            totals.totalGrossSalary += currencyGrossSalary;
+            totals.totalDeductions += currencyDeductions;
+            totals.totalBenefits += currencyBenefits;
+            totals.totalNetSalary += currencyNetSalary;
+
+            return `
+            <div class="currency-summary">
+                <h4>Currency: ${currency}</h4>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Employee Name</th>
+                            <th>Gross Salary</th>
+                            <th>Total Deductions</th>
+                            <th>Total Benefits</th>
+                            <th>Net Salary</th>
+                        </thead>
+                    <tbody>
+                        ${employees.map(emp => `
+                            <tr>
+                                <td>${emp.name}</td>
+                                <td>${emp.grossSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                <td>${emp.totalDeductions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                <td>${emp.totalBenefits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                <td>${emp.netSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th>Total (${currency})</th>
+                            <th>${currencyGrossSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</th>
+                            <th>${currencyDeductions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</th>
+                            <th>${currencyBenefits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</th>
+                            <th>${currencyNetSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        `;
+        });
+
+        return { summaries: summaries.join(''), totals };
+    }
+
+    // Refactored proceedToStep4 function
+    function proceedToStep4() {
+        // Validate exchange rates
+        const missingRates = validateExchangeRates();
+
+        if (missingRates.length > 0) {
+            showNotification(`Please enter exchange rates for: ${missingRates.join(', ')}`, 'warning');
+            highlightMissingRate(missingRates);
+            return;
+        }
+
+        // Collect employee data
+        const employeesByCurrency = collectEmployeeDataByCurrency();
+
+
+
+
+        // ===== ADD THIS VALIDATION =====
+        // ===== ADD THIS VALIDATION - Check if ANY employee has zero gross salary =====
+        let hasZeroSalaryEmployee = false;
+        let zeroSalaryEmployeeNames = [];
+
+        for (const currency in employeesByCurrency) {
+            employeesByCurrency[currency].forEach(emp => {
+                if (emp.grossSalary === 0) {
+                    hasZeroSalaryEmployee = true;
+                    zeroSalaryEmployeeNames.push(emp.name);
+                }
+            });
+        }
+
+        if (hasZeroSalaryEmployee) {
+            showNotification(`Cannot proceed: The following employees have zero gross salary: ${zeroSalaryEmployeeNames.join(', ')}. Please enter valid salaries.`, 'warning');
+            // Highlight the first zero salary input
+            const firstZeroSalaryInput = document.querySelector(`.employee-details-container:has(span[id*="currency"]:contains("${zeroSalaryEmployeeNames[0]}")) .salary-input`);
+            if (firstZeroSalaryInput) {
+                firstZeroSalaryInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstZeroSalaryInput.style.borderColor = 'red';
+                firstZeroSalaryInput.style.backgroundColor = '#fff0f0';
+                setTimeout(() => {
+                    firstZeroSalaryInput.style.borderColor = '';
+                    firstZeroSalaryInput.style.backgroundColor = '';
+                }, 3000);
+            }
+            return;
+        }
+        // ===== END OF VALIDATION =====
+
+        // Generate summaries
+        const { summaries } = calculateCurrencyTotals(employeesByCurrency);
+
+        // Update UI
+        document.getElementById('departmentSummaries').innerHTML = summaries;
+        document.getElementById('payRunNumber').textContent = payRunData.periodName;  // ✅ Use payRunData
+
+        // Navigate to step 4
+        document.getElementById('step3').style.display = 'none';
+        document.getElementById('step4').style.display = 'block';
+        updateProgressBar(4);
+    }
+
+
+
+    function backToStep3() {
+        document.getElementById('step4').style.display = 'none';
+        document.getElementById('step3').style.display = 'block';
+        updateProgressBar(3);
+    }
+
+    function createPayRun() {
+
+        const createButton = document.querySelector('#step4 .cta-button');
+        let spinner = null;
+
+        // Disable button and add spinner
+        if (createButton) {
+            createButton.disabled = true;
+            spinner = document.createElement('span');
+            spinner.className = 'spinner';
+            spinner.style.marginLeft = '8px';
+            spinner.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
+            createButton.appendChild(spinner);
+        }
+
+        // Use stored pay run data
+        const { startDate, endDate, periodName } = payRunData;
+        const status = 'OPEN';
+
+        const selectedEmployees = Array.from(document.querySelectorAll('.employeeCheckbox:checked'))
+            .map(checkbox => checkbox.value);
+
+        // Collect employee details
+        const employeeDetails = selectedEmployees.map(id => {
+            const employeeId = parseInt(id, 10);
+            const grossSalary = parseFloat(document.getElementById(`salary-${id}`).value) || 0;
+            const totalDeductions = parseFloat(document.getElementById(`total-deductions-${id}`).textContent) || 0;
+            const totalBenefits = parseFloat(document.getElementById(`total-benefits-${id}`).textContent) || 0;
+            const totalAdvance = parseFloat(document.getElementById(`total-advance-${id}`).textContent) || 0;
+            const netSalary = grossSalary - totalDeductions + totalBenefits - totalAdvance;
+
+            const employee = {
+                id: employeeId,
+                gross_salary: grossSalary,
+                currency: document.getElementById(`currency-${id}`).textContent,
+                total_deductions: totalDeductions,
+                total_benefits: totalBenefits,
+                net_salary: netSalary,
+                deductions: [],
+                benefits: [],
+                advance_payments: []
+            };
+
+            // Collect deductions
+            const deductionRows = document.querySelectorAll(`#deductions-list-${id} tr`);
+            deductionRows.forEach(row => {
+                const deductionId = row.getAttribute('id').replace('deduction-', '');
+                const deductionType = row.querySelector('td:nth-child(1)').textContent;
+                const rate = parseFloat(row.querySelector('td:nth-child(2) input').value) || 0;
+                const fixedAmount = parseFloat(row.querySelector('td:nth-child(3) input').value) || 0;
+                const calculatedAmount = parseFloat(row.querySelector('td:nth-child(4) span').textContent) || 0;
+
+                employee.deductions.push({
+                    deductionId: deductionId,
+                    deduction_type: deductionType,
+                    rate: rate,
+                    fixed_amount: fixedAmount,
+                    calculated_amount: calculatedAmount
+                });
+            });
+
+            // Collect benefits
+            const benefitRows = document.querySelectorAll(`#benefits-list-${id} tr`);
+            benefitRows.forEach(row => {
+                const benefitId = row.getAttribute('id').replace('benefit-', '');
+                const benefitType = row.querySelector('td:nth-child(1)').textContent;
+                const rate = parseFloat(row.querySelector('td:nth-child(2) input').value) || 0;
+                const fixedAmount = parseFloat(row.querySelector('td:nth-child(3) input').value) || 0;
+                const calculatedAmount = parseFloat(row.querySelector('td:nth-child(4) span').textContent) || 0;
+
+                employee.benefits.push({
+                    benefitId: benefitId,
+                    benefit_type: benefitType,
+                    rate: rate,
+                    fixed_amount: fixedAmount,
+                    calculated_amount: calculatedAmount
+                });
+            });
+
+            // Collect advance payments
+            const advanceRows = document.querySelectorAll(`#advance-payments-list-${id} tr`);
+            advanceRows.forEach(row => {
+                const advanceId = row.getAttribute('id').replace('advance-', '');
+                const deductionPerPayroll = parseFloat(row.querySelector('td:nth-child(3) input').value) || 0;
+
+                employee.advance_payments.push({
+                    advanceId: advanceId,
+                    deduction_per_payroll: deductionPerPayroll
+                });
+            });
+
+            return employee;
+        });
+
+        // Collect exchange rates with currency IDs
+        const exchangeRates = {};
+        document.querySelectorAll('.currency-group').forEach(group => {
+            const currencyCode = group.getAttribute('data-currency');
+            const baseCurrency = '{{ base_currency.user_currency }}';
+            if (currencyCode !== baseCurrency) {
+                const currencyKey = currencyCode.replace(/\s/g, '');
+                const rateInput = document.getElementById(`exchange_rate_${currencyKey}`);
+                // Get the currency ID from the hidden select
+                const hiddenSelect = document.getElementById(`currency_select_${currencyKey}`);
+                const currencyId = hiddenSelect ? hiddenSelect.value : null;
+
+                if (rateInput && rateInput.value && currencyId) {
+                    exchangeRates[currencyId] = parseFloat(rateInput.value);
+                }
+            }
+        });
+
+        // Get base currency ID from the hidden input
+        const baseCurrencyId = document.getElementById('base_currency_id').value;
+
+
+        // Prepare payload
+        const payload = {
+            start_date: startDate,
+            end_date: endDate,
+            payroll_period_name: periodName,
+            status: status,
+            employee_details: employeeDetails,
+            exchange_rates: exchangeRates,
+            base_currency_id: baseCurrencyId
+        };
+
+
+        console.log("Payload to be sent:", payload);
+        // Send to backend
+        fetch('/payroll/create_pay_run', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(payload),
+        })
+            .then(response => response.json())
+            .then(data => {
+
+                if (data.success) {
+                    showNotification('Pay run created successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/payroll/payrun_summary/' + data.pay_run_id;
+                    }, 2000);
+                } else {
+                    showNotification('Error: ' + data.message, 'error');
+                    enableAllSubmitButtons();
+                    // Remove spinner and re-enable button
+                    if (createButton && spinner) {
+                        createButton.disabled = false;
+                        spinner.remove();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred while creating the pay run.', 'error');
+                enableAllSubmitButtons();
+                // Remove spinner and re-enable button
+                if (createButton && spinner) {
+                    createButton.disabled = false;
+                    spinner.remove();
+                }
+            });
+    }
+
+
+    // Select All Employees
+    document.getElementById('selectAllEmployees').addEventListener('change', function () {
+        const checkboxes = document.querySelectorAll('.employeeCheckbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+
+
+    document.getElementById('scrollToBottom2').addEventListener('click', function () {
+        window.scrollTo({
+            top: document.body.scrollHeight,
+            behavior: 'smooth'
+        });
+    });
+</script>
+{% endblock %}

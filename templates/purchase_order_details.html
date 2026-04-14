@@ -1,0 +1,973 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .header h1 {
+        margin: 0;
+        color: var(--primary-color, #333);
+        flex: 1;
+    }
+
+    .header .date-po {
+        text-align: right;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+    }
+
+    .header .date-po div {
+        margin-bottom: 3px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .header .date-po label {
+        width: 120px;
+        text-align: right;
+        margin-right: 10px;
+        display: inline-block;
+        vertical-align: top;
+    }
+
+    .header .date-po input[type="date"],
+    .header .date-po input[type="text"],
+    .header .date-po input[type="number"] {
+        width: 200px;
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        vertical-align: top;
+    }
+
+    /* Media query for screens smaller than 768px */
+    @media (max-width: 768px) {
+        .header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+        }
+
+        .header .date-po {
+            text-align: left;
+            align-items: flex-start;
+        }
+
+        .header .date-po label {
+            width: auto;
+            margin-right: 0;
+        }
+
+        .header .date-po input[type="date"],
+        .header .date-po input[type="text"],
+        .header .date-po input[type="number"] {
+            width: 100%;
+            margin-top: 5px;
+        }
+    }
+
+    /* Media query for screens smaller than 480px */
+    @media (max-width: 480px) {
+        .header h1 {
+            font-size: 1.5em;
+        }
+
+        .header .date-po input[type="date"],
+        .header .date-po input[type="text"],
+        .header .date-po input[type="number"] {
+            width: 100%;
+            margin-top: 5px;
+        }
+    }
+
+
+    .info-section {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    .info-section div {
+        flex-basis: 15%;
+        margin: 5px;
+
+    }
+
+    .info-section div p {
+        margin: 5px 0;
+    }
+
+    .info-section h6 {
+        font-weight: bold;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    .info-section div label {
+        font-weight: bold;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    .info-section div input[type="text"],
+    .info-section div input[type="tel"],
+    .info-section div input[type="email"],
+    .info-section div select {
+        width: 200px;
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+
+/* Table Container */
+.table-container {
+    overflow-x: auto;
+    margin-bottom: 20px;
+    padding: 20px;
+    background-color: #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Table */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #ffffff;
+}
+
+table th,
+table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 15px;
+}
+
+table th {
+    background-color: #333333; /* Dark header color */
+    color: white;
+    font-weight: 600;
+}
+
+table td:last-child,
+table th:last-child {
+    text-align: right;
+}
+
+/* Total Section */
+.total-comments-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 2px;
+}
+
+/* Comments */
+.comments {
+    flex: 1;
+    margin-right: 30px;
+}
+
+.comments textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+}
+
+/* Total Section */
+.total-section {
+    flex: 0.8;
+    padding: 20px;
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.total-section div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1px;
+}
+
+.total-section div:last-child {
+    margin-bottom: 0;
+}
+
+.total-section label {
+    font-weight: bold;
+    font-size: 14px;
+    color: #333;
+}
+
+.total-section span {
+    display: inline-block;
+    padding: 1px 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #ffffff;
+    font-size: 14px;
+    width: 180px;
+    text-align: right;
+    box-sizing: border-box;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    table th,
+    table td {
+        font-size: 14px;
+        padding: 8px;
+    }
+
+    .comments textarea {
+        font-size: 14px;
+        padding: 10px;
+    }
+
+    .total-section {
+        padding: 10px;
+    }
+
+    .total-section label,
+    .total-section span {
+        font-size: 14px;
+    }
+
+    .total-section div {
+        margin-bottom: 5px;
+    }
+
+    .total-section span {
+        width: auto;
+    }
+}
+
+
+
+    .button-row {
+        display: flex;
+        gap: 10px;
+    }
+
+
+
+    .bttn {
+        display: inline-block;
+        margin: 0;
+        padding: 10px 12px;
+        font-size: 12px;
+        font-weight: bold;
+        color: white;
+        background-color: #007bff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        text-align: center;
+        text-decoration: none;
+        transition: background-color 0.3s;
+    }
+
+    .bttn:hover {
+        background-color: #0056b3;
+    }
+
+    .bttn-approve {
+        background-color: #28a745;
+    }
+
+    .bttn-approve:hover {
+        background-color: #218838;
+    }
+
+    .bttn-cancel {
+        background-color: #dc3545;
+    }
+
+    .bttn-cancel:hover {
+        background-color: #c82333;
+    }
+
+    .bttn-partially-received {
+        background-color: #ffc107;
+        color: black;
+    }
+
+    .bttn-partially-received:hover {
+        background-color: #e0a800;
+    }
+
+    .bttn-received {
+        background-color: #17a2b8;
+    }
+
+    .bttn-received:hover {
+        background-color: #138496;
+    }
+
+    .bttn-download {
+        background-color: #6c757d;
+    }
+
+    .bttn-download:hover {
+        background-color: #5a6268;
+    }
+
+    .bttn-download i {
+        margin-right: 5px;
+    }
+
+    /* Workflow container */
+    .workflow-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #f8f9fa;
+        padding: 3px;
+        /* Further reduced padding */
+        border-radius: 4px;
+        /* Smaller border radius */
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        /* Smaller shadow */
+        position: relative;
+        /* Ensure connector line positioning */
+    }
+
+    /* Workflow step */
+    .workflow-step {
+        text-align: center;
+        padding: 3px;
+        /* Further reduced padding */
+        border-radius: 4px;
+        /* Smaller border radius */
+        background-color: #e9ecef;
+        color: #212529;
+        font-size: 10px;
+        /* Smaller font size */
+        flex: 1;
+        margin: 0;
+        /* No margin */
+    }
+
+    /* Step icon */
+    .step-icon {
+        display: block;
+        font-size: 16px;
+        /* Smaller icon size */
+        margin-bottom: 2px;
+        /* Smaller margin */
+    }
+
+    /* Step label */
+    .step-label {
+        display: block;
+        font-size: 8px;
+        /* Smaller font size */
+    }
+
+    /* Connector line */
+    .workflow-container::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: calc(100% - 6px);
+        /* Adjusted for padding */
+        height: 1px;
+        /* Reduced height */
+        background-color: #e9ecef;
+        z-index: -1;
+    }
+
+    /* Hide connector line between last step and container edge */
+    .workflow-step:last-child::after {
+        content: none;
+    }
+
+    /* Completed step style */
+    .workflow-step.completed {
+        background-color: #d4edda;
+        /* Light green background for completed steps */
+        color: #16802e;
+        /* Green text color for completed steps */
+    }
+
+    /* Current step style */
+    .workflow-step.current {
+        background-color: #ffc107;
+        /* Yellow background for the current step */
+        color: #fff;
+    }
+
+    /* Style for step container edges */
+    .workflow-step:first-child {
+        border-top-left-radius: 4px;
+        /* Smaller border radius */
+        border-bottom-left-radius: 4px;
+    }
+
+    .workflow-step:last-child {
+        border-top-right-radius: 4px;
+        /* Smaller border radius */
+        border-bottom-right-radius: 4px;
+    }
+
+
+
+
+
+
+
+    /* Modal styling */
+    /* Modal styling */
+    .update-received-quantities {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: #fff;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        width: 80%;
+        max-width: 600px;
+    }
+
+    .update-received-quantities h2 {
+        margin-top: 0;
+        text-align: center;
+    }
+
+    /* Close button */
+    .close-button {
+        background: none;
+        border: none;
+        font-size: 16px;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        cursor: pointer;
+    }
+
+    /* Overlay to darken background */
+    #overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        display: none;
+    }
+
+    /* Modal form inputs */
+    .update-received-quantities form div {
+        margin-bottom: 15px;
+    }
+
+    .update-received-quantities label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+
+    .update-received-quantities input[type="number"] {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+
+    /* Modal form submit button */
+    .update-received-quantities button[type="submit"] {
+        display: block;
+        width: 100%;
+        padding: 10px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+
+    .update-received-quantities button[type="submit"]:hover {
+        background-color: #0056b3;
+    }
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+
+<div class="container">
+    <main>
+        <div class="container-fluid px-4">
+
+            <!-- Work Flow Section -->
+            <div class="workflow-container" style="display: none;">
+                <div class="workflow-step completed" data-step="1">
+                    <span class="step-icon">✔</span>
+                    <span class="step-label">Approved</span>
+                </div>
+                <div class="workflow-step current" data-step="2">
+                    <span class="step-icon">🔄</span>
+                    <span class="step-label">In Progress</span>
+                </div>
+                <div class="workflow-step" data-step="3">
+                    <span class="step-icon">📦</span>
+                    <span class="step-label">Partially Received</span>
+                </div>
+                <div class="workflow-step" data-step="4">
+                    <span class="step-icon">✅</span>
+                    <span class="step-label">Received</span>
+                </div>
+                <div class="workflow-step" data-step="5">
+                    <span class="step-icon">🔒</span>
+                    <span class="step-label">Closed</span>
+                </div>
+            </div>
+
+
+            <!-- Flash Messages Section -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                <div class="alert alert-{{ 
+        'success' if category == 'success' 
+        else 'info' if category == 'info' 
+        else 'warning' if category == 'warning' 
+        else 'danger' if category == 'error' 
+        else category 
+    }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            <form id="po-content" action="{{ url_for('purchase_order_view', po_id = purchase_order.id) }}"
+                method="POST">
+
+                <div class="header">
+                    <div class="company-info">
+                        {% if company.name %}
+                        <h2>{{ company.name }}</h2>
+                        {% endif %}
+
+                        {% if company.address %}
+                        <p>{{ company.address }}</p>
+                        {% endif %}
+
+                        {% if company.phone %}
+                        <p>Phone: {{ company.phone }}</p>
+                        {% endif %}
+
+                        {% if company.email %}
+                        <p>Email: {{ company.email }}</p>
+                        {% endif %}
+
+                        {% if company.website %}
+                        <p>Website: {{ company.website }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="date-po">
+                        <h1 class="mt-4">Purchase Order </h1>
+                        <div><label for="po_date">DATE:</label> <input type="date" id="po_date" name="po_date"
+                                value="{{purchase_order.po_date}}"></div>
+                        <div><label for="po_number">PO #:</label> <input type="text" id="po_number" name="po_number"
+                                value="{{ purchase_order.po_number }}" readonly></div>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <div>
+                        <h6>VENDOR:</h6>
+                        {% if purchase_order.vendor.vendor_name %}
+                        <p>{{ purchase_order.vendor.vendor_name }}</p>
+                        {% endif %}
+
+                        {% if purchase_order.vendor.designation %}
+                        <p>{{ purchase_order.vendor.designation }}</p>
+                        {% endif %}
+
+                        {% if purchase_order.vendor.tel_contact %}
+                        <p>Phone: {{ purchase_order.vendor.tel_contact }}</p>
+                        {% endif %}
+
+                        {% if purchase_order.vendor.email %}
+                        <p>Email: {{ purchase_order.vendor.email }}</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h6>SHIP TO:</h6>
+                        {% if purchase_order.ship_to %}
+                        <p>{{ purchase_order.ship_to }}</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h6>PAYMENT TERMS:</h6>
+                        {% if purchase_order.payment_terms %}
+                        <p>{{ purchase_order.payment_terms}}</p>
+                        {% else %}
+                        <p>N/A</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h6>DELIVERY DATE:</h6>
+                        {% if purchase_order.delivery_date %}
+                        <p>{{ purchase_order.delivery_date }}</p>
+                        {% else %}
+                        <p>N/A</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="product-table" class="display">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>ITEM</th>
+                                <th>DESCRIPTION</th>
+                                <th>QTY</th>
+                                <th>UOM</th>
+                                <th>UNIT PRICE ({{ purchase_order.currencies.user_currency }})</th>
+                                <th>TOTAL ({{ purchase_order.currencies.user_currency }})</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in purchase_order.items %}
+                              
+                                    <tr class="product-row">
+                                        <td>{{ item.po_line_number }}</td>
+                                        <td>{{ item.item }}</td>
+                                        <td>{{ item.item_description }}</td>
+                                        <td>{{ item.quantity_ordered }}</td>
+                                        <td>{{ item.uom }}</td>
+                                        <td>{{ item.unit_price }}</td>
+                                        <td>{{ item.extended_price }}</td>
+                                    </tr>
+                                
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+
+                <div class="total-comments-container">
+                    <div class="comments">
+                        <label for="payment_terms">Add Comment:</label>
+                        <textarea id="payment_terms" name="payment_terms" rows="4">{{ payment_terms }}</textarea>
+                    </div>
+                    <div class="total-section">
+                        <div><label for="subtotal">Subtotal:</label> <span id="subtotal">{{ "{:,.2f}".format(purchase_order.order_subtotal) }}</span></div>
+                        <div><label for="tax">Tax:</label> <span id="tax">{{ "{:,.2f}".format(purchase_order.tax) }}</span></div>
+                        <div><label for="shipping">Shipping:</label> <span id="shipping">{{ "{:,.2f}".format(purchase_order.shipping) }}</span></div>
+                        <div><label for="other">Other:</label> <span id="other">{{ "{:,.2f}".format(purchase_order.other) }}</span></div>
+                        <div><label for="discount">Discount(less):</label> <span id="discount">{{ "{:,.2f}".format(purchase_order.discount) }}</span></div>
+                        <div><label for="total">Total:</label> <span id="total">{{ "{:,.2f}".format(purchase_order.order_total) }}</span></div>
+                    </div>
+                </div>
+                <input type="hidden" id="action" name="action" value="">
+
+            </form>
+
+            <!-- Button Row -->
+            <div class="button-row">
+                <button type="button" style="display: none;" class="bttn bttn-update"
+                    onclick="submitForm('update')">Update</button>
+
+                {% if purchase_order.order_status.name == 'pending' %}
+                <button type="button" class="bttn bttn-approve" onclick="submitForm('approve')">Approve</button>
+
+                {% endif %}
+
+                {% if purchase_order.order_status.name not in ['closed', 'canceled', 'received'] %}
+                <button type="button" class="bttn bttn-cancel" onclick="submitForm('cancel')">Cancel</button>
+                {% endif %}
+
+                {% if purchase_order.order_status.name == 'progress' %}
+                <button type="button" class="bttn bttn-download" id="download-pdf" onclick="downloadPDF()">Download</button>
+                <button type="button" class="bttn bttn-partially-received" onclick="showPartialReceivedForm()">Partially
+                    Received</button>
+                <button type="button" class="bttn bttn-received" onclick="showFullReceivedForm()">Received</button>
+                {% endif %}
+
+                {% if purchase_order.order_status.name == 'received' %}
+    <button type="button" class="bttn bttn-close" onclick="submitForm('close')">Close</button>
+    {% endif %}
+            </div>
+
+            <!-- Partial Received Quantities Form (hidden initially) -->
+<div id="partial-received-form" class="update-received-quantities" style="display: none;">
+    <h2>Update Partially Received Quantities</h2>
+    <button type="button" class="close-button" onclick="closeForm('partial-received-form')">Close</button>
+    <form id="partial-received-quantities-form"
+        action="{{ url_for('purchase_order_details', po_id=purchase_order.id) }}" method="POST">
+        {% for item in purchase_order.items %}
+        {% if item.item_type != "service" %}
+        <div>
+            <label for="item_{{ item.id }}">{{ item.item }} : {{ item.item_description }} </label>
+            <input type="number" name="partial_received_qty_{{ item.id }}" value="{{ item.received_qty }}" 
+                   max="{{ item.quantity_not_received-1 }}" required>
+        </div>
+        {% endif %}
+        {% endfor %}
+        <div>
+            <label for="partial_received_comment">Comments</label>
+            <textarea id="partial_received_comment" name="partial_received_comment" rows="3"
+                placeholder="Enter comments here..."></textarea>
+        </div>
+        <button type="submit" name="action" value="update_partial_received" class="bttn">Update Partially
+            Received Quantities</button>
+    </form>
+</div>
+
+            <!-- Full Received Quantities Form (hidden initially) -->
+            <div id="full-received-form" class="update-received-quantities" style="display: none;">
+                <h2>Update Fully Received Quantities</h2>
+                <button type="button" class="close-button" onclick="closeForm('full-received-form')">Close</button>
+                <form id="full-received-quantities-form"
+                    action="{{ url_for('purchase_order_details', po_id=purchase_order.id) }}" method="POST">
+                    {% for item in purchase_order.items %}
+                    {% if item.item_type != "service" %}
+                    <div>
+                        <label for="item_{{ item.id }}">{{ item.item }} : {{ item.item_description }}</label>
+                        <input type="number" name="full_received_qty_{{ item.id }}" value="{{ item.received_qty }}">
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    <div>
+                        <label for="full_received_comment">Comments</label>
+                        <textarea id="full_received_comment" name="full_received_comment" rows="3"
+                            placeholder="Enter comments here..."></textarea>
+                    </div>
+                    <button type="submit" name="action" value="update_full_received" class="bttn">Update Fully Received
+                        Quantities</button>
+                </form>
+            </div>
+
+
+            <!-- Overlay -->
+            <div id="overlay" onclick="closeForms()"></div>
+
+        </div>
+    </main>
+</div>
+
+<script>
+
+    // Variables and constants
+    var orderStatus = "{{ purchase_order.order_status.name }}";
+    var validStatuses = ['approved', 'progress', 'partially_received', 'received', 'canceled'];
+    var statusToStep = {
+        'approved': 1,
+        'progress': 2,
+        'partially_received': 3,
+        'received': 4,
+        'canceled': 5
+    };
+
+    const approveButton = $('.bttn-approve');
+    const downloadButton = $('.bttn-download');
+    const cancelButton = $('.bttn-cancel');
+    const partiallyReceivedButton = $('.bttn-partially-received');
+    const receivedButton = $('.bttn-received');
+    const closeButton = $('.bttn-close');
+    const commentField = document.getElementById("payment_terms");
+    const inputs = $('#po-content').find('input, select, textarea, button, checkbox, radio'); // Adjust selectors as needed
+
+
+
+
+    // *****************************************Functions
+    function updateUIBasedOnStatus() {
+        const status = '{{ purchase_order.order_status.name }}'; // Ensure this is properly rendered in your template
+
+        if (status === 'progress') {
+            // Show specific buttons if status is 'progress'
+
+            approveButton.hide();
+            downloadButton.show();
+            console.log("I have seen pending")
+            cancelButton.show();
+            partiallyReceivedButton.show();
+            receivedButton.show();
+
+            // Disable all inputs
+            inputs.prop('disabled', true);
+            commentField.disabled = false;
+
+        } else if (status === 'partially_received') {
+            // Show specific buttons if status is 'partially received'
+            approveButton.hide();
+            downloadButton.hide();
+            cancelButton.show();
+            partiallyReceivedButton.show();
+            receivedButton.show();
+
+            // Disable all inputs
+            inputs.prop('disabled', true);
+            commentField.disabled = false;
+
+        } else if (status === 'received') {
+            // Show specific buttons if status is 'received'
+            approveButton.hide();
+            downloadButton.hide();
+            cancelButton.show();
+            partiallyReceivedButton.hide();
+            receivedButton.hide();
+
+            // Disable all inputs
+            inputs.prop('disabled', true);
+
+        } else {
+            // Handle other statuses
+            approveButton.hide();
+            downloadButton.hide();
+            cancelButton.hide();
+            closeButton.hide();
+
+            // Disable all inputs
+            inputs.prop('disabled', true);
+        }
+    }
+
+
+
+    // Script for handing partial and fully received submissions
+    function showPartialReceivedForm() {
+        document.getElementById('partial-received-form').style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+    }
+
+    function showFullReceivedForm() {
+        document.getElementById('full-received-form').style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+    }
+
+    function hideReceivedForms() {
+        document.getElementById('partial-received-form').style.display = 'none';
+        document.getElementById('full-received-form').style.display = 'none';
+        document.getElementById('overlay').style.display = 'none';
+    }
+
+    function showForm(formId) {
+        document.getElementById('overlay').style.display = 'block';
+        document.getElementById(formId).style.display = 'block';
+    }
+
+    function closeForm(formId) {
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById(formId).style.display = 'none';
+    }
+
+    function closeForms() {
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('partial-received-form').style.display = 'none';
+        document.getElementById('full-received-form').style.display = 'none';
+    }
+
+      // Download PDF button click event
+  function downloadPDF() {
+    const contentElement = document.getElementById('po-content');
+    const options = {
+        margin: 0.5,
+        filename: '{{company.name}} - #PO {{purchase_order.po_number}}.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    html2pdf().from(contentElement).set(options).save();
+}
+
+
+    // Event listeners
+    $(document).ready(function () {
+
+        $('#product-table').DataTable({
+            "bFilter": false, // Disable search filter
+            "bSort": false, // Disable sorting
+            "bInfo": false, // Disable info about the table
+            "bPaginate": false, // Disable pagination
+            "ordering": false, // Disable sorting
+            "scrollX": false, // Enable horizontal scrolling
+            "width": "100%", // Set the table width to 100% of the parent container
+            "columnDefs": [{ "targets": '_all', "sortable": false }] // Disable sorting on all columns
+        });
+
+        // Initial UI setup
+        updateUIBasedOnStatus();
+
+            // Check if the order_status value is in the validStatuses array
+    if (validStatuses.includes(orderStatus)) {
+        document.querySelector('.workflow-container').style.display = 'flex';
+
+        // Get the current step number
+        var currentStep = statusToStep[orderStatus];
+
+        // Highlight the current step and mark completed steps
+        var steps = document.querySelectorAll('.workflow-step');
+        steps.forEach(function (step) {
+            var stepNumber = parseInt(step.getAttribute('data-step'));
+            if (stepNumber < currentStep) {
+                step.classList.add('completed');
+                step.classList.remove('current');
+            } else if (stepNumber === currentStep) {
+                step.classList.add('current');
+            }
+        });
+    }
+
+    });
+
+
+
+
+    // Initial state in case inputs have values changed when the page loads
+    document.getElementById('download-pdf').addEventListener('click', downloadPDF);
+
+
+
+
+    document.getElementById('overlay').addEventListener('click', hideReceivedForms);
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === "Escape") {
+            hideReceivedForms();
+        }
+    });
+
+
+
+</script>
+
+
+{% endblock %}

@@ -1,0 +1,837 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        font-size: 0.9em;
+        text-align: left;
+    }
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 6px;
+    }
+
+    th {
+        background-color: #f4f4f4;
+    }
+
+    .category-row {
+        font-weight: bold;
+        background-color: #f9f9f9;
+    }
+
+    .subtotal-row,
+    .total-row {
+        font-style: italic;
+    }
+
+    .total-row {
+        font-weight: bold;
+    }
+
+    .total-row td {
+        text-align: right;
+    }
+
+    tfoot tr td {
+        border-top: 2px solid #ddd;
+    }
+
+    .description-column {
+        width: 80.66%;
+    }
+
+    .amount-column,
+    .amount {
+        width: 33.33%;
+        text-align: right;
+    }
+
+    .category-column {
+        width: 40%;
+    }
+
+    .subcategory-column {
+        width: 40%;
+    }
+
+    /* Loading spinner */
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: none;
+        /* Hidden by default */
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        /* Ensure it appears above other content */
+    }
+
+    #loading-spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        /* Light grey */
+        border-left: 4px solid var(--primary-color);
+        /* Blue */
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .cash-flow-section {
+        margin-bottom: 30px;
+    }
+
+    .validation-section {
+        margin-top: 30px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+    }
+
+    #cash-flow-validation-result {
+        font-weight: bold;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+    }
+
+    .validation-passed {
+        background-color: #e8f5e9;
+        color: #388e3c;
+    }
+
+    .validation-failed {
+        background-color: #ffebee;
+        color: #d32f2f;
+    }
+</style>
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Cash Flow Statement</h1>
+        <div class="view-toggle-buttons">
+            <button class="cta-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+            <button class="button cta-button" id="download-pdf">
+                <i class="fas fa-file-pdf"></i> Download
+            </button>
+        </div>
+    </div>
+
+    <div id="loading-overlay">
+        <div id="loading-spinner"></div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section date-filter date-filter-form" id="filter-section">
+        <div class="filter-group">
+            <label for="start-date" class="filter-label">Start Date</label>
+            <input type="date" id="start-date" name="start-date" class="form-control">
+        </div>
+
+        <div class="filter-group">
+            <label for="end-date" class="filter-label">End Date</label>
+            <input type="date" id="end-date" name="end-date" class="form-control">
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" id="apply-filter" class="add-button">Apply Filter</button>
+            <a href="{{ url_for('financial_reports.cash_flow') }}" class="btn reset-button">Reset</a>
+        </div>
+    </div>
+
+    <!-- Operating Activities -->
+    <div class="cash-flow-section">
+        <h2 class="transaction-headings">Cash Flows from Operating Activities</h2>
+        <table id="operating-activities-table">
+            <thead>
+                <tr>
+                    <th class="category-column">Category</th>
+                    <th class="subcategory-column">Subcategory</th>
+                    <th class="amount-column">Amount ({{base_currency}})</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+                <tr id="net-cash-operating-row">
+                    <td><strong>Net Cash Provided by Operating Activities</strong></td>
+                    <td></td>
+                    <td class="amount"><strong id="net-cash-operating"></strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Investing Activities -->
+    <div class="cash-flow-section">
+        <h2 class="transaction-headings">Cash Flows from Investing Activities</h2>
+        <table id="investing-activities-table">
+            <thead>
+                <tr>
+                    <th class="category-column">Category</th>
+                    <th class="subcategory-column">Subcategory</th>
+                    <th class="amount-column">Amount ({{base_currency}})</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+                <tr id="net-cash-investing-row">
+                    <td><strong>Net Cash Used in Investing Activities</strong></td>
+                    <td></td>
+                    <td class="amount"><strong id="net-cash-investing"></strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Financing Activities -->
+    <div class="cash-flow-section">
+        <h2 class="transaction-headings">Cash Flows from Financing Activities</h2>
+        <table id="financing-activities-table">
+            <thead>
+                <tr>
+                    <th class="category-column">Category</th>
+                    <th class="subcategory-column">Subcategory</th>
+                    <th class="amount-column">Amount ({{base_currency}})</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+                <tr id="net-cash-financing-row">
+                    <td><strong>Net Cash Provided by Financing Activities</strong></td>
+                    <td></td>
+                    <td class="amount"><strong id="net-cash-financing"></strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Cash Summary -->
+    <table id="cash-summary-table">
+        <tfoot>
+            <tr id="net-increase-cash-row">
+                <td><strong>Net Increase (Decrease) in Cash</strong></td>
+                <td></td>
+                <td class="amount"><strong id="net-increase-cash"></strong></td>
+            </tr>
+            <tr id="cash-beginning-row">
+                <td><strong>Cash at Beginning of Period</strong></td>
+                <td></td>
+                <td class="amount"><strong id="cash-beginning"></strong></td>
+            </tr>
+            {% if company.has_multiple_currencies %}
+            <tr id="fx-difference-row">
+                <td><strong>Effect of Exchange Rate Changes</strong></td>
+                <td></td>
+                <td class="amount"><strong id="fx-difference">0.00</strong></td>
+            </tr>
+            {% endif %}
+            <tr id="cash-ending-row" class="total-row">
+                <td><strong>Cash at End of Period</strong></td>
+                <td></td>
+                <td class="amount"><strong id="cash-ending"></strong></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <!-- FX Revaluation Details -->
+    {% if company.has_multiple_currencies %}
+
+    <h4>FX Revaluation Details</h4>
+    <table id="fx-revaluation-table" border="1" cellpadding="6" cellspacing="0" style="width:100%; margin-top:10px;">
+        <thead>
+            <tr>
+                <th>Account Name</th>
+                <th>Account Type</th>
+                <th>Currency</th>
+                <th style="text-align:right;">FX Gain/Loss</th>
+            </tr>
+        </thead>
+        <tbody id="fx-revaluation-body">
+            <tr>
+                <td colspan="4" style="text-align:center;">No FX revaluation data</td>
+            </tr>
+        </tbody>
+    </table>
+
+    {% endif %}
+
+    <!-- Cash Flow Validation Check -->
+    <div class="validation-section">
+        <h3 style="margin-bottom: 10px; color: #333;">Cash Flow Validation</h3>
+        <div id="cash-flow-validation-result">
+            <!-- Validation message will appear here -->
+        </div>
+        <div style="margin-top: 10px;">
+            <strong>Calculation:</strong><br>
+            <span id="cash-beginning-val"></span> (Cash at Beginning) <br>
+            <span id="net-change-val"></span> (Net Change in Cash) <br>
+            <strong>= <span id="calculated-cash-end"></span> (Calculated Cash at End)</strong><br>
+            <span id="actual-cash-end-val"></span> (Actual Cash at End) <br>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const companyName = "{{ company.name }}";
+        const apiKey = "{{ api_key }}";
+        const baseCurrencyCode = "{{ base_currency }}";
+        const baseCurrencyId = "{{ base_currency_id }}";
+
+        function formatNumber(number) {
+            return number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function setLoadingState(isLoading) {
+            const overlay = document.getElementById('loading-overlay');
+            overlay.style.display = isLoading ? 'flex' : 'none';
+        }
+
+        function setDefaultDateRange() {
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            document.getElementById('start-date').valueAsDate = firstDay;
+            document.getElementById('end-date').valueAsDate = now;
+        }
+
+        async function fetchCashOpeningBalance(startDate, endDate, baseCurrencyId, baseCurrencyCode) {
+            const params = new URLSearchParams();
+
+            if (startDate) params.append('start_date', startDate);
+            if (endDate) params.append('end_date', endDate);
+            if (baseCurrencyId) params.append('base_currency_id', baseCurrencyId);
+            if (baseCurrencyCode) params.append('base_currency_code', baseCurrencyCode);
+            console.log('Fetching cash balance with:', params.toString());
+            try {
+                const res = await fetch(`/api/cash_balances?${params.toString()}`, {
+                    headers: { 'X-API-Key': apiKey }
+                });
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                const data = await res.json();
+
+                console.log('Cash balances data is ', data);
+                return parseFloat(data.total_cash) || 0;
+            } catch (error) {
+                console.error('Error fetching cash balance:', error);
+                return 0;
+            }
+        }
+
+        async function fetchCashFlowTransactions() {
+            setLoadingState(true);
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            try {
+                // Get cash balances
+                const cashAtBeginning = startDate
+                    ? await fetchCashOpeningBalance(undefined, startDate, baseCurrencyId, baseCurrencyCode)
+                    : 0;
+                const cashAtEnd = await fetchCashOpeningBalance(null, endDate, baseCurrencyId, baseCurrencyCode);
+
+                // Fetch transactions
+                const response = await fetch('/financial_reports/get_cash_flow_transactions_base_currency', {
+                    headers: { 'X-API-Key': apiKey }
+                });
+                const transactions = await response.json();
+                console.log("Fetched transactions:", transactions);
+
+                // Filter transactions
+                const filteredTransactions = transactions.filter(tx => {
+                    const txDate = new Date(tx.date);
+                    const startOk = !startDate || txDate > new Date(startDate);
+                    const endOk = !endDate || txDate <= new Date(endDate);
+                    return startOk && endOk;
+                });
+
+                console.log("Filtered transactions:", filteredTransactions);
+
+                // Initialize sections with default operating categories
+                const sections = {
+                    'Operating Activities': {
+                        categories: {
+                            'Customer Receipts': { subcategories: {}, total: 0 },
+                            'Operating Expenses': { subcategories: {}, total: 0 }
+                        },
+                        total: 0
+                    },
+                    'Investing Activities': { categories: {}, total: 0 },
+                    'Financing Activities': { categories: {}, total: 0 }
+                };
+
+                // Process transactions
+                filteredTransactions.forEach(tx => {
+                    const amount = parseFloat(tx.amount_in_base_currency);
+                    let signedAmount = 0;
+
+                    // Determine amount sign
+                    if (tx.transaction_type === 'Income') {
+                        signedAmount = tx.normal_balance === 'Credit' ? Math.abs(amount) : -Math.abs(amount);
+                    }
+                    else if (tx.transaction_type === 'Expense') {
+                        signedAmount = tx.normal_balance === 'Debit' ? -Math.abs(amount) : Math.abs(amount);
+                    }
+                    else {
+                        signedAmount = tx.dr_cr === 'D' ? -amount : amount;
+                    }
+
+                    // Auto-classify OR use manual classification
+                    let sectionName = tx.report_section;
+                    let category, subcategory;
+
+                    if (!sectionName) {
+                        if (tx.transaction_type === 'Income') {
+                            sectionName = 'Operating Activities';
+                            category = 'Customer Receipts';
+                            subcategory = tx.subcategory || 'Sales';
+                        }
+                        else if (tx.transaction_type === 'Expense') {
+                            sectionName = 'Operating Activities';
+                            category = 'Operating Expenses';
+                            subcategory = tx.subcategory || 'General Expenses';
+                        }
+                        else {
+                            sectionName = 'Uncategorized';
+                        }
+                    } else {
+                        // Use manual classification for balance sheet items
+                        category = tx.category ||
+                            (tx.transaction_type === 'Liability');
+                        subcategory = tx.subcategory || 'N/A';
+                    }
+
+                    if (!sections[sectionName]) return;
+
+                    // Initialize category if needed
+                    if (!sections[sectionName].categories[category]) {
+                        sections[sectionName].categories[category] = {
+                            subcategories: {},
+                            total: 0
+                        };
+                    }
+
+                    // Initialize subcategory
+                    if (!sections[sectionName].categories[category].subcategories[subcategory]) {
+                        sections[sectionName].categories[category].subcategories[subcategory] = {
+                            transactions: [],
+                            total: 0
+                        };
+                    }
+
+                    // Record transaction
+                    sections[sectionName].categories[category].subcategories[subcategory].transactions.push({
+                        description: tx.description || `${category} - ${subcategory}`,
+                        amount: signedAmount,
+                        date: tx.date
+                    });
+
+                    // Update totals
+                    sections[sectionName].categories[category].subcategories[subcategory].total += signedAmount;
+                    sections[sectionName].categories[category].total += signedAmount;
+                    sections[sectionName].total += signedAmount;
+                });
+
+                return {
+                    operatingActivities: sections['Operating Activities'],
+                    investingActivities: sections['Investing Activities'],
+                    financingActivities: sections['Financing Activities'],
+                    cashAtBeginning,
+                    cashAtEnd,
+                    netIncreaseCash: sections['Operating Activities'].total +
+                        sections['Investing Activities'].total +
+                        sections['Financing Activities'].total
+                };
+
+            } catch (err) {
+                console.error("Error loading cash flow data:", err);
+                return null;
+            } finally {
+                setLoadingState(false);
+            }
+        }
+
+        // Function to populate a cash flow table section
+        function populateCashFlowTable(tableId, sectionData) {
+            const tableBody = document.getElementById(`${tableId}-table`).getElementsByTagName('tbody')[0];
+            const transactionTypePriority = {
+                'Income': 1,
+                'Equity': 2,
+                'Liability': 3,
+                'Asset': 4,
+                'Expense': 5,
+                // others if needed
+            };
+            tableBody.innerHTML = '';
+
+            const sortedCategories = Object.entries(sectionData.categories).sort(([catA, catDataA], [catB, catDataB]) => {
+                const priorityA = transactionTypePriority[catDataA.transactionType] || 1000;
+                const priorityB = transactionTypePriority[catDataB.transactionType] || 1000;
+
+                if (priorityA !== priorityB) {
+                    return priorityA - priorityB;  // lower number = higher priority
+                }
+                return catA.localeCompare(catB);
+            });
+
+            // Use sortedCategories for the loop
+            for (const [category, catData] of sortedCategories) {
+                // Add category row
+                const categoryRow = document.createElement('tr');
+                categoryRow.classList.add('category-row');
+                categoryRow.innerHTML = `
+                <td><strong>${category}</strong></td>
+                <td></td>
+                <td></td>
+            `;
+                tableBody.appendChild(categoryRow);
+
+                // Iterate through subcategories
+                const sortedSubcategories = Object.entries(catData.subcategories).sort(
+                    ([, aData], [, bData]) => {
+                        // inflows (positive) before outflows (negative)
+                        if (aData.total >= 0 && bData.total < 0) return -1;
+                        if (aData.total < 0 && bData.total >= 0) return 1;
+                        return 0;
+                    }
+                );
+
+                for (const [subcategory, subcatData] of sortedSubcategories) {
+                    const formattedAmount = formatAmount(subcatData.total);
+
+                    // Add subcategory row
+                    const subcategoryRow = document.createElement('tr');
+                    subcategoryRow.innerHTML = `
+                    <td></td>
+                    <td>${subcategory}</td>
+                    <td class="amount">${formattedAmount}</td>
+                `;
+                    tableBody.appendChild(subcategoryRow);
+
+                    // Optional: Add transaction details (hidden by default)
+                    subcatData.transactions.forEach(tx => {
+                        const txAmount = formatAmount(tx.amount);
+
+                        const txRow = document.createElement('tr');
+                        txRow.classList.add('transaction-detail');
+                        txRow.style.display = 'none';
+                        txRow.innerHTML = `
+                        <td></td>
+                        <td class="pl-4">${tx.description} (${tx.date})</td>
+                        <td class="amount">${txAmount}</td>
+                    `;
+                        tableBody.appendChild(txRow);
+                    });
+                }
+
+                // Add category subtotal
+                const catTotal = formatAmount(catData.total);
+
+                const subtotalRow = document.createElement('tr');
+                subtotalRow.classList.add('subtotal-row');
+                subtotalRow.innerHTML = `
+                <td></td>
+                <td><strong>Net Cash Provided by ${category}</strong></td>
+                <td class="amount"><strong>${catTotal}</strong></td>
+            `;
+                tableBody.appendChild(subtotalRow);
+            }
+        }
+
+        // Main function to update the cash flow display
+        async function updateCashFlowDisplay(data) {
+            console.log("Cash Flow Data:", data);
+            populateCashFlowTable('operating-activities', data.operatingActivities);
+            populateCashFlowTable('investing-activities', data.investingActivities);
+            populateCashFlowTable('financing-activities', data.financingActivities);
+
+            // Update totals
+            document.getElementById('net-cash-operating').textContent = formatAmount(data.operatingActivities.total);
+            document.getElementById('net-cash-investing').textContent = formatAmount(data.investingActivities.total);
+            document.getElementById('net-cash-financing').textContent = formatAmount(data.financingActivities.total);
+
+            const netIncreaseCash = data.netIncreaseCash;
+            document.getElementById('net-increase-cash').textContent = formatAmount(netIncreaseCash);
+            document.getElementById('cash-beginning').textContent = formatAmount(data.cashAtBeginning);
+
+            {% if company.has_multiple_currencies %}
+            // Only check FX revaluation if company has multiple currencies
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            console.log('Checking FX revaluation for base currency', startDate, endDate);
+
+            try {
+                const fxData = await fetchFXRevaluation(startDate, endDate);
+
+                if (fxData?.data && Math.abs(fxData.data.total_fx_gain_loss) >= 0.01) {
+                    const fxDifference = fxData.data.total_fx_gain_loss;
+                    const adjustedCash = data.cashAtBeginning + netIncreaseCash + fxDifference;
+
+                    // Update FX difference row
+                    const fxDifferenceElement = document.getElementById('fx-difference');
+                    fxDifferenceElement.textContent = formatAmount(fxDifference);
+
+                    // Render the detailed FX revaluation table
+                    renderFXRevaluationDetails(fxData.data.details);
+
+                    // Update ending cash to include FX adjustment
+                    document.getElementById('cash-ending').textContent = formatAmount(adjustedCash);
+
+                    // Update validation to include FX adjustment
+                    validateCashFlowWithFX(
+                        data.cashAtBeginning,
+                        netIncreaseCash,
+                        fxDifference,
+                        data.cashAtEnd
+                    );
+                } else {
+                    // No significant FX adjustment needed
+                    handleNoFXAdjustment(data.cashAtBeginning, netIncreaseCash, data.cashAtEnd);
+                    // Render the detailed FX revaluation table
+                    if (fxData?.data?.details) {
+                        renderFXRevaluationDetails(fxData.data.details);
+                    }
+                }
+            } catch (error) {
+                console.error('Error processing FX revaluation:', error);
+                handleNoFXAdjustment(data.cashAtBeginning, netIncreaseCash, data.cashAtEnd);
+            }
+            {% else %}
+            // Single currency - no FX adjustment needed
+            handleNoFXAdjustment(data.cashAtBeginning, netIncreaseCash, data.cashAtEnd);
+            {% endif %}
+        }
+
+        function renderFXRevaluationDetails(details) {
+            const tbody = document.getElementById('fx-revaluation-body');
+            tbody.innerHTML = ''; // Clear previous rows
+
+            if (!details || details.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No FX revaluation data</td></tr>`;
+                return;
+            }
+
+            details.forEach(detail => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${detail.account_name}</td>
+                    <td>${detail.account_type}</td>
+                    <td>${detail.currency}</td>
+                    <td style="text-align:right;">${formatAmount(detail.fx_gain_loss)}</td>
+
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Helper functions for validation
+        function validateCashFlowWithFX(beginning, netChange, fxDifference, ending) {
+            const calculatedEndCash = beginning + netChange + fxDifference;
+            const discrepancy = Math.abs(calculatedEndCash - ending);
+            const validationResult = document.getElementById('cash-flow-validation-result');
+
+            document.getElementById('calculated-cash-end').textContent = formatAmount(calculatedEndCash);
+
+            let validationMessage = '';
+            if (Math.abs(discrepancy) > 0.01) {
+                validationResult.style.backgroundColor = '#ffdddd';
+                validationResult.style.color = '#d32f2f';
+                validationMessage = `
+                    ⚠️ <strong>Validation Failed:</strong> 
+                    Cash at Beginning + Net Change {% if company.has_multiple_currencies %}+ FX Adjustment{% endif %} ≠ Cash at End (Difference: <span style="color: #d32f2f;">${formatAmount(discrepancy)}</span>)
+                `;
+            } else {
+                validationResult.style.backgroundColor = '#e8f5e9';
+                validationResult.style.color = '#388e3c';
+                validationMessage = `
+                    ✓ <strong>Validation Passed:</strong> 
+                    Cash flow balances correctly {% if company.has_multiple_currencies %}with FX adjustment{% endif %} (Difference: <span style="color: #388e3c;">${formatAmount(discrepancy)}</span>)
+                `;
+            }
+            validationResult.innerHTML = validationMessage;
+        }
+
+        function handleNoFXAdjustment(beginning, netChange, ending) {
+            {% if company.has_multiple_currencies %}
+            document.getElementById('fx-difference').textContent = formatAmount(0);
+            {% endif %}
+            document.getElementById('cash-ending').textContent = formatAmount(ending);
+            validateCashFlow(beginning, netChange, ending);
+        }
+
+        function validateCashFlow(beginning, netChange, ending) {
+            const calculatedEndCash = beginning + netChange;
+            const actualDifference = calculatedEndCash - ending; // Keep the sign
+            const absoluteDifference = Math.abs(actualDifference);
+            const validationResult = document.getElementById('cash-flow-validation-result');
+
+            document.getElementById('calculated-cash-end').textContent = formatAmount(calculatedEndCash);
+
+            if (absoluteDifference > 0.01) {
+                validationResult.style.backgroundColor = '#ffdddd';
+                validationResult.style.color = '#d32f2f';
+
+                // Show direction of discrepancy
+                const direction = actualDifference > 0 ? "more than" : "less than";
+                validationResult.innerHTML = `
+                    ⚠️ <strong>Validation Failed:</strong> 
+                    Calculated cash (${formatAmount(calculatedEndCash)}) is ${direction} actual cash (${formatAmount(ending)}) by <span style="color: #d32f2f;">${formatAmount(absoluteDifference)}</span>
+                `;
+            } else {
+                validationResult.style.backgroundColor = '#e8f5e9';
+                validationResult.style.color = '#388e3c';
+                validationResult.innerHTML = `
+                    ✓ <strong>Validation Passed:</strong> 
+                    Cash flow balances correctly (Difference: <span style="color: #388e3c;">${formatAmount(absoluteDifference)}</span>)
+                `;
+            }
+        }
+
+        // Add this function to fetch FX revaluation data
+        async function fetchFXRevaluation(startDate, endDate) {
+            try {
+                const effectiveEndDate = endDate || new Date().toISOString().split('T')[0];
+
+                const params = new URLSearchParams();
+                params.append('date', effectiveEndDate);
+
+                if (startDate) {
+                    params.append('start_date', startDate);
+                }
+
+                // Add base currency details from global JS context
+                if (typeof baseCurrencyId !== 'undefined') {
+                    params.append('base_currency_id', baseCurrencyId);
+                }
+
+                if (typeof baseCurrencyCode !== 'undefined') {
+                    params.append('base_currency_code', baseCurrencyCode);
+                }
+
+                console.log('Fetching FX revaluation with:', params.toString());
+
+                const response = await fetch(`/api/fx_revaluation?${params.toString()}`, {
+                    headers: { 'X-API-Key': apiKey }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('FX revaluation fetch failed:', error.message);
+                return null;
+            }
+        }
+
+        function formatAmount(value) {
+            const absVal = formatNumber(Math.abs(value));
+            return value < 0 ? `(${absVal})` : absVal;
+        }
+
+        // Initialize the page
+        function init() {
+            setLoadingState(true);
+            setDefaultDateRange();
+
+            fetchCashFlowTransactions()
+                .then(updateCashFlowDisplay)
+                .catch(error => {
+                    console.error("Error updating cash flow display:", error);
+                });
+
+            document.getElementById('apply-filter').addEventListener('click', () => {
+                setLoadingState(true);
+                fetchCashFlowTransactions()
+                    .then(updateCashFlowDisplay)
+                    .catch(error => {
+                        console.error("Error updating cash flow display:", error);
+                    })
+                    .finally(() => setLoadingState(false));
+            });
+
+            // Add click handler for expanding/collapsing transaction details
+            document.addEventListener('click', (e) => {
+                if (e.target.classList.contains('category-row') ||
+                    e.target.closest('.category-row')) {
+                    const row = e.target.classList.contains('category-row')
+                        ? e.target
+                        : e.target.closest('.category-row');
+                    const details = row.parentNode.querySelectorAll('.transaction-detail');
+                    details.forEach(detail => {
+                        detail.style.display = detail.style.display === 'none' ? '' : 'none';
+                    });
+                }
+            });
+        }
+
+        init();
+
+        // Toggle the filter section visibility with animation
+        document.getElementById('toggleFilterForm').addEventListener('click', function () {
+            const filterSection = document.getElementById('filter-section');
+            filterSection.classList.toggle('visible');
+        });
+
+        // Define activeFilters and csrfToken before using them
+        const activeFilters = {};
+        const csrfToken = "{{ csrf_token() }}";
+
+        // Event listener for "Download as PDF" button
+        document.getElementById("download-pdf").addEventListener("click", () => {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            if (startDate) activeFilters.startDate = startDate;
+            if (endDate) activeFilters.endDate = endDate;
+
+            console.log("Active Filters before Download:", activeFilters);
+
+            fetch("/download_cash_flow_report", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", 'X-CSRFToken': csrfToken },
+                body: JSON.stringify(activeFilters),
+            })
+                .then(response => response.blob())
+                .then(blob => {
+                    // Create a URL for the PDF blob and trigger a download
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${companyName} - Cash Flow Report.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(error => console.error("Error:", error));
+        });
+    });
+</script>
+{% endblock %}

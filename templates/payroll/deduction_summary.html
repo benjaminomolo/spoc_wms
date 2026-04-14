@@ -1,0 +1,1489 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+
+    <!-- Back Button at the Top -->
+    <div class="back-button-container">
+        <a href="javascript:history.back()" class="back-button">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    </div>
+    <div class="header-section">
+
+        <h1>Deduction Summary</h1>
+
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li><a href="/payroll/create_advance_payment"> Create Advance</a></li>
+                    <li><a href="{{ url_for('payroll.generate_pay_run') }}">Create Pay Run</a></li>
+
+                    {% endif %}
+                    <li><a href="{{ url_for('payroll.get_pay_runs') }}">View Payroll Runs</a></li>
+                    <li><a href="{{ url_for('payroll.add_employee') }}">View Employees</a></li>
+                    <li><a href="{{ url_for('payroll.get_employee_deductions') }}">Employee Deductions</a></li>
+                </ul>
+            </nav>
+        </div>
+
+
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+            {% if role == 'Admin' or role == 'Contributor' %}
+            <!-- Add select column toggle button -->
+            <button id="toggleSelectColumn" class="select-column-button">
+                <i class="fas fa-list-check"></i> Select
+            </button>
+
+            <button id="bulkPostButton" class="button button-outline" style="display: none;">
+                <i class="fas fa-book"></i> Post Selected to Ledger
+            </button>
+
+            <button id="bulkPayButton" class="button button-outline" style="display: none;">
+                <i class="fas fa-money-check-alt"></i> Pay Selected in Full
+            </button>
+
+
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+            {% endif %}
+        </div>
+
+
+
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+
+                {% if role == 'Admin' or role == 'Contributor' %}
+
+                <li class="shortcut-item"><a href="{{ url_for('payroll.generate_pay_run') }}">Create
+                        Pay Run</a></li>
+                {% endif %}
+
+                <!-- New Dropdown Group -->
+                <li class="shortcut-item">
+                    <a href="{{ url_for('payroll.get_pay_runs') }}"> View Payroll
+                        Runs</a>
+                </li>
+
+
+                <li class="shortcut-item">
+                    <a href="{{ url_for('payroll.get_employee_deductions') }}">Employee Deductions</a>
+                </li>
+
+
+
+                <!-- In your shortcuts sidebar -->
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" id="moreOptionsDropdown" onclick="toggleDropdown(event)">
+                        <span>More Options </span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+                            <!-- Important: Receive Payment first -->
+                            {% if role == 'Admin' or role == 'Supervisor' or role == 'Viewer' %}
+                            <a href="{{ url_for('payroll_routes.payroll_dashboard') }}"> Payroll Dashboard</a>
+                            {% endif %}
+
+
+
+
+
+                            {% if role == 'Admin' or role == 'Contributor' %}
+
+                            <!-- Sales Orders -->
+                            <a href="{{ url_for('payroll.create_advance_payment') }}">Create Advance</a>
+
+                            {% endif %}
+
+                            <!-- Delivery Notes -->
+                            <a href="{{ url_for('payroll.get_advance_payments') }}">View Advances</a>
+
+                            <!-- Payment Receipts -->
+                            <a href="{{ url_for('payroll.get_advance_repayments') }}">View Repayments</a>
+
+
+                        </div>
+                    </div>
+                </li>
+
+
+
+            </ol>
+        </nav>
+    </div>
+    <h4>Payroll Number: {{ payroll_period_name }}</h4>
+
+    <!-- Filter Section -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+        <form method="GET" action="{{ url_for('payroll.get_deduction_summary', payroll_period_id=payroll_period_id) }}"
+            class="date-filter-form" id="filter-form">
+            <div class="filter-group">
+                <label for="department" class="filter-label">Department</label>
+                <select id="department" name="department" class="form-select">
+                    <option value="">All Departments</option>
+                    {% for department in departments %}
+                    <option value="{{ department.id }}" {% if request.args.get('department')==department.id|string %}
+                        selected {% endif %}>
+                        {{ department.department_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="currency" class="filter-label">Currency</label>
+                <select id="currency" name="currency" class="form-select">
+                    <option value="">All Currencies</option>
+                    {% for currency in currencies %}
+                    <option value="{{ currency.id }}" {% if request.args.get('currency')==currency.id|string %} selected
+                        {% endif %}>
+                        {{ currency.user_currency }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-actions">
+                <button type="submit" class="add-button">Apply Filter</button>
+                <a href="{{ url_for('payroll.get_deduction_summary', payroll_period_id=payroll_period_id) }}"
+                    class="btn reset-button">Reset</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table id="deduction-summary-table" class="">
+            <thead>
+                <tr>
+                    <th class="select-column" style="display: none;">
+                        <input type="checkbox" id="selectAll">
+                    </th>
+                    <th>Department</th>
+                    <th>Employee Name</th>
+                    <th>Deduction Type</th>
+                    <th>Currency</th>
+                    <th>Deduction Amount</th>
+                    <th>Total Paid Amount</th>
+                    <th>Balance Due</th>
+                    <th>Payment Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="deduction-summary-body">
+                {% for deduction in deduction_summary %}
+                <tr data-deduction-id="{{ deduction.deduction_id }}" data-balance-due="{{ deduction.balance_due }}"
+                    data-payment-status="{{ deduction.payment_status.name }}"
+                    data-currency-id="{{ deduction.currency_id }}" data-currency-code="{{ deduction.user_currency }}"
+                    data-exchange-rate="{{ deduction.exchange_rate or 1 }}">
+                    <td class="select-column" style="display: none;">
+                        <input type="checkbox" class="dt-checkbox row-checkbox"
+                            data-deduction-id="{{ deduction.deduction_id }}"
+                            data-balance-due="{{ deduction.balance_due }}">
+                    </td>
+                    <td>
+                        {{ deduction.department_name }}
+                        {% if deduction.unposted_total > 0 %}
+                        <span class="badge bg-warning">{{ deduction.unposted_total }} Unposted</span>
+                        {% endif %}
+                        {% if deduction.is_posted_to_ledger == 0 %}
+                        <span class="badge bg-warning">Payable Not Posted</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ deduction.employee_name }}</td>
+                    <td>{{ deduction.deduction_type }}</td>
+                    <td>{{ deduction.user_currency }}</td>
+                    <td>{{ "{:,.2f}".format(deduction.deduction_amount or 0) }}</td>
+                    <td>{{ "{:,.2f}".format(deduction.total_paid_amount or 0) }}</td>
+                    <td>{{ "{:,.2f}".format(deduction.balance_due or 0) }}</td>
+                    <td>
+                        <span class="badge 
+                        {% if deduction.payment_status.name == 'PENDING' %} bg-warning 
+                        {% elif deduction.payment_status.name == 'PARTLY_PAID' %} bg-info
+                        {% elif deduction.payment_status.name == 'PAID' %} bg-success 
+                        {% endif %}">
+                            {{ deduction.payment_status.value }}
+                        </span>
+                    </td>
+                    <td style="width: 50px;">
+                        <div class="action-icons-clean">
+                            <!-- View Details (always enabled) -->
+                            <span class="custom-tooltip-container">
+                                <a href="/payroll/deduction_details/{{ deduction.deduction_id }}">
+                                    <i class="fas fa-eye view-icon"></i>
+                                </a>
+                                <div class="custom-tooltip">View Details</div>
+                            </span>
+
+                            <!-- Record Payment -->
+                            <!-- Record Payment button - Updated to include all parameters -->
+                            <span class="custom-tooltip-container">
+                                <button class="make-payment-icon" onclick="{% if deduction.balance_due is not none and deduction.balance_due > 0 %}openPaymentModal(
+                                    {{ deduction.deduction_id }}, 
+                                    {{ deduction.balance_due }}, 
+                                    {{ deduction.currency_id }}, 
+                                    '{{ deduction.user_currency }}', 
+                                    {{ deduction.exchange_rate or 1 }}
+                                ){% else %}return false;{% endif %}" {% if not (deduction.balance_due is not none and
+                                    deduction.balance_due> 0)
+                                    %}disabled{% endif %}>
+                                    <i class="fas fa-money-bill"></i>
+                                </button>
+                                <div class="custom-tooltip">
+                                    {% if deduction.balance_due is not none and deduction.balance_due > 0 %}Record
+                                    Payment{% else %}No payment due{% endif %}
+                                </div>
+                            </span>
+
+                            <!-- Post to Ledger -->
+                            <!-- Post to Ledger - UPDATED -->
+                            <span class="custom-tooltip-container" style="display: none;">
+                                <button class="ledger-icon"
+                                    onclick="{% if deduction.is_posted_to_ledger == 0 or deduction.unposted_total >0 %}postSingleDeductionToLedger({{ deduction.deduction_id }}, '{{ deduction.employee_name }}', '{{ deduction.deduction_type }}'){% else %}return false;{% endif %}"
+                                    {% if not (deduction.is_posted_to_ledger==0 or deduction.unposted_total>0)
+                                    %}disabled{% endif %}>
+                                    <i class="fas fa-book"></i>
+                                </button>
+                                <div class="custom-tooltip">
+                                    {% if deduction.is_posted_to_ledger == 0 or deduction.unposted_total >0 %}Post to
+                                    Ledger{% else %}Already posted{% endif %}
+                                </div>
+                            </span>
+
+                            <!-- Delete -->
+                            <span class="custom-tooltip-container">
+                                <button type="button" class="delete-icon"
+                                    onclick="{% if role == 'Admin' %}confirmDeleteDeduction({{ deduction.deduction_id }}){% else %}return false;{% endif %}"
+                                    {% if role !='Admin' %}disabled{% endif %}>
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <div class="custom-tooltip">
+                                    {% if role == 'Admin' %}Delete{% else %}Not allowed{% endif %}
+                                </div>
+                            </span>
+                        </div>
+                    </td>
+
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th class="select-column" style="display: none;"></th>
+                    <th><input type="text" placeholder="Search Department" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Employee Name" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Deduction Type" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Currency" class="column-search"></th>
+                    <th><span id="totalDeductionAmount">0.00</span></th>
+                    <th><span id="totalPaidAmount">0.00</span></th>
+                    <th><span id="totalBalanceDue">0.00</span></th>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+
+    <!-- Make Payment Modal -->
+    <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="paymentModalLabel">Record Payment</h5>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="paymentForm">
+                        <input type="hidden" id="deductionId" name="deductionId">
+
+                        <div class="form-grid">
+                            <div class="form-group mb-4">
+                                <label for="amount" class="form-label fw-bold">Amount <span
+                                        class="required">*</span></label>
+                                <input type="text" id="amount" name="amount" class="form-control" required>
+                                <small class="form-text text-muted">Enter the amount to be paid.</small>
+                            </div>
+                            <div class="form-group mb-4">
+                                <label for="paymentDate" class="form-label fw-bold">Payment Date <span
+                                        class="required">*</span></label>
+                                <input type="date" id="paymentDate" name="paymentDate" class="form-control" required>
+                                <small class="form-text text-muted">Select the payment date. Defaults to today.</small>
+                            </div>
+
+                        </div>
+
+
+                        <div class="form-grid">
+                            <!-- Payment Account Category (Category) Field -->
+                            <div class="form-group mb-4">
+                                <label for="fundingAccount" class="form-label fw-bold">
+                                    Payment Account <span class="required">*</span>
+                                </label>
+                                <select name="fundingAccount" id="fundingAccount" class="form-control form-select2"
+                                    required>
+                                    <option value="" disabled selected>Select Funding Account</option>
+                                    {% for category, accounts in funding_accounts.items() %}
+                                    <optgroup label="{{ category }}">
+                                        {% for account in accounts %}
+                                        <option value="{{ account.id }}">
+
+                                            {{ account.sub_category }}
+                                        </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                    {% endfor %}
+                                </select>
+                                <small class="form-text text-muted">
+                                    Select the bank or cash account to fund this payment
+                                </small>
+                            </div>
+
+                            <div class="form-group mb-4">
+                                <label for="paymentMethod" class="form-label fw-bold">Payment Method</label>
+                                <select id="paymentMethod" name="paymentMethod" class="form-select">
+                                    <option value="">Select Payment Method</option>
+                                    {% for mode in payment_modes %}
+                                    <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="form-text text-muted">Choose the payment method for this
+                                    transaction.</small>
+                            </div>
+
+                        </div>
+
+
+                        <div class="form-grid">
+                            <div class="form-group mb-4">
+                                <label for="reference" class="form-label fw-bold">Reference</label>
+                                <input type="text" id="reference" name="reference" class="form-control">
+                                <small class="form-text text-muted">Enter transaction reference (e.g., cheque
+                                    number).</small>
+                            </div>
+                            <div class="form-group mb-4">
+                                <label for="notes" class="form-label fw-bold">Notes</label>
+                                <textarea id="notes" name="notes" class="form-control" rows="3"
+                                    maxlength="50"></textarea>
+                                <small class="form-text text-muted">Additional details about the payment.</small>
+                            </div>
+                        </div>
+
+
+
+                        <!-- Add after the notes field in the payment modal form -->
+                        <!-- Hidden select for exchange rate manager -->
+                        <select id="payment_currency_active" name="payment_currency" style="display: none;">
+                            <option value="">Select Currency</option>
+                        </select>
+
+                        <!-- Hidden field for base currency ID -->
+                        <input type="hidden" id="base_currency_id" name="base_currency_id"
+                            value="{{ base_currency.id if base_currency else '' }}">
+
+                        <!-- Exchange Rate Section -->
+                        <!-- Exchange Rate Section -->
+                        <div id="exchange_rate_container" class="exchange-rate-container"
+                            style="display: none; padding: 12px; background-color: #f8f9fa; border-radius: 6px; margin-bottom: 15px;">
+                            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                                <span style="font-weight: 500;">Exchange Rate</span>
+                                <span id="from_currency_display">1 <span id="payment_currency_code"></span></span>
+                                <span>=</span>
+                                <input type="number" id="exchange_rate" name="exchange_rate" step="0.0000000001"
+                                    min="0.0000000001" placeholder="Enter rate"
+                                    style="padding: 6px 10px; width: 150px; border-radius: 4px;">
+                                <span id="to_currency_display">{{ base_currency.user_currency if base_currency else ''
+                                    }}</span>
+                            </div>
+                            <div id="converted_amount_display" class="converted-amount"
+                                style="margin-top: 8px; display: none;">
+                                Amount in {{ base_currency.user_currency }}: <strong><span
+                                        id="convertedAmountValue">0.00</span></strong>
+                            </div>
+                            <!-- ADD THIS FX GAIN/LOSS PREVIEW DIV -->
+                            <div id="fx_gain_loss_preview"
+                                style="margin-top: 10px; padding: 8px; border-radius: 4px; display: none;">
+                                <strong id="fx_gain_loss_label">FX Gain/Loss:</strong>
+                                <span id="fx_gain_loss_amount">0.00</span> {{ base_currency.user_currency }}
+                            </div>
+                            <small class="form-text text-muted" style="margin-top: 5px; display: block;">
+                                <i class="fas fa-info-circle"></i>
+                                Deduction created at rate: <span id="original_rate_display">0.00</span> {{
+                                base_currency.user_currency }}
+                            </small>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="button cta-button">Submit Payment</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pay in Full Modal -->
+    <div class="modal fade" id="paySelectedInFullModal" tabindex="-1" aria-labelledby="payInFullModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="payInFullModalLabel">Record Full Payment for All</h5>
+                    <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+
+                    {% if not do_not_show_again %}
+
+                    <div style="font-size: 12px; font-style: italic;" class="alert alert-warning" role="alert">
+                        <strong>Important: </strong> Please ensure all deduction payments are being made from the
+                        same funding account if you choose to pay in full. <br>
+                        If different employees were paid from different accounts, it is recommended to pay
+                        them
+                        individually to maintain accurate account tracking.
+
+                        <strong>Note:</strong> If you choose to pay in full, the system will automatically allocate
+                        payments to all employees with outstanding balances for this payroll period.
+
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="dontShowAgain">
+                            <label class="form-check-label" for="dontShowAgain">
+                                Do not show this message again
+                            </label>
+                        </div>
+                    </div>
+
+                    {% endif %}
+
+                    <form id="paySelectedInFullForm">
+                        <input type="hidden" id="fullDeductionId" name="fullDeductionId">
+                        <input type="hidden" id="fullPayrollPeriodId" name="fullPayrollPeriodId"
+                            value="{{ payroll_period_id }}">
+
+                        <div class="form-grid">
+                            <div class="form-group mb-4">
+                                <label for="fullPaymentDate" class="form-label fw-bold">Payment Date <span
+                                        class="required">*</span></label>
+                                <input type="date" id="fullPaymentDate" name="fullPaymentDate" class="form-control"
+                                    required>
+                                <small class="form-text text-muted">Select the payment date. Defaults to today.</small>
+                            </div>
+
+                            <div class="form-group mb-4">
+                                <label for="reference" class="form-label fw-bold">Reference</label>
+                                <input type="text" id="reference" name="reference" class="form-control">
+                                <small class="form-text text-muted">Enter transaction reference (e.g., cheque
+                                    number).</small>
+                            </div>
+
+                            <div class="form-group mb-4">
+                                <label for="fullFundingAccount" class="form-label fw-bold">Funding Account <span
+                                        class="required">*</span></label>
+                                <select name="fullFundingAccount" id="fullFundingAccount" class="form-select2" required>
+                                    <option value="" disabled selected>Select Funding Account</option>
+                                    {% for category, accounts in funding_accounts.items() %}
+                                    <optgroup label="{{ category }}">
+                                        {% for account in accounts %}
+                                        <option value="{{ account.id }}">
+
+                                            {{ account.sub_category }}
+                                        </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                    {% endfor %}
+                                </select>
+                                <small class="form-text text-muted">Choose the cash or bank account used to fund this
+                                    Payment.</small>
+                            </div>
+
+
+                            <div class="form-group mb-4">
+                                <label for="fullPaymentMethod" class="form-label fw-bold">Payment Method</label>
+                                <select id="fullPaymentMethod" name="fullPaymentMethod" class="form-select">
+                                    <option value="">Select Payment Method</option>
+                                    {% for mode in payment_modes %}
+                                    <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="form-text text-muted">Choose the payment method for this
+                                    transaction.</small>
+                            </div>
+
+                        </div>
+
+
+
+                        <div class="form-grid">
+
+                            <div class="form-group mb-4">
+                                <label for="notes" class="form-label fw-bold">Notes</label>
+                                <textarea id="notes" name="notes" class="form-control" rows="3"
+                                    maxlength="50"></textarea>
+                                <small class="form-text text-muted">Additional details about the payment.</small>
+                            </div>
+                        </div>
+
+
+                        <!-- Add this after the form fields in the paySelectedInFullModal -->
+                        <div id="currency_exchange_containers"></div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="button cta-button">Submit Payment</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    $(document).ready(function () {
+        var table = $('#deduction-summary-table').DataTable({
+            "lengthMenu": [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+            "aaSorting": [],
+            "initComplete": function () {
+                this.api().columns().every(function () {
+                    var column = this;
+                    var index = column.index();
+                    var footer = $(column.footer());
+
+                    // Add search inputs only for searchable columns
+                    if (index < 5) {
+                        var input = $('<input>').attr('placeholder', 'Search').addClass('form-control form-control-sm');
+                        footer.empty().append(input);
+                        input.on('keyup change', function () {
+                            column.search($(this).val()).draw();
+                        });
+                    }
+                });
+            },
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+                var intVal = function (i) {
+                    return typeof i === 'string' ? i.replace(/[^0-9.-]+/g, '') * 1 : typeof i === 'number' ? i : 0;
+                };
+                function formatNumber(num) {
+                    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+
+                var totalDeduction = api.column(5, { page: 'current' }).data().reduce(function (a, b) { return intVal(a) + intVal(b); }, 0);
+                var totalPaid = api.column(6, { page: 'current' }).data().reduce(function (a, b) { return intVal(a) + intVal(b); }, 0);
+                var totalBalance = api.column(7, { page: 'current' }).data().reduce(function (a, b) { return intVal(a) + intVal(b); }, 0);
+
+                $('#totalDeductionAmount').text(formatNumber(totalDeduction));
+                $('#totalPaidAmount').text(formatNumber(totalPaid));
+                $('#totalBalanceDue').text(formatNumber(totalBalance));
+            }
+        });
+        // Toggle select column visibility
+        $('#toggleSelectColumn').on('click', function () {
+            $('.select-column').toggle();
+            if ($('.select-column').is(':visible')) {
+                $(this).html('<i class="fas fa-list-check"></i> Hide Select').addClass('active');
+                $('.dashboard-shortcuts').hide();
+            } else {
+                $(this).html('<i class="fas fa-list-check"></i> Select').removeClass('active');
+                $('#selectAll').prop('checked', false);
+                $('.row-checkbox').prop('checked', false);
+                $('#bulkPostButton, #bulkPayButton').hide();
+                $('.dashboard-shortcuts').show();
+            }
+            table.columns.adjust().draw();
+        });
+
+        // Checkbox handling
+        function updateBulkButtons() {
+            const selected = $('tbody input.row-checkbox:checked').length;
+            $('#bulkPayButton').toggle(selected > 0);
+        }
+
+        $('#deduction-summary-table').on('change', 'tbody input.row-checkbox', function () {
+            const total = $('tbody input.row-checkbox').length;
+            const checked = $('tbody input.row-checkbox:checked').length;
+            $('#selectAll').prop('checked', total === checked);
+            updateBulkButtons();
+        });
+
+        $('#selectAll').on('change', function () {
+            const isChecked = $(this).is(':checked');
+            $('tbody input.row-checkbox').prop('checked', isChecked);
+            updateBulkButtons();
+        });
+
+        window.openPaymentModal = function (deductionId, balanceDue, currencyId, currencyCode, originalRate) {
+            // Reset form and show modal
+            $('#paymentForm')[0].reset();
+            $('#paymentModal').modal('show');
+
+            // Set today's date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('paymentDate').value = today;
+
+            // Store values
+            $('#deductionId').val(deductionId);
+            $('#amount').val(balanceDue);
+            $('#paymentModal').data('original-rate', originalRate);
+            $('#paymentModal').data('currency-id', currencyId);
+
+            // Update the hidden currency select for exchange rate manager
+            const currencySelect = document.getElementById('payment_currency_active');
+            if (currencySelect) {
+                currencySelect.innerHTML = `<option value="${currencyId}" selected>${currencyCode}</option>`;
+            }
+
+            // Update exchange rate container display
+            const fromCurrencyDisplay = document.getElementById('from_currency_display');
+            const paymentCurrencyCode = document.getElementById('payment_currency_code');
+            const originalRateDisplay = document.getElementById('original_rate_display');
+            const baseCurrencyId = document.getElementById('base_currency_id').value;
+            const exchangeRateContainer = document.getElementById('exchange_rate_container');
+            const fxGainLossPreview = document.getElementById('fx_gain_loss_preview');
+
+            if (paymentCurrencyCode) paymentCurrencyCode.textContent = currencyCode;
+            if (fromCurrencyDisplay) fromCurrencyDisplay.innerHTML = `1 ${currencyCode}`;
+            if (originalRateDisplay) originalRateDisplay.textContent = originalRate ? originalRate.toFixed(6) : '0.00';
+
+            // Show/hide exchange rate container based on currency
+            if (String(currencyId) !== String(baseCurrencyId)) {
+                exchangeRateContainer.style.display = 'block';
+
+                // Initialize Exchange Rate Manager for this modal with error handling
+                if (typeof ExchangeRateManager !== 'undefined') {
+                    // Clean up previous instance if exists
+                    if (window.deductionRateManager && typeof window.deductionRateManager.destroy === 'function') {
+                        window.deductionRateManager.destroy();
+                    }
+
+                    try {
+                        window.deductionRateManager = ExchangeRateManager.init({
+                            currencySelectId: 'payment_currency_active',
+                            dateInputId: 'paymentDate',
+                            exchangeRateInputId: 'exchange_rate',
+                            containerId: 'exchange_rate_container',
+                            fromDisplayId: 'from_currency_display',
+                            toDisplayId: 'to_currency_display',
+                            baseCurrencyId: 'base_currency_id',
+                            appId: '{{ app_id }}',
+                            apiEndpoint: '/multi_currency/api/get_exchange_rate',
+                            csrfToken: csrfToken,
+                            callbacks: {
+                                onRateChange: function (rate) {
+                                    updateConvertedAmount();
+                                    calculateFXGainLoss();
+                                },
+                                onSuccess: function (rate, source) {
+                                    console.log(`Rate ${rate} loaded from ${source}`);
+                                    updateConvertedAmount();
+                                    calculateFXGainLoss();
+                                },
+                                onError: function (error) {
+                                    console.error('Exchange rate error:', error);
+                                    // Don't show error notification, just allow manual entry
+                                    showNotification('Unable to fetch exchange rate automatically. Please enter manually.', 'info');
+                                },
+                                onVisibilityChange: function (isVisible) {
+                                    if (!isVisible) {
+                                        $('#exchange_rate').val('');
+                                        if (fxGainLossPreview) fxGainLossPreview.style.display = 'none';
+                                    }
+                                }
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Failed to initialize ExchangeRateManager:', error);
+                        // Fallback: show exchange rate container but allow manual entry
+                        exchangeRateContainer.style.display = 'block';
+                        document.getElementById('exchange_rate').placeholder = 'Enter exchange rate manually';
+                        showNotification('Exchange rate auto-fetch unavailable. Please enter rate manually.', 'warning');
+                    }
+                } else {
+                    console.warn('ExchangeRateManager not available');
+                    // Fallback: show exchange rate container but allow manual entry
+                    exchangeRateContainer.style.display = 'block';
+                    document.getElementById('exchange_rate').placeholder = 'Enter exchange rate manually';
+                }
+            } else {
+                exchangeRateContainer.style.display = 'none';
+                if (fxGainLossPreview) fxGainLossPreview.style.display = 'none';
+                // Clear exchange rate input if hidden
+                if (document.getElementById('exchange_rate')) {
+                    document.getElementById('exchange_rate').value = '';
+                }
+            }
+
+            // Setup amount and rate listeners for FX calculation
+            setupFXPreview();
+        };
+
+        // Helper function to calculate and display FX gain/loss
+        function calculateFXGainLoss() {
+            const paymentAmount = parseFloat(document.getElementById('amount').value) || 0;
+            const currentRate = parseFloat(document.getElementById('exchange_rate').value) || 1;
+            const originalRate = $('#paymentModal').data('original-rate') || 1;
+            const baseCurrencyCode = document.getElementById('to_currency_display')?.innerText || '{{ base_currency.user_currency }}';
+
+            const currentBaseAmount = paymentAmount * currentRate;
+            const originalBaseAmount = paymentAmount * originalRate;
+            const fxGainLoss = currentBaseAmount - originalBaseAmount;
+
+            const fxContainer = document.getElementById('fx_gain_loss_preview');
+            const fxAmountSpan = document.getElementById('fx_gain_loss_amount');
+            const fxLabelSpan = document.getElementById('fx_gain_loss_label');
+
+            // Only show if there's a significant gain/loss and we have a foreign currency
+            if (Math.abs(fxGainLoss) > 0.01 && paymentAmount > 0 &&
+                String($('#paymentModal').data('currency-id')) !== String(document.getElementById('base_currency_id').value)) {
+
+                if (fxContainer && fxAmountSpan && fxLabelSpan) {
+                    fxContainer.style.display = 'block';
+                    fxAmountSpan.textContent = Math.abs(fxGainLoss).toFixed(2);
+
+                    if (fxGainLoss > 0) {
+                        fxLabelSpan.innerHTML = 'FX Loss:';
+                        fxContainer.style.backgroundColor = '#fff0f0';
+                        fxContainer.style.borderLeft = '3px solid #dc3545';
+                    } else {
+                        fxLabelSpan.innerHTML = 'FX Gain:';
+                        fxContainer.style.backgroundColor = '#f0fff0';
+                        fxContainer.style.borderLeft = '3px solid #28a745';
+                    }
+                }
+            } else if (fxContainer) {
+                fxContainer.style.display = 'none';
+            }
+
+            // Store FX gain/loss for form submission
+            $('#paymentForm').data('fx-gain-loss', fxGainLoss);
+        }
+
+        // Helper function to setup FX preview listeners
+        function setupFXPreview() {
+            const amountInput = document.getElementById('amount');
+            const rateInput = document.getElementById('exchange_rate');
+
+            const updateFX = () => {
+                updateConvertedAmount();
+                calculateFXGainLoss();
+            };
+
+            // Remove existing listeners to avoid duplicates
+            if (amountInput) {
+                amountInput.removeEventListener('input', updateFX);
+                amountInput.addEventListener('input', updateFX);
+            }
+
+            if (rateInput) {
+                rateInput.removeEventListener('input', updateFX);
+                rateInput.addEventListener('input', updateFX);
+            }
+        }
+
+        // Bulk Pay button
+        // In the deduction summary script, update the bulk pay functionality:
+
+        // Update the bulk pay button click handler to include validation
+        $('#bulkPayButton').on('click', function () {
+            const selectedPayments = [];
+            const currencyGroups = {};
+            let hasInvalid = false;
+            let totalAmount = 0;
+
+            $('tbody input.row-checkbox:checked').each(function () {
+                const $row = $(this).closest('tr');
+                const id = $row.data('deduction-id');
+                const amount = parseFloat($row.data('balance-due')) || 0;
+                const status = $row.data('payment-status');
+                const currencyId = $row.data('currency-id');
+                const currencyCode = $row.data('currency-code');
+                const exchangeRate = parseFloat($row.data('exchange-rate')) || 1;
+
+                if (status === 'CANCELLED' || status === 'PAID' || amount <= 0) {
+                    hasInvalid = true;
+                    return false;
+                }
+
+                selectedPayments.push({
+                    id: id,
+                    amount: amount,
+                    currencyId: currencyId,
+                    currencyCode: currencyCode,
+                    originalRate: exchangeRate
+                });
+
+                totalAmount += amount;
+
+                // Group by currency for FX display
+                if (!currencyGroups[currencyId]) {
+                    currencyGroups[currencyId] = {
+                        code: currencyCode,
+                        totalAmount: 0,
+                        payments: [],
+                        originalRate: exchangeRate
+                    };
+                }
+                currencyGroups[currencyId].totalAmount += amount;
+                currencyGroups[currencyId].payments.push({ id: id, amount: amount, originalRate: exchangeRate });
+            });
+
+            if (hasInvalid) {
+                showNotification("Some selected entries cannot be paid (already paid, cancelled, or zero balance)", "error");
+                return;
+            }
+
+            if (selectedPayments.length === 0) {
+                showNotification("No payable entries selected", "warning");
+                return;
+            }
+
+            // Store selected payments
+            $('#paySelectedInFullForm').data('selected-payments', selectedPayments);
+            $('#paySelectedInFullForm').data('currency-groups', currencyGroups);
+            $('#paySelectedInFullForm').data('total-amount', totalAmount);
+            $('#paySelectedInFullForm').data('requires-exchange-rate', false);
+
+            // Build exchange rate containers for each foreign currency
+            buildExchangeRateContainers(currencyGroups);
+
+            // Update modal preview
+            updatePayInFullPreview(currencyGroups, totalAmount);
+
+            // Check if any foreign currencies require exchange rates
+            const baseCurrencyId = document.getElementById('base_currency_id').value;
+            const hasForeignCurrency = Object.keys(currencyGroups).some(id => id !== baseCurrencyId);
+            $('#paySelectedInFullForm').data('has-foreign-currency', hasForeignCurrency);
+
+            // Add validation indicator to submit button
+            const submitBtn = $('#paySelectedInFullForm button[type="submit"]');
+            if (hasForeignCurrency) {
+                submitBtn.prop('disabled', true);
+                submitBtn.attr('title', 'Please enter exchange rates for all foreign currencies');
+            } else {
+                submitBtn.prop('disabled', false);
+            }
+
+            $('#paySelectedInFullModal').modal('show');
+        });
+
+        // Update the buildExchangeRateContainers function to add validation
+        function buildExchangeRateContainers(currencyGroups) {
+            const baseCurrencyId = document.getElementById('base_currency_id').value;
+            const baseCurrencyCode = '{{ base_currency.user_currency }}';
+            const container = document.getElementById('currency_exchange_containers');
+
+            if (!container) {
+                const newContainer = document.createElement('div');
+                newContainer.id = 'currency_exchange_containers';
+                document.getElementById('paySelectedInFullForm').appendChild(newContainer);
+            }
+
+            const containerDiv = document.getElementById('currency_exchange_containers');
+            containerDiv.innerHTML = '';
+
+            let requiresRate = false;
+
+            for (const [currencyId, group] of Object.entries(currencyGroups)) {
+                if (currencyId !== baseCurrencyId) {
+                    requiresRate = true;
+                    const containerId = `fx_container_${currencyId}`;
+                    const rateInputId = `fx_exchange_rate_${currencyId}`;
+
+                    const html = `
+                <div id="${containerId}" class="exchange-rate-container" style="margin-top: 15px; padding: 12px; background-color: #f8f9fa; border-radius: 6px; border-left: 3px solid #ffc107;">
+                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                        <span style="font-weight: 500;">
+                            Exchange Rate (${group.code}) 
+                            <span class="required" style="color: #dc3545; margin-left: 5px;">*</span>
+                        </span>
+                        <span>1 ${group.code}</span>
+                        <span>=</span>
+                        <input type="number" id="${rateInputId}" step="0.0000000001" min="0.0000000001" 
+                               placeholder="Enter rate" style="padding: 6px 10px; width: 150px; border-radius: 4px;"
+                               required data-currency-id="${currencyId}" data-currency-code="${group.code}">
+                        <span>${baseCurrencyCode}</span>
+                    </div>
+                    <div id="fx_converted_display_${currencyId}" style="margin-top: 8px; display: none;">
+                        Total in ${baseCurrencyCode}: <strong><span id="fx_converted_amount_${currencyId}">0.00</span></strong>
+                    </div>
+                    <div id="fx_gain_loss_preview_${currencyId}" style="margin-top: 10px; padding: 8px; border-radius: 4px; display: none;">
+                        <strong id="fx_gain_loss_label_${currencyId}">FX Gain/Loss:</strong>
+                        <span id="fx_gain_loss_amount_${currencyId}">0.00</span> ${baseCurrencyCode}
+                    </div>
+                    <small class="form-text text-muted" style="margin-top: 5px; display: block;">
+                        <i class="fas fa-info-circle"></i>
+                        Deduction created at rate: ${group.originalRate.toFixed(6)} ${baseCurrencyCode}
+                    </small>
+                    <div class="invalid-feedback" style="display: none;">
+                        Please enter a valid exchange rate for ${group.code}
+                    </div>
+                </div>
+                <input type="hidden" id="fx_currency_select_${currencyId}" value="${currencyId}">
+            `;
+                    containerDiv.insertAdjacentHTML('beforeend', html);
+
+                    // Add event listeners for rate changes with validation
+                    const rateInput = document.getElementById(rateInputId);
+                    if (rateInput) {
+                        rateInput.addEventListener('input', function () {
+                            const rate = parseFloat(this.value);
+                            const isValid = !isNaN(rate) && rate > 0;
+
+                            if (isValid) {
+                                this.classList.remove('is-invalid');
+                                this.setCustomValidity('');
+                                updateFXForCurrency(currencyId, rate, group);
+                                $('#paySelectedInFullForm').data(`fx-rate-${currencyId}`, this.value);
+                            } else {
+                                this.classList.add('is-invalid');
+                                this.setCustomValidity('Please enter a valid exchange rate');
+                            }
+
+                            // Check if all foreign currency rates are filled
+                            validateAllExchangeRates();
+                        });
+                    }
+                }
+            }
+
+            // Store whether rates are required
+            $('#paySelectedInFullForm').data('requires-exchange-rate', requiresRate);
+        }
+
+        // Add function to validate all exchange rates
+        function validateAllExchangeRates() {
+            const requiresRate = $('#paySelectedInFullForm').data('requires-exchange-rate');
+            if (!requiresRate) return true;
+
+            const baseCurrencyId = document.getElementById('base_currency_id').value;
+            const currencyGroups = $('#paySelectedInFullForm').data('currency-groups') || {};
+            let allValid = true;
+
+            for (const [currencyId, group] of Object.entries(currencyGroups)) {
+                if (currencyId !== baseCurrencyId) {
+                    const rateInput = document.getElementById(`fx_exchange_rate_${currencyId}`);
+                    if (rateInput) {
+                        const rate = parseFloat(rateInput.value);
+                        if (!rateInput.value || isNaN(rate) || rate <= 0) {
+                            allValid = false;
+                            rateInput.classList.add('is-invalid');
+                        } else {
+                            rateInput.classList.remove('is-invalid');
+                        }
+                    }
+                }
+            }
+
+            // Enable/disable submit button based on validation
+            const submitBtn = $('#paySelectedInFullForm button[type="submit"]');
+            if (allValid) {
+                submitBtn.prop('disabled', false);
+                submitBtn.attr('title', '');
+            } else {
+                submitBtn.prop('disabled', true);
+                submitBtn.attr('title', 'Please enter exchange rates for all foreign currencies');
+            }
+
+            return allValid;
+        }
+
+        // Update bulk payment form submission
+        $('#paySelectedInFullForm').on('submit', function (e) {
+            e.preventDefault();
+
+            // Validate all exchange rates before submission
+            if (!validateAllExchangeRates()) {
+                showNotification('Please enter valid exchange rates for all foreign currency payments.', 'error');
+                return;
+            }
+
+            const selectedPayments = $(this).data('selected-payments') || [];
+            if (!selectedPayments.length) {
+                showNotification("No entries selected for payment", "error");
+                return;
+            }
+
+            // Disable submit button
+            const submitButton = $(this).find('button[type="submit"]');
+            submitButton.prop('disabled', true);
+            submitButton.html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+
+            let formData = new FormData(this);
+            let paymentData = Object.fromEntries(formData.entries());
+            paymentData.selected_payments = selectedPayments;
+
+            // Collect exchange rates and FX gain/loss
+            const currencyGroups = $(this).data('currency-groups') || {};
+            paymentData.exchange_rates = {};
+            paymentData.fx_gain_loss = {};
+
+            for (const [currencyId, group] of Object.entries(currencyGroups)) {
+                const rate = $(this).data(`fx-rate-${currencyId}`);
+                if (rate) {
+                    paymentData.exchange_rates[currencyId] = rate;
+                }
+                const fxGainLoss = $(this).data(`fx-gain-loss-${currencyId}`);
+                if (fxGainLoss) {
+                    paymentData.fx_gain_loss[currencyId] = fxGainLoss;
+                }
+            }
+
+            fetch('/payroll/pay_selected_deductions_in_full', {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(paymentData)
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.has_failures) {
+                            showNotificationWithDetails(
+                                data.message || "Some payments completed with errors",
+                                "warning",
+                                data.failed_transactions
+                            );
+                        } else {
+                            showNotification(data.message || "Selected deductions paid successfully!", 'success');
+                        }
+                        $('#paySelectedInFullModal').modal('hide');
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        showNotification("Payment failed: " + (data.message || "Unknown error"), 'error');
+                        submitButton.prop('disabled', false);
+                        submitButton.html('Submit Payment');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    showNotification("An error occurred while processing payments.", "error");
+                    submitButton.prop('disabled', false);
+                    submitButton.html('Submit Payment');
+                });
+        });
+        // Add these helper functions:
+
+
+        function updateFXForCurrency(currencyId, rate, group) {
+            const totalAmount = group.totalAmount;
+            const originalRate = group.originalRate;
+
+            const currentBaseAmount = totalAmount * rate;
+            const originalBaseAmount = totalAmount * originalRate;
+            const fxGainLoss = currentBaseAmount - originalBaseAmount;
+
+            // Update converted amount display
+            const convertedSpan = document.getElementById(`fx_converted_amount_${currencyId}`);
+            const convertedDisplay = document.getElementById(`fx_converted_display_${currencyId}`);
+            if (convertedSpan && convertedDisplay) {
+                convertedSpan.textContent = currentBaseAmount.toFixed(2);
+                convertedDisplay.style.display = 'block';
+            }
+
+            // Update FX gain/loss display
+            const fxContainer = document.getElementById(`fx_gain_loss_preview_${currencyId}`);
+            const fxAmountSpan = document.getElementById(`fx_gain_loss_amount_${currencyId}`);
+            const fxLabelSpan = document.getElementById(`fx_gain_loss_label_${currencyId}`);
+
+            if (Math.abs(fxGainLoss) > 0.01) {
+                fxContainer.style.display = 'block';
+                fxAmountSpan.textContent = Math.abs(fxGainLoss).toFixed(2);
+
+                if (fxGainLoss > 0) {
+                    fxLabelSpan.innerHTML = 'FX Loss:';
+                    fxContainer.style.backgroundColor = '#fff0f0';
+                    fxContainer.style.borderLeft = '3px solid #dc3545';
+                } else {
+                    fxLabelSpan.innerHTML = 'FX Gain:';
+                    fxContainer.style.backgroundColor = '#f0fff0';
+                    fxContainer.style.borderLeft = '3px solid #28a745';
+                }
+            } else {
+                fxContainer.style.display = 'none';
+            }
+
+            // Store FX data for submission
+            $('#paySelectedInFullForm').data(`fx-gain-loss-${currencyId}`, fxGainLoss);
+        }
+
+        function updatePayInFullPreview(currencyGroups, totalAmount) {
+            const baseCurrencyCode = '{{ base_currency.user_currency }}';
+            let html = '<div class="alert alert-info"><strong>Payment Summary:</strong><br>';
+
+            let totalInBase = 0;
+            const baseCurrencyId = document.getElementById('base_currency_id').value;
+
+            for (const [currencyId, group] of Object.entries(currencyGroups)) {
+                html += `<p><strong>${group.code}:</strong> ${formatAmount(group.totalAmount)}</p>`;
+                if (currencyId !== baseCurrencyId) {
+                    html += `<p class="text-muted" style="margin-left: 20px;">* Will convert to ${baseCurrencyCode} at payment date rate</p>`;
+                }
+            }
+
+            html += `<hr><p><strong>Total Amount to Pay:</strong> ${formatAmount(totalAmount)} in various currencies</p>`;
+            html += '</div>';
+
+            // Remove existing preview and add new
+            $('#paySelectedInFullModal .modal-body .alert-info').remove();
+            $('#paySelectedInFullModal .modal-body').prepend(html);
+        }
+
+        function formatAmount(amount) {
+            return new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        }
+        // Bulk Post button
+        // Bulk Post button - SIMPLIFIED
+        $('#bulkPostButton').on('click', function () {
+            const selectedIds = [];
+            let hasInvalid = false;
+
+            $('tbody input.row-checkbox:checked').each(function () {
+                const $row = $(this).closest('tr');
+                const id = $row.data('deduction-id');
+                const status = $row.data('payment-status');
+
+                if (status === 'CANCELLED') {
+                    hasInvalid = true;
+                    return false;
+                }
+                selectedIds.push(id);
+            });
+
+            if (hasInvalid) {
+                showNotification("Cannot post cancelled deduction entries", "error");
+                return;
+            }
+
+            if (selectedIds.length === 0) {
+                showNotification("No valid entries selected", "warning");
+                return;
+            }
+
+            // ✅ SIMPLIFIED: Direct call without modal
+            postSelectedDeductionsToLedger(selectedIds);
+        });
+
+
+
+
+
+        $('#paySelectedInFullModal').on('hidden.bs.modal', function () {
+            $(this).find('.alert-info').remove();
+        });
+
+    });
+
+
+
+    function updateConvertedAmount() {
+        const paymentAmount = parseFloat(document.getElementById('amount').value) || 0;
+        const exchangeRate = parseFloat(document.getElementById('exchange_rate').value) || 1;
+        const convertedAmount = paymentAmount * exchangeRate;
+        const baseCurrencyCode = '{{ base_currency.user_currency }}';
+
+        const convertedSpan = document.getElementById('convertedAmountValue');
+        const convertedDisplay = document.getElementById('converted_amount_display');
+
+        if (convertedSpan && convertedDisplay) {
+            convertedSpan.textContent = formatCurrency(convertedAmount, baseCurrencyCode, true);
+            convertedDisplay.style.display = 'block';
+        }
+    }
+
+    function setupAmountPreview() {
+        const amountInput = document.getElementById('amount');
+        const rateInput = document.getElementById('exchange_rate');
+
+        const update = () => updateConvertedAmount();
+
+        if (amountInput) amountInput.addEventListener('input', update);
+        if (rateInput) rateInput.addEventListener('input', update);
+    }
+
+    // Simple function to post selected deductions to ledger
+    function postSelectedDeductionsToLedger(selectedIds) {
+        if (selectedIds.length === 0) {
+            showNotification("No deductions selected for posting", "error");
+            return;
+        }
+
+        console.log('Posting selected deduction ids:', selectedIds);
+
+        // Show confirmation dialog
+        Swal.fire({
+            title: 'Post to Ledger?',
+            html: `
+            <div class="text-left">
+                <p>Are you sure you want to post <strong>${selectedIds.length}</strong> selected deductions to the ledger?</p>
+              
+            </div>
+        `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, post them!',
+            cancelButtonText: 'Cancel',
+            width: '500px',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Show loading state
+                Swal.fire({
+                    title: 'Posting...',
+                    text: 'Updating ledger status',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // Send only the selected IDs
+                const payload = {
+                    selected_ids: selectedIds
+                };
+
+                fetch('/payroll/post_selected_deductions_to_ledger', {
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify(payload)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        Swal.close();
+
+                        if (data.success) {
+                            if (data.has_failures) {
+                                showNotificationWithDetails(
+                                    data.message,
+                                    "warning",
+                                    data.failed_transactions
+                                );
+                            } else {
+                                showNotification(data.message, "success");
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 2000);
+                            }
+                        } else {
+                            showNotification("Posting failed: " + (data.message || "Unknown error"), 'error');
+                        }
+                    })
+                    .catch(error => {
+                        Swal.close();
+                        console.error("Error:", error);
+                        showNotification("An error occurred while posting to ledger.", "error");
+                    });
+            }
+        });
+    }
+
+
+    // Add these functions if they don't exist in your global scope
+    function showNotificationWithDetails(message, type, failedTransactions) {
+        if (failedTransactions.length === 0) {
+            showNotification(message, type);
+            return;
+        }
+
+        const failedList = failedTransactions.map(tx =>
+            `<li><strong>${tx.id}:</strong> ${tx.reason}</li>`
+        ).join('');
+
+        Swal.fire({
+            title: type === 'warning' ? 'Completed with Errors' : 'Error',
+            html: `
+            <p>${message}</p>
+            <div style="text-align: left; margin-top: 15px;">
+                <h4 style="margin-bottom: 10px; color: #dc3545;">Failed Transactions:</h4>
+                <ul style="padding-left: 20px; max-height: 200px; overflow-y: auto;">
+                    ${failedList}
+                </ul>
+            </div>
+        `,
+            icon: type === 'warning' ? 'warning' : 'error',
+            showConfirmButton: true,
+            confirmButtonText: 'OK',
+            showCloseButton: true,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            width: '600px'
+        });
+    }
+    // Function for posting single deduction
+    function postSingleDeductionToLedger(deductionId, employeeName, deductionType) {
+        postSelectedDeductionsToLedger([deductionId]);
+    }
+
+
+
+    // Submit Payment Form
+    // Ensure the script runs after the DOM is fully loaded
+    document.addEventListener("DOMContentLoaded", function () {
+        document.getElementById("paymentForm").addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            let formData = new FormData(this);
+            let deductionId = document.getElementById("deductionId").value;
+
+            let data = {};
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+
+            data.deductionId = deductionId;
+            data.exchange_rate = document.getElementById('exchange_rate').value;
+            data.base_currency_id = document.getElementById('base_currency_id').value;
+
+            fetch(`/payroll/make_deduction_payment/${deductionId}`, {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify(data),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification("Payment successful!", "success");
+                        $('#paymentModal').modal('hide');
+                        location.reload();
+                    } else {
+                        showNotification("Payment failed: " + data.message, "error");
+                        enableAllSubmitButtons();
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    showNotification("An error occurred while processing the payment.", "error");
+                    enableAllSubmitButtons();
+                });
+        });
+
+    });
+
+
+    /*  
+        Payment Modal End
+    */
+
+
+
+
+    const doNotShowAgainCheckbox = document.getElementById('dontShowAgain');
+
+    // Function to update the "Do Not Show Again" preference in the database
+    function updateDoNotShowAgainPreference(doNotShowAgain) {
+        fetch('/update_do_not_show_again', {
+            method: 'POST',
+            headers: {
+                "Content-Type": "application/json",
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                preference_type: 'deduction_make_full_payment',
+                do_not_show_again: doNotShowAgain
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Do Not Show Again preference updated successfully.', 'success');
+                } else {
+                    console.error('Failed to update preference:', data.error);
+                }
+            })
+            .catch(error => console.error('Error updating preference:', error));
+    }
+
+    // Handle "Do Not Show Again" checkbox change
+    doNotShowAgainCheckbox.addEventListener('change', function () {
+        const doNotShowAgain = this.checked;
+        updateDoNotShowAgainPreference(doNotShowAgain);
+    });
+
+
+
+</script>
+
+<style>
+    .btn-view-details,
+    .btn-make-payment,
+    .btn-post-to-ledger {
+        margin: 2px;
+        padding: 5px 10px;
+        font-size: 12px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-view-details {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+    }
+
+    .btn-make-payment {
+        background-color: #2196F3;
+        color: white;
+        border: none;
+    }
+
+    .btn-post-to-ledger {
+        background-color: #f44336;
+        color: white;
+        border: none;
+    }
+
+    .btn-view-details:hover,
+    .btn-make-payment:hover,
+    .btn-post-to-ledger:hover {
+        opacity: 0.8;
+    }
+
+    .btn-primary {
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-primary:hover {
+        opacity: 0.8;
+    }
+</style>
+{% endblock %}

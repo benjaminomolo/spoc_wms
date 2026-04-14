@@ -1,0 +1,584 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+
+    <div class="header-section">
+        {% if user_currency %}
+        <h1>Accounting Dashboard - {{ user_currency }}</h1>
+        {% else %}
+        <div class="alert alert-info mt-4" role="alert">
+            Currency is not set. <a href="{{ url_for('settings') }}" class="alert-link">Click here to set up
+                currency</a>.
+        </div>
+        {% endif %}
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                <li class="shortcut-item"><a href="{{ url_for('add_transaction') }}">Journal Entry</a></li>
+                <li class="shortcut-item"><a href="{{ url_for('all_transactions') }}">View Transactions</a></li>
+                <!-- New items -->
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" onclick="toggleDropdown(event)">
+                        <span>Manage </span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('new_category') }}">Parent Category</a>
+                            <a href="{{ url_for('add_chart_of_accounts') }}">Chart of Accounts</a>
+                            <a href="{{ url_for('manage_projects') }}">Projects</a>
+                            <a href="{{ url_for('add_vendor_form') }}">Vendors & Customers</a>
+                            <a href="{{ url_for('add_payment_mode_form') }}">Payment Modes</a>
+                        </div>
+                    </div>
+                </li>
+                {% endif %}
+                <li class="shortcut-item">
+                    <div class="action-icons">
+                        <button class="filter-icon" type="button" id="toggleFilterForm" data-tooltip="Apply Filter">
+                            <i class="fas fa-filter"></i>
+                        </button>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="filter-section" id="filter-section">
+        <!-- Filter Controls -->
+        <form id="filter-form" method="GET" action="{{ url_for('dashboard') }}">
+            <div class="filter-container">
+                <div class="filter-group">
+                    <label for="currency">Currency:</label>
+                    <select id="currency" name="currency">
+                        {% for currency in company.currency %}
+                        <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="start-date">Start Date:</label>
+                    <input type="date" id="start-date" name="start_date" placeholder="YYYY-MM-DD">
+                </div>
+                <div class="filter-group">
+                    <label for="end-date">End Date:</label>
+                    <input type="date" id="end-date" name="end_date" placeholder="YYYY-MM-DD">
+                </div>
+                <button type="submit" id="apply-filter" class="btn-primary cta-button" style="margin-top: 25px;">
+                    Apply Filter
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Summary Section -->
+    <div class="summary-container">
+        <div class="summary-item cash-balances-hover">
+            <i class="fas fa-money-bill-wave"></i>
+            <h2>Total Cash Balance</h2>
+            <h1>{{ '{:,.2f}'.format(total_cash_balance) }}</h1>
+            {% if cash_balances %}
+            <div class="cash-balances-hover">
+                <ul class="cash-balances-tooltip">
+                    {% for cash_account in cash_balances %}
+                    <li>{{ cash_account.subcategory }}: {{ '{:,.2f}'.format(cash_account.amount) }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        <div class="summary-item">
+            <i class="fas fa-chart-line"></i>
+            <h2>Net Profit</h2>
+            <h1 id="net_profit">{{ '{:,.2f}'.format(net_profit) }}</h1>
+            {% if last_month_net_profit is defined %}
+            <div
+                class="month-comparison {% if net_profit > last_month_net_profit %}positive{% else %}negative{% endif %}">
+                <span class="comparison-label">Prev Month:</span>
+                {{ '{:,.2f}'.format(last_month_net_profit) }}
+                <span class="percentage-change">
+                    ({% if net_profit > last_month_net_profit %}+{% endif %}{{
+                    '{:.1f}'.format(
+                    ((net_profit - last_month_net_profit) / last_month_net_profit * 100)
+                    if last_month_net_profit != 0 else 0
+                    )
+                    }}%)
+                    <i class="fas fa-arrow-{% if net_profit > last_month_net_profit %}up{% else %}down{% endif %}"></i>
+                </span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="summary-item">
+            <i class="fas fa-arrow-up"></i>
+            <h2>Total Income</h2>
+            <h1 id="income">{{ '{:,.2f}'.format(total_income) }}</h1>
+            {% if last_month_income is defined %}
+            <div
+                class="month-comparison {% if total_income > last_month_income %}positive{% else %}negative{% endif %}">
+                <span class="comparison-label">Prev Month:</span>
+                {{ '{:,.2f}'.format(last_month_income) }}
+                ({% if total_income > last_month_income %}+{% endif %}{{
+                '{:.1f}'.format(
+                ((total_income - last_month_income) / last_month_income * 100)
+                if last_month_income != 0 else 0
+                )
+                }}%)
+                <i class="fas fa-arrow-{% if total_income > last_month_income %}up{% else %}down{% endif %}"></i>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="summary-item">
+            <i class="fas fa-arrow-down"></i>
+            <h2>Total Expenses</h2>
+            <h1 id="expenses">{{ '{:,.2f}'.format(total_expense) }}</h1>
+            {% if last_month_expense is defined %}
+            <div
+                class="month-comparison {% if total_expense < last_month_expense %}positive{% else %}negative{% endif %}">
+                <span class="comparison-label">Prev Month:</span>
+                {{ '{:,.2f}'.format(last_month_expense) }}
+                ({{ expense_change_sign }}{{ '{:.1f}'.format(expense_change_abs) }}%)
+                <i class="fas fa-arrow-{{ expense_change_direction }}"></i>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Main Income vs Expense Line Chart -->
+    <div class="card">
+        <h3 class="card-title">Income and Expense Trends</h3>
+        <canvas id="incomeExpenseLineChart" height="190"></canvas>
+    </div>
+
+    <div class="charts-container">
+
+        <div class="card">
+            <h3 class="card-title">Income Categories Over Time</h3>
+            <canvas id="incomeCategoriesOverTimeChart" height="290"></canvas>
+        </div>
+
+        <div class="card">
+            <h3 class="card-title">Expense Categories Over Time</h3>
+            <canvas id="expenseCategoriesOverTimeChart" height="290"></canvas>
+        </div>
+    </div>
+
+    <!-- Category Breakdown Section -->
+    <div class="charts-container">
+        <!-- Income Category Charts -->
+        <div class="card">
+            <h3 class="card-title">Income by Category</h3>
+            <canvas id="incomeByCategoryChart"></canvas>
+        </div>
+        <div class="card">
+            <h3 class="card-title">Income by Subcategory</h3>
+            <canvas id="incomeBySubcategoryChart"></canvas>
+        </div>
+    </div>
+
+    <div class="charts-container">
+        <!-- Expense Category Charts -->
+        <div class="card">
+            <h3 class="card-title">Expense by Category</h3>
+            <canvas id="expenseByCategoryChart"></canvas>
+        </div>
+        <div class="card">
+            <h3 class="card-title">Expense by Subcategory</h3>
+            <canvas id="expenseBySubcategoryChart"></canvas>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Helper function to format labels as "YY-MMM"
+        function formatMonthLabels(months) {
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            return months.map(month => {
+                const date = new Date(month);
+                const year = date.getFullYear().toString().slice(-2);
+                const monthName = monthNames[date.getMonth()];
+                return `${year}-${monthName}`;
+            });
+        }
+
+        // Get CSS color variables
+        function getCSSColor(variable) {
+            return getComputedStyle(document.documentElement).getPropertyValue(variable).trim();
+        }
+
+        // Generate distinct colors for datasets
+        function generateColors(count) {
+            const colors = [];
+            const hueStep = 360 / count;
+            for (let i = 0; i < count; i++) {
+                const hue = i * hueStep;
+                colors.push(`hsl(${hue}, 70%, 50%)`);
+            }
+            return colors;
+        }
+
+        // Main Income vs Expense Line Chart
+        var lineChartLabels = {{ line_chart_data.months| tojson | safe
+    }};
+    var formattedLabels = formatMonthLabels(lineChartLabels);
+    var lineChartIncome = {{ line_chart_data.income| tojson | safe }};
+    var lineChartExpense = {{ line_chart_data.expense| tojson | safe }};
+
+    var ctx1 = document.getElementById('incomeExpenseLineChart').getContext('2d');
+    var incomeExpenseLineChart = new Chart(ctx1, {
+        type: 'line',
+        data: {
+            labels: formattedLabels,
+            datasets: [
+                {
+                    label: 'Total Income',
+                    data: lineChartIncome,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    fill: true
+                },
+                {
+                    label: 'Total Expense',
+                    data: lineChartExpense,
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    tension: 0.3,
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    title: { display: true, text: 'Year-Month' },
+                    ticks: { autoSkip: true, maxTicksLimit: 12 }
+                },
+                y: {
+                    title: { display: true, text: 'Amount' },
+                    beginAtZero: true,
+                    ticks: { callback: value => value.toLocaleString() }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            const value = context.raw;
+                            label += value.toLocaleString();
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Income by Category Bar Chart
+    var incomeByCategoryLabels = {{ income_by_category_data.categories | tojson | safe }};
+    var incomeByCategoryData = {{ income_by_category_data.amounts | tojson | safe }};
+    var incomeColors = generateColors(incomeByCategoryLabels.length);
+
+    var ctx2 = document.getElementById('incomeByCategoryChart').getContext('2d');
+    var incomeByCategoryChart = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: incomeByCategoryLabels,
+            datasets: [{
+                label: 'Income',
+                data: incomeByCategoryData,
+                backgroundColor: incomeColors,
+                borderColor: incomeColors.map(color => color.replace(')', ', 1)').replace('hsl', 'hsla')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: 'Income Category' } },
+                y: {
+                    title: { display: true, text: 'Amount' },
+                    beginAtZero: true,
+                    ticks: { callback: value => value.toLocaleString() }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            const value = context.raw;
+                            const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                            const percentage = ((value / total) * 100).toFixed(2);
+                            label += `${value.toLocaleString()} (${percentage}%)`;
+                            return label;
+                        }
+                    }
+                },
+                legend: { display: false }
+            }
+        }
+    });
+
+    // Income by Subcategory Bar Chart
+    var incomeBySubcategoryLabels = {{ income_by_subcategory_data.subcategories | tojson | safe }};
+    var incomeBySubcategoryData = {{ income_by_subcategory_data.amounts | tojson | safe }};
+    var incomeSubColors = generateColors(incomeBySubcategoryLabels.length);
+
+    var ctx3 = document.getElementById('incomeBySubcategoryChart').getContext('2d');
+    var incomeBySubcategoryChart = new Chart(ctx3, {
+        type: 'bar',
+        data: {
+            labels: incomeBySubcategoryLabels,
+            datasets: [{
+                label: 'Income by Subcategory',
+                data: incomeBySubcategoryData,
+                backgroundColor: incomeSubColors,
+                borderColor: incomeSubColors.map(color => color.replace(')', ', 1)').replace('hsl', 'hsla')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: 'Income Subcategory' } },
+                y: {
+                    title: { display: true, text: 'Amount' },
+                    beginAtZero: true,
+                    ticks: { callback: value => value.toLocaleString() }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            const value = context.raw;
+                            const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                            const percentage = ((value / total) * 100).toFixed(2);
+                            label += `${value.toLocaleString()} (${percentage}%)`;
+                            return label;
+                        }
+                    }
+                },
+                legend: { display: false }
+            }
+        }
+    });
+
+    // Income Categories Over Time Line Chart
+    var incomeCategoriesOverTimeData = {{ income_categories_over_time | tojson | safe }};
+    var incomeCategoriesOverTimeLabels = incomeCategoriesOverTimeData.months ? formatMonthLabels(incomeCategoriesOverTimeData.months) : [];
+    var incomeCategoryTimeColors = generateColors(incomeCategoriesOverTimeData.categories ? incomeCategoriesOverTimeData.categories.length : 0);
+
+    var ctx4 = document.getElementById('incomeCategoriesOverTimeChart').getContext('2d');
+    var incomeCategoriesOverTimeChart = new Chart(ctx4, {
+        type: 'line',
+        data: {
+            labels: incomeCategoriesOverTimeLabels,
+            datasets: incomeCategoriesOverTimeData.categories ? incomeCategoriesOverTimeData.categories.map((category, i) => ({
+                label: category,
+                data: incomeCategoriesOverTimeData.amounts[i],
+                backgroundColor: incomeCategoryTimeColors[i].replace(')', ', 0.2)').replace('hsl', 'hsla'),
+                borderColor: incomeCategoryTimeColors[i],
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true
+            })) : []
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: 'Year-Month' } },
+                y: {
+                    title: { display: true, text: 'Amount' },
+                    beginAtZero: true,
+                    ticks: { callback: value => value.toLocaleString() }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            const value = context.raw;
+                            label += value.toLocaleString();
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Expense by Category Bar Chart
+    var expenseByCategoryLabels = {{ expense_by_category_data.categories | tojson | safe }};
+    var expenseByCategoryData = {{ expense_by_category_data.amounts | tojson | safe }};
+    var expenseColors = generateColors(expenseByCategoryLabels.length);
+
+    var ctx5 = document.getElementById('expenseByCategoryChart').getContext('2d');
+    var expenseByCategoryChart = new Chart(ctx5, {
+        type: 'bar',
+        data: {
+            labels: expenseByCategoryLabels,
+            datasets: [{
+                label: 'Expense',
+                data: expenseByCategoryData,
+                backgroundColor: expenseColors,
+                borderColor: expenseColors.map(color => color.replace(')', ', 1)').replace('hsl', 'hsla')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: 'Expense Category' } },
+                y: {
+                    title: { display: true, text: 'Amount' },
+                    beginAtZero: true,
+                    ticks: { callback: value => value.toLocaleString() }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            const value = context.raw;
+                            const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                            const percentage = ((value / total) * 100).toFixed(2);
+                            label += `${value.toLocaleString()} (${percentage}%)`;
+                            return label;
+                        }
+                    }
+                },
+                legend: { display: false }
+            }
+        }
+    });
+
+    // Expense by Subcategory Bar Chart
+    var expenseBySubcategoryLabels = {{ expense_by_subcategory_data.subcategories | tojson | safe }};
+    var expenseBySubcategoryData = {{ expense_by_subcategory_data.amounts | tojson | safe }};
+    var expenseSubColors = generateColors(expenseBySubcategoryLabels.length);
+
+    var ctx6 = document.getElementById('expenseBySubcategoryChart').getContext('2d');
+    var expenseBySubcategoryChart = new Chart(ctx6, {
+        type: 'bar',
+        data: {
+            labels: expenseBySubcategoryLabels,
+            datasets: [{
+                label: 'Expense by Subcategory',
+                data: expenseBySubcategoryData,
+                backgroundColor: expenseSubColors,
+                borderColor: expenseSubColors.map(color => color.replace(')', ', 1)').replace('hsl', 'hsla')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: 'Expense Subcategory' } },
+                y: {
+                    title: { display: true, text: 'Amount' },
+                    beginAtZero: true,
+                    ticks: { callback: value => value.toLocaleString() }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            const value = context.raw;
+                            const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                            const percentage = ((value / total) * 100).toFixed(2);
+                            label += `${value.toLocaleString()} (${percentage}%)`;
+                            return label;
+                        }
+                    }
+                },
+                legend: { display: false }
+            }
+        }
+    });
+
+    // Expense Categories Over Time Line Chart
+    var expenseCategoriesOverTimeData = {{ expense_categories_over_time | tojson | safe }};
+    var expenseCategoriesOverTimeLabels = expenseCategoriesOverTimeData.months ? formatMonthLabels(expenseCategoriesOverTimeData.months) : [];
+    var expenseCategoryTimeColors = generateColors(expenseCategoriesOverTimeData.categories ? expenseCategoriesOverTimeData.categories.length : 0);
+
+    var ctx7 = document.getElementById('expenseCategoriesOverTimeChart').getContext('2d');
+    var expenseCategoriesOverTimeChart = new Chart(ctx7, {
+        type: 'line',
+        data: {
+            labels: expenseCategoriesOverTimeLabels,
+            datasets: expenseCategoriesOverTimeData.categories ? expenseCategoriesOverTimeData.categories.map((category, i) => ({
+                label: category,
+                data: expenseCategoriesOverTimeData.amounts[i],
+                backgroundColor: expenseCategoryTimeColors[i].replace(')', ', 0.2)').replace('hsl', 'hsla'),
+                borderColor: expenseCategoryTimeColors[i],
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true
+            })) : []
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: 'Year-Month' } },
+                y: {
+                    title: { display: true, text: 'Amount' },
+                    beginAtZero: true,
+                    ticks: { callback: value => value.toLocaleString() }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            const value = context.raw;
+                            label += value.toLocaleString();
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Toggle the filter section visibility with animation
+    document.getElementById('toggleFilterForm').addEventListener('click', function () {
+        const filterSection = document.getElementById('filter-section');
+        filterSection.classList.toggle('visible');
+    });
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "transaction_base_template.html" %}
+{% block content %}
+<div class="content-container">
+    <h1>Add Payroll Transaction</h1>
+    <h4>Enter Transaction details</h4>
+
+    <form action="/payroll_transaction" method="POST" id="payroll_transaction_form">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="employee_name">Employee Name: <span style="color: red;">*</span></label>
+                <select id="employee_name" name="employee_name" class="form-control form-control-sm">
+
+                    <option value="">Select Name</option>
+                    {% for employee in employees %}
+                    <option value="{{ employee.id }}" data-salary="{{ employee.basic_salary }}">
+                        {{
+                        employee.employee_name }} - {{ employee.position }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="payment_type">Payment Type: <span style="color: red;">*</span></label>
+                <select class="form-control form-control-sm" id="payment_type" name="payment_type" required>
+                    <option value="">Choose Payment Option</option>
+                    <option value="Salary">Salary</option>
+                    <option value="Salary">Wage</option>
+                    <option value="Commission">Commission</option>
+                    <option value="Commission">Employee Benefit</option>
+                    <option value="Others">Others</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="date_of_payment">Date of Payment: <span style="color: red;">*</span></label>
+                <input type="date" class="form-control form-control-sm" id="date_of_payment" name="date_of_payment"
+                    required>
+            </div>
+            <div class="form-group">
+                <label for="year">Year: <span style="color: red;">*</span></label>
+                <select class="form-control form-control-sm" id="year" name="year" required>
+                    <option value="">Select Year of Payment</option>
+                    {% for year in years %}
+                    <option value="{{ year }}">{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="month">Month: <span style="color: red;">*</span></label>
+                <select class="form-control form-control-sm" id="month" name="month" required>
+                    <option value="">Select Month Paid for</option>
+                    {% for month in months %}
+                    <option value="{{ month }}">{{ month }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="amount">Amount: <span style="color: red;">*</span></label>
+                <input type="number" class="form-control form-control-sm" id="amount" name="amount" step="0.01"
+                    required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Add Transaction</button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}

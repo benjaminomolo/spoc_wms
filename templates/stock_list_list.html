@@ -1,0 +1,320 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+
+
+    <div class="header-section">
+        <h1>Inventory Stock Items</h1>
+
+
+        <div class="view-toggle-buttons">
+            <div class="shortcut-list">
+                <li class="shortcut-item">
+                    <div class="action-icons">
+                        <button class="filter-icon" type="button" id="toggleFilterForm" data-tooltip="Apply Filter">
+                            <i class="fas fa-filter"></i>
+                        </button>
+                    </div>
+                </li>
+
+            </div>
+
+            <!-- Batch Grouping Toggle -->
+            <div class="controls">
+
+                <button id="toggle-batch-grouping" class="batch-toggle-btn button info"
+                    data-group="{{ group_by_batch|lower }}">
+                    {% if group_by_batch %}
+                    Hide Batch Details
+                    {% else %}
+                    Show Batch Details
+                    {% endif %}
+                </button>
+            </div>
+
+
+            <a href="{{ url_for('stock_list_grid') }}"
+                class="view-button {% if request.endpoint == 'stock_list_grid' %}active{% endif %}">
+                <i class="fas fa-th-large"></i> <!-- Grid Icon -->
+            </a>
+            <a href="{{ url_for('stock_list_list') }}"
+                class="button view-button {% if request.endpoint == 'stock_list_list' %}active{% endif %}">
+                <i class="fas fa-list"></i> <!-- List Icon -->
+            </a>
+
+
+        </div>
+
+
+    </div>
+
+    <!-- Enhanced Filter Section with Select2 Journal Number Search -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+
+
+
+        <form method="GET" action="{{ url_for('stock_list_list') }}" class="date-filter-form" id="filter-form">
+
+
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control"
+                    value="{{ request.args.get('start_date', '') }}">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">End Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control"
+                    value="{{ request.args.get('end_date', '') }}">
+            </div>
+
+
+
+            <div class="filter-actions">
+                <button type="submit" class="add-button">Apply Filter</button>
+                <a href="{{ url_for('stock_list_list') }}" class="btn reset-button">Reset</a>
+            </div>
+        </form>
+
+
+
+    </div>
+
+
+    <!-- Stock Summary Table (Normal View) -->
+    <div class="table-container" id="inventory-normal"
+        style="display: {% if group_by_batch %}none{% else %}block{% endif %};">
+        <table class="stock-list-table">
+            <thead>
+                <tr>
+                    <th>Item Name</th>
+                    <th>Quantity</th>
+                    <th>Subcategory</th>
+                    <th>Brand</th>
+                    <th>Attribute</th>
+                    <th>Variation</th>
+                    <th>Location</th>
+                    <th>Missing Items</th>
+                    <th>Status</th>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for category, items in stock_by_category.items() %}
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.item_name or "-" }}</td>
+                    <td>{{ item.quantity}}</td>
+                    <td>{{ item.subcategory_name or "-" }}</td>
+                    <td>{{ item.brand or "-" }}</td>
+                    <td>{{ item.attribute or "-" }}</td>
+                    <td>{{ item.variation or "-" }}</td>
+                    <td>{{ item.location or "-" }}</td>
+                    <td>{{ item.missing_items}}</td>
+                    <td>
+                        <span class="status
+                                {% if item.status == 'Out of Stock' %}cancelled
+                                {% elif item.status == 'Low Stock' %}pending
+                                {% elif item.status == 'In Stock' %}approved
+                                {% endif %}">
+                            {{ item.status or "-" }}
+                        </span>
+                    </td>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <td>
+                        <div class="action-icons">
+                            <a href="{{ url_for('inventory_item_details', item_id=item.id) }}"
+                                data-tooltip="View Details">
+                                <i class="fa fa-eye"></i> <!-- Font Awesome eye icon -->
+                            </a>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+            {% if role == 'Admin' or role == 'Contributor' %}
+            <tfoot>
+                <tr>
+                    <td><input type="text" placeholder="Search Item Name" class="footer-search" data-column="0" /></td>
+                    <td id="totalQuantityNormal">0</td>
+                    <td><input type="text" placeholder="Search Subcategory" class="footer-search" data-column="2" />
+                    </td>
+                    <td><input type="text" placeholder="Search Brand" class="footer-search" data-column="3" /></td>
+                    <td><input type="text" placeholder="Search Attribute" class="footer-search" data-column="4" /></td>
+                    <td><input type="text" placeholder="Search Variation" class="footer-search" data-column="5" /></td>
+                    <td><input type="text" placeholder="Search Location" class="footer-search" data-column="6" /></td>
+                    <td id="totalMissingItemsNormal">0</td>
+                    <td><input type="text" placeholder="Search Status" class="footer-search" data-column="8" /></td>
+                    <td></td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+
+    <!-- Stock Summary Table (Batch View) -->
+    <div class="table-container" id="inventory-batch"
+        style="display: {% if group_by_batch %}block{% else %}none{% endif %};">
+        <table class="stock-list-table">
+            <thead>
+                <tr>
+                    <th>Item Name</th>
+                    <th>Quantity</th>
+                    <th>Subcategory</th>
+                    <th>Brand</th>
+                    <th>Attribute</th>
+                    <th>Variation</th>
+                    <th>Location</th>
+                    <th>Batch</th>
+                    <th>Missing Items</th>
+                    <th>Status</th>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for category, items in stock_by_category.items() %}
+                {% for item in items %}
+                <tr class="status-{{ item.status | lower | replace(' ', '-') }}">
+                    <td>{{ item.item_name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.subcategory_name }}</td>
+                    <td>{{ item.brand }}</td>
+                    <td>{{ item.attribute }}</td>
+                    <td>{{ item.variation }}</td>
+                    <td>{{ item.location }}</td>
+                    <td>{{ item.batch }}</td>
+                    <td>{{ item.missing_items }}</td>
+                    <td>
+                        <span class="status
+                                {% if item.status == 'Out of Stock' %}cancelled
+                                {% elif item.status == 'Low Stock' %}pending
+                                {% elif item.status == 'In Stock' %}approved
+                                {% endif %}">
+                            {{ item.status or "-" }}
+                        </span>
+                    </td>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <td>
+                        <div class="action-icons">
+                            <a href="{{ url_for('inventory_item_details', item_id=item.id) }}"
+                                data-tooltip="View Details">
+                                <i class="fa fa-eye view-icon"></i> <!-- Font Awesome eye icon -->
+                            </a>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+            {% if role == 'Admin' or role == 'Contributor' %}
+            <tfoot>
+                <tr>
+                    <td><input type="text" placeholder="Search Item Name" class="footer-search" data-column="0" /></td>
+                    <td id="totalQuantityBatch">0</td>
+                    <td><input type="text" placeholder="Search Subcategory" class="footer-search" data-column="2" />
+                    </td>
+                    <td><input type="text" placeholder="Search Brand" class="footer-search" data-column="3" /></td>
+                    <td><input type="text" placeholder="Search Attribute" class="footer-search" data-column="4" /></td>
+                    <td><input type="text" placeholder="Search Variation" class="footer-search" data-column="5" /></td>
+                    <td><input type="text" placeholder="Search Location" class="footer-search" data-column="6" /></td>
+                    <td><input type="text" placeholder="Search Batch" class="footer-search" data-column="7" /></td>
+                    <td id="totalMissingItemsBatch">0</td>
+                    <td><input type="text" placeholder="Search Status" class="footer-search" data-column="9" /></td>
+                    <td></td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Initialize DataTables for both tables
+        var tableNormal = $('#inventory-normal table').DataTable({
+            "paging": true,
+            "ordering": true,
+            "info": true,
+            "searching": true,
+            "columnDefs": [
+                { "orderable": false, "targets": [9] } // Disable sorting on Actions column
+            ],
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+                var totalQuantity = api.column(1, { page: 'current' }).data().reduce(function (a, b) {
+                    return a + b * 1; // Summing up the quantities
+                }, 0);
+
+                var totalMissingItems = api.column(7, { page: 'current' }).data().reduce(function (a, b) {
+                    return a + b * 1; // Summing up the missing items
+                }, 0);
+
+                $('#totalQuantityNormal').html(totalQuantity);
+                $('#totalMissingItemsNormal').html(totalMissingItems);
+            }
+        });
+
+        var tableBatch = $('#inventory-batch table').DataTable({
+            "paging": true,
+            "ordering": true,
+            "info": true,
+            "searching": true,
+            "columnDefs": [
+                { "orderable": false, "targets": [10] } // Disable sorting on Actions column
+            ],
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+                var totalQuantity = api.column(1, { page: 'current' }).data().reduce(function (a, b) {
+                    return a + b * 1; // Summing up the quantities
+                }, 0);
+
+                var totalMissingItems = api.column(8, { page: 'current' }).data().reduce(function (a, b) {
+                    return a + b * 1; // Summing up the missing items
+                }, 0);
+
+                $('#totalQuantityBatch').html(totalQuantity);
+                $('#totalMissingItemsBatch').html(totalMissingItems);
+            }
+        });
+
+        // Apply search for each column in both tables using footer inputs
+        $('#inventory-normal tfoot .footer-search').on('keyup change clear', function () {
+            var columnIndex = $(this).data('column');
+            tableNormal.column(columnIndex).search(this.value).draw();
+        });
+
+        $('#inventory-batch tfoot .footer-search').on('keyup change clear', function () {
+            var columnIndex = $(this).data('column');
+            tableBatch.column(columnIndex).search(this.value).draw();
+        });
+
+        // Handle batch grouping toggle
+        const toggleBatchButton = document.getElementById('toggle-batch-grouping');
+        if (toggleBatchButton) {
+            toggleBatchButton.addEventListener('click', function () {
+                const url = new URL(window.location.href);
+                const currentGroupByBatch = url.searchParams.get('group_by_batch') === 'true';
+                url.searchParams.set('group_by_batch', !currentGroupByBatch);
+                window.location.href = url.toString();
+            });
+        }
+
+        // Toggle the filter section visibility with animation
+        document.getElementById('toggleFilterForm').addEventListener('click', function () {
+            const filterSection = document.getElementById('filter-section');
+            filterSection.classList.toggle('visible');
+        });
+    });
+</script>
+
+{% endblock %}

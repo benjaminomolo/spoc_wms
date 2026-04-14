@@ -1,0 +1,549 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .delivery-note-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+    }
+
+    .company-logo img {
+        max-width: 150px;
+        height: auto;
+    }
+
+    .company-logo h2 {
+        font-size: 24px;
+        color: #2c3e50;
+        margin-top: 10px;
+    }
+
+    .delivery-note-meta h1 {
+        font-size: 28px;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    .delivery-note-meta p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .status {
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        color: #fff;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    .status.draft {
+        background: #f0ad4e;
+    }
+
+    .status.delivered {
+        background: #5cb85c;
+    }
+
+    .status.canceled {
+        background: #d9534f;
+    }
+
+    .delivery-note-details {
+
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 20px;
+        margin-bottom: 15px;
+        margin-top: -10px;
+
+
+    }
+
+    .delivery-note-customer {
+        grid-column: 1 / 2;
+        /* Left column */
+    }
+
+    .delivery-note-customer h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin: 0 0 10px;
+    }
+
+    .delivery-note-customer p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .delivery-note-additional-notes h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        margin: 0 0 10px;
+        margin-top: 20px;
+    }
+
+    .delivery-note-additional-notes p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0;
+    }
+
+    .delivery-note-shipping h3 {
+        font-size: 18px;
+        color: #2c3e50;
+        padding-right: 150px;
+        margin-top: 20px;
+    }
+
+    .delivery-note-shipping p {
+        font-size: 14px;
+        color: #666;
+    }
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f9f9f9;
+        font-weight: bold;
+        color: #333;
+        font-weight: 600;
+    }
+
+    td {
+        color: #222;
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    .numeric {
+        text-align: right;
+        color: #222;
+    }
+
+    .grande {
+        font-weight: 600;
+        font-size: 1.2rem;
+    }
+
+    .delivery-note-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+    textarea {
+        width: 200px;
+        padding: 10px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+        resize: vertical;
+    }
+
+    textarea:focus {
+        outline: none;
+        border-color: #0275d8;
+    }
+
+    select {
+        padding: 2px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+    }
+
+    table {
+        border: none;
+    }
+
+    table tr:hover {
+        background-color: white;
+    }
+
+    table td,
+    table th {
+        border: none !important;
+        background-color: transparent !important;
+    }
+
+    table th {
+        border: 1px solid #ddd !important;
+        background: #f9f9f9 !important
+    }
+
+    table td:nth-last-child(1),
+    table td:nth-last-child(2),
+    table th:nth-last-child(1),
+    table th:nth-last-child(2) {
+        border: 1px solid #ddd !important;
+    }
+
+    table tbody tr td {
+        border: 1px solid #ddd !important;
+    }
+
+    tr:nth-child(even) {
+        background: white;
+    }
+
+    .totals-row td {
+        text-align: right;
+    }
+
+    .totals-row td {
+        font-weight: 600;
+    }
+
+    .totals-row td:nth-last-child(1) {
+        background-color: #f9f9f9 !important;
+    }
+
+    .totals-row td:nth-last-child(2) {
+        border: none !important;
+    }
+</style>
+
+<div class="content-container">
+    <div class="delivery-note-header">
+        <div class="company-logo">
+            <!-- Back Icon -->
+            <div style="margin-bottom: 1rem;">
+                <a href="javascript:history.back()" class="back-link" style="text-decoration: none; color: inherit;">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+            </div>
+            {% if company.logo %}
+            <img src="{{ url_for('serve_logo', filename=company.logo) }}" alt="Company Logo">
+            {% endif %}
+            <h2>{{ company.name }}</h2>
+        </div>
+        <div class="delivery-note-meta">
+            <h1>Delivery Note #{{ delivery_note.delivery_number }}</h1>
+            <p><strong>Date:</strong> {{ delivery_note.delivery_date }}</p>
+            {% if delivery_note.delivery_reference_number %}
+            <p><strong>Delivery Reference Number:</strong> {{ delivery_note.delivery_reference_number }}</p>
+            {% endif %}
+            {% if delivery_note.sales_order_number %}
+            <p>
+                <strong>Sales Order Number:</strong>
+                <a href="/sales/sales_order/{{ delivery_note.sales_order_id }}">
+                    {{ delivery_note.sales_order_number }}
+                </a>
+            </p>
+            {% endif %}
+            {% if delivery_note.quotation_number %}
+            <p><strong>Quotation Number:</strong>
+                <a href="/sales/quotation/{{ delivery_note.quotation_id }}">
+                    {{ delivery_note.quotation_number }}
+                </a>
+            </p>
+            {% endif %}
+            <p><strong>Delivery Method:</strong> {{ delivery_note.delivery_method }}</p>
+            <span class="status {{ delivery_note.status.value|lower }}">{{ delivery_note.status.value }}</span>
+        </div>
+    </div>
+
+    <div class="delivery-note-details">
+        <!-- Bottom Left: Customer Details -->
+        <div class="delivery-note-customer">
+            <h3>Customer Details:</h3>
+            <p><strong>{{ delivery_note.customer.name }}</strong></p>
+            <p>{{ delivery_note.customer.address or "" }}</p>
+            <p>{{ delivery_note.customer.city_country or "" }}</p>
+            <p><strong>Contact:</strong> {{ delivery_note.customer.contact or "N/A" }}</p>
+        </div>
+
+        <!-- Bottom Right: Shipping To -->
+        <div class="delivery-note-shipping">
+            <h3>Shipping To:</h3>
+            <p style="white-space: pre-line;">{{ delivery_note.shipping_address }}</p>
+        </div>
+    </div>
+
+    <div class="delivery-note-items">
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item Name</th>
+                        <th>Item Description</th>
+                        <th>Quantity Delivered</th>
+                        <th>Unit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in delivery_note.delivery_items %}
+                    <tr>
+                        <td>{{ item.item_name }}</td>
+                        <td>{{ item.description or "-" }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.uom }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="delivery-note-additional-notes">
+        <h3>Additional Notes:</h3>
+        <p class="preserve-newlines">{{ delivery_note.additional_notes or "N/A" }}</p>
+    </div>
+
+    <!-- Internal Notes (Visible only if status is draft) -->
+
+    <div class="internal-notes">
+        <h3>Internal Notes</h3>
+        <div id="notes-list">
+            {% for note in delivery_note.delivery_note_notes %}
+            {% if note.type == 'internal' %}
+            <div class="note">
+                <p>{{ note.content }}</p>
+                <small>By {{ note.created_by }} on {{ note.created_at }}</small>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <form id="add-note-form">
+            <textarea name="note_content" placeholder="Add a new internal note..." required></textarea>
+            <input type="hidden" name="delivery_note_id" value="{{ delivery_note.id }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="delivery_note_number" value="{{ delivery_note.delivery_number }}">
+
+            <label for="recipient">Assign to:</label>
+            <select name="recipient" id="recipient">
+                <option value="">All</option>
+                {% for user in delivery_note.users %}
+                <option value="{{ user.id }}">{{ user.name }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" class="button add-button">Add Note</button>
+        </form>
+
+
+
+        <div class="delivery-note-actions">
+
+            {% if delivery_note.status.name == 'draft' %}
+            <button class="button cta-button" id="approve-delivery_note_button">Approve Delivery Note</button>
+
+            <button class="button add-button"
+                onclick="window.location.href='/sales/edit_delivery_note/{{ delivery_note.id }}'">Edit Delivery
+                Note</button>
+
+            {% elif delivery_note.status.name != 'draft' and delivery_note.status.name != 'canceled' %}
+
+
+
+
+
+
+            <!-- Download Button (Visible when status is not draft) -->
+
+            <button class="button download-button info"
+                onclick="window.location.href='/download_delivery_note/{{ delivery_note.id }}'">
+                <i class="fas fa-download"></i> Download Delivery Note </button>
+            {% endif %}
+
+            {% if delivery_note.status.name != 'canceled' %}
+
+            <button class="button remove-button" id="cancel-delivery-note-button">
+                <i class="fas fa-times-circle"></i> Cancel Delivery Note
+            </button>
+            {% endif %}
+
+            <button class="button closed" onclick="window.location.href='/sales/delivery_notes'"><i
+                    class="fas fa-undo-alt"></i> Return to
+                Delivery Notes</button>
+        </div>
+
+
+    </div>
+
+</div>
+
+<script>
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+
+
+        // Adding internal note
+        document.getElementById('add-note-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const noteContent = formData.get('note_content');
+            const delivery_noteId = formData.get('delivery_note_id');
+            const recipient = formData.get('recipient');
+            const delivery_number = formData.get('delivery_note_number');
+
+            fetch('/add_delivery_note_note', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken  // Include the CSRF token in the headers
+                },
+                body: JSON.stringify({
+                    note_content: noteContent,
+                    delivery_note_id: delivery_noteId,
+                    recipient: recipient,
+                    delivery_number: delivery_number
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "danger") {
+                        showNotification(data.message, "error");
+                    } else {
+                        const notesList = document.getElementById('notes-list');
+                        const newNote = document.createElement('div');
+                        newNote.classList.add('note');
+                        newNote.innerHTML = `
+                    <p>${data.note_content}</p>
+                    <small>By ${data.created_by} on ${data.created_at}</small>
+                `;
+                        notesList.appendChild(newNote);
+                        form.querySelector('textarea').value = '';
+
+                        showNotification(data.message, "success");
+                        enableAllSubmitButtons();  // Enable all submit buttons
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification("An error occurred while adding the note.", "error"); // Fixed this line
+                });
+        });
+
+
+        document.getElementById('cancel-delivery-note-button').addEventListener('click', function () {
+            console.log('Cancel button has been clicked')
+            const deliveryNoteId = "{{ delivery_note.id }}";
+            const deliveryNoteNumber = "{{ delivery_note.delivery_number }}";
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+            console.log('Cancel button has been clicked')
+            Swal.fire({
+                title: 'Cancel Delivery Note?',
+                html: `Are you sure you want to cancel delivery note <strong>${deliveryNoteNumber}</strong>?<br><br>
+                   <span class="text-warning"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</span>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, cancel delivery note!',
+                cancelButtonText: 'No, keep it',
+                reverseButtons: true,
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    confirmButton: 'custom-swal-confirm-btn',
+                    cancelButton: 'custom-swal-cancel-btn',
+                    icon: 'custom-swal-icon'
+                },
+                showLoaderOnConfirm: true,
+
+                preConfirm: () => {
+                    return fetch('/sales/cancel_delivery_note', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({ delivery_note_id: deliveryNoteId })
+                    })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(response.statusText);
+                            }
+                            return response.json();
+                        })
+                        .catch(error => {
+                            Swal.showValidationMessage(`Request failed: ${error}`);
+                        });
+                },
+                allowOutsideClick: () => !Swal.isLoading()
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    if (result.value && result.value.status === "success") {
+                        showNotification(
+                            `Invoice <strong>${deliveryNoteId}</strong> has been cancelled successfully.`,
+                            'success'
+                        );
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        const errorMessage = result.value && result.value.message
+                            ? result.value.message
+                            : "An error occurred while cancelling the invoice.";
+
+                        showNotification("error", errorMessage);
+                    }
+                }
+            });
+        });
+
+
+        // JavaScript for approving delivery notes
+        document.getElementById('approve-delivery_note_button').addEventListener('click', function () {
+            const deliveryNoteId = "{{ delivery_note.id }}";
+
+            fetch('/approve_delivery_note', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    delivery_note_id: deliveryNoteId
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        showNotification(data.message, "success");
+
+                        location.reload(); // Reload the page to reflect changes
+                    } else {
+                        showNotification(data.message, "error");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification("An error occurred while approving the delivery note.", "error");
+                });
+        });
+
+
+
+
+
+
+    })
+
+
+</script>
+
+{% endblock %}

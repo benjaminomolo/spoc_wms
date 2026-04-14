@@ -1,0 +1,3217 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+    /* NEW: Current Balances Tab Styles */
+    .current-balances-tab {
+        background-color: #e7f3ff;
+        border-left: 4px solid #007bff;
+    }
+
+    .balance-summary-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .balance-summary-header {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: #2c3e50;
+    }
+
+    .balance-summary-value {
+        font-size: 24px;
+        font-weight: 700;
+        font-family: 'Courier New', monospace;
+    }
+
+
+    .balance-currency-details {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+
+    .closing-balance-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 10px;
+        border-left: 4px solid var(--highlight-color);
+    }
+
+    .account-with-balance {
+        background-color: #e8f5e9 !important;
+        border-left: 3px solid var(--highlight-color) !important;
+    }
+
+    .closing-balance-badge {
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 12px;
+        margin-left: 8px;
+        font-weight: 500;
+        background-color: #28a745;
+        color: white;
+    }
+
+    .closing-balance-value {
+        font-family: 'Courier New', monospace;
+        font-size: 13px;
+        color: #2e3a59;
+        margin-left: 8px;
+    }
+
+
+
+
+
+    .d-none {
+        display: none !important;
+    }
+
+
+
+    .cash-flow-section-selector {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
+    .help-toggle-btn {
+        background: none;
+        border: none;
+        color: #0d6efd;
+        padding: 0.25rem 0;
+        font-size: 0.9rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        margin-top: 0.5rem;
+    }
+
+    .help-toggle-btn:hover {
+        text-decoration: underline;
+    }
+
+    .help-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.25rem;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-top: 0.75rem;
+    }
+
+    .help-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .help-section h6 {
+        font-size: 0.95rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .classification-types {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .type-card {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 6px;
+        border-left: 3px solid;
+    }
+
+    .type-card h6 {
+        font-size: 0.9rem;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .type-card p {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+
+    .type-card ul {
+        font-size: 0.85rem;
+        padding-left: 1.25rem;
+        margin: 0;
+    }
+
+    .type-card.operating {
+        border-left-color: #28a745;
+    }
+
+    .type-card.investing {
+        border-left-color: #17a2b8;
+    }
+
+    .type-card.financing {
+        border-left-color: #6c757d;
+    }
+
+
+
+    .exclusion-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .exclusion-item {
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+        padding: 0.75rem;
+        background: #fff8f8;
+        border-radius: 6px;
+    }
+
+    .exclusion-item i {
+        color: #dc3545;
+        font-size: 1.1rem;
+        margin-top: 0.2rem;
+    }
+
+    .exclusion-item h6 {
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .exclusion-item p {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin: 0;
+    }
+
+    .help-tip {
+        display: flex;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: #e7f1ff;
+        border-radius: 6px;
+    }
+
+    .help-tip i {
+        color: #ffc107;
+        font-size: 1.1rem;
+    }
+
+    .help-tip p {
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .subCategoryRow {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        background: #f8f9fa;
+    }
+
+    /* Tree View Styles */
+    .tree-view-container {
+        margin-top: 20px;
+        border: 1px solid #e0e6ed;
+        border-radius: 12px;
+        padding: 20px;
+        background: white;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Search Bar Styles */
+    .tree-search-container {
+        position: relative;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 15px;
+        color: #8f9bb3;
+        z-index: 2;
+    }
+
+    .tree-search-input {
+        flex: 1;
+        padding: 12px 15px 12px 40px;
+        border: 1px solid #e0e6ed;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: all 0.3s;
+        background-color: #f9fafc;
+    }
+
+    .tree-search-input:focus {
+        outline: none;
+        border-color: #2980b9;
+        box-shadow: 0 0 0 3px rgba(51, 102, 255, 0.1);
+        background-color: white;
+    }
+
+    .search-controls {
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-expand-all,
+    .btn-collapse-all {
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        border: 1px solid #e0e6ed;
+        background-color: white;
+        color: #2e3a59;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-expand-all:hover,
+    .btn-collapse-all:hover {
+        background-color: #f7f9fc;
+        border-color: #c5cee0;
+    }
+
+    /* Tree Structure Styles */
+    .tree-view {
+        list-style: none;
+        padding-left: 0;
+        font-size: 14px;
+    }
+
+    .tree-view ul {
+        list-style: none;
+        padding-left: 28px;
+        border-left: 1px dashed #e0e6ed;
+        margin-left: 12px;
+    }
+
+    .tree-view li {
+        margin: 8px 0;
+        position: relative;
+    }
+
+    .tree-view .toggle {
+        cursor: pointer;
+        margin-right: 8px;
+        color: #8f9bb3;
+        width: 20px;
+        height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+
+    .tree-view .toggle:hover {
+        background-color: #f7f9fc;
+        color: #3366ff;
+    }
+
+    .tree-view .toggle i {
+        font-size: 12px;
+        transition: transform 0.2s;
+    }
+
+    .tree-view .toggle.active i {
+        transform: rotate(90deg);
+    }
+
+    .tree-view .account-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 6px;
+        transition: all 0.2s;
+        flex-grow: 1;
+    }
+
+    .tree-view .account-item:hover {
+        background-color: #f7f9fc;
+    }
+
+    .tree-view .account-type-header {
+        background-color: #f7f9fc;
+        font-weight: 600;
+        color: #222b45;
+    }
+
+    .tree-view .account-category {
+        color: #222b45;
+        font-weight: 500;
+    }
+
+    .tree-view .account-subcategory {
+        color: #2e3a59;
+    }
+
+    .tree-view .account-name {
+        flex-grow: 1;
+        margin-left: 8px;
+    }
+
+    .tree-view .account-code {
+        font-family: 'Courier New', monospace;
+        font-size: 13px;
+        color: #5a657c;
+        background-color: #f2f4f8;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-right: 8px;
+    }
+
+    .tree-view .account-type-icon {
+        width: 20px;
+        color: #8f9bb3;
+        margin-right: 8px;
+        text-align: center;
+    }
+
+    .tree-view .item-count {
+        font-size: 12px;
+        color: #8f9bb3;
+        margin-left: 12px;
+        font-weight: normal;
+    }
+
+    /* Badge Styles */
+    .tree-view .account-badge {
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 12px;
+        margin-left: 8px;
+        font-weight: 500;
+        letter-spacing: 0.3px;
+    }
+
+    .badge-cash {
+        background-color: #003366;
+        color: white;
+    }
+
+    .badge-bank {
+        background-color: #00b5b8;
+        color: white;
+    }
+
+    .badge-receivable {
+        background-color: #008c8a;
+        color: white;
+    }
+
+    .badge-payable {
+        background-color: #2980b9;
+        color: white;
+    }
+
+    /* Highlight for search results */
+    .tree-view .highlight {
+        background-color: #fff8e1;
+        color: #ff8f00;
+        font-weight: 600;
+        padding: 0 2px;
+        border-radius: 2px;
+    }
+
+    /* Animation for expanding/collapsing */
+    .tree-view ul {
+        transition: max-height 0.3s ease-out;
+        overflow: hidden;
+    }
+
+    /* Stack vertically on small screens */
+    @media (max-width: 576px) {
+        .toggle-group {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .toggle-item {
+            width: 100%;
+        }
+
+
+
+        .tree-view-container {
+            padding: 15px;
+        }
+
+        .tree-search-container {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .tree-search-input {
+            width: 80%;
+            margin-bottom: 5px;
+            margin-top: -5px;
+        }
+
+        .btn-expand-all,
+        .btn-collapse-all {
+            width: 100%;
+            text-align: center;
+        }
+
+
+    }
+
+
+    /* NEW: Multiple Vendor Balances Styles */
+    /* Enhanced styles for disabled vs enabled inputs */
+    .account-total-input:read-only {
+        background-color: #f8f9fa !important;
+        border-color: #dee2e6;
+        cursor: not-allowed;
+    }
+
+    .account-total-input:not(:read-only) {
+        background-color: #fff3cd !important;
+        border-color: #ffc107;
+    }
+
+    .vendor-balances-container.active~.vendor-total {
+        font-weight: bold;
+        color: #28a745;
+    }
+
+    /* Visual indicator for account types */
+    .account-type-indicator {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        margin-left: 5px;
+    }
+
+    .account-type-receivable {
+        background-color: #008c8a;
+        color: white;
+    }
+
+    .account-type-payable {
+        background-color: #2980b9;
+        color: white;
+    }
+
+    .account-type-regular {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    /* Ensure vendor sections are hidden by default */
+    .vendor-balances-container {
+        display: none;
+        margin-top: 10px;
+    }
+
+    .vendor-balances-container.active {
+        display: block;
+    }
+
+    /* Visual indicators for account types */
+    .account-total-input:read-only {
+        background-color: #f8f9fa !important;
+        border-color: #dee2e6;
+        cursor: not-allowed;
+    }
+
+    .account-total-input:not(:read-only) {
+        background-color: #fff3cd !important;
+        border-color: #ffc107;
+        cursor: text;
+    }
+
+    .add-vendor-balance,
+    .remove-vendor-balance {
+        font-size: 12px;
+    }
+</style>
+
+<div class="content-container">
+
+    <!-- Tab Links -->
+    <!-- Tab Links -->
+    <div class="tab">
+        <button class="tablinks" onclick="openTab(event, 'treeView')" id="defaultOpen">Account Hierarchy</button>
+
+
+        <button class="tablinks" onclick="openTab(event, 'chartofaccountsList')">Chart of Accounts
+            List</button>
+
+        {% if role == 'Admin' or role == 'Contributor' %}
+        <button class="tablinks" onclick="openTab(event, 'addChartofaccounts')">Add Ledger Account</button>
+        {% endif %}
+
+        <button class="tablinks" onclick="window.location.href='{{ url_for('general_ledger.new_category') }}'">Go to
+            Parent
+            Account</button>
+
+        <!-- NEW: Opening Balances Tab -->
+        <button class="tablinks" onclick="openTab(event, 'openingBalances')">Opening Balances</button>
+    </div>
+
+
+    <!-- Tab Content -->
+    <div id="addChartofaccounts" class="tabcontent">
+
+        <h4>Add New General Ledger Account</h4>
+
+
+
+
+        <form id="chartOfAccountsForm" onsubmit="submitChartOfAccounts(event)"
+            action="{{url_for('general_ledger.submit_chart_of_accounts')}}" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-grid">
+                <div class="form-group">
+
+                    <select class="form-select form-select-sm" id="inputAccountType" name="inputAccountType" required
+                        onchange="updateCategories()">
+                        <option value="" selected>Select Account Type</option>
+                        <option value="Expense">Expense</option>
+                        <option value="Income">Income</option>
+                        <option value="Liability">Liability</option>
+                        <option value="Asset">Asset</option>
+                        <option value="Equity">Equity</option>
+                    </select>
+                    <label for="inputAccountType" class="form-label">Account Type <span class="required">*</span>
+                    </label>
+                </div>
+
+                <div class="form-group" style="display: none;">
+
+                    <input type="text" class="form-control form-control-sm" id="inputAccountTypeId"
+                        name="inputAccountTypeId" placeholder="" readonly hidden>
+                    <label for="inputAccountTypeId" class="form-label" hidden>Account ID</label>
+                </div>
+
+                <div class="form-group">
+                    <select class="form-select form-select-sm" id="parentCategory" name="parentCategory" required
+                        disabled>
+                        <option value="" disabled selected></option>
+                        {% for category in categories %}
+                        <option value="{{ category.name }}" data-type="{{ category.type }}">{{ category.code }} - {{
+                            category.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <label for="parentCategory" class="form-label">Parent Category <span
+                            class="required">*</span></label>
+
+                    <!-- Add this message and button when no categories exist -->
+                    {% if not categories %}
+                    <div class="alert alert-info mt-2">
+                        <p class="mb-2">No parent categories found. You need to create a parent category first.</p>
+                        <button type="button" class="button-outline" onclick="redirectToParentCategory()">
+                            <i class="fas fa-plus"></i> Add Parent Category
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group" style="display: none;">
+
+                    <input type="text" class="form-control" id="parentCategoryId" name="parentCategoryId" placeholder=""
+                        required readonly hidden>
+                    <label for="parentCategoryId" class="form-label" hidden>Parent Category ID</label>
+                </div>
+
+
+                <div id="subCategoryInputs">
+                    <div class="subCategoryRow">
+                        <div class="form-group">
+                            <input type="text" class="form-control form-control-sm subCategoryInput" name="subCategory"
+                                id="subCategory" placeholder=" " required autocomplete="off"
+                                onblur="checkRetainedEarnings(this)">
+                            <label for="subCategory" class="form-label">Sub-category <span
+                                    class="required">*</span></label>
+
+                            <small class="form-text text-muted">The specific name for this account (e.g., "Office
+                                Supplies")</small>
+                        </div>
+
+                        <div class="form-group">
+                            <input id="subCategoryId" type="text" class="form-control form-control-sm subCategoryInput"
+                                name="subCategoryId" placeholder="" required autocomplete="off"
+                                onblur="checkRetainedEarnings(this)">
+                            <label for="subCategoryId" class="form-label">Sub-category ID <span
+                                    class="required">*</span></label>
+
+                            <small class="form-text text-muted">Unique identifier for this account (e.g., 1100 for
+                                Cash)</small>
+                        </div>
+
+
+
+                        <div class="form-group cash-flow-section-selector">
+                            <label for="report_section_id" class="form-label">
+                                Cash Flow Classification
+                                <span class="input-helper" data-toggle="tooltip"
+                                    data-tooltip="Required for balance sheet accounts only. Income/expense accounts are auto-classified.">
+                                    <i class="fas fa-info-circle"></i>
+                                </span>
+                            </label>
+
+                            <select class="form-control" id="report_section_id" name="report_section_id">
+                                <option value="" selected>Not Applicable</option>
+                                <option value="1">Operating Activities</option>
+                                <option value="2">Investing Activities</option>
+                                <option value="3">Financing Activities</option>
+                            </select>
+
+                            <button type="button" class="help-toggle-btn" onclick="toggleHelp(this)"
+                                aria-expanded="false" aria-controls="cash-flow-help">
+                                <i class="fas fa-question-circle"></i> How do I classify this account?
+                            </button>
+
+                            <div class="cash-flow-help" style="display: none;" aria-hidden="true">
+                                <div class="help-card">
+                                    <div class="help-section">
+                                        <h6><i class="fas fa-check-circle text-success"></i> <strong>Classify these
+                                                balance sheet accounts:</strong></h6>
+                                        <div class="classification-types">
+                                            <div class="type-card operating">
+                                                <h6><span class="badge">1</span> Operating Activities</h6>
+                                                <ul>
+                                                    <li><strong>Accounts Receivable</strong> (Customer payments)</li>
+                                                    <li><strong>Accounts Payable</strong> (Supplier payments)</li>
+                                                    <li><strong>Accrued Liabilities</strong> (Wages/taxes payable)</li>
+                                                </ul>
+                                            </div>
+                                            <div class="type-card investing">
+                                                <h6><span class="badge">2</span> Investing Activities</h6>
+                                                <ul>
+                                                    <li><strong>Property/Equipment</strong> (Asset purchases)</li>
+                                                    <li><strong>Investments</strong> (Stocks/bonds)</li>
+                                                </ul>
+                                            </div>
+                                            <div class="type-card financing">
+                                                <h6><span class="badge">3</span> Financing Activities</h6>
+                                                <ul>
+                                                    <li><strong>Loans Payable</strong> (Debt received/repaid)</li>
+                                                    <li><strong>Owner's Equity</strong> (Capital contributions)</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="help-section warning-section">
+                                        <h6><i class="fas fa-times-circle text-danger"></i> <strong>Never classify
+                                                these:</strong></h6>
+                                        <div class="exclusion-grid">
+                                            <div class="exclusion-item">
+                                                <i class="fas fa-file-invoice-dollar"></i>
+                                                <div>
+                                                    <h6>Income/Expense Accounts</h6>
+                                                    <p>Sales, rent, salaries, COGS (auto-classified)</p>
+                                                </div>
+                                            </div>
+                                            <div class="exclusion-item">
+                                                <i class="fas fa-money-bill-wave"></i>
+                                                <div>
+                                                    <h6>Cash Accounts</h6>
+                                                    <p>Bank accounts, petty cash (tracked automatically)</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="help-tip">
+                                        <i class="fas fa-lightbulb"></i>
+                                        <p><strong>Tip:</strong> Only classify accounts that represent either:
+                                        <ul class="tip-list">
+                                            <li><strong>Money owed to/from others</strong> (receivables, payables,
+                                                loans)</li>
+                                            <li><strong>Long-term assets</strong> (property, equipment, investments)
+                                            </li>
+                                            <li><strong>Funding sources</strong> (owner capital, stock)</li>
+                                        </ul>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <div class="form-group">
+                            <select class="form-control" id="normalBalance" name="normal_balance" required>
+                                <option value="" selected disabled>Select Normal Balance</option>
+                                <option value="Debit">Debit</option>
+                                <option value="Credit">Credit</option>
+                            </select>
+                            <label for="normalBalance" class="form-label">Normal Balance<span
+                                    class="required">*</span></label>
+
+                            <small class="form-text text-muted">Expected balance type for this account</small>
+                        </div>
+
+                        <!-- Cash/Bank Account Toggles -->
+                        <!-- In your form, for each sub-category row -->
+
+                        <div class="toggle-group">
+                            <div class="toggle-item">
+                                <!-- Cash Account Checkbox -->
+                                <input type="checkbox" class="isCashCheckbox" name="is_cash" id="is_cash" value="true">
+                                <label for="is_cash">Is Cash Account</label>
+                            </div>
+
+                            <div class="toggle-item">
+                                <!-- Bank Account Checkbox -->
+                                <input type="checkbox" class="isBankCheckbox" name="is_bank" id="is_bank" value="true">
+                                <label for="is_bank">Is Bank Account</label>
+                            </div>
+
+                            <div class="toggle-item">
+                                <!-- Receivable Checkbox -->
+                                <input type="checkbox" class="isReceivableCheckbox" name="is_receivable"
+                                    id="is_receivable" value="true">
+                                <label for="is_receivable">Is Receivable Account</label>
+                            </div>
+
+                            <div class="toggle-item">
+                                <!-- Payable Checkbox -->
+                                <input type="checkbox" class="isPayableCheckbox" name="is_payable" id="is_payable"
+                                    value="true">
+                                <label for="is_payable">Is Payable Account</label>
+                            </div>
+                        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        <div class="form-group">
+                            <button type="button" class="remove-button" onclick="removeSubCategory(this)">Remove
+                                row</button>
+                        </div>
+                    </div>
+                </div>
+
+                <style>
+                    /* Add this to your CSS */
+                    .toggle-group {
+                        display: flex;
+                        gap: 15px;
+                        align-items: center;
+                    }
+
+                    .toggle-item {
+                        display: flex;
+                        align-items: center;
+                        gap: 5px;
+                    }
+
+                    .toggle-item input[type="checkbox"] {
+                        margin: 0;
+                    }
+                </style>
+
+
+                <div>
+                    <button type="button" class="button-outline" onclick="addSubCategory()">
+                        <i class="fas fa-plus"></i> Add Another Account
+                    </button>
+                </div>
+
+                <div>
+                    <input type="submit" class="cta-button" style="border: none; border-radius: 5px;" value="Submit">
+                </div>
+            </div>
+        </form>
+
+    </div>
+
+
+
+    <div id="chartofaccountsList" class="tabcontent">
+        <h4> Chart of Accounts – View & Manage</h4>
+        <table id="chart-list" class="stripe">
+            <thead>
+                <tr>
+                    <th>Account Type</th>
+                    <th>Parent Category</th>
+                    <th>Parent Category ID</th>
+                    <th>Sub-categories</th>
+                    <th>Sub-categories ID</th>
+                    <th>Normal Balance</th>
+                    <th>Cash Flow Report Section</th>
+                    <th>Is Bank Account?</th>
+                    <th>Is Cash Account?</th>
+                    <th>Is Receivable?</th>
+                    <th>Is Payable?</th>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <th>Action</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody id="chart-list-body">
+                {% for chart in charts %}
+                <tr>
+                    <td>{{ chart.categories.account_type }}
+
+                        {% if chart.is_active %}
+                        <span class="badge bg-success">
+                            active
+                        </span>
+                        {% else %}
+                        <span class="badge bg-danger">
+                            inactive
+                        </span>
+                        {% endif %}
+
+                    </td>
+                    <td>{{ chart.categories.category }}</td>
+                    <td>{{ chart.categories.category_id }}</td>
+                    <td>{{ chart.sub_category }}</td>
+                    <td>{{ chart.sub_category_id }}</td>
+                    <td>{{ chart.normal_balance }}</td>
+                    <td>{{ chart.report_section.name or "N/A" }}</td>
+
+                    <td>{{ 'Yes' if chart.is_bank else 'No' }}</td>
+                    <td>{{ 'Yes' if chart.is_cash else 'No' }}</td>
+                    <td>{{ 'Yes' if chart.is_receivable else 'No' }}</td>
+                    <td>{{ 'Yes' if chart.is_payable else 'No' }}</td>
+
+                    {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
+                    <td>
+                        <div class="action-icons-clean">
+                            {% if not chart.is_system_account %}
+                            <div class="custom-tooltip-container">
+                                <a href="#" class="edit-icon" onclick="editSubCategory(this, '{{ chart.id }}')">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <span class="custom-tooltip left">Edit</span>
+                            </div>
+                            {% else %}
+                            <div class="custom-tooltip-container">
+                                <span class="text-muted">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <span class="custom-tooltip left">System accounts cannot be edited</span>
+                            </div>
+                            {% endif %}
+
+                            {% if not chart.is_system_account %}
+                            <div class="custom-tooltip-container">
+                                {% if chart.is_active %}
+                                <a href="#" class="deactivate-icon"
+                                    onclick="toggleAccountStatus(this, '{{ chart.id }}', false)">
+                                    <i class="fas fa-ban"></i>
+                                </a>
+                                <span class="custom-tooltip left">Deactivate</span>
+                                {% else %}
+                                <a href="#" class="activate-icon"
+                                    onclick="toggleAccountStatus(this, '{{ chart.id }}', true)">
+                                    <i class="fas fa-check-circle"></i>
+                                </a>
+                                <span class="custom-tooltip left">Activate</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+                            {% if not chart.is_system_account %}
+                            <div class="custom-tooltip-container">
+                                <a href="#" class="delete-icon" onclick="deleteSubCategory(this, '{{ chart.id }}')">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                                <span class="custom-tooltip left">Delete</span>
+                            </div>
+                            {% endif %}
+
+                            <div class="custom-tooltip-container">
+                                <a href="#" class="save-icon d-none" onclick="saveSubCategory(this, '{{ chart.id }}')">
+                                    <i class="fas fa-check"></i>
+                                </a>
+                                <span class="custom-tooltip left">Save</span>
+                            </div>
+
+                            <div class="custom-tooltip-container">
+                                <a href="#" class="cancel-icon d-none" onclick="cancelEditSubCategory(this)">
+                                    <i class="fas fa-times"></i>
+                                </a>
+                                <span class="custom-tooltip left">Cancel</span>
+                            </div>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th><input type="text" placeholder="Search Account Type" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Parent Category" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Parent Category ID" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Sub-categories" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Sub-categories ID" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Normal Balance" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Report Section" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Is Bank?" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Is Cash?" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Is Receivable?" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Is Payable?" class="column-search"></th>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <th></th>
+                    {% endif %}
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- New Tree View Tab -->
+    <!-- New Tree View Tab -->
+    <div id="treeView" class="tabcontent">
+        <h4>Account Structure Details</h4>
+
+        <div class="tree-search-container">
+            <div class="search-icon">
+                <i class="fas fa-search"></i>
+            </div>
+            <input type="text" id="treeSearch" class="tree-search-input" placeholder="Search accounts...">
+            <div class="search-controls">
+                <button class="btn-expand-all" onclick="expandAllTreeNodes()">Expand All</button>
+                <button class="btn-collapse-all" onclick="collapseAllTreeNodes()">Collapse All</button>
+            </div>
+        </div>
+
+
+        {% if not company.opening_balances_date %}
+        <div class="opening-balance-section">
+            <h5 style="margin-top: 2px;">Opening Balances</h5>
+            <p class="text-muted">Set initial account balances for your accounts. Only Balance Sheet
+                accounts (Assets,
+                Liabilities, Equity) require opening balances.</p>
+            <button class="button-outline" onclick="openOpeningBalancesModal()">Enter Opening Balances</button>
+        </div>
+        {% endif %}
+
+
+        <!-- MODIFIED: Added opening balance display to account items -->
+        <div id="treeViewContent">
+            <ul class="tree-view">
+                {% for account_type, categories in account_tree.items() %}
+                <li>
+                    <span class="toggle" onclick="toggleTreeNode(this)">
+                        <i class="fas fa-chevron-right"></i>
+                    </span>
+                    <span class="account-item account-type-header">
+                        <span class="account-type-icon">
+                            <i class="fas fa-folder"></i>
+                        </span>
+                        <strong>{{ account_type }}</strong>
+                        <span class="item-count">{{ categories|length }} categories</span>
+                    </span>
+                    <ul style="display: none;">
+                        {% for category in categories %}
+                        <li>
+                            <span class="toggle" onclick="toggleTreeNode(this)">
+                                <i class="fas fa-chevron-right"></i>
+                            </span>
+                            <span class="account-item account-category">
+                                <span class="account-type-icon">
+                                    <i class="fas fa-tag"></i>
+                                </span>
+                                <span class="account-code">{{ category.code }}</span>
+                                <span class="account-name">{{ category.name }}</span>
+                                <span class="item-count">{{ category.subcategories|length }} accounts</span>
+                            </span>
+                            <ul style="display: none;">
+                                {% for subcategory in category.subcategories %}
+                                <li>
+                                    <span class="account-item account-subcategory" id="account-{{ subcategory.id }}">
+                                        <span class="account-type-icon">
+                                            {% if subcategory.is_cash %}
+                                            <i class="fas fa-money-bill-wave"></i>
+                                            {% elif subcategory.is_bank %}
+                                            <i class="fas fa-university"></i>
+                                            {% elif subcategory.is_receivable %}
+                                            <i class="fas fa-hand-holding-usd"></i>
+                                            {% elif subcategory.is_payable %}
+                                            <i class="fas fa-file-invoice-dollar"></i>
+                                            {% else %}
+                                            <i class="fas fa-file-alt"></i>
+                                            {% endif %}
+                                        </span>
+                                        <span class="account-code">{{ subcategory.code }}</span>
+                                        <span class="account-name">{{ subcategory.name }}</span>
+
+                                        <!-- Closing balance display -->
+                                        <!-- Closing balance display - Make it clickable -->
+                                        <a href="javascript:void(0);" class="closing-balance-value clickable-balance"
+                                            id="balance-{{ subcategory.id }}" data-account-id="{{ subcategory.id }}"
+                                            onclick="viewAccountDetails({{ subcategory.id }})">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                        </a>
+
+                                        {% if subcategory.is_cash %}<span class="account-badge badge-cash">Cash</span>{%
+                                        endif %}
+                                        {% if subcategory.is_bank %}<span class="account-badge badge-bank">Bank</span>{%
+                                        endif %}
+                                        {% if subcategory.is_receivable %}<span
+                                            class="account-badge badge-receivable">Receivable</span>{% endif %}
+                                        {% if subcategory.is_payable %}<span
+                                            class="account-badge badge-payable">Payable</span>{% endif %}
+                                    </span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+
+
+    <!-- NEW: Opening Balances Tab Content -->
+    <div id="openingBalances" class="tabcontent">
+        <h4>Manage Opening Balances</h4>
+
+        {% if not company.opening_balances_locked %}
+        <div class="opening-balance-section">
+            <p class="text-muted">
+                Enter opening balances for all Balance Sheet accounts as of your conversion date.
+                The system will automatically balance the entries using Retained Earnings.
+            </p>
+
+            <div class="alert alert-info">
+                <strong>Note:</strong> For Receivable and Payable accounts, you can assign balances to multiple
+                vendors/customers.
+            </div>
+
+            <button class="button-outline" onclick="openOpeningBalancesModal()">Enter/Edit Opening Balances</button>
+            {% if role == 'Admin' %}
+            <button class="button-outline btn-danger" onclick="lockOpeningBalances()">Lock Opening Balances</button>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="alert alert-warning">
+            <strong>System Notice:</strong> Opening balances are currently locked and cannot be edited. Contact your
+            administrator for changes.
+        </div>
+        {% endif %}
+
+        <h5>Account Opening Balances {%if company.opening_balances_date%} as of {{company.opening_balances_date}}
+            {%endif%}</h5>
+        <table class="table table-striped">
+            <thead class="table-light">
+                <tr>
+                    <th>Account Code</th>
+                    <th>Account Name</th>
+                    <th>Type</th>
+                    <th>Normal Balance</th>
+                    <th>Total Amount</th>
+                    <th>Vendor / Customer Balances</th>
+                </tr>
+            </thead>
+            <tbody id="opening-balances-table">
+                {% for account_type, categories in account_tree.items() %}
+                {% if account_type in ['Asset', 'Liability', 'Equity'] %}
+                {% for category in categories %}
+                {% for subcategory in category.subcategories %}
+                {% if 'retained earnings' not in subcategory.name|lower and not subcategory.is_system_account %}
+                <!-- ADD THIS CONDITION -->
+                <tr>
+                    <td>{{ subcategory.code }}</td>
+                    <td>{{ subcategory.name }}</td>
+                    <td>{{ account_type }}</td>
+                    <td>{{ subcategory.normal_balance }}</td>
+                    <td class="{% if subcategory.opening_balance %}fw-bold{% endif %}">
+                        {% if subcategory.opening_balance %}
+                        {{ "{:,.2f}".format(subcategory.opening_balance) }}
+                        {% else %}
+                        {% if company.opening_balances_date %}
+                        0.00
+                        {% else %}
+                        <span class="text-muted">Not set</span>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if subcategory.vendor_balances %}
+                        <ul class="list-unstyled mb-0">
+                            {% for vb in subcategory.vendor_balances %}
+                            <li>
+                                <small>{{ vb.vendor_name }}: {{ "{:,.2f}".format(vb.balance) }}</small>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+                {% endfor %}
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+</div>
+
+<!-- UPDATED: Opening Balances Modal -->
+<div class="modal fade" id="openingBalancesModal" tabindex="-1" aria-labelledby="openingBalancesModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="openingBalancesModalLabel">Enter Opening Balances</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info mb-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Enter balances for all accounts as of your conversion date. For Receivable/Payable accounts, you can
+                    add multiple vendor/customer balances.
+                </div>
+
+                <form id="openingBalanceForm">
+                    <input type="hidden" id="openingBalanceDate" value="{{ conversion_date }}">
+
+                    <div class="form-grid">
+                        <div class="form-group mb-4">
+                            <label for="conversionDate" class="form-label fw-bold">Conversion Date <span
+                                    class="required">*</span></label>
+                            <input type="date" class="form-control" id="conversionDate" value="{{ conversion_date }}"
+                                required>
+                            <small class="form-text text-muted">The date as of which these opening balances are
+                                effective.</small>
+                        </div>
+                    </div>
+
+                    <h5 class="mb-3">Account Balances</h5>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Account Code</th>
+                                    <th>Account Name</th>
+                                    <th>Type</th>
+                                    <th>Normal Balance</th>
+                                    <th>Total Amount</th>
+                                    <th>Vendor/Customer Balances</th>
+                                </tr>
+                            </thead>
+                            <tbody id="openingBalanceAccounts">
+                                {% for account_type, categories in account_tree.items() %}
+                                {% if account_type in ['Asset', 'Liability', 'Equity'] %}
+                                {% for category in categories %}
+                                {% for subcategory in category.subcategories %}
+                                {% if 'retained earnings' not in subcategory.name|lower and not
+                                subcategory.is_system_account %} <!-- ADD THIS CONDITION -->
+                                <tr data-account-id="{{ subcategory.id }}" data-account-type="{{ account_type }}"
+                                    data-normal-balance="{{ subcategory.normal_balance }}"
+                                    data-is-receivable="{{ 'true' if subcategory.is_receivable else 'false' }}"
+                                    data-is-payable="{{ 'true' if subcategory.is_payable else 'false' }}">
+                                    <td>{{ subcategory.code }}</td>
+                                    <td>{{ subcategory.name }}</td>
+                                    <td>{{ account_type }}</td>
+                                    <td>{{ subcategory.normal_balance }}</td>
+                                    <td>
+                                        <input type="text" style="width: 85%; margin-left: -2px;"
+                                            class="form-control form-control-sm account-total-input"
+                                            id="account-total-{{ subcategory.id }}"
+                                            value="{% if subcategory.opening_balance %}{{ subcategory.opening_balance }}{% endif %}"
+                                            placeholder="0.00" readonly>
+                                    </td>
+                                    <td>
+                                        <!-- Vendor Balances Container -->
+                                        <div class="vendor-balances-container"
+                                            id="vendor-balances-{{ subcategory.id }}">
+                                            <div class="vendor-balances-list"
+                                                id="vendor-balances-list-{{ subcategory.id }}">
+                                                {% for vb in subcategory.vendor_balances %}
+                                                <div class="vendor-balance-entry" id="vendor-entry-{{ vb.vendor_id }}">
+                                                    <select class="form-control form-control-sm vendor-select"
+                                                        data-entry-id="{{ vb.vendor_id }}"
+                                                        onchange="updateVendorTotal('{{ subcategory.id }}')">
+                                                        <option value="{{ vb.vendor_id }}" selected>{{ vb.vendor_name }}
+                                                        </option>
+                                                    </select>
+                                                    <input type="text" style="width:90%;"
+                                                        class="form-control form-control-sm vendor-balance-amount"
+                                                        value="{{ " {:,.2f}".format(vb.balance) }}"
+                                                        oninput="updateVendorTotal('{{ subcategory.id }}')"
+                                                        data-entry-id="{{ vb.vendor_id }}">
+                                                    <button type="button" class="remove-vendor-balance remove-button"
+                                                        onclick="removeVendorBalance('{{ subcategory.id }}', '{{ vb.vendor_id }}')">×</button>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                            <button type="button" class="add-vendor-balance button-outline"
+                                                onclick="addVendorBalance('{{ subcategory.id }}')">
+                                                + Add Vendor/Customer
+                                            </button>
+                                            <div class="vendor-total" id="vendor-total-{{ subcategory.id }}">
+                                                Total: {{ "{:,.2f}".format(subcategory.vendor_balances |
+                                                sum(attribute='balance') if subcategory.vendor_balances else 0) }}
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                                {% endfor %}
+                                {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="form-grid mt-4">
+                        <div class="form-group mb-4">
+                            <div id="balanceDifference" class="balance-difference unbalanced p-3 rounded">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-exclamation-circle info-icon"></i>
+                                    <span>Debits and Credits are not balanced. Difference: <span id="differenceAmount"
+                                            class="fw-bold">0.00</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="button" class="button cta-button" id="saveOpeningBalance"
+                            onclick="saveOpeningBalances()">
+                            <i class="fas fa-save me-2"></i>Save Opening Balances
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+
+    const base_currency_id = {{ base_currency_id }};
+    let vendors = [];
+    let vendorBalances = {}; // Store vendor balances by account ID
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const categorySelect = document.getElementById('parentCategory');
+        originalOptions = Array.from(categorySelect.options).map(option => ({ value: option.value, text: option.text, type: option.getAttribute('data-type') }));
+        categorySelect.disabled = true;
+
+
+        $('#parentCategory').change(function () {
+            var parent_category_name = $(this).val();
+            if (parent_category_name) {
+                $.get('/get_category_id/', { parent_category_name: parent_category_name }, function (response) {
+                    $('#parentCategoryId').val(response.category_id);
+                });
+            } else {
+                $('#parentCategoryId').val('');
+            }
+        });
+
+        $('#inputAccountType').change(function () {
+            var inputAccountType_name = $(this).val().toLowerCase();
+            if (inputAccountType_name) {
+                $.get('/get_account_type_id/', { inputAccountType_name: inputAccountType_name }, function (response) {
+                    $('#inputAccountTypeId').val(response.account_type_id);
+                });
+            } else {
+                $('#inputAccountTypeId').val('');
+            }
+        });
+
+
+        //    Load current baances
+
+        loadCurrentBalances();
+
+        loadVendors();
+        initializeVendorBalances();
+
+    });
+
+
+    // FIXED: Improved vendor loading with proper account type differentiation
+    function loadVendors(type = 'all') {
+        fetch(`/general_ledger/api/vendors?type=${type}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    vendors = data.vendors;
+                    console.log(`Loaded ${vendors.length} vendors`);
+
+                    // Re-initialize vendor balances now that vendors are loaded
+                    initializeVendorBalances();
+                } else {
+                    console.error('Failed to load vendors:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading vendors:', error);
+                // Retry after a delay
+                setTimeout(() => loadVendors(type), 2000);
+            });
+    }
+
+    // FIXED: Initialize vendor balances with proper account type differentiation
+    // FIXED: Initialize vendor balances with proper handling for existing vendor balances
+    function initializeVendorBalances() {
+        document.querySelectorAll('#openingBalanceAccounts tr').forEach(row => {
+            const accountId = row.getAttribute('data-account-id');
+            const isReceivable = row.getAttribute('data-is-receivable') === 'true';
+            const isPayable = row.getAttribute('data-is-payable') === 'true';
+            const accountType = row.getAttribute('data-account-type');
+
+            // Initialize vendorBalances for this account
+            vendorBalances[accountId] = [];
+
+            const vendorContainer = document.getElementById(`vendor-balances-${accountId}`);
+            const vendorBalancesList = document.getElementById(`vendor-balances-list-${accountId}`);
+            const accountTotalInput = document.getElementById(`account-total-${accountId}`);
+
+            if (vendorContainer && (isReceivable || isPayable)) {
+                // For payable/receivable accounts: show vendor balances, disable direct input
+                vendorContainer.classList.add('active');
+                accountTotalInput.readOnly = true;
+                accountTotalInput.style.backgroundColor = '#f8f9fa';
+
+                // Determine vendor type based on account type
+                const vendorType = isReceivable ? 'customer' : 'vendor';
+                console.log(`Account ${accountId} is ${accountType}, loading ${vendorType}s`);
+
+                // Check if there are existing vendor balances in the HTML
+                const existingEntries = vendorBalancesList.querySelectorAll('.vendor-balance-entry');
+
+                if (existingEntries.length > 0) {
+                    console.log(`Found ${existingEntries.length} existing vendor balances for account ${accountId}`);
+
+                    // Populate existing vendor balance entries
+                    existingEntries.forEach(entry => {
+                        const vendorSelect = entry.querySelector('.vendor-select');
+                        const amountInput = entry.querySelector('.vendor-balance-amount');
+                        const entryId = vendorSelect.getAttribute('data-entry-id');
+
+                        // Add to vendorBalances data structure
+                        vendorBalances[accountId].push({
+                            id: entryId,
+                            vendor_id: vendorSelect.value,
+                            vendor_type: vendorType,
+                            amount: parseFloat(amountInput.value) || 0
+                        });
+
+                        // Populate the dropdown for this entry
+                        populateVendorDropdown(vendorSelect, vendorType);
+                    });
+
+                    // Update the vendor total
+                    updateVendorTotal(accountId);
+                } else {
+                    // No existing entries, add a new one if vendors are loaded
+                    if (vendors.length > 0) {
+                        addVendorBalance(accountId);
+                    } else {
+                        // If vendors aren't loaded yet, wait a bit and try again
+                        setTimeout(() => {
+                            if (vendors.length > 0) {
+                                addVendorBalance(accountId);
+                            }
+                        }, 500);
+                    }
+                }
+            } else {
+                // For other accounts: hide vendor balances, enable direct input
+                vendorContainer.classList.remove('active');
+                accountTotalInput.readOnly = false;
+                accountTotalInput.style.backgroundColor = '';
+
+                // Add change listener for manual input
+                accountTotalInput.addEventListener('input', function () {
+                    calculateBalanceDifference();
+                });
+            }
+        });
+    }
+
+    // Update vendor total for an account
+    // FIXED: Update vendor total for an account using your existing formatAmount function
+    function updateVendorTotal(accountId) {
+        let total = 0;
+        const entries = document.querySelectorAll(`#vendor-balances-list-${accountId} .vendor-balance-entry`);
+
+        entries.forEach(entry => {
+            const amountInput = entry.querySelector('.vendor-balance-amount');
+
+            // Use the same logic as your formatAmount function to parse the value
+            const value = amountInput.value.replace(/,/g, "");
+            const amount = !isNaN(value) && value !== "" ? parseFloat(value) : 0;
+
+            total += amount;
+
+            // Update data structure
+            const entryId = amountInput.getAttribute('data-entry-id');
+            const vendorSelect = entry.querySelector('.vendor-select');
+            const vendorId = vendorSelect.value;
+
+            // Find or create the balance entry
+            let balanceEntry = vendorBalances[accountId].find(entry => entry.id == entryId);
+            if (!balanceEntry) {
+                balanceEntry = { id: entryId, vendor_id: vendorId, amount: amount };
+                vendorBalances[accountId].push(balanceEntry);
+            } else {
+                balanceEntry.vendor_id = vendorId;
+                balanceEntry.amount = amount;
+            }
+
+            // Apply formatting to the input using your existing function
+            formatAmount(amountInput);
+        });
+
+        // Update display
+        document.getElementById(`vendor-total-${accountId}`).textContent = `Total: ${formatCurrency(total, "{{ base_currency }}", false)}`;
+
+        // Update account total input (only for payable/receivable accounts)
+        const accountTotalInput = document.getElementById(`account-total-${accountId}`);
+        if (accountTotalInput.readOnly) {
+            accountTotalInput.value = total.toFixed(2);
+        }
+
+        // Recalculate overall balance difference
+        calculateBalanceDifference();
+    }
+
+    // UPDATED: Save opening balances with proper handling
+    // FIXED: Enhanced saveOpeningBalances with proper debit/credit handling
+    // FIXED: Enhanced saveOpeningBalances with proper vendor balance handling
+    function saveOpeningBalances() {
+        const conversionDate = document.getElementById('conversionDate').value;
+
+        if (!conversionDate) {
+            showNotification('Please select a conversion date', 'error');
+            return;
+        }
+
+        const balances = [];
+        let hasValidationErrors = false;
+
+        // Process each account
+        document.querySelectorAll('#openingBalanceAccounts tr').forEach(row => {
+            const accountId = row.getAttribute('data-account-id');
+            const isReceivable = row.getAttribute('data-is-receivable') === 'true';
+            const isPayable = row.getAttribute('data-is-payable') === 'true';
+            const accountTotalInput = document.getElementById(`account-total-${accountId}`);
+
+            // Calculate total amount correctly
+            let totalAmount = 0;
+
+            if (isReceivable || isPayable) {
+                // For payable/receivable accounts, sum vendor balances
+                totalAmount = vendorBalances[accountId]?.reduce((sum, entry) => sum + (entry.amount || 0), 0) || 0;
+            } else {
+                // For other accounts, use direct input
+                totalAmount = parseFloat(accountTotalInput.value) || 0;
+            }
+
+            if (totalAmount !== 0) {
+                // In your saveOpeningBalances function, update the vendor balance structure:
+                const accountData = {
+                    account_id: accountId,
+                    total_balance: totalAmount,
+                    currency_id: base_currency_id,
+                    vendor_balances: (isReceivable || isPayable) ? vendorBalances[accountId].map(balance => ({
+                        ...balance,
+                        // Ensure we have the vendor type for backend processing
+                        vendor_type: balance.vendor_type || (isReceivable ? 'customer' : 'vendor')
+                    })) : []
+                };
+
+                // Validate vendor balances for payable/receivable accounts
+                if ((isReceivable || isPayable)) {
+                    if (accountData.vendor_balances.length === 0 && totalAmount !== 0) {
+                        showNotification(`Please add vendor/customer entries for ${row.cells[1].textContent}`, 'warning');
+                        hasValidationErrors = true;
+                        return;
+                    }
+
+                    const hasInvalidVendors = accountData.vendor_balances.some(balance =>
+                        !balance.vendor_id || balance.amount === 0 || isNaN(balance.amount)
+                    );
+
+                    if (hasInvalidVendors && totalAmount !== 0) {
+                        showNotification(`Please complete all vendor entries for ${row.cells[1].textContent}`, 'warning');
+                        hasValidationErrors = true;
+                        return;
+                    }
+                }
+
+                balances.push(accountData);
+            }
+        });
+
+        if (hasValidationErrors) {
+            return;
+        }
+
+        if (balances.length === 0) {
+            showNotification('Please enter at least one account balance', 'warning');
+            return;
+        }
+
+        // Calculate balance difference with proper debit/credit handling
+        let totalDebits = 0;
+        let totalCredits = 0;
+
+        balances.forEach(account => {
+            const row = document.querySelector(`tr[data-account-id="${account.account_id}"]`);
+            const normalBalance = row.getAttribute('data-normal-balance');
+            const accountType = row.getAttribute('data-account-type');
+
+            if (accountType !== 'Equity') {
+                if (normalBalance === 'Debit') {
+                    if (account.total_balance >= 0) {
+                        totalDebits += account.total_balance;
+                    } else {
+                        totalCredits += Math.abs(account.total_balance);
+                    }
+                } else if (normalBalance === 'Credit') {
+                    if (account.total_balance >= 0) {
+                        totalCredits += account.total_balance;
+                    } else {
+                        totalDebits += Math.abs(account.total_balance);
+                    }
+                }
+            }
+        });
+
+        const retainedEarningsAmount = totalDebits - totalCredits;
+        const absAmount = Math.abs(retainedEarningsAmount).toFixed(2);
+
+        Swal.fire({
+            title: 'Confirm Opening Balances',
+            html: `Save opening balances as of <strong>${conversionDate}</strong>?<br><br>
+           Total Accounts: <strong>${balances.length}</strong><br>
+           Total Debits: <strong>${formatCurrency(totalDebits, "{{ base_currency }}", false)}</strong><br>
+           Total Credits: <strong>${formatCurrency(totalCredits, "{{ base_currency }}", false)}</strong><br>
+           The system will create a Retained Earnings entry of <strong>${formatCurrency(absAmount, "{{ base_currency }}", false)}</strong> to balance the books.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, save balances!',
+            cancelButtonText: 'Cancel',
+            width: '600px',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('/general_ledger/api/opening-balances', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        conversion_date: conversionDate,
+                        balances: balances,
+                        retained_earnings: retainedEarningsAmount,
+                        currency_id: base_currency_id
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('Opening balances saved successfully!', 'success');
+                            $('#openingBalancesModal').modal('hide');
+                            location.reload();
+                        } else {
+                            showNotification('Error saving opening balances: ' + data.error, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showNotification('Error saving opening balances', 'error');
+                    });
+            }
+        });
+    }
+
+    // FIXED: Enhanced addVendorBalance with proper container selection
+    function addVendorBalance(accountId) {
+        const vendorBalancesList = document.getElementById(`vendor-balances-list-${accountId}`);
+        if (!vendorBalancesList) {
+            console.error('Vendor balances list not found for account:', accountId);
+            return;
+        }
+
+        const row = document.querySelector(`tr[data-account-id="${accountId}"]`);
+        const isReceivable = row.getAttribute('data-is-receivable') === 'true';
+        const isPayable = row.getAttribute('data-is-payable') === 'true';
+        const accountType = row.getAttribute('data-account-type');
+
+        // Determine vendor type based on account characteristics
+        let vendorType = 'vendor';
+        if (isReceivable || accountType === 'Asset') {
+            vendorType = 'customer';
+        } else if (isPayable || accountType === 'Liability') {
+            vendorType = 'vendor';
+        }
+
+        console.log(`Adding ${vendorType} balance for account ${accountId} (${accountType})`);
+
+        const entryId = Date.now();
+        const vendorEntry = document.createElement('div');
+        vendorEntry.className = 'vendor-balance-entry';
+        vendorEntry.id = `vendor-entry-${entryId}`;
+
+        vendorEntry.innerHTML = `
+        <select class="form-control form-control-sm vendor-select" 
+                onchange="updateVendorTotal('${accountId}')"
+                data-entry-id="${entryId}">
+            <option value="">Select ${vendorType === 'customer' ? 'Customer' : 'Vendor'}</option>
+        </select>
+        <input type="text" style="width:90%;" 
+               class="form-control form-control-sm vendor-balance-amount" 
+               placeholder="0.00"
+               oninput="updateVendorTotal('${accountId}')"
+               data-entry-id="${entryId}">
+        <button type="button" class="remove-vendor-balance remove-button" 
+                onclick="removeVendorBalance('${accountId}', '${entryId}')">×</button>
+    `;
+
+        vendorBalancesList.appendChild(vendorEntry);
+
+        // Populate vendor dropdown with the correct type
+        const vendorSelect = vendorEntry.querySelector('.vendor-select');
+        populateVendorDropdown(vendorSelect, vendorType);
+
+        // Add to our data structure with vendor type information
+        vendorBalances[accountId].push({
+            id: entryId,
+            vendor_id: '',
+            vendor_type: vendorType,
+            amount: 0
+        });
+
+        // Update the total
+        updateVendorTotal(accountId);
+    }
+
+
+    // Remove a vendor balance entry
+    function removeVendorBalance(accountId, entryId) {
+        const entry = document.getElementById(`vendor-entry-${entryId}`);
+        if (entry) {
+            entry.remove();
+
+            // Remove from data structure
+            vendorBalances[accountId] = vendorBalances[accountId].filter(entry => entry.id != entryId);
+            updateVendorTotal(accountId);
+        }
+    }
+
+    // FIXED: Improved populateVendorDropdown with better filtering
+    function populateVendorDropdown(selectElement, vendorType) {
+        // Clear existing options except the first one
+        while (selectElement.options.length > 1) {
+            selectElement.remove(1);
+        }
+
+        if (!vendors || vendors.length === 0) {
+            console.warn('No vendors available to populate dropdown');
+            // Add a loading option
+            const loadingOption = document.createElement('option');
+            loadingOption.value = '';
+            loadingOption.textContent = 'Loading...';
+            loadingOption.disabled = true;
+            selectElement.appendChild(loadingOption);
+            return;
+        }
+
+        // Filter vendors by type
+        const filteredVendors = vendors.filter(vendor => {
+            if (!vendor.type) {
+                console.warn('Vendor missing type:', vendor);
+                return vendorType === 'vendor'; // Default to vendor if type missing
+            }
+            return vendor.type.toLowerCase() === vendorType.toLowerCase();
+        });
+
+        console.log(`Populating dropdown with ${filteredVendors.length} ${vendorType}(s) out of ${vendors.length} total vendors`);
+
+        // Sort vendors by name for better UX
+        filteredVendors.sort((a, b) => a.name.localeCompare(b.name));
+
+        filteredVendors.forEach(vendor => {
+            const option = document.createElement('option');
+            option.value = vendor.id;
+            option.textContent = `${vendor.name} (${vendor.code || 'No Code'})`;
+            option.setAttribute('data-type', vendor.type); // Store type for reference
+            selectElement.appendChild(option);
+        });
+
+        // If no vendors found, show a message
+        if (filteredVendors.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = `No ${vendorType}s found`;
+            option.disabled = true;
+            selectElement.appendChild(option);
+
+            // Also show available vendor types for debugging
+            const availableTypes = [...new Set(vendors.map(v => v.type).filter(Boolean))];
+            console.log(`Available vendor types: ${availableTypes.join(', ')}`);
+        }
+    }
+
+
+
+    function redirectToParentCategory() {
+        // Show confirmation before redirecting
+        Swal.fire({
+            title: 'Add Parent Category',
+            text: 'You will be redirected to create a parent category. Any unsaved changes w ill be lost.',
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonText: 'Continue',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content',
+                confirmButton: 'custom-swal-confirm-btn',
+                cancelButton: 'custom-swal-cancel-btn',
+                icon: 'custom-swal-icon'
+            },
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Redirect to the parent category page
+                window.location.href = "{{ url_for('general_ledger.new_category') }}";
+            }
+        });
+    }
+
+    // Also update your updateCategories function to handle empty categories
+    function updateCategories() {
+        const accountType = document.getElementById('inputAccountType').value;
+        const categorySelect = document.getElementById('parentCategory');
+
+        // Check if there are any categories for this account type
+        const filteredOptions = originalOptions.filter(option => option.type === accountType);
+
+        if (filteredOptions.length === 0) {
+            // No categories available for this account type
+            categorySelect.disabled = true;
+            categorySelect.innerHTML = '<option value="" disabled selected>No categories available</option>';
+
+            // Show message and redirect option
+            showNoCategoriesMessage(accountType);
+        } else {
+            // Categories available, populate the dropdown
+            categorySelect.disabled = false;
+            categorySelect.innerHTML = '<option value="" disabled selected></option>';
+
+            filteredOptions.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option.value;
+                opt.text = option.text;
+                categorySelect.appendChild(opt);
+            });
+
+            // Hide any existing no-categories message
+            hideNoCategoriesMessage();
+        }
+
+        // Add the new account type handling
+        handleAccountTypeChange();
+    }
+
+    // Function to show message when no categories exist
+    function showNoCategoriesMessage(accountType) {
+        // Remove any existing message first
+        hideNoCategoriesMessage();
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'alert alert-info mt-2';
+        messageDiv.innerHTML = `
+        <p class="mb-2"><strong>No ${accountType} categories found.</strong></p>
+        <p class="mb-2">You need to create a parent category for ${accountType} accounts first.</p>
+        <button type="button" class="button-outline" onclick="redirectToParentCategory()">
+            <i class="fas fa-plus"></i> Add Parent Category
+        </button>
+    `;
+
+        const categoryGroup = document.getElementById('parentCategory').closest('.form-group');
+        categoryGroup.appendChild(messageDiv);
+    }
+
+    // Function to hide the no-categories message
+    function hideNoCategoriesMessage() {
+        const categoryGroup = document.getElementById('parentCategory').closest('.form-group');
+        const existingMessage = categoryGroup.querySelector('.alert.alert-info');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+    }
+
+    // Also update your DOMContentLoaded to check for empty categories on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        const categorySelect = document.getElementById('parentCategory');
+        originalOptions = Array.from(categorySelect.options).map(option => ({
+            value: option.value,
+            text: option.text,
+            type: option.getAttribute('data-type')
+        }));
+
+        // Check if categories are empty on initial load
+        if (originalOptions.length === 0) {
+            showNoCategoriesMessage('any');
+        }
+    });
+
+
+
+    function removeSubCategory(button) {
+        showNotification('Sub-category row removed', 'info');
+        button.closest('.subCategoryRow').remove();
+    }
+
+
+    function editSubCategory(icon, id) {
+        const row = icon.closest('tr');
+
+        // Check if this is a system account
+        const isSystemAccount = row.querySelector('.fa-lock') !== null;
+
+        if (isSystemAccount) {
+            showNotification('System accounts cannot be edited', 'warning');
+            return;
+        }
+
+
+        const cells = row.getElementsByTagName('td');
+
+        // Store original values for all editable fields
+        for (let i = 3; i <= 8; i++) {
+            const cell = cells[i];
+            cell.setAttribute('data-original-value', cell.textContent.trim());
+        }
+
+        // Sub-category (input)
+        cells[3].innerHTML = `<input type="text" class="form-control form-control-sm" value="${cells[3].textContent.trim()}">`;
+
+        // Sub-category ID (input)
+        cells[4].innerHTML = `<input type="text" class="form-control form-control-sm" value="${cells[4].textContent.trim()}">`;
+
+        // Normal Balance (select)
+        const normalOptions = ['Debit', 'Credit'];
+        const currentNormal = cells[5].textContent.trim();
+        let selectHtml = `<select class="form-control form-control-sm">`;
+        selectHtml += `<option disabled ${!currentNormal ? 'selected' : ''}>Select Normal Balance</option>`;
+        normalOptions.forEach(opt => {
+            selectHtml += `<option value="${opt}" ${currentNormal === opt ? 'selected' : ''}>${opt}</option>`;
+        });
+        selectHtml += `</select>`;
+        cells[5].innerHTML = selectHtml;
+
+        // Cash Flow Report Section (select)
+        const reportSections = [
+            { id: 1, name: 'Operating Activities' },
+            { id: 2, name: 'Investing Activities' },
+            { id: 3, name: 'Financing Activities' }
+        ];
+        const currentReportSectionName = cells[6].textContent.trim();
+        let currentReportSectionId = "";
+        reportSections.forEach(section => {
+            if (section.name === currentReportSectionName) {
+                currentReportSectionId = section.id.toString();
+            }
+        });
+        let reportSectionHtml = `<select class="form-control form-control-sm" name="report_section_id">`;
+        reportSectionHtml += `<option value="" ${!currentReportSectionId ? 'selected' : ''}>Not Applicable</option>`;
+        reportSections.forEach(section => {
+            reportSectionHtml += `<option value="${section.id}" ${currentReportSectionId == section.id ? 'selected' : ''}>${section.name}</option>`;
+        });
+        reportSectionHtml += `</select>`;
+        cells[6].innerHTML = reportSectionHtml;
+
+        // Is Bank Account (checkbox)
+        const isBankChecked = cells[7].textContent.trim().toLowerCase() === 'yes';
+        cells[7].innerHTML = `<input type="checkbox" ${isBankChecked ? 'checked' : ''}>`;
+
+        // Is Cash Account (checkbox)
+        const isCashChecked = cells[8].textContent.trim().toLowerCase() === 'yes';
+        cells[8].innerHTML = `<input type="checkbox" class="isCashCheckbox" ${isCashChecked ? 'checked' : ''}>`;
+
+        // Is Receivable (checkbox)
+        const isReceivableChecked = cells[9].textContent.trim().toLowerCase() === 'yes';
+        cells[9].innerHTML = `<input type="checkbox" class="isReceivableCheckbox" ${isReceivableChecked ? 'checked' : ''}>`;
+
+        // Is Payable (checkbox)
+        const isPayableChecked = cells[10].textContent.trim().toLowerCase() === 'yes';
+        cells[10].innerHTML = `<input type="checkbox" class="isPayableCheckbox" ${isPayableChecked ? 'checked' : ''}>`;
+
+        // Toggle icons
+        row.querySelector('.edit-icon').classList.add('d-none');
+        row.querySelector('.delete-icon').classList.add('d-none');
+        row.querySelector('.save-icon').classList.remove('d-none');
+        row.querySelector('.cancel-icon').classList.remove('d-none');
+    }
+
+  function saveSubCategory(icon, id) {
+    const row = icon.closest('tr');
+
+    // Check if this is a system account
+    const isSystemAccount = row.querySelector('.fa-lock') !== null;
+
+    if (isSystemAccount) {
+        showNotification('System accounts cannot be modified', 'error');
+        cancelEditSubCategory(icon);
+        return;
+    }
+
+    const cells = row.getElementsByTagName('td');
+
+    // Get the CSRF token from the form
+    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+    // Get current values (before edit)
+    const currentIsReceivable = cells[9].textContent.trim().toLowerCase() === 'yes';
+    const currentIsPayable = cells[10].textContent.trim().toLowerCase() === 'yes';
+    
+    // Get new values from checkboxes
+    const newIsReceivable = cells[9].querySelector('input[type="checkbox"]').checked;
+    const newIsPayable = cells[10].querySelector('input[type="checkbox"]').checked;
+    
+    // Check if we're enabling is_receivable or is_payable
+    const enablingReceivable = newIsReceivable && !currentIsReceivable;
+    const enablingPayable = newIsPayable && !currentIsPayable;
+    
+    if (enablingReceivable || enablingPayable) {
+    // Make the API call to check
+    fetch(`/general_ledger/api/check-account-transactions/${id}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            check_receivable: enablingReceivable,
+            check_payable: enablingPayable
+        })
+    })
+    .then(response => response.json())
+    .then(checkResult => {
+        if (!checkResult.can_proceed) {
+            // Block the edit - show notification
+            showNotification(
+                `Cannot enable ${enablingReceivable ? 'Receivable' : 'Payable'}. ` +
+                `Found ${checkResult.count} transaction(s) without vendor/customer. ` +
+                `Please assign vendors/customers to these transactions first.`, 
+                'error'
+            );
+            // Revert checkboxes
+            cells[9].querySelector('input[type="checkbox"]').checked = currentIsReceivable;
+            cells[10].querySelector('input[type="checkbox"]').checked = currentIsPayable;
+        } else {
+            // Proceed with save
+            proceedWithSave();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error checking transactions', 'error');
+        // Revert checkboxes on error too
+        cells[9].querySelector('input[type="checkbox"]').checked = currentIsReceivable;
+        cells[10].querySelector('input[type="checkbox"]').checked = currentIsPayable;
+    });
+    return; // Block - don't proceed to save
+}
+    // If no validation needed, proceed directly
+    proceedWithSave();
+    
+    function proceedWithSave() {
+        const data = {
+            subCategory: cells[3].querySelector('input').value.trim(),
+            subCategoryId: cells[4].querySelector('input').value.trim(),
+            normalBalance: cells[5].querySelector('select').value.trim(),
+            reportSectionId: cells[6].querySelector('select').value.trim(),
+            isBank: cells[7].querySelector('input[type="checkbox"]').checked,
+            isCash: cells[8].querySelector('input[type="checkbox"]').checked,
+            isReceivable: cells[9].querySelector('input[type="checkbox"]').checked,
+            isPayable: cells[10].querySelector('input[type="checkbox"]').checked
+        };
+
+        fetch(`/update-subcategory/${id}`, {
+            method: 'PUT',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.success) {
+                // Update the cells with the new values
+                cells[3].textContent = data.subCategory;
+                cells[4].textContent = data.subCategoryId;
+                cells[5].textContent = data.normalBalance;
+
+                const reportSectionName = result.report_section_name ||
+                    (data.reportSectionId === '1' ? 'Operating Activities' :
+                     data.reportSectionId === '2' ? 'Investing Activities' :
+                     data.reportSectionId === '3' ? 'Financing Activities' : 'N/A');
+                cells[6].textContent = reportSectionName;
+
+                cells[7].textContent = data.isBank ? "Yes" : "No";
+                cells[8].textContent = data.isCash ? "Yes" : "No";
+                cells[9].textContent = data.isReceivable ? "Yes" : "No";
+                cells[10].textContent = data.isPayable ? "Yes" : "No";
+
+                // Toggle icons back
+                row.querySelector('.save-icon').classList.add('d-none');
+                row.querySelector('.cancel-icon').classList.add('d-none');
+                row.querySelector('.edit-icon').classList.remove('d-none');
+                row.querySelector('.delete-icon').classList.remove('d-none');
+
+                showNotification('Subcategory updated successfully', 'success');
+            } else {
+                throw new Error(result.error || 'Error updating subcategory');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification(error.message || 'Error updating subcategory', 'danger');
+            cancelEditSubCategory(icon);
+        });
+    }
+}
+
+    function cancelEditSubCategory(icon) {
+        const row = icon.closest('tr');
+        const cells = row.getElementsByTagName('td');
+
+        // Restore original values for all editable fields
+        for (let i = 3; i <= 8; i++) {
+            const cell = cells[i];
+            if (cell.hasAttribute('data-original-value')) {
+                cell.textContent = cell.getAttribute('data-original-value');
+            }
+        }
+
+        // Toggle icons back
+        row.querySelector('.save-icon').classList.add('d-none');
+        row.querySelector('.cancel-icon').classList.add('d-none');
+        row.querySelector('.edit-icon').classList.remove('d-none');
+        row.querySelector('.delete-icon').classList.remove('d-none');
+    }
+
+
+
+    async function deleteSubCategory(icon, id) {
+
+        // Check if this is a system account
+        const isSystemAccount = row.querySelector('.fa-lock') !== null;
+
+        if (isSystemAccount) {
+            showNotification('System accounts cannot be deleted', 'error');
+            return;
+        }
+
+        // Get the subcategory name for better confirmation message
+        const subcategoryName = icon.closest('tr').querySelector('td:nth-child(4)').textContent.trim();
+        const subcategoryId = icon.closest('tr').querySelector('td:nth-child(5)').textContent.trim();
+
+        Swal.fire({
+            title: 'Delete Account?',
+            html: `
+            <div style="text-align: left;">
+                <p>Are you sure you want to delete this account?</p>
+                <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin: 10px 0;">
+                    <strong>${subcategoryName}</strong><br>
+                    <small class="text-muted">ID: ${subcategoryId}</small>
+                </div>
+                <p class="text-danger" style="font-size: 14px; margin-top: 10px;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    This action cannot be undone. All associated data will be permanently removed.
+                </p>
+            </div>
+        `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'Cancel',
+            width: '500px',
+            padding: '1.5rem',
+            backdrop: 'rgba(0,0,0,0.4)',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content',
+                htmlContainer: 'custom-swal-html'
+            }
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                // Disable the delete icon temporarily to prevent multiple clicks
+                icon.style.pointerEvents = "none";
+                icon.style.opacity = "0.5";
+
+                try {
+                    const response = await fetch(`/delete-subcategory/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRFToken': csrfToken,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        icon.closest('tr').remove(); // Remove row from table
+                        showNotification('Account deleted successfully!', 'success');
+                    } else {
+                        throw new Error(data.error || 'Error deleting account');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification(error.message || 'Error deleting account', 'danger');
+                } finally {
+                    // Restore button functionality
+                    icon.style.pointerEvents = "auto";
+                    icon.style.opacity = "1";
+                }
+            }
+        });
+    }
+
+
+    function submitChartOfAccounts(event) {
+        event.preventDefault();
+
+        const form = event.target;
+        const formData = new FormData(form);
+        const data = {
+            csrf_token: formData.get('csrf_token'),
+            inputAccountType: formData.get('inputAccountType'),
+            inputAccountTypeId: formData.get('inputAccountTypeId'),
+            parentCategory: formData.get('parentCategory'),
+            parentCategoryId: formData.get('parentCategoryId'),
+            subCategories: [],
+            subCategoryIds: [],
+            normalBalances: [],
+            reportSectionIds: [],
+            isCash: [],
+            isBank: [],
+            isReceivable: [],
+            isPayable: []
+        };
+
+        document.querySelectorAll('.subCategoryRow').forEach(row => {
+            data.subCategories.push(row.querySelector('[name="subCategory"]').value);
+            data.subCategoryIds.push(row.querySelector('[name="subCategoryId"]').value);
+            data.normalBalances.push(row.querySelector('[name="normal_balance"]').value);
+            data.reportSectionIds.push(row.querySelector('[name="report_section_id"]').value);
+
+            data.isCash.push(row.querySelector('.isCashCheckbox').checked);
+            data.isBank.push(row.querySelector('.isBankCheckbox').checked);
+            data.isReceivable.push(row.querySelector('.isReceivableCheckbox').checked);
+            data.isPayable.push(row.querySelector('.isPayableCheckbox').checked);
+        });
+
+        // Start submitting
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': data.csrf_token
+            },
+            body: JSON.stringify(data)
+        })
+            .then(async response => {
+                const result = await response.json();
+
+                if (!response.ok) {
+                    // Display the backend error if available
+                    const errorMessage = result.error || 'An unknown error occurred.';
+                    showNotification(errorMessage, 'danger');
+                    enableAllSubmitButtons();
+                    throw new Error(errorMessage); // So it doesn't proceed
+                }
+
+                if (result.success) {
+                    showNotification('Chart of Accounts saved successfully!', 'success');
+                    window.location.reload();
+                } else {
+                    showNotification(result.error || 'Unknown error occurred.', 'danger');
+                    enableAllSubmitButtons();
+                }
+            })
+            .catch(error => {
+                console.error('Caught error:', error);
+                showNotification(error.message || 'A network error occurred', 'danger');
+                enableAllSubmitButtons();
+            });
+    }
+
+
+    // Initialize DataTable with column search
+    const table = $('#chart-list').DataTable({
+        "lengthMenu": [10, 25, 50, 100],
+        "searching": true,
+        "paging": true,
+        "ordering": true,
+        "info": true
+    });
+
+    // Add column-specific search functionality
+    table.columns().every(function () {
+        var column = this;
+        $('input', this.footer()).on('keyup change', function () {
+            if (column.search() !== this.value) {
+                column.search(this.value).draw();
+            }
+        });
+    });
+
+
+    // Add these new functions for tree view functionality
+    function toggleTreeNode(element) {
+        const parentLi = element.parentElement;
+        const childUl = parentLi.querySelector('ul');
+
+        if (childUl) {
+            if (childUl.style.display === 'none') {
+                childUl.style.display = 'block';
+                element.textContent = '-';
+            } else {
+                childUl.style.display = 'none';
+                element.textContent = '+';
+            }
+        }
+
+
+
+    }
+
+    function expandAllTreeNodes() {
+        document.querySelectorAll('.tree-view ul').forEach(ul => {
+            ul.style.display = 'block';
+        });
+        document.querySelectorAll('.tree-view .toggle').forEach(toggle => {
+            toggle.textContent = '-';
+        });
+
+    }
+
+    function collapseAllTreeNodes() {
+        document.querySelectorAll('.tree-view ul').forEach(ul => {
+            ul.style.display = 'none';
+        });
+        document.querySelectorAll('.tree-view .toggle').forEach(toggle => {
+            toggle.textContent = '+';
+        });
+    }
+
+    // Tree search functionality
+    document.getElementById('treeSearch').addEventListener('input', function (e) {
+        const searchTerm = e.target.value.toLowerCase();
+
+        if (searchTerm.length > 0) {
+            // Expand all nodes when searching
+            expandAllTreeNodes();
+
+            // Highlight matches
+            document.querySelectorAll('.account-name').forEach(account => {
+                const accountText = account.textContent.toLowerCase();
+                if (accountText.includes(searchTerm)) {
+                    account.parentElement.style.backgroundColor = '#fff3cd';
+                    account.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    account.parentElement.style.backgroundColor = '';
+                }
+            });
+        } else {
+            // Clear highlights when search is empty
+            document.querySelectorAll('.account-item').forEach(item => {
+                item.style.backgroundColor = '';
+            });
+        }
+    });
+
+
+    // Initialize with first level expanded
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.tree-view > li > ul').forEach(ul => {
+            ul.style.display = 'block';
+        });
+        document.querySelectorAll('.tree-view > li > .toggle').forEach(toggle => {
+            toggle.textContent = '-';
+        });
+    });
+
+
+    // NEW FUNCTIONS FOR OPENING BALANCES - UPDATED FOR BOOTSTRAP MODAL
+    function openOpeningBalancesModal() {
+        // Use Bootstrap's modal show method instead of custom class manipulation
+        $('#openingBalancesModal').modal('show');
+    }
+
+    function closeOpeningBalancesModal() {
+        // Use Bootstrap's modal hide method
+        $('#openingBalancesModal').modal('hide');
+    }
+
+
+    // Update the calculateBalanceDifference function to handle both input types
+    // FIXED: Proper calculateBalanceDifference function with better vendor handling
+    function calculateBalanceDifference() {
+        console.log('calculateBalanceDifference called - checking all accounts');
+
+        const balanceDifferenceElement = document.getElementById('balanceDifference');
+        const saveButton = document.getElementById('saveOpeningBalance');
+
+        if (!balanceDifferenceElement || !saveButton) {
+            console.error('Required elements not found');
+            return;
+        }
+
+        let totalDebits = 0;
+        let totalCredits = 0;
+
+        // Process all account rows
+        document.querySelectorAll('#openingBalanceAccounts tr').forEach(row => {
+            const accountId = row.getAttribute('data-account-id');
+            const accountTotalInput = document.getElementById(`account-total-${accountId}`);
+            const normalBalance = row.getAttribute('data-normal-balance');
+            const accountType = row.getAttribute('data-account-type');
+            const isReceivable = row.getAttribute('data-is-receivable') === 'true';
+            const isPayable = row.getAttribute('data-is-payable') === 'true';
+            console.log(`Processing Account ${accountId}: Type=${accountType}, NormalBalance=${normalBalance}, Receivable=${isReceivable}, Payable=${isPayable}`);
+            // Get the correct value
+            let value = 0;
+
+            if (isReceivable || isPayable) {
+                // For payable/receivable accounts, sum vendor balances from the data structure
+                if (vendorBalances[accountId]) {
+                    value = vendorBalances[accountId].reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
+                }
+                console.log(`Account ${accountId} (${isReceivable ? 'Receivable' : 'Payable'}): Vendor total = ${value}`);
+            } else {
+                // For other accounts, use direct input
+                value = parseFloat(accountTotalInput.value) || 0;
+                console.log(`Account ${accountId}: Direct input = ${value}`);
+            }
+
+            // Skip equity accounts for balance calculation
+            if (accountType !== 'Equity') {
+                if (normalBalance === 'Debit') {
+                    if (value >= 0) {
+                        totalDebits += value;
+                    } else {
+                        totalCredits += Math.abs(value);
+                    }
+                } else if (normalBalance === 'Credit') {
+                    if (value >= 0) {
+                        totalCredits += value;
+                    } else {
+                        totalDebits += Math.abs(value);
+                    }
+                }
+            }
+        });
+
+        console.log(`Total Debits: ${totalDebits}, Total Credits: ${totalCredits}`);
+
+        const difference = totalDebits - totalCredits;
+        const formattedDifference = formatCurrency(Math.abs(difference), "{{ base_currency }}", false);
+
+        // ALWAYS enable the save button - system will balance with Retained Earnings
+        saveButton.disabled = false;
+
+        if (Math.abs(difference) < 0.01) {
+            balanceDifferenceElement.className = 'balance-difference balanced p-3 rounded';
+            balanceDifferenceElement.innerHTML = '<div class="d-flex align-items-center"><i class="fas fa-check-circle me-2 text-success"></i><span>Debits and Credits are balanced!</span></div>';
+            console.log('Perfectly balanced - no Retained Earnings adjustment needed');
+        } else {
+            balanceDifferenceElement.className = 'balance-difference unbalanced p-3 rounded';
+            const differenceText = difference > 0 ?
+                `Debits exceed Credits by: ${formattedDifference}` :
+                `Credits exceed Debits by: ${formattedDifference}`;
+
+            balanceDifferenceElement.innerHTML = `<div class="d-flex align-items-center"><i class="fas fa-exclamation-circle me-2 text-warning"></i><span>${differenceText}. System will create Retained Earnings entry to balance.</span></div>`;
+            console.log('Will create Retained Earnings entry of:', difference);
+        }
+    }
+
+
+
+    // UPDATED: Function to set opening balance for specific account
+    function setOpeningBalanceForAccount(accountId, accountName, accountCode, normalBalance, isReceivable, isPayable) {
+        openOpeningBalancesModal();
+
+        $('#openingBalancesModal').on('shown.bs.modal', function () {
+            const input = document.querySelector(`.account-opening-balance[data-account-id="${accountId}"]`);
+            if (input) {
+                input.focus();
+                input.parentElement.parentElement.style.backgroundColor = '#fff3cd';
+
+                // Scroll to the element within the modal
+                const modalBody = document.querySelector('#openingBalancesModal .modal-body');
+                const rowPosition = input.parentElement.parentElement.offsetTop;
+                modalBody.scrollTop = rowPosition - 100;
+            }
+
+            // Show vendor selection if applicable
+            if (isReceivable || isPayable) {
+                const vendorSelection = document.getElementById(`vendor-selection-${accountId}`);
+                if (vendorSelection) {
+                    vendorSelection.style.display = 'block';
+                }
+            }
+
+            $(this).off('shown.bs.modal');
+        });
+    }
+
+
+
+
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', function () {
+
+
+
+        // Use event delegation on the modal body
+        $('#openingBalancesModal').on('input', '.account-opening-balance', function () {
+            calculateBalanceDifference();
+        });
+
+        // Calculate initial balance when modal is shown
+        $('#openingBalancesModal').on('shown.bs.modal', function () {
+            calculateBalanceDifference();
+        });
+    });
+
+
+
+    // NEW: Function to load current balances
+    // NEW: Function to load current balances
+    function loadCurrentBalances() {
+        // Show loading state
+        document.querySelectorAll('.closing-balance-value').forEach(el => {
+            el.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        });
+
+        // Fetch balances from API
+        fetch('/general_ledger/api/all-balances')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('API Response:', data); // Debug log
+
+                    // Update tree view and table balances
+                    data.data.accounts.forEach(account => {
+                        const balanceElement = document.getElementById(`balance-${account.account_id}`);
+                        const tableBalanceElement = document.getElementById(`table-balance-${account.account_id}`);
+                        const currencyDetailsElement = document.getElementById(`currency-details-${account.account_id}`);
+
+                        if (balanceElement) {
+                            // Update the content and make it clickable
+                            balanceElement.innerHTML = formatCurrency(account.balance, account.base_currency_code);
+
+                            // Set the account ID as data attribute
+                            balanceElement.setAttribute('data-account-id', account.account_id);
+
+                            // Determine color based on account type and normal balance
+                            let balanceClass = '';
+                            if (account.account_type === 'asset' || account.account_type === 'expense') {
+                                balanceClass = account.balance >= 0 ? 'positive-color' : 'negative-color';
+                            } else {
+                                balanceClass = account.balance >= 0 ? 'positive-color' : 'negative-color';
+                            }
+                            balanceElement.className = `closing-balance-value clickable-balance ${balanceClass}`;
+
+                            // Add click event listener
+                            balanceElement.addEventListener('click', function () {
+                                viewAccountDetails(account.account_id);
+                            });
+
+                            // Highlight account row if it has a balance
+                            const accountElement = document.getElementById(`account-${account.account_id}`);
+                            if (accountElement && Math.abs(account.balance) > 0.01) {
+                                accountElement.classList.add('account-with-balance');
+                            }
+                        }
+
+                        if (tableBalanceElement) {
+                            tableBalanceElement.textContent = formatCurrency(account.balance, account.base_currency_code);
+                            // Determine color based on account type and normal balance
+                            let balanceClass = '';
+                            if (account.account_type === 'asset' || account.account_type === 'expense') {
+                                balanceClass = account.balance >= 0 ? 'debit-balance' : 'credit-balance';
+                            } else {
+                                balanceClass = account.balance >= 0 ? 'credit-balance' : 'debit-balance';
+                            }
+                            tableBalanceElement.className = `closing-balance-value ${balanceClass}`;
+
+                            // Make table balance clickable too
+                            tableBalanceElement.style.cursor = 'pointer';
+                            tableBalanceElement.addEventListener('click', function () {
+                                viewAccountDetails(account.account_id);
+                            });
+
+                            // Highlight table row if it has a balance
+                            const tableRow = document.getElementById(`row-${account.account_id}`);
+                            if (tableRow && Math.abs(account.balance) > 0.01) {
+                                tableRow.classList.add('account-with-balance');
+                            }
+                        }
+
+                        if (currencyDetailsElement && account.currency_details && account.currency_details.length > 0) {
+                            let currencyHtml = '';
+                            account.currency_details.forEach(currency => {
+                                if (Math.abs(currency.original_balance) > 0.01) {
+                                    currencyHtml += `<div class="balance-currency-details">
+                                ${formatCurrency(currency.original_balance, currency.currency_code)}
+                                ${!currency.is_base_currency ? `(@ ${currency.exchange_rate.toFixed(4)})` : ''}
+                            </div>`;
+                                }
+                            });
+                            currencyDetailsElement.innerHTML = currencyHtml || '<span class="text-muted">No transactions</span>';
+                        } else if (currencyDetailsElement) {
+                            currencyDetailsElement.innerHTML = '<span class="text-muted">No transactions</span>';
+                        }
+                    });
+
+                } else {
+                    showNotification('Error loading balances: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading balances:', error);
+                showNotification('Error loading balances', 'error');
+            });
+    }
+
+    // Function to navigate to account details
+    function viewAccountDetails(accountId) {
+        console.log('Navigating to account details for:', accountId);
+        window.location.href = `/account_details/${accountId}`;
+    }
+
+    // Optional: Add event delegation for dynamically created elements
+    document.addEventListener('click', function (e) {
+        if (e.target.classList.contains('clickable-balance')) {
+            const accountId = e.target.getAttribute('data-account-id');
+            if (accountId) {
+                viewAccountDetails(accountId);
+            }
+        }
+    });
+
+
+    function lockOpeningBalances() {
+        Swal.fire({
+            title: 'Lock Opening Balances?',
+            html: `
+            <p class="mb-2">Once locked, opening balances cannot be edited.</p>
+            <p class="fw-bold text-danger">This action cannot be undone.</p>
+        `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, lock balances',
+            cancelButtonText: 'Cancel',
+            width: '500px',
+            padding: '1.5rem',
+            backdrop: 'rgba(0,0,0,0.4)',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content',
+                htmlContainer: 'custom-swal-html'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch("/general_ledger/lock_opening_balances", {
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    }
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('success', 'Opening balances have been locked successfully.');
+                            setTimeout(() => location.reload(), 1200);
+                        } else {
+                            showNotification('error', data.message || 'Something went wrong while locking balances.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showNotification('error', 'An unexpected error occurred while locking balances.');
+                    });
+            }
+        });
+    }
+
+
+
+    function checkRetainedEarnings(input) {
+        const value = input.value.trim().toLowerCase();
+        if (value.includes('retained earnings')) {
+            Swal.fire({
+                title: 'Invalid Entry',
+                html: `<p>You cannot create a <strong>Retained Earnings</strong> account manually. It is system-managed.</p>`,
+                icon: 'warning',
+                confirmButtonColor: '#3085d6',
+                width: '450px',
+                padding: '1.5rem',
+                backdrop: 'rgba(0,0,0,0.4)',
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    content: 'custom-swal-content',
+                    htmlContainer: 'custom-swal-html'
+                }
+            }).then(() => {
+                input.value = ''; // clear input
+                input.focus();    // refocus for convenience
+            });
+        }
+    }
+
+
+
+
+
+
+    // Function to handle account type change and show/hide fields accordingly
+    function handleAccountTypeChange() {
+        const accountType = document.getElementById('inputAccountType').value;
+
+        // Apply to all existing rows
+        document.querySelectorAll('.subCategoryRow').forEach(row => {
+            applyRowVisibility(row, accountType);
+        });
+    }
+
+    // Function to apply visibility rules to a specific row
+    function applyRowVisibility(row, accountType) {
+        const cashFlowSection = row.querySelector('.cash-flow-section-selector');
+        const toggleGroup = row.querySelector('.toggle-group');
+        const normalBalanceSelect = row.querySelector('select[name="normal_balance"]');
+
+        // Hide all optional sections first
+        cashFlowSection.style.display = 'none';
+        toggleGroup.style.display = 'none';
+
+        // Show/hide based on account type
+        if (accountType === 'Asset' || accountType === 'Liability') {
+            cashFlowSection.style.display = 'block';
+            toggleGroup.style.display = 'flex';
+
+            // Set default normal balance based on account type
+            if (accountType === 'Asset') {
+                normalBalanceSelect.value = 'Debit';
+            } else if (accountType === 'Liability') {
+                normalBalanceSelect.value = 'Credit';
+            }
+        }
+        // For Expense, Income, Equity - hide cash flow and toggle group
+        else if (accountType === 'Expense' || accountType === 'Income' || accountType === 'Equity') {
+            cashFlowSection.style.display = 'none';
+            toggleGroup.style.display = 'none';
+
+            // Set default normal balance based on account type
+            if (accountType === 'Expense') {
+                normalBalanceSelect.value = 'Debit';
+            } else if (accountType === 'Income' || accountType === 'Equity') {
+                normalBalanceSelect.value = 'Credit';
+            }
+        }
+
+        // Additional logic for specific toggles
+        updateToggleVisibilityForRow(row, accountType);
+    }
+
+    // Function to update toggle visibility for a specific row
+    function updateToggleVisibilityForRow(row, accountType) {
+        const isCashCheckbox = row.querySelector('.isCashCheckbox');
+        const isBankCheckbox = row.querySelector('.isBankCheckbox');
+        const isReceivableCheckbox = row.querySelector('.isReceivableCheckbox');
+        const isPayableCheckbox = row.querySelector('.isPayableCheckbox');
+
+        // Reset all checkboxes
+        if (isCashCheckbox) isCashCheckbox.checked = false;
+        if (isBankCheckbox) isBankCheckbox.checked = false;
+        if (isReceivableCheckbox) isReceivableCheckbox.checked = false;
+        if (isPayableCheckbox) isPayableCheckbox.checked = false;
+
+        // Show/hide specific toggles based on account type
+        if (accountType === 'Asset') {
+            // For Assets: show cash, bank, receivable; hide payable
+            isCashCheckbox.parentElement.style.display = 'flex';
+            isBankCheckbox.parentElement.style.display = 'flex';
+            isReceivableCheckbox.parentElement.style.display = 'flex';
+            isPayableCheckbox.parentElement.style.display = 'none';
+        }
+        else if (accountType === 'Liability') {
+            // For Liabilities: show payable; hide cash, bank, receivable
+            isCashCheckbox.parentElement.style.display = 'none';
+            isBankCheckbox.parentElement.style.display = 'none';
+            isReceivableCheckbox.parentElement.style.display = 'none';
+            isPayableCheckbox.parentElement.style.display = 'flex';
+        }
+        else {
+            // Hide all toggles for other account types
+            isCashCheckbox.parentElement.style.display = 'none';
+            isBankCheckbox.parentElement.style.display = 'none';
+            isReceivableCheckbox.parentElement.style.display = 'none';
+            isPayableCheckbox.parentElement.style.display = 'none';
+        }
+    }
+
+    // Function to handle checkbox changes with mutual exclusivity
+    function handleCheckboxChange(checkbox) {
+        const row = checkbox.closest('.subCategoryRow');
+        const normalBalanceSelect = row.querySelector('select[name="normal_balance"]');
+
+        if (checkbox.classList.contains('isCashCheckbox') && checkbox.checked) {
+            uncheckOtherCheckboxes(checkbox, row);
+            normalBalanceSelect.value = 'Debit';
+        }
+        else if (checkbox.classList.contains('isBankCheckbox') && checkbox.checked) {
+            uncheckOtherCheckboxes(checkbox, row);
+            normalBalanceSelect.value = 'Debit';
+        }
+        else if (checkbox.classList.contains('isReceivableCheckbox') && checkbox.checked) {
+            uncheckOtherCheckboxes(checkbox, row);
+            normalBalanceSelect.value = 'Debit';
+        }
+        else if (checkbox.classList.contains('isPayableCheckbox') && checkbox.checked) {
+            uncheckOtherCheckboxes(checkbox, row);
+            normalBalanceSelect.value = 'Credit';
+        }
+    }
+
+    // Helper function to uncheck other checkboxes in the same row
+    function uncheckOtherCheckboxes(checkedCheckbox, row) {
+        const checkboxes = row.querySelectorAll('.isCashCheckbox, .isBankCheckbox, .isReceivableCheckbox, .isPayableCheckbox');
+        checkboxes.forEach(cb => {
+            if (cb !== checkedCheckbox) {
+                cb.checked = false;
+            }
+        });
+    }
+
+    // Function to add event listeners to checkboxes in a row
+    function addCheckboxEventListeners(row) {
+        const checkboxes = row.querySelectorAll('.isCashCheckbox, .isBankCheckbox, .isReceivableCheckbox, .isPayableCheckbox');
+
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function () {
+                handleCheckboxChange(this);
+            });
+        });
+    }
+
+    // Update your existing updateCategories function
+    function updateCategories() {
+        const accountType = document.getElementById('inputAccountType').value;
+        const categorySelect = document.getElementById('parentCategory');
+
+        categorySelect.disabled = false;
+        categorySelect.innerHTML = '<option value="" disabled selected></option>';
+
+        originalOptions.forEach(option => {
+            if (option.type === accountType) {
+                const opt = document.createElement('option');
+                opt.value = option.value;
+                opt.text = option.text;
+                categorySelect.appendChild(opt);
+            }
+        });
+
+        // Add the new account type handling
+        handleAccountTypeChange();
+    }
+
+    // Updated addSubCategory function
+    // Updated addSubCategory function with complete help content
+    function addSubCategory() {
+        // Create a new sub-category row
+        const subCategoryRow = document.createElement('div');
+        subCategoryRow.classList.add('subCategoryRow');
+
+        showNotification('New sub-category row added', 'info');
+
+        // Get current account type to set initial visibility
+        const accountType = document.getElementById('inputAccountType').value;
+
+        // Generate unique IDs for this row
+        const rowId = Date.now();
+        const cashId = `is_cash_${rowId}`;
+        const bankId = `is_bank_${rowId}`;
+        const receivableId = `is_receivable_${rowId}`;
+        const payableId = `is_payable_${rowId}`;
+
+        subCategoryRow.innerHTML = `
+    <div class="form-group">
+        <input type="text" class="form-control form-control-sm subCategoryInput" name="subCategory"
+            placeholder=" " required autocomplete="off" onblur="checkRetainedEarnings(this)">
+        <label class="form-label">Sub-category <span class="required">*</span></label>
+    </div>
+    
+    <div class="form-group">
+        <input type="text" class="form-control form-control-sm subCategoryInput"
+            name="subCategoryId" placeholder="" required autocomplete="off" onblur="checkRetainedEarnings(this)">
+        <label class="form-label">Sub-category ID <span class="required">*</span></label>
+    </div>
+
+    <!-- Cash Flow Section - WITH COMPLETE HELP CONTENT -->
+    <div class="form-group cash-flow-section-selector">
+        <label class="form-label">
+            Cash Flow Classification
+            <span class="input-helper" data-toggle="tooltip"
+                data-tooltip="Required for balance sheet accounts only. Income/expense accounts are auto-classified.">
+                <i class="fas fa-info-circle"></i>
+            </span>
+        </label>
+        <select class="form-control" name="report_section_id">
+            <option value="" selected>Not Applicable</option>
+            <option value="1">Operating Activities</option>
+            <option value="2">Investing Activities</option>
+            <option value="3">Financing Activities</option>
+        </select>
+        <button type="button" class="help-toggle-btn" onclick="toggleHelp(this)" aria-expanded="false" aria-controls="cash-flow-help">
+            <i class="fas fa-question-circle"></i> How do I classify this account?
+        </button>
+        
+        <!-- ADD THIS COMPLETE HELP CONTENT STRUCTURE -->
+        <div class="cash-flow-help" style="display: none;" aria-hidden="true">
+            <div class="help-card">
+                <div class="help-section">
+                    <h6><i class="fas fa-check-circle text-success"></i> <strong>Classify these balance sheet accounts:</strong></h6>
+                    <div class="classification-types">
+                        <div class="type-card operating">
+                            <h6><span class="badge">1</span> Operating Activities</h6>
+                            <ul>
+                                <li><strong>Accounts Receivable</strong> (Customer payments)</li>
+                                <li><strong>Accounts Payable</strong> (Supplier payments)</li>
+                                <li><strong>Accrued Liabilities</strong> (Wages/taxes payable)</li>
+                            </ul>
+                        </div>
+                        <div class="type-card investing">
+                            <h6><span class="badge">2</span> Investing Activities</h6>
+                            <ul>
+                                <li><strong>Property/Equipment</strong> (Asset purchases)</li>
+                                <li><strong>Investments</strong> (Stocks/bonds)</li>
+                            </ul>
+                        </div>
+                        <div class="type-card financing">
+                            <h6><span class="badge">3</span> Financing Activities</h6>
+                            <ul>
+                                <li><strong>Loans Payable</strong> (Debt received/repaid)</li>
+                                <li><strong>Owner's Equity</strong> (Capital contributions)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="help-section warning-section">
+                    <h6><i class="fas fa-times-circle text-danger"></i> <strong>Never classify these:</strong></h6>
+                    <div class="exclusion-grid">
+                        <div class="exclusion-item">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                            <div>
+                                <h6>Income/Expense Accounts</h6>
+                                <p>Sales, rent, salaries, COGS (auto-classified)</p>
+                            </div>
+                        </div>
+                        <div class="exclusion-item">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <div>
+                                <h6>Cash Accounts</h6>
+                                <p>Bank accounts, petty cash (tracked automatically)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="help-tip">
+                    <i class="fas fa-lightbulb"></i>
+                    <p><strong>Tip:</strong> Only classify accounts that represent either:
+                    <ul class="tip-list">
+                        <li><strong>Money owed to/from others</strong> (receivables, payables, loans)</li>
+                        <li><strong>Long-term assets</strong> (property, equipment, investments)</li>
+                        <li><strong>Funding sources</strong> (owner capital, stock)</li>
+                    </ul>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Normal Balance Field -->
+    <div class="form-group">
+        <select class="form-control" name="normal_balance" required>
+            <option value="" selected disabled>Select Normal Balance</option>
+            <option value="Debit">Debit</option>
+            <option value="Credit">Credit</option>
+        </select>
+        <label class="form-label">Normal Balance<span class="required">*</span></label>
+    </div>
+
+    <!-- Toggle Group -->
+    <div class="toggle-group">
+        <div class="toggle-item">
+            <input type="checkbox" class="isCashCheckbox" name="is_cash" id="${cashId}" value="true">
+            <label for="${cashId}">Is Cash Account</label>
+        </div>
+        <div class="toggle-item">
+            <input type="checkbox" class="isBankCheckbox" name="is_bank" id="${bankId}" value="true">
+            <label for="${bankId}">Is Bank Account</label>
+        </div>
+        <div class="toggle-item">
+            <input type="checkbox" class="isReceivableCheckbox" name="is_receivable" id="${receivableId}" value="true">
+            <label for="${receivableId}">Is Receivable Account</label>
+        </div>
+        <div class="toggle-item">
+            <input type="checkbox" class="isPayableCheckbox" name="is_payable" id="${payableId}" value="true">
+            <label for="${payableId}">Is Payable Account</label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <button type="button" class="remove-button" onclick="removeSubCategory(this)">Remove row</button>
+    </div>`;
+
+        // Add the new row
+        document.getElementById('subCategoryInputs').appendChild(subCategoryRow);
+
+        // Apply visibility rules to the new row
+        applyRowVisibility(subCategoryRow, accountType);
+
+        // Add event listeners to checkboxes in the new row
+        addCheckboxEventListeners(subCategoryRow);
+    }
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        // Set initial state for all existing rows
+        const accountType = document.getElementById('inputAccountType').value;
+        document.querySelectorAll('.subCategoryRow').forEach(row => {
+            applyRowVisibility(row, accountType);
+            addCheckboxEventListeners(row);
+        });
+
+        // Add event listener to account type dropdown
+        document.getElementById('inputAccountType').addEventListener('change', handleAccountTypeChange);
+    });
+
+
+
+    // Simple toggleHelp function
+    function toggleHelp(button) {
+        const helpSection = button.nextElementSibling;
+        if (helpSection.style.display === 'none' || !helpSection.style.display) {
+            helpSection.style.display = 'block';
+            button.innerHTML = '<i class="fas fa-question-circle"></i> Hide classification help';
+        } else {
+            helpSection.style.display = 'none';
+            button.innerHTML = '<i class="fas fa-question-circle"></i> How do I classify this account?';
+        }
+    }
+
+    // Function to toggle account status (activate/deactivate)
+    function toggleAccountStatus(icon, accountId, activate) {
+        // Safe DOM access with null checks
+        const row = icon.closest('tr');
+        if (!row) {
+            console.error('Could not find table row for account:', accountId);
+            showNotification('Error: Could not find account row', 'error');
+            return;
+        }
+
+        const accountNameCell = row.querySelector('td:nth-child(4)');
+        const accountIdCell = row.querySelector('td:nth-child(5)');
+
+        if (!accountNameCell || !accountIdCell) {
+            console.error('Could not find account name or ID cells for account:', accountId);
+            showNotification('Error: Could not find account information', 'error');
+            return;
+        }
+
+        const accountName = accountNameCell.textContent.trim();
+        const accountIdText = accountIdCell.textContent.trim();
+        const action = activate ? 'activate' : 'deactivate';
+
+        const title = activate ? 'Activate Account?' : 'Deactivate Account?';
+        const confirmButtonText = activate ? 'Yes, activate!' : 'Yes, deactivate!';
+        const confirmButtonColor = activate ? '#28a745' : '#dc3545';
+
+        Swal.fire({
+            title: title,
+            html: `
+        <div style="text-align: left;">
+            <p>Are you sure you want to ${action} this account?</p>
+            <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin: 10px 0;">
+                <strong>${accountName}</strong><br>
+                <small class="text-muted">ID: ${accountIdText}</small>
+            </div>
+            ${!activate ? `
+            <p class="text-warning" style="font-size: 14px; margin-top: 10px;">
+                <i class="fas fa-exclamation-triangle"></i>
+                Deactivated accounts won't be available for new transactions.
+            </p>
+            ` : ''}
+        </div>
+    `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: confirmButtonColor,
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: confirmButtonText,
+            cancelButtonText: 'Cancel',
+            width: '500px',
+            padding: '1.5rem',
+            backdrop: 'rgba(0,0,0,0.4)',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content',
+                htmlContainer: 'custom-swal-html'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Disable the icon temporarily to prevent multiple clicks
+                icon.style.pointerEvents = "none";
+                icon.style.opacity = "0.5";
+
+                fetch(`/general_ledger/api/account-status/${accountId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        is_active: activate
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification(`Account ${action}d successfully!`, 'success');
+
+                            // Update the UI immediately - with additional safety checks
+                            const updatedRow = document.getElementById(`row-${accountId}`);
+                            if (!updatedRow) {
+                                console.error('Could not find row after update:', accountId);
+                                return;
+                            }
+
+                            const statusCell = updatedRow.querySelector('td:nth-child(12)');
+                            if (!statusCell) {
+                                console.error('Could not find status cell for account:', accountId);
+                                return;
+                            }
+
+                            if (activate) {
+                                // Activating account
+                                updatedRow.classList.remove('inactive-account');
+                                statusCell.innerHTML = '<span class="status-badge status-active">Active</span>';
+
+                                // Update action icons
+                                icon.outerHTML = `
+                            <a href="#" class="deactivate-icon" data-tooltip="Deactivate"
+                                onclick="toggleAccountStatus(this, '${accountId}', false)">
+                                <i class="fas fa-ban"></i>
+                            </a>
+                        `;
+                            } else {
+                                // Deactivating account
+                                updatedRow.classList.add('inactive-account');
+                                statusCell.innerHTML = '<span class="status-badge status-inactive">Inactive</span>';
+
+                                // Update action icons
+                                icon.outerHTML = `
+                            <a href="#" class="activate-icon" data-tooltip="Activate"
+                                onclick="toggleAccountStatus(this, '${accountId}', true)">
+                                <i class="fas fa-check-circle"></i>
+                            </a>
+                        `;
+                            }
+                        } else {
+                            throw new Error(data.error || `Error ${action}ing account`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showNotification(error.message || `Error ${action}ing account`, 'error');
+                    })
+                    .finally(() => {
+                        // Re-enable the icon
+                        icon.style.pointerEvents = "auto";
+                        icon.style.opacity = "1";
+                    });
+            }
+        });
+    }
+
+
+</script>
+{% endblock %}

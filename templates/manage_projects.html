@@ -1,0 +1,246 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+
+<style>
+    .hidden {
+        display: none;
+    }
+</style>
+<div class="content-container">
+
+    <!-- Tab Links -->
+    <div class="tab">
+
+        <button class="tablinks" onclick="openTab(event, 'projectList')" id="defaultOpen"> Project List</button>
+        {% if role == 'Admin' or role == 'Contributor' %}
+        <button class="tablinks" onclick="openTab(event, 'addProject')">Add New Project</button>
+        {% endif %}
+
+    </div>
+    <!-- Tab Content -->
+    <div id="addProject" class="tabcontent">
+
+        <h1>Manage Projects</h1>
+
+        <h4>Enter New Project Details<h4>
+
+
+                <form id="addProjectForm" action="/manage_projects" class="" method="post">
+
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="type" value="add">
+                    <div class="form-grid">
+                        <div class="form-group">
+
+                            <input type="text" id="name" class="form-control form-control-sm" autocomplete="off"
+                                name="name" required placeholder="">
+                            <label for="name" class="form-label">Project Name: <span
+                                    style="color: red;">*</span></label>
+                        </div>
+
+                        <div class="form-group">
+
+
+                            <input type="text" class="form-control form-control-sm" id="project_id" autocomplete="off"
+                                name="project_id" required>
+                            <label for="project_id" class="form-label">Project ID: <span
+                                    style="color: red;">*</span><span class="input-helper" data-toggle="tooltip"
+                                    data-tooltip="Enter a Unique ID that should not already be in the database e.g 1000 or you can use the first a ref format such as FAR-24-1">
+                                    <i class="fas fa-question-circle"></i>
+                                </span></label>
+                        </div>
+
+                        <div class="form-group">
+
+
+                            <input type="text" class="form-control form-control-sm" id="location" name="location"
+                                placeholder="" list="locations" autocomplete="off">
+                            <datalist id="locations">
+                                {% for location in locations %}
+                                <option value="{{ location }}">
+                                    {% endfor %}
+                            </datalist>
+                            <label for="location" class="form-label">Project Location:</label>
+                        </div>
+
+                        <!-- Updated Textarea -->
+                        <div class="form-group">
+                            <textarea id="description" class="form-control form-control-sm" name="description"
+                                placeholder=""></textarea>
+                            <label for="description" class="form-label">Project Description:</label>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <button type="submit" name="add" class="cta-button" value="Submit">Add
+                            Project</button>
+                    </div>
+                </form>
+
+    </div>
+
+    <!-- Tab Content -->
+    <div id="projectList" class="tabcontent">
+        <h1>Manage Projects</h1>
+        <h4>Project List</h4>
+
+
+        <table id="project-list" class="">
+            <thead>
+                <tr>
+                    <th>Project Name</th>
+                    <th>Project ID</th>
+                    <th>Location</th>
+                    <th>Description</th>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for project in projects %}
+                <tr>
+                    <td>{{ project.name }}</td>
+                    <td>{{ project.project_id or "-"}}</td>
+                    <td>{{ project.location or "-" }}</td>
+                    <td>{{ project.description or "-" }}</td>
+                    <td>
+                        {% if role == 'Admin' or role == 'Contributor' %}
+                        <div class="action-icons">
+                            <button class="edit-icon"
+                                onclick="showUpdateForm('{{ project.id }}', '{{ project.name }}', '{{ project.project_id }}', '{{ project.location }}', '{{ project.description }}')"
+                                data-tooltip="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <form action="/manage_projects" method="post" style="display: inline-block;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="id" value="{{ project.id }}">
+                                <input type="hidden" name="type" value="delete">
+                                <button type="submit" name="delete" class="delete-icon" data-tooltip="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+
+                            </form>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th><input type="text" placeholder="Search Project Type" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Project ID" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Project Location" class="column-search"></th>
+                    <th><input type="text" placeholder="Search Project Description" class="column-search">
+                    </th>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <th></th> <!-- No search for Actions column -->
+                    {% endif %}
+                </tr>
+            </tfoot>
+        </table>
+
+
+
+
+        <form id="updateProjectForm" class="row g-3 hidden" action="/manage_projects" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="type" value="update">
+            <h4>Update Project</h4>
+            <input type="hidden" id="update_id" name="id">
+            <div class="form-grid">
+                <div class="form-group">
+
+                    <input type="text" id="update_name" class="form-control form-control-sm" name="name" required>
+                    <label for="update_name" class="form-label">Project Name:</label>
+                </div>
+                <div class="form-group">
+
+                    <input type="text" id="update_project_id" class="form-control form-control-sm" name="project_id">
+                    <label for="update_project_id" class="form-label">Project ID:</label>
+                </div>
+                <div class="form-group">
+
+                    <input type="text" id="update_location" class="form-control form-control-sm" name="location">
+                    <label for="update_location" class="form-label">Project Location:</label>
+                </div>
+                <div class="form-group">
+
+                    <textarea id="update_description" class="form-control" name="description" rows="3"></textarea>
+                    <label for="update_description" class="form-label">Project Description:</label>
+                </div>
+            </div>
+            <br>
+            <div class="">
+                <button type="submit" class="button cta-button" name="update">Update Project</button>
+
+                <button type="button" class="remove-button" onclick="hideEditForm()">
+                    </i>Cancel
+                </button>
+            </div>
+        </form>
+
+
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+
+        var table = $('#project-list').DataTable({
+            "lengthMenu": [10, 25, 50, 100],
+            "searching": true, // Enable global search
+            "paging": true, // Enable pagination
+            "ordering": true, // Enable sorting
+            "info": true // Show table information
+        });
+
+        // Add column-specific search functionality
+        table.columns().every(function () {
+            var column = this;
+            $('input', table.column(column.index()).footer()).on('keyup change', function () {
+                if (column.search() !== this.value) {
+                    column.search(this.value).draw();
+                }
+            });
+        });
+    });
+
+
+    $(document).ready(function () {
+        $('[data-toggle="tooltip"]').tooltip();
+    });
+
+
+
+    function showUpdateForm(id, name, project_id, location, description) {
+        // Populate the form with project data
+        document.getElementById('update_id').value = id;
+        document.getElementById('update_name').value = name;
+        document.getElementById('update_project_id').value = project_id;
+        document.getElementById('update_location').value = location;
+        document.getElementById('update_description').value = description;
+
+        // Show the update form
+        document.getElementById('updateProjectForm').classList.remove('hidden');
+        document.getElementById('updateProjectForm').style.display = 'block'; // Ensure the form is visible
+
+        // Optionally scroll to the form
+        window.scrollTo(0, document.body.scrollHeight); // Scroll to the bottom
+    }
+
+    function hideEditForm() {
+        // Reset the form values to prevent leftover data
+        document.getElementById('updateProjectForm').reset();
+
+        // Hide the update form and ensure the hidden class is used
+        document.getElementById('updateProjectForm').classList.add('hidden');
+        document.getElementById('updateProjectForm').style.display = 'none'; // Ensure the form is hidden
+    }
+
+</script>
+
+{% endblock %}

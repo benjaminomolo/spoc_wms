@@ -1,0 +1,918 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        font-size: 0.9em;
+        text-align: left;
+    }
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 6px;
+    }
+
+    th {
+        background-color: #f4f4f4;
+    }
+
+    .category-row {
+        font-weight: bold;
+        background-color: #f9f9f9;
+    }
+
+    .subtotal-row,
+    .total-row {
+        font-style: italic;
+    }
+
+    .total-row {
+        font-weight: bold;
+    }
+
+    .total-row td {
+        text-align: right;
+    }
+
+    tfoot tr td {
+        border-top: 2px solid #ddd;
+    }
+
+    .description-column {
+        width: 80.66%;
+    }
+
+    .amount-column,
+    .amount {
+        width: 33.33%;
+        text-align: right;
+    }
+
+    .category-column {
+        width: 40%;
+    }
+
+    .subcategory-column {
+        width: 40%;
+    }
+
+
+    /* Loading spinner */
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: none;
+        /* Hidden by default */
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        /* Ensure it appears above other content */
+    }
+
+    #loading-spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        /* Light grey */
+        border-left: 4px solid var(--primary-color);
+        /* Blue */
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+
+
+
+
+<div class="content-container">
+    <div class="header-section">
+
+        <h1>Balance Sheet Report</h1>
+
+        <div class="view-toggle-buttons">
+            <button class="cta-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <button class="button cta-button" id="download-pdf">
+                <i class="fas fa-file-pdf"></i> Download
+            </button>
+        </div>
+
+    </div>
+
+
+    <div id="loading-overlay">
+        <div id="loading-spinner"></div>
+    </div>
+
+
+    <!-- Filter Section -->
+    <div class="filter-section date-filter date-filter-form" id="filter-section">
+
+        <div class="filter-group">
+            <label for="currency-select" class="filter-label">Filter By</label>
+            <select id="currency-select" name="filter_type" class="form-select">
+
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="start-date" class="filter-label">Start Date</label>
+            <input type="date" id="start-date" name="start-date" class="form-control">
+        </div>
+
+        <div class="filter-group">
+            <label for="end-date" class="filter-label">End Date</label>
+            <input type="date" id="end-date" name="end-date" class="form-control">
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" id="apply-filter" class="add-button">Apply Filter</button>
+            <a href="{{ url_for('balance_sheet') }}" class="btn reset-button">Reset</a>
+        </div>
+
+    </div>
+
+
+    <h2 class="transaction-headings">Assets</h2>
+    <table id="assets-table">
+        <thead>
+            <tr>
+                <th class="category-column">Category</th>
+                <th class="subcategory-column">Subcategory</th>
+                <th class="amount-column">Amount (<span class="currency-symbol"></span>)</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+            <tr id="total-assets-row">
+                <td><strong>Total Assets</strong></td>
+                <td></td>
+                <td class="amount"><strong id="total-assets"></strong></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <h2 class="transaction-headings">Liabilities</h2>
+    <table id="liabilities-table">
+        <thead>
+            <tr>
+                <th class="category-column">Category</th>
+                <th class="subcategory-column">Subcategory</th>
+                <th class="amount-column">Amount (<span class="currency-symbol"></span>)</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+            <tr id="total-liabilities-row">
+                <td><strong>Total Liabilities</strong></td>
+                <td></td>
+                <td class="amount"><strong id="total-liabilities"></strong></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <h2 class="transaction-headings">Equity</h2>
+    <table id="equity-table">
+        <thead>
+            <tr>
+                <th class="category-column">Category</th>
+                <th class="subcategory-column">Subcategory</th>
+                <th class="amount-column">Amount (<span class="currency-symbol"></span>)</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+            <tr id="total-equity-liabilities-row">
+                <td><strong>Total Liabilities and Equity</strong></td>
+                <td></td>
+                <td class="amount"><strong id="total-equity-liabilities"></strong></td>
+            </tr>
+        </tfoot>
+    </table>
+
+
+
+</div>
+
+<script>
+
+    const companyName = "{{ company.name }}";
+
+    // Set the API key in JavaScript
+    const apiKey = "{{ api_key }}";  // Safe to use in JS since it's set here directly from the backend
+
+
+    document.addEventListener('DOMContentLoaded', () => {
+        function formatNumber(number) {
+            return number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+
+        // Show the loading animation
+        function showLoading() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+
+        // Hide the loading animation
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+
+        // Fetch currencies and set up the default currency
+        // Fetch currencies and set up the default currency
+        function fetchCurrencies() {
+            showLoading(); // Show loading animation
+            return fetch('/get_currency')
+                .then(response => response.json())
+                .then(currencies => {
+                    const currencySelect = document.getElementById('currency-select');
+                    if (!currencySelect) {
+                        console.error('Currency select element not found.');
+                        hideLoading(); // Hide loading animation
+                        return null;
+                    }
+                    currencySelect.innerHTML = ''; // Clear existing options
+
+                    let defaultCurrency = null;
+
+                    // Create the currency map from the fetched currencies
+                    createCurrencyMap(currencies);
+
+                    currencies.forEach(currency => {
+                        const option = document.createElement('option');
+                        option.value = currency.user_currency;
+                        option.textContent = currency.user_currency;
+
+                        if (currency.currency_index === 1) {
+                            option.selected = true;
+                            defaultCurrency = currency.user_currency;
+                        }
+
+                        currencySelect.appendChild(option);
+                    });
+
+                    console.log('Fetched currencies:', currencies);
+                    //Update currency
+                    updateCurrencySymbol(defaultCurrency); // Update currency symbols in the table
+                    hideLoading(); // Hide loading animation
+                    return defaultCurrency;
+                })
+                .catch(error => {
+                    console.error('Error fetching currencies:', error);
+                    hideLoading(); // Hide loading animation
+                    return null;
+                });
+        }
+
+
+
+        function fetchTransactions(user_currency) {
+            showLoading(); // Show loading animation
+
+            return fetch(`/get_transactions_base_currency?currency=${encodeURIComponent(user_currency)}`, {
+                headers: {
+                    'X-API-Key': apiKey, // Set the API key in headers
+                    'Content-Type': 'application/json'
+                }
+            })
+
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json(); // Convert response to JSON
+                })
+                .then(transactions => {
+                    console.log('Fetched transactions:', transactions);
+
+                    const startDate = document.getElementById('start-date').value;
+                    const endDate = document.getElementById('end-date').value;
+
+                    console.log('Selected dates:', startDate, endDate);
+
+                    // Filter transactions based on the selected start date, end date, and user currency
+                    // Filter transactions based on the selected start date, end date, and user currency
+                    const filteredTransactions = transactions.filter(transaction => {
+                        const transactionDate = new Date(transaction.date);
+
+                        if (transaction.transaction_type === 'Asset' || transaction.transaction_type === 'Liability') {
+                            // Apply start date and end date for Assets and Liabilities
+                            return (!startDate || transactionDate >= new Date(startDate)) &&
+                                (!endDate || transactionDate <= new Date(endDate)) &&
+                                (transaction.currency === user_currency);
+                        }
+
+                        if (transaction.transaction_type === 'Equity') {
+                            // Apply only end date for Equity
+                            return (!endDate || transactionDate <= new Date(endDate)) &&
+                                (transaction.currency === user_currency);
+                        }
+
+                        // Default behavior: Exclude transactions not matching the types above
+                        return false;
+                    });
+
+
+
+                    console.log('Filtered transactions:', filteredTransactions);
+
+
+                    let totalAssets = 0;
+                    let totalLiabilities = 0;
+                    let totalEquity = 0;
+
+                    // Containers to hold debits and credits by category and subcategory
+                    const assetsCategories = {};
+                    const liabilitiesCategories = {};
+                    const equityCategories = {};
+                    const incomeCategories = {};
+                    const expenseCategories = {};
+
+
+
+                    const assetsTableBody = document.getElementById('assets-table').getElementsByTagName('tbody')[0];
+                    const liabilitiesTableBody = document.getElementById('liabilities-table').getElementsByTagName('tbody')[0];
+                    const equityTableBody = document.getElementById('equity-table').getElementsByTagName('tbody')[0];
+
+                    assetsTableBody.innerHTML = '';
+                    liabilitiesTableBody.innerHTML = '';
+                    equityTableBody.innerHTML = '';
+
+
+
+                    filteredTransactions.forEach(transaction => {
+                        const amount = parseFloat(transaction.amount);
+                        const category = transaction.category || 'Uncategorized';
+                        const subcategory = transaction.subcategory || 'N/A';
+
+                        if (transaction.transaction_type === 'Asset') {
+                            if (!assetsCategories[category]) {
+                                assetsCategories[category] = { subcategories: {}, total: 0 };
+                            }
+                            if (!assetsCategories[category].subcategories[subcategory]) {
+                                assetsCategories[category].subcategories[subcategory] = { debit: 0, credit: 0 };
+                            }
+                            if (transaction.dr_cr === 'D') {
+                                assetsCategories[category].subcategories[subcategory].debit += amount;
+                            } else if (transaction.dr_cr === 'C') {
+                                assetsCategories[category].subcategories[subcategory].credit += amount;
+                            }
+                        } else if (transaction.transaction_type === 'Liability') {
+                            if (!liabilitiesCategories[category]) {
+                                liabilitiesCategories[category] = { subcategories: {}, debitTotal: 0, creditTotal: 0 };
+                            }
+                            if (!liabilitiesCategories[category].subcategories[subcategory]) {
+                                liabilitiesCategories[category].subcategories[subcategory] = { debit: 0, credit: 0 };
+                            }
+                            if (transaction.dr_cr === 'D') {
+                                liabilitiesCategories[category].subcategories[subcategory].debit += amount;
+                                liabilitiesCategories[category].debitTotal += amount;
+                            } else if (transaction.dr_cr === 'C') {
+                                liabilitiesCategories[category].subcategories[subcategory].credit += amount;
+                                liabilitiesCategories[category].creditTotal += amount;
+                            }
+                        } else if (transaction.transaction_type === 'Equity') {
+                            // Ensure both debit and credit transactions are considered
+                            if (!equityCategories[category]) {
+                                equityCategories[category] = { subcategories: {}, debitTotal: 0, creditTotal: 0 };  // Initialize category if not exists
+                            }
+                            if (!equityCategories[category].subcategories[subcategory]) {
+                                equityCategories[category].subcategories[subcategory] = { debit: 0, credit: 0 };  // Initialize subcategory if not exists
+                            }
+
+                            // Handle debit transactions
+                            if (transaction.dr_cr === 'D') {
+                                equityCategories[category].subcategories[subcategory].debit += amount;
+                                equityCategories[category].debitTotal += amount;
+                            }
+                            // Handle credit transactions
+                            else if (transaction.dr_cr === 'C') {
+                                equityCategories[category].subcategories[subcategory].credit += amount;
+                                equityCategories[category].creditTotal += amount;
+                            }
+                        }
+
+                    });
+
+                    // Calculate opening balances for assets and liabilities using transactions before the start date
+                    if (startDate) {
+                        const openingBalanceTransactions = transactions.filter(transaction => {
+                            const transactionDate = new Date(transaction.date);
+                            return transactionDate < new Date(startDate) &&
+                                transaction.currency === user_currency;
+                        });
+
+                        // Calculate the opening balances for assets and liabilities based on transactions before the start date
+                        openingBalanceTransactions.forEach(transaction => {
+                            const amount = parseFloat(transaction.amount);
+                            const category = transaction.category || 'Uncategorized';
+                            const subcategory = transaction.subcategory || 'N/A';
+
+                            if (transaction.transaction_type === 'Asset') {
+                                // Initialize the category if it doesn't exist
+                                if (!assetsCategories[category]) {
+                                    assetsCategories[category] = { subcategories: {}, total: 0 };
+                                }
+
+                                // Format the subcategory with "Opening Balance: " prefix
+                                const openingBalanceSubcategory = `Opening Balance: ${subcategory}`;
+
+                                // Initialize the subcategory if it doesn't exist
+                                if (!assetsCategories[category].subcategories[openingBalanceSubcategory]) {
+                                    assetsCategories[category].subcategories[openingBalanceSubcategory] = { debit: 0, credit: 0 };
+                                }
+
+                                // Add transaction amount to debit or credit based on dr_cr value
+                                if (transaction.dr_cr === 'D') {
+                                    assetsCategories[category].subcategories[openingBalanceSubcategory].debit += amount;
+                                } else if (transaction.dr_cr === 'C') {
+                                    assetsCategories[category].subcategories[openingBalanceSubcategory].credit += amount;
+                                }
+
+
+                            } else if (transaction.transaction_type === 'Liability') {
+                                // Initialize the category if it doesn't exist
+                                if (!liabilitiesCategories[category]) {
+                                    liabilitiesCategories[category] = { subcategories: {}, total: 0 };
+                                }
+
+                                // Format the subcategory with "Opening Balance: " prefix
+                                const openingBalanceSubcategory = `Opening Balance: ${subcategory}`;
+
+                                // Initialize the subcategory if it doesn't exist
+                                if (!liabilitiesCategories[category].subcategories[openingBalanceSubcategory]) {
+                                    liabilitiesCategories[category].subcategories[openingBalanceSubcategory] = { debit: 0, credit: 0 };
+                                }
+
+                                // Add transaction amount to debit or credit based on dr_cr value
+                                if (transaction.dr_cr === 'C') { // Credit amounts for liabilities
+                                    liabilitiesCategories[category].subcategories[openingBalanceSubcategory].credit += amount;
+                                } else if (transaction.dr_cr === 'D') { // Debit amounts for liabilities
+                                    liabilitiesCategories[category].subcategories[openingBalanceSubcategory].debit += amount;
+                                }
+                            }
+
+                        });
+                    }
+
+
+
+
+
+                    // Display Asset categories and their subcategories
+                    for (const [category, data] of Object.entries(assetsCategories)) {
+                        let categoryTotal = 0;
+
+                        // Display category row
+                        const categoryRow = document.createElement('tr');
+                        categoryRow.classList.add('category-row');
+                        categoryRow.innerHTML = `<td><strong>${category}</strong></td><td></td><td></td>`;
+                        assetsTableBody.appendChild(categoryRow);
+
+                        // Display subcategories
+                        for (const [subcategory, amounts] of Object.entries(data.subcategories)) {
+                            const netAmount = amounts.debit - amounts.credit;
+                            const formattedAmount = netAmount < 0
+                                ? `(${formatNumber(Math.abs(netAmount))})`
+                                : formatNumber(netAmount);
+
+                            // Ensure only non-zero balances are displayed
+                            if (netAmount !== 0) {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `<td></td><td>${subcategory}</td><td class="amount">${formattedAmount}</td>`;
+                                assetsTableBody.appendChild(row);
+                            }
+
+                            // Accumulate category total
+                            categoryTotal += netAmount;
+                        }
+
+                        // Display category total
+                        const categoryTotalFormatted = categoryTotal < 0
+                            ? `(${formatNumber(Math.abs(categoryTotal))})`
+                            : formatNumber(categoryTotal);
+
+                        if (categoryTotal !== 0) {
+                            const categoryTotalRow = document.createElement('tr');
+                            categoryTotalRow.classList.add('subtotal-row');
+                            categoryTotalRow.innerHTML = `<td></td><td><strong>Subtotal</strong></td><td class="amount"><strong>${categoryTotalFormatted}</strong></td>`;
+                            assetsTableBody.appendChild(categoryTotalRow);
+                        }
+
+                        totalAssets += categoryTotal;
+                    }
+
+                    // Display Liability categories
+                    // Display Liability categories
+                    // Display Liability categories
+                    for (const [category, data] of Object.entries(liabilitiesCategories)) {
+                        let categoryTotal = 0; // Single total for the category
+
+                        // Display category row
+                        const categoryRow = document.createElement('tr');
+                        categoryRow.classList.add('category-row');
+                        categoryRow.innerHTML = `<td><strong>${category}</strong></td><td></td><td></td>`;
+                        liabilitiesTableBody.appendChild(categoryRow);
+
+                        // Display subcategories and calculate net total (credit - debit)
+                        for (const [subcategory, amounts] of Object.entries(data.subcategories)) {
+                            const creditAmount = amounts.credit;
+                            const debitAmount = amounts.debit;
+                            const netAmount = creditAmount - debitAmount; // Subtract debit from credit
+
+                            // Only display the subcategory once
+                            if (netAmount !== 0) {
+                                const subcategoryLabel = netAmount < 0 ? `${subcategory}` : subcategory;
+                                const formattedAmount = netAmount < 0
+                                    ? `(${formatNumber(Math.abs(netAmount))})` // Display in parentheses for negative amounts
+                                    : formatNumber(netAmount);
+
+                                // Display the net amount
+                                const row = document.createElement('tr');
+                                row.innerHTML = `<td></td><td>${subcategoryLabel}</td><td class="amount">${formattedAmount}</td>`;
+                                liabilitiesTableBody.appendChild(row);
+
+                                // Add the net amount to the category total
+                                categoryTotal += netAmount;
+                            }
+                        }
+
+                        // Display subtotal for the category
+                        const categoryTotalFormatted = categoryTotal < 0
+                            ? `(${formatNumber(Math.abs(categoryTotal))})`
+                            : formatNumber(categoryTotal);
+
+                        if (categoryTotal !== 0) {
+                            const categoryTotalRow = document.createElement('tr');
+                            categoryTotalRow.classList.add('subtotal-row');
+                            categoryTotalRow.innerHTML = `<td></td><td><strong>Subtotal</strong></td><td class="amount"><strong>${categoryTotalFormatted}</strong></td>`;
+                            liabilitiesTableBody.appendChild(categoryTotalRow);
+                        }
+                        console.log("Total Liabilities successfully updated:",)
+
+                        // Add to the total liabilities
+                        totalLiabilities += categoryTotal;
+
+                    }
+
+                    // Format the total liabilities value
+                    const totalLiabilitiesFormatted = totalLiabilities < 0
+                        ? `(${formatNumber(Math.abs(totalLiabilities))})`
+                        : formatNumber(totalLiabilities);
+
+                    // Update the total liabilities cell in the table
+                    const totalLiabilitiesElement = document.getElementById('total-liabilities');
+                    if (totalLiabilitiesElement) {
+                        totalLiabilitiesElement.innerHTML = totalLiabilitiesFormatted;
+                        console.log("Total Liabilities successfully updated:", totalLiabilitiesFormatted);
+                    } else {
+                        console.error("Element with id 'total-liabilities' not found.");
+                    }
+
+
+
+                    // Display Equity categories
+                    let equityDebitsTotal = 0;
+                    let equityCreditsTotal = 0;
+
+                    for (const [category, data] of Object.entries(equityCategories)) {
+                        const categoryRow = document.createElement('tr');
+                        categoryRow.classList.add('category-row');
+                        categoryRow.innerHTML = `<td><strong>${category}</strong></td><td></td><td></td>`;
+                        equityTableBody.appendChild(categoryRow);
+
+                        let categoryDebitTotal = 0;
+                        let categoryCreditTotal = 0;
+
+                        // Display debit balances first
+
+                        // Display credit rows
+                        for (const [subcategory, amounts] of Object.entries(data.subcategories)) {
+                            const creditAmount = amounts.credit || 0;
+                            if (creditAmount !== 0) {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `<td></td><td>${subcategory}</td><td class="amount">${formatNumber(creditAmount)}</td>`;
+                                equityTableBody.appendChild(row);
+                                categoryCreditTotal += creditAmount;
+                            }
+                        }
+
+
+                        // Display credit subtotal if applicable
+                        if (categoryCreditTotal !== 0) {
+                            const creditTotalRow = document.createElement('tr');
+                            creditTotalRow.classList.add('subtotal-row');
+                            creditTotalRow.innerHTML = `<td></td><td><strong>Subtotal</strong></td><td class="amount"><strong>${formatNumber(categoryCreditTotal)}</strong></td>`;
+                            equityTableBody.appendChild(creditTotalRow);
+                            equityCreditsTotal += categoryCreditTotal;
+                        }
+
+                        for (const [subcategory, amounts] of Object.entries(data.subcategories)) {
+                            const debitAmount = amounts.debit || 0;
+                            if (debitAmount !== 0) {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `<td></td><td>Less: ${subcategory}</td><td class="amount">${formatNumber(debitAmount)}</td>`;
+                                equityTableBody.appendChild(row);
+                                categoryDebitTotal += debitAmount;
+                            }
+                        }
+
+                        // Display debit subtotal if applicable
+                        if (categoryDebitTotal !== 0) {
+                            const debitTotalRow = document.createElement('tr');
+                            debitTotalRow.classList.add('subtotal-row');
+                            debitTotalRow.innerHTML = `<td></td><td><strong>Less: Subtotal</strong></td><td class="amount"><strong>${formatNumber(categoryDebitTotal)}</strong></td>`;
+                            equityTableBody.appendChild(debitTotalRow);
+                            equityDebitsTotal += categoryDebitTotal;
+                        }
+
+
+                    }
+
+                    // Calculate and display Net Earnings
+                    let totalIncome = 0;
+                    let totalExpenses = 0;
+
+
+
+                    // Get the end date from the input field, default to today if not selected
+                    const endDateObj = endDate ? new Date(endDate) : new Date(); // Use today’s date if no end date is provided
+
+
+
+                    transactions.forEach(transaction => {
+                        const transactionDate = new Date(transaction.date);
+
+                        // Only include transactions that are on or before the end date and match the selected currency
+                        if (transactionDate <= endDateObj && transaction.currency === user_currency) {
+                            if (transaction.transaction_type === 'Income' && transaction.dr_cr === 'C') {
+                                totalIncome += parseFloat(transaction.amount);
+                            } else if (transaction.transaction_type === 'Expense' && transaction.dr_cr === 'D') {
+                                totalExpenses += parseFloat(transaction.amount);
+                            }
+                        }
+                    });
+
+
+                    // Calculate Net Earnings
+                    const netEarnings = totalIncome - totalExpenses;
+
+                    // Determine the subcategory for Net Earnings
+                    let netEarningsSubcategory = '';
+                    if (netEarnings > 0) {
+                        netEarningsSubcategory = 'Net Profit';
+                    } else if (netEarnings < 0) {
+                        netEarningsSubcategory = 'Net Loss';
+                    } else {
+                        netEarningsSubcategory = 'Net';
+                    }
+
+                    // Display the Net Earnings row
+                    const netEarningsRow = document.createElement('tr');
+                    netEarningsRow.classList.add('category-row');
+                    netEarningsRow.innerHTML = `<td><strong>Net Earnings</strong></td><td></td><td></td>`;
+                    equityTableBody.appendChild(netEarningsRow);
+                    // Format the net earnings value
+                    const formattedNetEarnings = netEarnings < 0
+                        ? `(${formatNumber(Math.abs(netEarnings))})`
+                        : formatNumber(netEarnings);
+
+                    const netEarningsSubRow = document.createElement('tr');
+                    netEarningsSubRow.innerHTML = `<td></td><td>${netEarningsSubcategory}</td><td class="amount">${formattedNetEarnings}</td>`;
+                    equityTableBody.appendChild(netEarningsSubRow);
+
+                    // Add Net Earnings to the Total Equity
+                    equityCreditsTotal += netEarnings > 0 ? netEarnings : 0; // Add to credits if profit
+                    equityDebitsTotal += netEarnings < 0 ? Math.abs(netEarnings) : 0; // Add to debits if loss
+
+
+                    // Overall Equity Calculation
+                    const overallEquityTotal = equityCreditsTotal - equityDebitsTotal;
+
+                    // Format Overall Total Equity value with parentheses if negative
+                    const formattedOverallEquityTotal = overallEquityTotal < 0
+                        ? `(${formatNumber(Math.abs(overallEquityTotal))})`
+                        : formatNumber(overallEquityTotal);
+
+
+                    // Display overall equity totals
+                    const equitySummaryRow = document.createElement('tr');
+                    equitySummaryRow.classList.add('subtotal-row');
+                    equitySummaryRow.innerHTML = `<td><strong>Total Equity</strong></td><td></td><td class="amount"><strong>${formatNumber(overallEquityTotal)}</strong></td>`;
+                    equityTableBody.appendChild(equitySummaryRow);
+
+
+                    const totalEquityandLiabilities = overallEquityTotal + totalLiabilities;
+
+
+
+
+                    // Update totals
+                    document.getElementById('total-assets').textContent = formatNumber(totalAssets);
+                    document.getElementById('total-liabilities').textContent = formatNumber(totalLiabilities);
+                    document.getElementById('total-equity-liabilities').textContent = formatNumber(totalEquityandLiabilities);
+
+
+
+
+
+                    //Update currency
+                    updateCurrencySymbol(defaultCurrency); // Update currency symbols in the table
+
+                    hideLoading(); // Hide loading animation
+                })
+                .catch(error => {
+                    console.error('Error fetching transactions:', error);
+                    hideLoading(); // Hide loading animation
+                });
+        }
+
+        function setupCurrencySelector() {
+            const currencySelect = document.getElementById('currency-select');
+            if (!currencySelect) {
+                console.error('Currency select element not found.');
+                return;
+            }
+
+            currencySelect.addEventListener('change', (event) => {
+                const selectedCurrency = event.target.value;
+                updateCurrencySymbol(selectedCurrency);
+                fetchTransactions(selectedCurrency);
+            });
+        }
+
+        // Set up the initial state
+        fetchCurrencies().then(defaultCurrency => {
+            if (defaultCurrency) {
+                setupCurrencySelector(); // Set up event listener after fetching currencies
+                fetchTransactions(defaultCurrency); // Fetch transactions with default currency
+            } else {
+                console.error('Default currency not found.');
+            }
+        });
+
+        // Apply filter button click event
+        document.getElementById('apply-filter').addEventListener('click', () => {
+            const currencySelect = document.getElementById('currency-select');
+            if (currencySelect) {
+
+                const selectedCurrency = currencySelect.value;
+                console.log('Selected currency:', selectedCurrency);
+                fetchTransactions(selectedCurrency);
+
+            } else {
+                console.error('Currency select element not found.');
+            }
+        });
+
+
+        function updateCurrencySymbol(currencySymbol) {
+            const currencySymbols = document.querySelectorAll('.currency-symbol');
+            currencySymbols.forEach(symbol => {
+                symbol.textContent = currencySymbol;
+            });
+        }
+
+
+        // Initialize an empty object to store active filters
+        let activeFilters = {};
+        let currencyMap = {}; // Global mapping of user_currency to currency_id
+
+        function createCurrencyMap(currencies) {
+            currencies.forEach(currency => {
+                // Map user_currency to currency_id
+                currencyMap[currency.user_currency] = currency.currency_id;
+
+                // Log the mapping for debugging
+                console.log(`Mapped user_currency: ${currency.user_currency} to currency_id: ${currency.currency_id}`);
+            });
+
+            // Log the complete currencyMap after all mappings are done
+            console.log("Complete currencyMap:", currencyMap);
+        }
+
+        // Function to update active filters based on user input
+        function updateFilters() {
+            const currency = document.getElementById("currency-select").value;
+            const startDate = document.getElementById("start-date").value;
+            const endDate = document.getElementById("end-date").value;
+
+            console.log("Currency selected is:", currency);
+
+
+            // Get the currency_id from the mapping
+            const currencyId = currencyMap[currency];
+            console.log("Current Currency ID:", currencyId);
+            console.log("Complete currencyMap222222:", currencyMap);
+
+            // Only add to activeFilters if there's a value selected
+            if (currencyId) activeFilters.currency = currencyId;
+            else delete activeFilters.currency;
+
+            if (startDate) activeFilters.startDate = startDate;
+            else delete activeFilters.startDate;
+
+            if (endDate) activeFilters.endDate = endDate;
+            else delete activeFilters.endDate;
+
+            // Log the filters each time they are updated for debugging
+            console.log("Updated Active Filters:", activeFilters);
+        }
+
+
+
+
+        // Event listener for "Apply Filter" button
+        function applyFilters() {
+            fetch('/balance_sheet', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+
+                    'X-CSRFToken': csrfToken  // Include the CSRF token in the headers
+                },
+                body: JSON.stringify(activeFilters) // Send activeFilters as JSON
+            })
+                .then(response => response.json())  // Expect JSON response
+                .then(data => {
+                    console.log("Response from backend:", data);  // Debugging
+
+                })
+                .catch(error => {
+                    console.error("Error applying filters:", error);
+                    alert("An error occurred while applying filters.");
+                });
+        }
+
+
+
+        // Event listener for "Apply Filter" button
+        document.getElementById("apply-filter").addEventListener("click", () => {
+            updateFilters();  // Update activeFilters with current filter values
+            console.log("Active Filters after Apply Filter:", activeFilters);  // For debugging
+            applyFilters();  // Send filters to the backend
+        });
+
+
+
+
+        // Event listener for "Download as PDF" button
+        document.getElementById("download-pdf").addEventListener("click", () => {
+            updateFilters();  // Make sure filters are updated before sending the request
+            console.log("Active Filters before Download:", activeFilters);  // For debugging
+
+            fetch("/download_balance_sheet_report", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", 'X-CSRFToken': csrfToken },
+                body: JSON.stringify(activeFilters),
+            })
+                .then(response => response.blob())  // assuming backend responds with a PDF blob
+                .then(blob => {
+                    // Create a URL for the PDF blob and trigger a download
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${companyName} -Balance Sheet Report.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(error => console.error("Error:", error));
+        });
+
+
+    })
+
+
+    // Toggle the filter section visibility with animation
+    document.getElementById('toggleFilterForm').addEventListener('click', function () {
+        const filterSection = document.getElementById('filter-section');
+        filterSection.classList.toggle('visible');
+    });
+</script>
+
+
+
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "payrollbase.html" %}
+{% block content %}
+    <h2>Edit Payroll Transaction</h2>
+    <form action="/edit_payroll_transaction/{{ entry.id }}" method="POST">
+        <div class="form-group">
+            <label for="employee_name">Employee Name</label>
+            <select class="form-control form-control-sm" id="employee_name" name="employee_name" required>
+                {% for employee in employees %}
+                <option value="{{ employee.employee_name }}" {% if employee.employee_name == entry.employee_name %}selected{% endif %}>
+                    {{ employee.employee_name }} - {{ employee.position }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="payment_type">Payment Type</label>
+            <select class="form-control form-control-sm" id="payment_type" name="payment_type" required>
+                <option value="Salary" {% if entry.payment_type == 'Salary' %}selected{% endif %}>Salary</option>
+                <option value="Commission" {% if entry.payment_type == 'Commission' %}selected{% endif %}>Commission</option>
+                <option value="Others" {% if entry.payment_type == 'Others' %}selected{% endif %}>Others</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="date_of_payment">Date of Payment</label>
+            <input type="date" class="form-control form-control-sm" id="date_of_payment" name="date_of_payment" value="{{ entry.date_of_payment.strftime('%Y-%m-%d') }}" required>
+        </div>
+        <div class="form-group">
+            <label for="year">Year</label>
+            <select class="form-control form-control-sm" id="year" name="year" required>
+                {% for year in years %}
+                <option value="{{ year }}" {% if entry.year == year %}selected{% endif %}>{{ year }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="month">Month</label>
+            <select class="form-control form-control-sm" id="month" name="month" required>
+                {% for month in months %}
+                <option value="{{ month }}" {% if entry.month == month %}selected{% endif %}>{{ month }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="amount">Amount</label>
+            <input type="number" class="form-control form-control-sm" id="amount" name="amount" step="0.01" value="{{ entry.amount }}" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Update Transaction</button>
+    </form>
+{% endblock %}

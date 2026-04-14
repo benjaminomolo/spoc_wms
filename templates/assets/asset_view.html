@@ -1,0 +1,792 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+    /* Asset View Specific Styles */
+    .asset-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .asset-title {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .asset-tag-badge {
+        background-color: var(--secondary-color);
+        color: var(--white);
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        font-size: 1.2rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+
+    .asset-meta {
+        display: flex;
+        gap: 1rem;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    /* Info Cards */
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .info-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+        padding: 1.5rem;
+        border: 1px solid rgba(0, 0, 0, 0.02);
+    }
+
+    .info-card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .info-card-header i {
+        font-size: 1.25rem;
+        color: #4361ee;
+    }
+
+    .info-card-header h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .info-row:last-child {
+        border-bottom: none;
+    }
+
+    .info-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    .info-value {
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: #1e293b;
+    }
+
+    .info-value .badge {
+        margin-left: 0.5rem;
+    }
+
+    /* Value Card */
+    .value-card {
+        background: linear-gradient(135deg,
+                var(--primary-color),
+                var(--secondary-color));
+        color: var(--white);
+    }
+
+
+    .value-card .info-card-header i,
+    .value-card .info-card-header h3 {
+        color: white;
+    }
+
+    .value-card .info-row {
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .value-card .info-label {
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .value-card .info-value {
+        color: white;
+    }
+
+    .value-amount {
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+
+    .depreciation-indicator {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .depreciation-low {
+        background: rgba(76, 201, 240, 0.2);
+        color: #4cc9f0;
+    }
+
+    .depreciation-medium {
+        background: rgba(248, 150, 30, 0.2);
+        color: #f8961e;
+    }
+
+    .depreciation-high {
+        background: rgba(255, 107, 107, 0.2);
+        color: #ff6b6b;
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-block;
+        padding: 0.35rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .status-in_stock {
+        background: rgba(76, 201, 240, 0.1);
+        color: #4cc9f0;
+    }
+
+    .status-assigned {
+        background: rgba(67, 97, 238, 0.1);
+        color: #4361ee;
+    }
+
+    .status-maintenance {
+        background: rgba(248, 150, 30, 0.1);
+        color: #f8961e;
+    }
+
+    .status-disposed {
+        background: rgba(108, 117, 125, 0.1);
+        color: #6c757d;
+    }
+
+    .status-sold {
+        background: rgba(255, 107, 107, 0.1);
+        color: #ff6b6b;
+    }
+
+    /* Tabs */
+    .tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        padding-bottom: 0.5rem;
+    }
+
+    .tab-btn {
+        padding: 0.5rem 1rem;
+        background: none;
+        border: none;
+        color: #6c757d;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+        background: #f8f9fa;
+        color: var(--highlight-color-darker);
+    }
+
+    .tab-btn.active {
+        background: var(--highlight-color);
+        color: white;
+    }
+
+    .tab-pane {
+        display: none;
+    }
+
+    .tab-pane.active {
+        display: block;
+    }
+
+    /* Timeline */
+    .timeline {
+        position: relative;
+        padding: 1rem 0;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-left: 2rem;
+        padding-bottom: 1.5rem;
+        border-left: 2px solid #e9ecef;
+    }
+
+    .timeline-item:last-child {
+        border-left-color: transparent;
+        padding-bottom: 0;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -0.5rem;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50%;
+        background: white;
+        border: 2px solid #4361ee;
+    }
+
+    .timeline-date {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+
+    .timeline-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.25rem;
+    }
+
+    .timeline-subtitle {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    .timeline-value {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #4361ee;
+        margin-top: 0.25rem;
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .btn-icon {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        background: white;
+        color: #6c757d;
+        transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+        background: #f8f9fa;
+        color: #4361ee;
+        border-color: #4361ee;
+    }
+
+    /* Warranty Badge */
+    .warranty-urgent {
+        color: #ff6b6b;
+        font-weight: 600;
+    }
+
+    .warranty-warning {
+        color: #f8961e;
+        font-weight: 600;
+    }
+
+    /* Modal */
+    .modal-content {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-header {
+        background: #f8fafc;
+        border-bottom: 1px solid #e9ecef;
+        padding: 1.25rem 1.5rem;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-footer {
+        background: #f8fafc;
+        border-top: 1px solid #e9ecef;
+        padding: 1rem 1.5rem;
+    }
+</style>
+
+<div class="content-container">
+    <!-- Loading State -->
+    <div id="loadingState" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3 text-muted">Loading asset details...</p>
+    </div>
+
+    <!-- Asset Content (Initially Hidden) -->
+    <div id="assetContent" style="display: none;">
+        <!-- Header -->
+        <div class="asset-header">
+            <div class="asset-title">
+                <div>
+                    <span class="asset-tag-badge" id="assetTag"></span>
+                    <span class="badge ms-2" id="statusBadge"></span>
+                </div>
+                <div class="asset-meta" id="assetMeta"></div>
+            </div>
+            <div class="action-buttons-clean">
+                <div class="custom-tooltip-container">
+                    <a href="/assets/asset_edit/{{ asset.id }}" class="edit-icon">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <span class="custom-tooltip">Edit Asset Acquisition</span>
+                </div>
+
+                <div class="custom-tooltip-container">
+                    <a href="/assets/asset_list" class="btn-icon">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <span class="custom-tooltip left">Back to List</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Grid -->
+        <div class="info-grid">
+            <!-- Asset Details Card -->
+            <div class="info-card">
+                <div class="info-card-header">
+                    <i class="fas fa-info-circle"></i>
+                    <h3>Asset Details</h3>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Asset Type</span>
+                    <span class="info-value" id="assetType"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Serial Number</span>
+                    <span class="info-value" id="serialNumber"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Condition</span>
+                    <span class="info-value" id="condition"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Description</span>
+                    <span class="info-value" id="description"></span>
+                </div>
+            </div>
+
+            <!-- Location & Assignment Card -->
+            <div class="info-card">
+                <div class="info-card-header">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <h3>Location & Assignment</h3>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Location</span>
+                    <span class="info-value" id="location"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Department</span>
+                    <span class="info-value" id="department"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Assigned To</span>
+                    <span class="info-value" id="assignedTo"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Project</span>
+                    <span class="info-value" id="project"></span>
+                </div>
+            </div>
+
+            <!-- Financial Card -->
+            <div class="info-card value-card">
+                <div class="info-card-header">
+                    <i class="fas fa-chart-line"></i>
+                    <h3>Financial Summary</h3>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Purchase Date</span>
+                    <span class="info-value" id="purchaseDate"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Purchase Price</span>
+                    <span class="info-value" id="purchasePrice"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Current Value</span>
+                    <span class="info-value value-amount" id="currentValue"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Total Depreciation</span>
+                    <span class="info-value" id="depreciation"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Depreciation Rate</span>
+                    <span class="info-value" id="depreciationRate"></span>
+                </div>
+            </div>
+
+            <!-- Supplier & Warranty Card -->
+            <div class="info-card">
+                <div class="info-card-header">
+                    <i class="fas fa-truck"></i>
+                    <h3>Supplier & Warranty</h3>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Supplier</span>
+                    <span class="info-value" id="supplier"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Warranty Expiry</span>
+                    <span class="info-value" id="warranty"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Capitalization Date</span>
+                    <span class="info-value" id="capitalizationDate"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Last Depreciation</span>
+                    <span class="info-value" id="lastDepreciation"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="movements">Movement History</button>
+            <button class="tab-btn" data-tab="depreciation">Depreciation Schedule</button>
+            <button class="tab-btn" data-tab="maintenance">Maintenance</button>
+            <button class="tab-btn" data-tab="documents">Documents</button>
+        </div>
+
+        <!-- Tab Panes -->
+        <div class="tab-content">
+            <!-- Movement History Tab -->
+            <div class="tab-pane active" id="movementsTab">
+                <div class="table-card">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="movementTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Reference</th>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th>Party</th>
+                                    <th class="text-end">Value</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="movementBody">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Depreciation Tab -->
+            <div class="tab-pane" id="depreciationTab">
+                <div class="table-card">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="depreciationTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th class="text-end">Amount</th>
+                                    <th class="text-end">Previous Value</th>
+                                    <th class="text-end">New Value</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="depreciationBody">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Maintenance Tab -->
+            <div class="tab-pane" id="maintenanceTab">
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-tools fa-3x mb-3"></i>
+                    <p>Maintenance history will be displayed here</p>
+                </div>
+            </div>
+
+            <!-- Documents Tab -->
+            <div class="tab-pane" id="documentsTab">
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-file-alt fa-3x mb-3"></i>
+                    <p>Documents will be displayed here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Record Depreciation Modal -->
+<div class="modal fade" id="depreciationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Record Depreciation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="depreciationForm">
+                    <div class="mb-3">
+                        <label class="form-label">Depreciation Date</label>
+                        <input type="date" class="form-control" id="depDate" value="{{ now.strftime('%Y-%m-%d') }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Amount</label>
+                        <input type="number" class="form-control" id="depAmount" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" id="depNotes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveDepreciationBtn">Record Depreciation</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const assetId = {{ asset.id }};
+    const baseCurrency = "{{ base_currency }}";
+
+    class AssetView {
+        constructor() {
+            this.assetData = null;
+            this.init();
+        }
+
+        async init() {
+            await this.loadAssetDetails();
+            this.initEventListeners();
+        }
+
+        async loadAssetDetails() {
+            try {
+                document.getElementById('loadingState').style.display = 'block';
+                document.getElementById('assetContent').style.display = 'none';
+
+                const response = await fetch(`/assets/api/${assetId}/details`);
+                const data = await response.json();
+
+                if (data.success) {
+                    this.assetData = data.asset;
+                    this.renderAssetDetails();
+                } else {
+                    this.showNotification(data.message || 'Failed to load asset details', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading asset details:', error);
+                this.showNotification('Failed to load asset details', 'error');
+            } finally {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('assetContent').style.display = 'block';
+            }
+        }
+
+        renderAssetDetails() {
+            const asset = this.assetData;
+
+            // Header
+            document.getElementById('assetTag').textContent = asset.asset_tag;
+
+            // Status badge
+            const statusBadge = document.getElementById('statusBadge');
+            statusBadge.textContent = asset.status_label;
+            statusBadge.className = `badge status-${asset.status}`;
+
+            document.getElementById('assetMeta').innerHTML = `
+                <span><i class="fas fa-tag me-1"></i> ID: ${asset.id}</span>
+                <span><i class="fas fa-calendar me-1"></i> Added: ${asset.created_at}</span>
+            `;
+
+            // Asset Details
+            document.getElementById('assetType').innerHTML = `
+                ${asset.asset_type_name}
+                ${asset.asset_type_code ? `<br><small class="text-muted">${asset.asset_type_code}</small>` : ''}
+            `;
+            document.getElementById('serialNumber').innerHTML = `<span style="font-family: monospace;">${asset.serial_number}</span>`;
+
+            let conditionClass = 'badge bg-secondary';
+            if (asset.condition === 'excellent') conditionClass = 'badge bg-success';
+            else if (asset.condition === 'good') conditionClass = 'badge bg-info';
+            else if (asset.condition === 'fair') conditionClass = 'badge bg-warning';
+            else if (asset.condition === 'poor') conditionClass = 'badge bg-danger';
+
+            document.getElementById('condition').innerHTML = `<span class="${conditionClass}">${asset.condition_label}</span>`;
+            document.getElementById('description').textContent = asset.asset_description || '—';
+
+            // Location & Assignment
+            document.getElementById('location').textContent = asset.location_name;
+            document.getElementById('department').textContent = asset.department_name;
+            document.getElementById('assignedTo').textContent = asset.assigned_to_name;
+            document.getElementById('project').textContent = asset.project_name;
+
+            // Financial
+            document.getElementById('purchaseDate').textContent = asset.purchase_date;
+            document.getElementById('purchasePrice').textContent = this.formatCurrency(asset.purchase_price, true);
+            document.getElementById('currentValue').textContent = this.formatCurrency(asset.current_value, true);
+            document.getElementById('depreciation').textContent = this.formatCurrency(asset.depreciation, true);
+
+            let depClass = 'depreciation-low';
+            if (asset.depreciation_pct > 50) depClass = 'depreciation-high';
+            else if (asset.depreciation_pct > 25) depClass = 'depreciation-medium';
+
+            document.getElementById('depreciationRate').innerHTML = `
+                <span class="depreciation-indicator ${depClass}">${asset.depreciation_pct}%</span>
+            `;
+
+            // Supplier & Warranty
+            document.getElementById('supplier').textContent = asset.supplier_name;
+
+            let warrantyHtml = asset.warranty_expiry;
+            if (asset.warranty_days_left !== null) {
+                if (asset.warranty_days_left <= 30) {
+                    warrantyHtml += ` <span class="badge bg-danger">${asset.warranty_days_left} days left</span>`;
+                } else if (asset.warranty_days_left <= 90) {
+                    warrantyHtml += ` <span class="badge bg-warning">${asset.warranty_days_left} days left</span>`;
+                }
+            }
+            document.getElementById('warranty').innerHTML = warrantyHtml;
+
+            document.getElementById('capitalizationDate').textContent = asset.capitalization_date;
+            document.getElementById('lastDepreciation').textContent = asset.last_depreciation_date;
+
+            // Movement History
+            this.renderMovementHistory(asset.movement_history);
+
+            // Depreciation History
+            this.renderDepreciationHistory(asset.depreciation_history);
+        }
+
+        renderMovementHistory(movements) {
+            const tbody = document.getElementById('movementBody');
+
+            if (!movements || movements.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No movement history found</td></tr>';
+                return;
+            }
+
+            let html = '';
+            movements.forEach(m => {
+                html += `
+                    <tr>
+                        <td>${m.transaction_date}</td>
+                        <td><span class="badge bg-secondary">${m.movement_type_label}</span></td>
+                        <td>${m.reference}</td>
+                        <td>${m.from}</td>
+                        <td>${m.to}</td>
+                        <td>${m.party}</td>
+                        <td class="text-end">${this.formatCurrency(m.transaction_value, true)}</td>
+                        <td><small class="text-muted">${m.notes}</small></td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        renderDepreciationHistory(depreciations) {
+            const tbody = document.getElementById('depreciationBody');
+
+            if (!depreciations || depreciations.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No depreciation history found</td></tr>';
+                return;
+            }
+
+            let html = '';
+            depreciations.forEach(d => {
+                html += `
+                    <tr>
+                        <td>${d.date}</td>
+                        <td class="text-end text-danger">-${this.formatCurrency(d.amount, true)}</td>
+                        <td class="text-end">${this.formatCurrency(d.previous_value, true)}</td>
+                        <td class="text-end">${this.formatCurrency(d.new_value, true)}</td>
+                        <td><small class="text-muted">${d.notes}</small></td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        initEventListeners() {
+            // Tab switching
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const tabName = e.target.dataset.tab;
+
+                    // Update active tab button
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+
+                    // Update active tab pane
+                    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+                    document.getElementById(`${tabName}Tab`).classList.add('active');
+                });
+            });
+
+
+        }
+
+        formatCurrency(value, showSymbol = true) {
+            if (value === undefined || value === null) return '0.00';
+            const formatted = parseFloat(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            return showSymbol ? `${baseCurrency} ${formatted}` : formatted;
+        }
+
+
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        new AssetView();
+    });
+</script>
+
+
+
+{% endblock %}

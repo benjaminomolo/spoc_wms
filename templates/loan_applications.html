@@ -1,0 +1,241 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+
+    <h1>Loan Applications</h1>
+
+    <!-- Loans table -->
+    <div class="table-responsive">
+        <table id="loans-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Applicant Name</th>
+                    <th>Loan Status</th>
+                    <th>Principal Amount</th>
+                    <th>Interest Amount</th>
+                    <th>Fine Amount</th>
+                    <th>Amount Paid</th>
+                    <th>Due Date</th>
+                    <th>Remaining Amount</th>
+                    <th>Loan-Period</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loan_detail in loans %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ loan_detail.loan.loan_applicant.name }}</td>
+                    <td class="status 
+                            {% if loan_detail.loan.loan_status.value == 'Overdue' %}overdue
+                            {% elif loan_detail.loan.loan_status.name == 'REPAID' %}repaid
+                            {% elif loan_detail.loan.loan_status.value == 'Approved' %}approved
+                            {% elif loan_detail.loan.loan_status.name == 'NOT_APPROVED' %}not-approved
+                            {% else %}pending{% endif %}">
+                        {{ loan_detail.loan.loan_status.value }}
+                    </td>
+                    <td>{{ "{:,.0f}".format(loan_detail.loan.principal_amount) }}</td>
+                    <td>{{ "{:,.0f}".format(loan_detail.loan.interest_amount) }}</td>
+                    <td>{{ "{:,.0f}".format(loan_detail.total_fine_amount or 0) }}</td>
+                    <td>{{ "{:,.0f}".format(loan_detail.total_amount_paid or 0) }}</td>
+                    <td>{{ loan_detail.due_date }}</td>
+                    <td>{{ "{:,.0f}".format(loan_detail.remaining_amount) }}</td>
+                    <td>{{ loan_detail.loan.loan_period }} days</td>
+                    <td>
+                        <div class="action-icons">
+                            {% if loan_detail.loan.loan_status.value not in ['Repaid', 'Pending', 'Cancelled',
+                            'Discontinued', 'Not Approved'] %}
+                            <a href="{{ url_for('loan_update', loan_id=loan_detail.loan.id) }}" class="edit-icon"
+                                data-tooltip="Update Payment">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% elif loan_detail.loan.loan_status.value == 'Pending' %}
+                            <button class="button cta-button-table approve-loan"
+                                data-loan-id="{{ loan_detail.loan.id }}" data-tooltip="Approve">
+                                <i class="fas fa-check-circle"></i>
+                            </button>
+                            <button class="button remove-button-table cancel-loan"
+                                data-loan-id="{{ loan_detail.loan.id }}" data-tooltip="Cancel">
+                                <i class="fas fa-times-circle"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+
+
+
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th id="total-principal-amount">Total: {{ total_principal_amount }}</th>
+                    <th id="total-interest-amount">Total: {{ total_interest_amount }}</th>
+                    <th id="total-fine-amount">Total: {{ total_fine_amount }}</th>
+                    <th id="total-amount-paid">Total: {{ total_amount_paid }}</th>
+                    <th></th>
+                    <th id="total-remaining-amount">Total: {{ total_remaining_amount }}</th>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+</div>
+
+
+
+<script>
+    $(document).ready(function () {
+        var table = $('#loans-table').DataTable({
+            "lengthMenu": [
+                [10, 25, 50, 100, -1],
+                [10, 25, 50, 100, 'All']
+            ],
+            "aaSorting": [],
+            "initComplete": function () {
+                this.api().columns().every(function () {
+                    let column = this;
+                    let index = column.index();
+                    let title = $(column.footer()).text();
+
+                    // Only add search input to specific columns (ID, Name, Status)
+                    if (index === 0 || index === 1 || index === 2) {
+                        let input = $('<input>').attr('placeholder', 'Search ' + title).addClass('form-control form-control-sm search-input');
+                        input.prepend('<i class="fas fa-search"></i>');
+                        $(column.footer()).empty().append(input);
+
+                        input.on('keyup change', function () {
+                            column.search($(this).val()).draw();
+                        });
+                    } else {
+                        $(column.footer()).empty();
+                    }
+                });
+            },
+            "footerCallback": function (row, data, start, end, display) {
+                var api = this.api();
+
+                // Format numbers with thousands separators
+                function formatNumber(num) {
+                    return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                }
+
+                // Calculate totals
+                var intVal = function (i) {
+                    return typeof i === 'string' ? i.replace(/[\$,]/g, '') * 1 : typeof i === 'number' ? i : 0;
+                };
+
+                var total_principal_amount = api
+                    .column(3, { page: 'current' })
+                    .data()
+                    .reduce(function (a, b) {
+                        return intVal(a) + intVal(b);
+                    }, 0);
+                var total_interest_amount = api
+                    .column(4, { page: 'current' })
+                    .data()
+                    .reduce(function (a, b) {
+                        return intVal(a) + intVal(b);
+                    }, 0);
+                var total_fine_amount = api
+                    .column(5, { page: 'current' })
+                    .data()
+                    .reduce(function (a, b) {
+                        return intVal(a) + intVal(b);
+                    }, 0);
+                var total_amount_paid = api
+                    .column(6, { page: 'current' }) // Column index for Amount Paid
+                    .data()
+                    .reduce(function (a, b) {
+                        return intVal(a) + intVal(b);
+                    }, 0);
+                var total_remaining_amount = api
+                    .column(8, { page: 'current' })
+                    .data()
+                    .reduce(function (a, b) {
+                        return intVal(a) + intVal(b);
+                    }, 0);
+
+                // Update footer totals
+                $(api.column(3).footer()).html('Total: ' + formatNumber(total_principal_amount));
+                $(api.column(4).footer()).html('Total: ' + formatNumber(total_interest_amount));
+                $(api.column(5).footer()).html('Total: ' + formatNumber(total_fine_amount));
+                $(api.column(6).footer()).html('Total: ' + formatNumber(total_amount_paid)); // Update footer for Amount Paid
+                $(api.column(8).footer()).html('Total: ' + formatNumber(total_remaining_amount));
+            }
+        });
+
+
+        // Trigger initial update of footer totals
+        table.draw();
+
+
+
+
+    });
+
+    // Handle Confirm Approve Button Click
+    $('.approve-loan').click(function () {
+        var loanId = $(this).data('loan-id');
+
+        if (confirm('Are you sure you want to approve this loan?')) {
+            $.ajax({
+                url: '/approve-loan/' + loanId,
+                type: 'POST',
+                headers: {
+                    'X-CSRF-Token': csrfToken // Include the CSRF token in the request headers
+                },
+                success: function (response) {
+                    console.log(response);  // Log the response to see the actual message
+                    if (response.success) {
+                        alert('Loan approved successfully.');
+                        location.reload(); // Reload page to reflect changes
+                    } else {
+                        alert('Error approving loan: ' + response.message);
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.log(error);  // Log the error for debugging
+                    alert('An error occurred. Please try again.');
+                }
+            });
+        }
+    });
+    // Handle Cancel Loan Button Click
+    $('.cancel-loan').click(function () {
+        var loanId = $(this).data('loan-id');
+
+        if (confirm('Are you sure you want to cancel this loan?')) {
+            $.ajax({
+                url: '/cancel-loan/' + loanId,
+                type: 'POST',
+                headers: {
+                    'X-CSRF-Token': csrfToken // Include the CSRF token in the request headers
+                },
+                success: function (response) {
+                    console.log(response);  // Log the response to see the actual message
+                    if (response.success) {
+                        alert('Loan cancelled successfully.');
+                        location.reload(); // Reload page to reflect changes
+                    } else {
+                        alert('Error cancelling loan: ' + response.message);
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.log(error);  // Log the error for debugging
+                    alert('An error occurred. Please try again.');
+                }
+            });
+        }
+    });
+
+</script>
+{% endblock %}

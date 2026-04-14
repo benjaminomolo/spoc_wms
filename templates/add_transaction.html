@@ -1,0 +1,969 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <h1>Journal Details</h1>
+
+    <form id="transactionForm" action="/submit_transaction" method="post" enctype="multipart/form-data">
+        <!-- Top Journal Info Section -->
+        <div
+            style="background-color: #f9f9f9; padding: 15px 10px; border-radius: 8px; display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+
+            <!-- Transaction Currency -->
+            <div style="display: flex; flex-direction: column;" class="text-muted">
+                <label for="form_currency" style="font-weight: 300; margin-bottom: 4px;">Transaction Currency</label>
+                <select id="form_currency" name="form_currency" required
+                    style="padding: 6px 10px; min-width: 140px; border-radius: 6px; border: 1px solid #ccc;">
+                    {% if currencies|length == 0 %}
+                    <option value="" disabled selected>Add currency in settings</option>
+                    {% else %}
+                    {% for currency in currencies %}
+                    <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                    {% endfor %}
+                    {% endif %}
+                </select>
+            </div>
+
+            <!-- Journal Ref No (optional) -->
+            <div style="display: flex; flex-direction: column;" class="text-muted">
+                <label for="journal_ref_no" style="font-weight: 300; margin-bottom: 4px;">Journal Ref No</label>
+                <input type="text" id="journal_ref_no" name="journal_ref_no" placeholder="Optional"
+                    style="padding: 6px 10px; min-width: 140px; border-radius: 6px; border: 1px solid #ccc;">
+            </div>
+
+            <!-- Narration (optional) -->
+            <div style="display: flex; flex-direction: column; flex: 1;" class="text-muted">
+                <label for="narration" style="font-weight: 300; margin-bottom: 4px;">Narration</label>
+                <input type="text" id="narration" name="narration" placeholder="Optional" maxLength="100"
+                    style="padding: 6px 10px; width: 95%; border-radius: 6px; border: 1px solid #ccc;">
+            </div>
+        </div>
+
+
+        <!-- Standalone forms -->
+        <div class="form-grid">
+            <div class="form-group">
+                <input type="date" id="date" name="date" placeholder=" " required>
+                <label for="date">Date <span style="color: red;">*</span></label>
+            </div>
+
+            <div class="form-group">
+                <select id="project_name" name="project_name" onchange="handleProjectChange(this.value)"
+                    class="form-select2">
+                    <option value="" selected>Select Project</option>
+                    {% for project in project_names %}
+                    <option value="{{ project.id }}">{{ project.name }} - {{ project.project_id }}</option>
+                    {% endfor %}
+                    <option value="add_new_project" class="add-new-link">+ Add New Project</option>
+                </select>
+                <label for="project_name">
+                    {{ 'Site' if app_id == 1 else 'Project' }}
+                    <span class="input-helper" data-toggle="tooltip"
+                        data-tooltip="Project/Company/Business affiliated to the transaction otherwise leave it blank.">
+                        <i class="fas fa-question-circle"></i>
+                    </span>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <select id="payment_to_vendor" name="payment_to_vendor" class="form-select2"
+                    onchange="handleVendorChange(this.value)">
+                    <option value="" selected>Select Payee/Payer</option>
+                    {% for vendor in vendors %}
+                    <option value="{{ vendor.id }}" {% if vendor.designation or vendor.address or vendor.email or
+                        vendor.city or vendor.country %}
+                        title="{{ vendor.designation }} | {{ vendor.address }} | {{ vendor.email }} | {{ vendor.city }} | {{ vendor.country }}"
+                        {% endif %}>
+                        {{ vendor.vendor_name }} {% if vendor.vendor_id %} - {{ vendor.vendor_id }} {% endif %}
+                        {% if vendor.designation or vendor.city %}
+                        <small>({{ vendor.designation }}{% if vendor.city %}, {{ vendor.city }}{% endif %})</small>
+                        {% endif %}
+                    </option>
+                    {% endfor %}
+                    <option value="add_new_vendor" class="add-new-link">+ Add New Payee/Payer</option>
+                </select>
+                <label for="payment_to_vendor">
+                    Payee / Payer
+                    <span class="input-helper" data-toggle="tooltip"
+                        data-tooltip="Enter the organisation, company, or person who is the counterparty to this payment (e.g., the vendor you paid, or the party paying your account). Leave blank if not applicable.">
+                        <i class="fas fa-question-circle"></i>
+                    </span>
+                </label>
+
+            </div>
+
+            <div class="form-group">
+                <select id="payment_mode" name="payment_mode" class="form-select2"
+                    onchange="handlePaymentModeChange(this.value)">
+                    <option value="" selected>Select Payment Mode</option>
+                    {% for mode in payment_modes %}
+                    <option value="{{ mode.id }}">{{ mode.payment_mode }}</option>
+                    {% endfor %}
+                    <option value="add_payment_mode" class="add-new-link">+ Add Payment Mode</option>
+                </select>
+                <label for="payment_mode">
+                    Payment Mode
+                    <span class="input-helper" data-toggle="tooltip"
+                        data-tooltip="Select the mode of payment for the transaction.">
+                        <i class="fas fa-question-circle"></i>
+                    </span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Form table -->
+        <div class="form-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="text-nowrap">Account Type <span class="required">*</span></th>
+                        <th>Category <span class="required">*</span></th>
+                        <th>Subcategory <span class="required">*</span></th>
+                        <th>Debit Amount</th>
+                        <th>Credit Amount </th>
+                        <th>Description</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td data-label="Account Type">
+                            <select name="account_type" required>
+                                <option value="" disabled selected>Select Account Type</option>
+                                <option value="Expense">Expense</option>
+                                <option value="Income">Income</option>
+                                <option value="Liability">Liability</option>
+                                <option value="Asset">Asset</option>
+                                <option value="Equity">Equity</option>
+                            </select>
+                        </td>
+                        <td data-label="Category">
+                            <select class="category-select" name="category" required>
+                                <option value="" disabled selected>Select Category</option>
+                            </select>
+                        </td>
+                        <td data-label="Subcategory">
+                            <select class="subcategory-select" name="subcategory" required>
+                                <option value="" disabled selected>Select Subcategory</option>
+                            </select>
+                        </td>
+                        <td data-label="Debit">
+                            <input style="width: 90%;" type="text" name="debit_amount" placeholder="0.00"
+                                pattern="^\d*(\.\d{1,2})?$" autocomplete=" off">
+                        </td>
+                        <td data-label="Credit">
+                            <input style="width: 90%;" type="text" name="credit_amount" placeholder="0.00"
+                                pattern="^\d*(\.\d{1,2})?$" autocomplete="off">
+                        </td>
+                        <td data-label="Description">
+                            <textarea name="description" class="auto-resize" maxlength="100"
+                                oninput="this.value = this.value.slice(0, 100); this.style.height = ''; this.style.height = this.scrollHeight + 'px';"
+                                placeholder="Max 100 characters"></textarea>
+                        </td>
+                        <td data-label="Action">
+                            <button class="remove-button">-</button>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td data-label="Account Type">
+                            <select name="account_type" required>
+                                <option value="" disabled selected>Select Account Type</option>
+                                <option value="Expense">Expense</option>
+                                <option value="Income">Income</option>
+                                <option value="Liability">Liability</option>
+                                <option value="Asset">Asset</option>
+                                <option value="Equity">Equity</option>
+                            </select>
+                        </td>
+                        <td data-label="Category">
+                            <select class="category-select" name="category" required>
+                                <option value="" disabled selected>Select Category</option>
+                            </select>
+                        </td>
+                        <td data-label="Subcategory">
+                            <select class="subcategory-select" name="subcategory" required>
+                                <option value="" disabled selected>Select Subcategory</option>
+                            </select>
+                        </td>
+                        <td data-label="Debit">
+                            <input style="width: 90%;" type="text" name="debit_amount" placeholder="0.00"
+                                pattern="^\d*(\.\d{1,2})?$" autocomplete="off">
+                        </td>
+                        <td data-label="Credit">
+                            <input style="width: 90%;" type="text" name="credit_amount" placeholder="0.00"
+                                pattern="^\d*(\.\d{1,2})?$" autocomplete="off">
+                        </td>
+                        <td data-label="Description">
+                            <textarea name="description" class="auto-resize" maxlength="100"
+                                oninput="this.value = this.value.slice(0, 100); this.style.height = ''; this.style.height = this.scrollHeight + 'px';"
+                                placeholder="Max 100 characters"></textarea>
+                        </td>
+                        <td data-label="Action">
+                            <button class="remove-button">-</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+
+
+        <!-- ADD THIS: Exchange Rate Field (Hidden by default) -->
+        <!-- Exchange Rate Field (Hidden by default) -->
+        <div id="exchange_rate_container"
+            style="display: none; margin-top: 15px; padding: 12px; background-color: #f8f9fa; border-radius: 6px; margin-bottom: 15px;">
+            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <span style="font-weight: 500;">Exchange Rate</span>
+                <span id="from_currency_display">1</span>
+                <span>=</span>
+                <input type="number" id="exchange_rate" name="exchange_rate" step="0.0000000001" min="0.0000000001"
+                    placeholder="Enter rate"
+                    style="padding: 6px 10px; width: 150px; border-radius: 4px; border: 1px solid #ccc;">
+                <span id="to_currency_display"></span>
+            </div>
+        </div>
+
+
+        <!-- ADD THIS: Hidden field for base currency ID -->
+        <input type="hidden" id="base_currency_id" name="base_currency_id"
+            value="{{ base_currency.id if base_currency else '' }}">
+
+
+        <!-- Add more rows button -->
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+            <button type="button" id="manual-submit" class="cta-button">Submit</button>
+            <button type="button" id="add-row" class="add-button">
+                <i class="fas fa-plus"></i> Add Row
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+    /* Pure Responsive Table CSS - No Visual Styling Changes */
+    .form-table {
+        width: 100%;
+        overflow-x: auto;
+        margin-top: -20px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .form-table table {
+        min-width: 800px;
+        width: 100%;
+    }
+
+    @media (max-width: 768px) {
+        .form-table {
+            overflow-x: visible;
+        }
+
+        .form-table table {
+            min-width: 100%;
+            display: block;
+        }
+
+        .form-table thead {
+            display: none;
+        }
+
+        .form-table tbody {
+            display: block;
+        }
+
+        .form-table tr {
+            display: block;
+            margin-bottom: 1rem;
+            position: relative;
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+
+        .form-table td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100% !important;
+            text-align: right;
+            padding: 0.5rem;
+            box-sizing: border-box;
+            border-bottom: 1px solid #eee;
+        }
+
+        .form-table td[data-label]::before {
+            content: attr(data-label);
+            font-weight: bold;
+            margin-right: 1rem;
+            text-align: left;
+            flex: 0 0 30%;
+        }
+
+        .form-table select,
+        .form-table input,
+        .form-table textarea {
+            width: 100% !important;
+            max-width: 100%;
+            box-sizing: border-box;
+            height: 50px;
+        }
+
+        .form-table .input-group {
+            display: flex;
+            width: 100%;
+            gap: 5px;
+        }
+
+        .form-table .input-group select {
+            flex: 0 0 30%;
+        }
+
+        .form-table .input-group input {
+            flex: 1;
+        }
+
+        .form-table .remove-button {
+            margin-left: auto;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .form-table td {
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+        }
+
+        .form-table td[data-label]::before {
+            margin-bottom: 0.25rem;
+            flex: 0 0 100%;
+        }
+
+        .form-table .input-group {
+            flex-direction: column;
+        }
+
+        .form-table .input-group select,
+        .form-table .input-group input {
+            width: 100% !important;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log('Document Loaded');
+        const formTableBody = document.querySelector('.form-table tbody');
+
+        // Set today's date - MOVE THIS OUTSIDE the fetch function
+        const dateInput = document.getElementById('date');
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0];
+        dateInput.value = formattedDate;
+
+        console.log('[DEBUG] currencySelect value:', document.getElementById('form_currency')?.value);
+
+        // Function to fetch exchange rate from API
+        // In your DOMContentLoaded
+        // When you initialize rateManager, store it globally
+        window.rateManager = ExchangeRateManager.init({
+            currencySelectId: 'form_currency',
+            dateInputId: 'date',
+            exchangeRateInputId: 'exchange_rate',
+            containerId: 'exchange_rate_container',
+            fromDisplayId: 'from_currency_display',
+            toDisplayId: 'to_currency_display',
+            baseCurrencyId: 'base_currency_id',
+            appId: '{{ app_id }}',
+            apiEndpoint: '/multi_currency/api/get_exchange_rate',
+            csrfToken: csrfToken,
+            callbacks: {
+                onRateChange: function (rate) {
+                    // Your calculation function
+                },
+                onSuccess: function (rate, source) {
+                    console.log(`Rate ${rate} loaded from ${source}`);
+                }
+            }
+        });
+        
+
+   
+
+    
+
+
+
+        // Function to update categories based on the selected account type
+        function updateCategories(selectElement) {
+            const accountType = selectElement.value;
+            const row = selectElement.closest('tr');
+            const categorySelect = row.querySelector('.category-select');
+            const subcategorySelect = row.querySelector('.subcategory-select');
+
+            // If no account type is selected, clear categories and subcategories
+            if (!accountType) {
+                console.log('No account type selected, clearing categories and subcategories.');
+                categorySelect.innerHTML = '<option value="" disabled selected>Select Category</option>';
+                subcategorySelect.innerHTML = '<option value="" disabled selected>Select Subcategory</option>';
+                return;
+            }
+
+            console.log('Account type selected:', accountType);
+            fetch(`/get_categories/${accountType}`)
+                .then(response => response.json())
+                .then(categories => {
+                    categorySelect.innerHTML = '<option value="" disabled selected>Select Category</option>';
+                    categories.forEach(category => {
+                        const option = document.createElement('option');
+                        option.value = category.id;
+                        option.textContent = category.category_name;
+                        categorySelect.appendChild(option);
+                    });
+
+                    // Clear subcategories when categories are updated
+                    subcategorySelect.innerHTML = '<option value="" disabled selected>Select Subcategory</option>';
+                })
+                .catch(error => console.error('Error fetching categories:', error));
+        }
+
+        // Function to update subcategories based on the selected category
+        function updateSubcategories(selectElement) {
+            const categoryId = selectElement.value;
+            const row = selectElement.closest('tr');
+            const subcategorySelect = row.querySelector('.subcategory-select');
+
+            // Clear subcategories first
+            subcategorySelect.innerHTML = '<option value="" disabled selected>Select Subcategory</option>';
+
+            if (categoryId) {
+                fetch(`/subcategories/${categoryId}`)
+                    .then(response => response.json())
+                    .then(subcategories => {
+                        console.log('Fetched subcategories:', subcategories);
+                        subcategories.forEach(subcategory => {
+                            const option = document.createElement('option');
+                            option.value = subcategory.id;
+                            option.textContent = subcategory.name;
+                            subcategorySelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error('Error fetching subcategories:', error));
+            }
+        }
+
+        // Event listener to update categories when account type changes
+        formTableBody.addEventListener('change', function (event) {
+            if (event.target.name === 'account_type') {
+                updateCategories(event.target);
+            }
+        });
+
+        // Event listener to update subcategories when category changes
+        formTableBody.addEventListener('change', function (event) {
+            if (event.target.classList.contains('category-select')) {
+                updateSubcategories(event.target);
+            }
+        });
+
+        // Event listener to add a new row to the table
+        const addRowBtn = document.getElementById('add-row');
+        addRowBtn.addEventListener('click', function () {
+            const newRow = `
+                <tr>
+                    <td data-label="Account Type">
+                        <select name="account_type" required>
+                            <option value="" disabled selected>Select Account Type</option>
+                            <option value="Expense">Expense</option>
+                            <option value="Income">Income</option>
+                            <option value="Liability">Liability</option>
+                            <option value="Asset">Asset</option>
+                            <option value="Equity">Equity</option>
+                        </select>
+                    </td>
+                    <td data-label="Category">
+                        <select class="category-select" name="category" required>
+                            <option value="" disabled selected>Select Category</option>
+                        </select>
+                    </td>
+                    <td data-label="Subcategory">
+                        <select class="subcategory-select" name="subcategory" required>
+                            <option value="" disabled selected>Select Subcategory</option>
+                        </select>
+                    </td>
+                    <td data-label="Debit">
+                        <input style="width: 90%;" type="text" name="debit_amount" placeholder="0.00" pattern="^\d*(\.\d{1,2})?$" autocomplete="off">
+                    </td>
+                    <td data-label="Credit">
+                        <input style="width: 90%;" type="text" name="credit_amount" placeholder="0.00" pattern="^\d*(\.\d{1,2})?$" autocomplete="off">
+                    </td>
+                    <td data-label="Description">
+                        <textarea name="description" class="auto-resize" maxlength="100" required
+                            oninput="this.value = this.value.slice(0, 100); this.style.height = ''; this.style.height = this.scrollHeight + 'px';"
+                            placeholder="Max 100 characters"></textarea>
+                    </td>
+                    <td data-label="Action">
+                        <button class="remove-button">-</button>
+                    </td>
+                </tr>
+            `;
+            formTableBody.insertAdjacentHTML('beforeend', newRow);
+        });
+
+        // Event listener to remove a row from the table
+        formTableBody.addEventListener('click', function (event) {
+            if (event.target.classList.contains('remove-button')) {
+                event.target.closest('tr').remove();
+            }
+        });
+
+        // Initial state: Clear all category and subcategory dropdowns
+        formTableBody.querySelectorAll('.category-select').forEach(select => {
+            select.innerHTML = '<option value="" disabled selected>Select Category</option>';
+        });
+
+        formTableBody.querySelectorAll('.subcategory-select').forEach(select => {
+            select.innerHTML = '<option value="" disabled selected>Select Subcategory</option>';
+        });
+    });
+
+
+
+    // Move this OUTSIDE DOMContentLoaded - make it global
+function resetFormSelect2Components() {
+    // Reset currency select - use plain JS
+    const currencySelect = document.getElementById('form_currency');
+    if (currencySelect && currencySelect.options.length > 0) {
+        // Try to set to base currency
+        let selectedValue = '';
+        if (window.baseCurrency && window.baseCurrency.id) {
+            selectedValue = window.baseCurrency.id;
+        }
+        
+        // Check if that value exists as an option
+        let optionExists = false;
+        for (let i = 0; i < currencySelect.options.length; i++) {
+            if (currencySelect.options[i].value == selectedValue) {
+                optionExists = true;
+                break;
+            }
+        }
+        
+        if (!optionExists || !selectedValue) {
+            // Select first non-empty option
+            for (let i = 0; i < currencySelect.options.length; i++) {
+                if (currencySelect.options[i].value && currencySelect.options[i].value !== '') {
+                    selectedValue = currencySelect.options[i].value;
+                    break;
+                }
+            }
+        }
+        
+        currencySelect.value = selectedValue;
+        
+        // Manually trigger change event
+        const event = new Event('change', { bubbles: true });
+        currencySelect.dispatchEvent(event);
+    }
+    
+    // Reset project select
+    const projectSelect = document.getElementById('project_name');
+    if (projectSelect) {
+        projectSelect.value = '';
+        const event = new Event('change', { bubbles: true });
+        projectSelect.dispatchEvent(event);
+    }
+    
+    // Reset vendor select
+    const vendorSelect = document.getElementById('payment_to_vendor');
+    if (vendorSelect) {
+        vendorSelect.value = '';
+        const event = new Event('change', { bubbles: true });
+        vendorSelect.dispatchEvent(event);
+    }
+    
+    // Reset payment mode select
+    const paymentModeSelect = document.getElementById('payment_mode');
+    if (paymentModeSelect) {
+        paymentModeSelect.value = '';
+        const event = new Event('change', { bubbles: true });
+        paymentModeSelect.dispatchEvent(event);
+    }
+    
+    // Reset exchange rate
+    const exchangeRateInput = document.getElementById('exchange_rate');
+    if (exchangeRateInput) {
+        exchangeRateInput.value = '';
+    }
+    
+    // Hide exchange rate container
+    const exchangeRateContainer = document.getElementById('exchange_rate_container');
+    if (exchangeRateContainer) {
+        exchangeRateContainer.style.display = 'none';
+    }
+}
+
+    function handleVendorChange(value) {
+        if (value === 'add_new_vendor') {
+            window.location.href = "{{url_for('general_ledger.add_vendor_form')}}";
+        }
+    }
+
+    function handleProjectChange(value) {
+        if (value === 'add_new_project') {
+            window.location.href = "{{url_for('manage_projects')}}";
+        }
+    }
+
+    function handlePaymentModeChange(value) {
+        if (value === 'add_payment_mode') {
+            window.location.href = "{{url_for('add_payment_mode_form')}}";
+        }
+    }
+
+
+
+
+    function validateJournalFrontEnd(cashAccountIds) {
+        const payableReceivableIds = {{ payable_receivable_ids | tojson
+    }};
+    let requiresVendor = false;
+
+    // Check all rows to see if any account is payable/receivable
+    const rows = document.querySelectorAll('.form-table tbody tr');
+    for (const row of rows) {
+        const subcategorySelect = row.querySelector('.subcategory-select');
+        if (subcategorySelect && subcategorySelect.value) {
+            console.log("Checking subcategory:", subcategorySelect.value);
+            const accountId = parseInt(subcategorySelect.value);
+            if (payableReceivableIds.includes(accountId)) {
+                console.log("Found payable/receivable account:", accountId);
+                requiresVendor = true;
+                break;
+            }
+        }
+    }
+
+    // Validate vendor if required
+    if (requiresVendor) {
+        const vendorSelect = document.getElementById('payment_to_vendor');
+        if (!vendorSelect || !vendorSelect.value) {
+            showNotification('Payer/Payee selection is required for payable/receivable accounts', 'warning');
+            return false;
+        }
+    }
+
+
+    // After checking for foreign currency
+    const currencySelect = document.getElementById('form_currency');
+    const exchangeRateInput = document.getElementById('exchange_rate');
+    const exchangeRateContainer = document.getElementById('exchange_rate_container');
+
+    if (currencySelect.value && window.baseCurrency &&
+        currencySelect.value !== window.baseCurrency.id) {
+
+        // Exchange rate should be visible and have a value
+        if (!exchangeRateInput.value || parseFloat(exchangeRateInput.value) <= 0) {
+            showNotification('Please enter a valid exchange rate (greater than 0)', 'danger');
+            return false;
+        }
+    }
+
+
+    let totalDebits = 0;
+    let totalCredits = 0;
+    let hasValidRows = false;
+    let cashAccountIdsUsed = new Set();
+    let cashDebitTotal = 0;
+    let cashCreditTotal = 0;
+    let cashAccountDirections = new Map();
+    let cashAccountNames = new Map();
+
+    // First pass: Validate all rows and calculate totals
+    for (let index = 0; index < rows.length; index++) {
+        const row = rows[index];
+        const rowNumber = index + 1;
+
+        // Validate required fields
+        const requiredFields = [
+            { element: row.querySelector('select[name="account_type"]'), message: `Row ${rowNumber}: Account Type is required` },
+            { element: row.querySelector('.category-select'), message: `Row ${rowNumber}: Category is required` },
+            { element: row.querySelector('.subcategory-select'), message: `Row ${rowNumber}: Subcategory is required` },
+
+        ];
+
+        for (const field of requiredFields) {
+            if (!field.element || !field.element.value || (field.element.value && field.element.value.trim() === '')) {
+                showNotification(field.message, 'danger');
+                return false;
+            }
+        }
+
+        // Validate amounts
+        const debitInput = row.querySelector('input[name="debit_amount"]');
+        const creditInput = row.querySelector('input[name="credit_amount"]');
+        const debitValue = parseFloat(debitInput.value) || 0;
+        const creditValue = parseFloat(creditInput.value) || 0;
+
+        if (debitValue === 0 && creditValue === 0) {
+            showNotification(`Row ${rowNumber}: Must enter either Debit or Credit amount`, 'danger');
+            return false;
+        }
+
+        if (debitValue > 0 && creditValue > 0) {
+            showNotification(`Row ${rowNumber}: Cannot have both Debit and Credit amounts`, 'danger');
+            return false;
+        }
+
+        // Update totals
+        totalDebits += debitValue;
+        totalCredits += creditValue;
+        if (debitValue > 0 || creditValue > 0) hasValidRows = true;
+
+        // Track cash accounts
+        const accountId = parseInt(row.querySelector('.subcategory-select').value);
+        if (!isNaN(accountId)) {
+            const isCashAccount = cashAccountIds.includes(accountId);
+            if (isCashAccount) {
+                cashAccountIdsUsed.add(accountId);
+                const accountName = row.querySelector('.subcategory-select').selectedOptions[0].text;
+                cashAccountNames.set(accountId, accountName);
+
+                // Track cash account direction
+                const direction = debitValue > 0 ? 'debit' : 'credit';
+                if (cashAccountDirections.has(accountId)) {
+                    if (cashAccountDirections.get(accountId) !== direction) {
+                        showNotification(
+                            `Cash account "${accountName}" has mixed Debit/Credit entries. ` +
+                            `All entries for a cash account must be the same type.`,
+                            'danger'
+                        );
+                        return false;
+                    }
+                } else {
+                    cashAccountDirections.set(accountId, direction);
+                }
+
+                // Update cash totals
+                cashDebitTotal += debitValue;
+                cashCreditTotal += creditValue;
+            }
+        }
+    }
+
+    // Basic validations
+    if (!hasValidRows) {
+        showNotification("Please enter at least one transaction line with an amount", "danger");
+        return false;
+    }
+
+    if (Math.abs(totalDebits - totalCredits) > 0.01) {
+        showNotification(`Journal is unbalanced. Total Debits (${totalDebits.toFixed(2)}) must equal Total Credits (${totalCredits.toFixed(2)})`, 'danger');
+        return false;
+    }
+
+    // Cash transfer specific validations
+    const hasCashDebit = cashDebitTotal > 0;
+    const hasCashCredit = cashCreditTotal > 0;
+    const nonCashDebit = totalDebits - cashDebitTotal;
+    const nonCashCredit = totalCredits - cashCreditTotal;
+
+    if ((hasCashDebit && nonCashDebit > 0) || (hasCashCredit && nonCashCredit > 0)) {
+        const side = hasCashDebit ? 'Debit' : 'Credit';
+        const cashSideAccounts = Array.from(cashAccountNames.entries())
+            .filter(([id]) => cashAccountDirections.get(id) === side.toLowerCase())
+            .map(([, name]) => name);
+
+        const nonCashSideAccounts = [];
+
+        // Loop through rows again to collect non-cash accounts on same side
+        for (const row of rows) {
+            const subcategorySelect = row.querySelector('.subcategory-select');
+            const accountId = parseInt(subcategorySelect.value);
+            const accountName = subcategorySelect.selectedOptions[0].text;
+            const debitValue = parseFloat(row.querySelector('input[name="debit_amount"]').value) || 0;
+            const creditValue = parseFloat(row.querySelector('input[name="credit_amount"]').value) || 0;
+            const isCash = cashAccountIds.includes(accountId);
+
+            const isOnSameSide =
+                (side === 'Debit' && debitValue > 0) ||
+                (side === 'Credit' && creditValue > 0);
+
+            if (!isCash && isOnSameSide) {
+                nonCashSideAccounts.push(accountName);
+            }
+        }
+
+        showNotification(
+            `Invalid journal entry: You cannot mix cash and non-cash accounts on the same ${side} side.\n` +
+            `Cash accounts: ${cashSideAccounts.join(', ') || 'None'}\n` +
+            `Non-cash accounts: ${nonCashSideAccounts.join(', ') || 'None'}`,
+            'danger'
+        );
+        return false;
+    }
+
+    if (cashAccountIdsUsed.size > 0) {
+        // Validate cash-only journals
+        if (cashAccountIdsUsed.size > 1) {
+            const directions = new Set(cashAccountDirections.values());
+            if (directions.size > 1) {
+                if (
+                    cashAccountDirections.size === 2 &&
+                    Math.abs(cashDebitTotal - cashCreditTotal) < 0.01
+                ) {
+                    setTimeout(() => {
+                        showNotification(
+                            `Processing transfer between ${cashAccountIdsUsed.size} cash/bank accounts. ` +
+                            `Please verify the amounts are correct.`,
+                            'info'
+                        );
+                    }, 5000);
+                } else {
+                    const accountList = Array.from(cashAccountNames.values()).join(', ');
+                    showNotification(
+                        `Invalid cash transfer. For multiple cash accounts, you must have ` +
+                        `one debit and one credit of equal amounts.`,
+                        'danger'
+                    );
+                    return false;
+                }
+            }
+
+            if (Math.abs(cashDebitTotal - cashCreditTotal) > 0.01) {
+                showNotification(
+                    `Cash transfers must balance internally. ` +
+                    `Total Cash Debits (${cashDebitTotal.toFixed(2)}) must equal Total Cash Credits (${cashCreditTotal.toFixed(2)})`,
+                    'danger'
+                );
+                return false;
+            }
+
+            // Show confirmation for multi-account transfers
+            if (cashAccountIdsUsed.size > 1) {
+                showNotification(
+                    `Processing transfer between ${cashAccountIdsUsed.size} cash/bank accounts. ` +
+                    `Please verify the amounts are correct.`,
+                    'info'
+                );
+            }
+        }
+
+        // For single cash account entries, ensure they balance with non-cash entries
+        if (cashAccountIdsUsed.size === 1) {
+            if (cashDebitTotal > 0 && Math.abs(cashDebitTotal - totalCredits) > 0.01) {
+                showNotification(
+                    `Cash Debits (${cashDebitTotal.toFixed(2)}) must match non-cash Credits (${(totalCredits - cashCreditTotal).toFixed(2)})`,
+                    'danger'
+                );
+                return false;
+            }
+
+            if (cashCreditTotal > 0 && Math.abs(cashCreditTotal - totalDebits) > 0.01) {
+                showNotification(
+                    `Cash Credits (${cashCreditTotal.toFixed(2)}) must match non-cash Debits (${(totalDebits - cashDebitTotal).toFixed(2)})`,
+                    'danger'
+                );
+                return false;
+            }
+        }
+    }
+
+    return true;
+    }
+
+    // Attach submit handler for the manual submit button
+    document.getElementById('manual-submit').addEventListener('click', function (e) {
+        e.preventDefault();
+
+        const submitBtn = this;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+
+        const form = document.getElementById('transactionForm');
+        if (!form) {
+            console.error("Form not found");
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit';
+            return;
+        }
+
+        const formData = new FormData(form);
+
+        // Debug: Log all form data before sending
+for (let pair of formData.entries()) {
+    console.log('[DEBUG] Form field:', pair[0], '=', pair[1]);
+}
+
+
+        const dateField = document.getElementById('date').value;
+
+        const submitButtons = document.querySelectorAll('#transactionForm button[type="submit"]');
+        submitButtons.forEach(btn => btn.disabled = true);
+
+        const cashAccountIds = {{ cash_account_ids | tojson
+    }};
+
+    if (!validateJournalFrontEnd(cashAccountIds)) {
+        enableAllSubmitButtons();
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit';
+        return;
+    }
+
+
+    // Add this right before the fetch call in your submit handler
+const currencySelect = document.getElementById('form_currency');
+if (!currencySelect || !currencySelect.value) {
+    showNotification('Please select a transaction currency', 'danger');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit';
+    return;
+}
+
+
+    fetch('/general_ledger/submit_transaction', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+        },
+        body: formData
+
+
+        
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showNotification(data.message, 'success');
+                if (data.rate_notices) {
+                    setTimeout(() => showNotification(data.rate_notices, 'info'), 3000);
+                }
+                form.reset();
+                // Reset all Select2 components
+            resetFormSelect2Components();
+            
+                document.getElementById('date').value = dateField;
+
+                // Reset currency to base
+                if (window.baseCurrency && window.rateManager) {
+                    window.rateManager.reset(window.baseCurrency.id);
+                }
+
+            } else {
+                showNotification(data.message, 'danger');
+            }
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit';
+        })
+    });
+
+    function enableAllSubmitButtons() {
+        document.querySelectorAll('#transactionForm button').forEach(btn => {
+            btn.disabled = false;
+        });
+    }
+</script>
+
+{% endblock %}

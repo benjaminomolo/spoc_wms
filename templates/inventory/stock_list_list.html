@@ -1,0 +1,847 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Stock List</h1>
+
+        <!-- Slide-in sidebar for shortcuts -->
+        <div id="mobileShortcutsSidebar" class="mobile-shortcuts-sidebar">
+            <div class="sidebar-header">
+                <h4>Shortcuts</h4>
+                <button id="closeShortcutsBtn" class="closeShortcutsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav>
+                <ul>
+                    {% if role == 'Admin' or role == 'Supervisor' or role == 'Viewer' %}
+                    <li><a href="{{ url_for('inventory.inventory_dashboard') }}">Inventory Dashboard</a></li>
+                    {% endif %}
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <li><a href="#">Add Inventory Item</a></li>
+                    <li><a href="#">Manage Categories</a></li>
+                    <li><a href="#">Manage Brands</a></li>
+                    <li><a href="#">Manage Locations</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+
+        <div class="header-buttons">
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <!-- Shortcuts toggle button -->
+            <button id="shortcutToggleBtn" class="button-outline">
+                <i class="fas fa-th-large"></i> Shortcuts
+            </button>
+
+
+
+            <!-- Hide 0 items toggle -->
+            <div class="form-check form-switch ms-3">
+                <input class="form-check-input" type="checkbox" id="hideZeroItems" {% if hide_zero_items %}checked{%
+                    endif %}>
+                <label class="form-check-label" for="hideZeroItems">Hide Zero Items</label>
+            </div>
+
+
+
+
+            <!-- 🆕 NEW: Download PDF Button -->
+            <button class="button-outline" type="button" id="downloadPdfBtn">
+                <i class="fas fa-download"></i> PDF
+            </button>
+
+            <div class="custom-tooltip-container">
+
+                <!-- Refresh Cache Button -->
+                <button class="refresh-btn" id="refreshCacheBtn">
+                    <span class="icon">🔄</span>
+                </button>
+                <span class="custom-tooltip">Refresh Page</span>
+            </div>
+        </div>
+
+
+
+
+        <!-- Dashboard Shortcuts for Navigation -->
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" onclick="toggleDropdown(event)">
+                        <span>Manage </span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+                            <a href="#">Categories</a>
+                            <a href="#">Brands</a>
+                            <a href="#">Locations</a>
+                            <a href="#">Attributes</a>
+                            <a href="#">Variations</a>
+                        </div>
+                    </div>
+                </li>
+                {% endif %}
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{ url_for('inventory.inventory_items') }}">Items</a>
+                </li>
+                <li class="shortcut-item"><a href="{{ url_for('inventory.inventory_dashboard') }}">Dashboard</a>
+                </li>
+                {% endif %}
+
+                <div style="margin-left: 10px;" class="custom-tooltip-container">
+                    <a href="{{ url_for('inventory.stock_list_grid') }}"
+                        class="view-button {% if request.endpoint == 'inventory.stock_list_grid' %}active{% endif %}">
+                        <i class="fas fa-th-large"></i> <!-- Grid Icon -->
+                    </a>
+                    <span class="custom-tooltip">Grid View</span>
+                </div>
+
+                <div class="custom-tooltip-container">
+                    <a href="{{ url_for('inventory.stock_list_list') }}"
+                        class="button view-button {% if request.endpoint == 'inventory.stock_list_list' %}active{% endif %}">
+                        <i class="fas fa-list"></i> <!-- List Icon -->
+                    </a>
+                    <span class="custom-tooltip">List View</span>
+                </div>
+
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Enhanced Filter Section -->
+    <div class="filter-section {% if filter_applied %}visible{% endif %}" id="filter-section">
+        <form class="date-filter-form" id="filter-form">
+
+            <!-- Item filter -->
+            <!-- Item Filter -->
+            <div class="filter-group">
+                <label for="item" class="filter-label">Item</label>
+                <select id="item" name="item" class="form-select form-select2">
+                    <option value="">All Items</option>
+                    {% for item in items %}
+                    <option value="{{ item.id }}">{{ item.inventory_item.item_name }}{% if item.inventory_item_variation
+                        and item.inventory_item_variation.variation_name %} - ({{
+                        item.inventory_item_variation.variation_name }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="filter-group">
+                <label for="category" class="filter-label">Category</label>
+                <select id="category" name="category" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for category in filter_options.categories %}
+                    <option value="{{ category.id }}" {% if filters.category==category.id|string %}selected{% endif %}>
+                        {{ category.category_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Subcategory Filter -->
+            <div class="filter-group">
+                <label for="subcategory" class="filter-label">Subcategory</label>
+                <select id="subcategory" name="subcategory" class="form-select">
+                    <option value="">All Subcategories</option>
+                    {% for subcategory in filter_options.subcategories %}
+                    <option value="{{ subcategory.id }}" {% if filters.subcategory==subcategory.id|string %}selected{%
+                        endif %}>
+                        {{ subcategory.subcategory_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Brand Filter -->
+            <div class="filter-group">
+                <label for="brand" class="filter-label">Brand</label>
+                <select id="brand" name="brand" class="form-select">
+                    <option value="">All Brands</option>
+                    {% for brand in filter_options.brands %}
+                    <option value="{{ brand.id }}" {% if filters.brand==brand.id|string %}selected{% endif %}>
+                        {{ brand.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Attribute Filter -->
+            <div class="filter-group">
+                <label for="attribute" class="filter-label">Attribute</label>
+                <select id="attribute" name="attribute" class="form-select">
+                    <option value="">All Attributes</option>
+                    {% for attribute in filter_options.attributes %}
+                    <option value="{{ attribute.id }}" {% if filters.attribute==attribute.id|string %}selected{% endif
+                        %}>
+                        {{ attribute.attribute_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Variation Filter -->
+            <div class="filter-group">
+                <label for="variation" class="filter-label">Variation</label>
+                <select id="variation" name="variation" class="form-select2">
+                    <option value="">All Variations</option>
+                    {% for variation in filter_options.variations %}
+                    <option value="{{ variation.id }}" {% if filters.variation==variation.id|string %}selected{% endif
+                        %}>
+                        {{ variation.variation_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Location Filter -->
+            <div class="filter-group">
+                <label for="location" class="filter-label">Location</label>
+                <select id="location" name="location" class="form-select">
+                    <option value="">All Locations</option>
+                    {% for location in filter_options.locations %}
+                    <option value="{{ location.id }}" {% if filters.location==location.id|string %}selected{% endif %}>
+                        {{ location.location }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Status Filter -->
+            <!-- Status Filter -->
+            <div class="filter-group">
+                <label for="status" class="filter-label">Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="In Stock">In Stock</option>
+                    <option value="Low Stock">Low Stock</option>
+                    <option value="Out of Stock">Out of Stock</option>
+                    <option value="Negative Stock">Negative Stock</option>
+                </select>
+            </div>
+
+            <!-- Date Filters -->
+            <div class="filter-group" style="display: none;">
+                <label for="start_date" class="filter-label">Start Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control date-filter-section"
+                    value="{{ filters.start_date }}">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">As of Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control date-filter-section"
+                    value="{{ filters.end_date }}">
+            </div>
+
+            <!-- Sort By -->
+            <div class="filter-group">
+                <label for="sort_by" class="filter-label">Sort By</label>
+                <select id="sort_by" name="sort_by" class="form-select">
+                    <option value="item_name">Item Name</option>
+                    <option value="category">Category</option>
+                    <option value="subcategory">Subcategory</option>
+                    <option value="quantity">Quantity</option>
+                    <option value="location">Location</option>
+                    <option value="status">Status</option>
+                </select>
+            </div>
+
+            <!-- Sort Order -->
+            <div class="filter-group">
+                <label for="sort_order" class="filter-label">Sort Order</label>
+                <select id="sort_order" name="sort_order" class="form-select">
+                    <option value="asc">Ascending (A-Z)</option>
+                    <option value="desc">Descending (Z-A)</option>
+                </select>
+            </div>
+
+
+            <!-- Entries Per Page -->
+            <div class="filter-group">
+                <label for="per_page" class="filter-label">Items Per Page</label>
+                <select id="per_page" name="per_page" class="form-select">
+                    <option value="10" {% if request.args.get('per_page')=='10' %}selected{% endif %}>10</option>
+                    <option value="20" {% if request.args.get('per_page', '20' )=='20' %}selected{% endif %}>20</option>
+                    <option value="50" {% if request.args.get('per_page')=='50' %}selected{% endif %}>50</option>
+                    <option value="100" {% if request.args.get('per_page')=='100' %}selected{% endif %}>100</option>
+                    <option value="200" {% if request.args.get('per_page')=='200' %}selected{% endif %}>200</option>
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="button" class="filter-section-button filter" id="applyFilter">Apply Filter</button>
+                <button type="button" class="filter-section-button reset" id="resetFilters">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Stock List Table -->
+    <!-- Stock List Table -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" id="stockListTable">
+            <thead class="table-light">
+                <tr>
+                    <th>Item Name</th>
+                    <th>Variation</th>
+                    <th class="text-center">Quantity</th>
+                    <th>UOM</th>
+                    <th>Subcategory</th>
+                    <th>Brand</th>
+
+                    <th>Location</th>
+                    <!-- <th class="text-center">Missing</th> -->
+                    <th class="text-center">Status</th>
+
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="stockListBody">
+                <!-- Content loaded via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <nav>
+        <ul class="pagination" id="pagination"></ul>
+        <div id="paginationInfo" class="mt-2"></div>
+    </nav>
+</div>
+
+
+<!-- Mobile Page Jump Modal -->
+<div class="modal fade" id="mobilePageJumpModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Jump to Page</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="number" id="mobilePageJumpInput" class="form-control" placeholder="Page number" min="1">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="mobilePageJumpBtn">Go</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        let currentPage = {{ pagination.page | tojson
+    }};
+    let perPage = {{ pagination.per_page | tojson }};
+    let hideZeroItems = false
+    let startDate = '{{ filters.start_date or "" }}';
+    let endDate = '{{ filters.end_date or "" }}';
+    let categoryId = '{{ filters.category or "" }}';
+    let subcategoryId = '{{ filters.subcategory or "" }}';
+    let brandId = '{{ filters.brand or "" }}';
+    let attributeId = '{{ filters.attribute or "" }}';
+    let variationId = '{{ filters.variation or "" }}';
+    let locationId = '{{ filters.location or "" }}';
+    let status = '{{ filters.status or "" }}';
+    let itemId = '{{ filters.item or "" }}';
+    let sortBy = 'item_name';      // ADD THIS
+    let sortOrder = 'asc';
+    let currentPagination = {{ pagination | tojson }};
+    let currentStockData = {{ stock_by_category | tojson }};
+
+    const stockListBody = document.getElementById('stockListBody');
+    const paginationElement = document.getElementById('pagination');
+    const paginationInfoElement = document.getElementById('paginationInfo');
+    const applyFilterBtn = document.getElementById('applyFilter');
+    const resetFiltersBtn = document.getElementById('resetFilters');
+    const hideZeroItemsToggle = document.getElementById('hideZeroItems');
+
+    $('#item').select2({
+        placeholder: 'Select an Item',
+        allowClear: true,
+        width: '100%'
+    });
+
+    // 🆕 CRITICAL FIX: Render the server data immediately - NO initial AJAX call
+    renderStockList(currentStockData);
+    renderPagination(currentPagination);
+
+    // Refresh Cache Button functionality
+    const refreshCacheBtn = document.getElementById('refreshCacheBtn');
+    if (refreshCacheBtn) {
+        refreshCacheBtn.addEventListener('click', function () {
+            console.log('Refresh button clicked')
+            // Show loading state
+            const originalHtml = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            this.disabled = true;
+
+            // Get current hide_zero_items parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const hideZeroItems = urlParams.get('hide_zero_items') || 'false';
+
+            // Send POST request to clear cache
+            fetch('{{ url_for("inventory.refresh_stock_list_list") }}?hide_zero_items=' + hideZeroItems, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
+            })
+                .then(response => {
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                    } else {
+                        location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error refreshing cache:', error);
+                    // Reset button state
+                    this.innerHTML = originalHtml;
+                    this.disabled = false;
+                    alert('Error refreshing data. Please try again.');
+                });
+        });
+    }
+
+    function renderStockList(stockData) {
+        const columnCount = 9;
+
+        if (Object.keys(stockData).length === 0) {
+            stockListBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center py-3">No stock items found</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        let allItems = [];
+
+        // Flatten all items from all categories into a single array
+        for (const categoryItems of Object.values(stockData)) {
+            allItems = allItems.concat(categoryItems);
+        }
+
+        if (allItems.length === 0) {
+            stockListBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center py-3">No stock items found</td></tr>`;
+            return;
+        }
+
+        // Client-side filtering for hideZeroItems
+        let filteredItems = allItems;
+        if (hideZeroItems) {
+            filteredItems = allItems.filter(item => item.quantity !== 0);
+        }
+
+        if (filteredItems.length === 0) {
+            stockListBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center py-3">No stock items found</td></tr>`;
+            return;
+        }
+
+        filteredItems.forEach(item => {
+            const statusClass = item.status === 'In Stock' ? 'bg-success' :
+                item.status === 'Low Stock' ? 'bg-warning' :
+                    item.status === 'Negative Stock' ? 'bg-danger' :
+                        item.status === 'Out of Stock' ? 'bg-secondary' : 'bg-info';
+
+            // Determine quantity class based on value
+            const quantityClass = item.quantity > 0 ? 'positive-color' :
+                item.quantity < 0 ? 'negative-color' : '';
+
+            html += `
+<tr>
+    <td>
+        <div class="d-flex align-items-center">
+            ${item.image_filename ?
+                    `<img src="{{ url_for('serve_inventory_file', filename='') }}${item.image_filename}" 
+                  alt="${item.item_name}" class="item-thumbnail me-2">` :
+                    `<div class="item-thumbnail-placeholder me-2"> <i class="fas fa-box"></i></div>`
+                }
+            <span>${item.item_name}</span>
+        </div>
+    </td>
+
+    <td>
+        ${item.attribute && item.variation
+                    ? item.attribute + ' (' + item.variation + ')'
+                    : (item.attribute || item.variation || '-')}
+    </td>
+
+    <td class="text-center bg-font-lg ${quantityClass}">${item.quantity}</td>
+    <td>${item.uom || '-'}</td>
+    <td>${item.subcategory_name || '-'}</td>
+    <td>${item.brand || '-'}</td>
+
+    <td>${item.location || '-'}</td>
+  
+    <td class="text-center">
+        <span class="badge ${statusClass}">${item.status}</span>
+    </td>
+    <td class="text-center">
+        <div class="action-icons-clean">
+            <div class="custom-tooltip-container">
+                <a href="/inventory/inventory_item/${item.id}">
+                    <i class="fa fa-eye view-icon"></i>
+                </a>
+                <span class="custom-tooltip">View Details</span>
+            </div>
+        </div>
+    </td>
+</tr>
+`;
+        });
+
+        stockListBody.innerHTML = html;
+    }
+
+    // Add this event listener for hideZeroItems toggle
+    hideZeroItemsToggle.addEventListener('change', () => {
+        hideZeroItems = hideZeroItemsToggle.checked;
+        currentPage = 1;
+        // 🆕 CHANGED: Just re-render the current data with client-side filtering
+        renderStockList(currentStockData);
+    });
+
+    function loadStockList() {
+        setLoadingState(true);
+        const columnCount = 9;
+        stockListBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center py-3">Loading stock data...</td></tr>`;
+
+        fetch('/inventory/stock_list_list/filter', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                page: currentPage,
+                per_page: perPage,
+                hide_zero_items: hideZeroItems,
+                start_date: startDate,
+                end_date: endDate,
+                category: categoryId,
+                subcategory: subcategoryId,
+                brand: brandId,
+                attribute: attributeId,
+                variation: variationId,
+                location: locationId,
+                status: status,
+                item: itemId,
+                sort_by: sortBy,        // ADD THIS
+                sort_order: sortOrder
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    currentStockData = data.stock_data;
+                    currentPagination = data.pagination;
+                    renderStockList(data.stock_data);
+                    renderPagination(data.pagination);
+                } else {
+                    stockListBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center text-danger py-3">${data.message}</td></tr>`;
+                }
+                setLoadingState(false);
+            })
+            .catch(err => {
+                stockListBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center text-danger py-3">Error loading stock data</td></tr>`;
+                console.error(err);
+                setLoadingState(false);
+            });
+    }
+
+    function renderPagination(pagination) {
+        const { page, per_page, total_pages, total_items, has_next, has_prev } = pagination;
+        paginationInfoElement.textContent = `Showing ${(page - 1) * per_page + 1} to ${Math.min(page * per_page, total_items)} of ${total_items} items`;
+
+        let html = '';
+
+        // Previous button
+        if (has_prev) {
+            html += `<li class="page-item"><a class="page-link" href="#" data-page="${page - 1}">‹ Previous</a></li>`;
+        } else {
+            html += `<li class="page-item disabled"><a class="page-link">‹ Previous</a></li>`;
+        }
+
+        // Page numbers
+        const isMobile = window.innerWidth <= 768;
+        const maxVisiblePages = isMobile ? 3 : 7;
+
+        let startPage, endPage;
+
+        if (total_pages <= maxVisiblePages) {
+            startPage = 1;
+            endPage = total_pages;
+        } else {
+            const maxPagesBeforeCurrent = Math.floor(maxVisiblePages / 2);
+            const maxPagesAfterCurrent = Math.ceil(maxVisiblePages / 2) - 1;
+
+            if (page <= maxPagesBeforeCurrent) {
+                startPage = 1;
+                endPage = maxVisiblePages;
+            } else if (page + maxPagesAfterCurrent >= total_pages) {
+                startPage = total_pages - maxVisiblePages + 1;
+                endPage = total_pages;
+            } else {
+                startPage = page - maxPagesBeforeCurrent;
+                endPage = page + maxPagesAfterCurrent;
+            }
+        }
+
+        if (startPage > 1) {
+            html += `<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>`;
+            if (startPage > 2) {
+                html += `<li class="page-item disabled"><a class="page-link">...</a></li>`;
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<li class="page-item ${i === page ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+        }
+
+        if (endPage < total_pages) {
+            if (endPage < total_pages - 1) {
+                html += `<li class="page-item disabled"><a class="page-link">...</a></li>`;
+            }
+            html += `<li class="page-item"><a class="page-link" href="#" data-page="${total_pages}">${total_pages}</a></li>`;
+        }
+
+        // Next button
+        if (has_next) {
+            html += `<li class="page-item"><a class="page-link" href="#" data-page="${page + 1}">Next ›</a></li>`;
+        } else {
+            html += `<li class="page-item disabled"><a class="page-link">Next ›</a></li>`;
+        }
+
+        // Mobile page jump
+        if (total_pages > 20 && isMobile) {
+            html += `
+                <li class="page-item">
+                    <button class="page-link" id="mobilePageJumpTrigger" style="cursor: pointer;">
+                        <i class="fas fa-arrow-right-to-bracket"></i> Jump
+                    </button>
+                </li>
+                `;
+        }
+
+        // Desktop page jump
+        if (total_pages > 20 && !isMobile) {
+            html += `
+                <li class="page-item page-jump">
+                    <div class="input-group">
+                        <input type="number" id="pageJumpInput" class="form-control" min="1" max="${total_pages}" 
+                               placeholder="Page" style="width: 80px; height: 15px;">
+                        <button class="button-outline" type="button" id="pageJumpBtn">Go</button>
+                    </div>
+                </li>
+                `;
+        }
+
+        paginationElement.innerHTML = html;
+
+        // Add event listeners
+        document.querySelectorAll('.page-link[data-page]').forEach(el => {
+            el.addEventListener('click', e => {
+                e.preventDefault();
+                currentPage = parseInt(el.getAttribute('data-page'));
+                loadStockList(); // This will use AJAX for pagination
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+
+        // Page jump functionality
+        const pageJumpBtn = document.getElementById('pageJumpBtn');
+        if (pageJumpBtn) {
+            pageJumpBtn.addEventListener('click', handlePageJump);
+        }
+
+        const mobilePageJumpTrigger = document.getElementById('mobilePageJumpTrigger');
+        if (mobilePageJumpTrigger) {
+            mobilePageJumpTrigger.addEventListener('click', showMobilePageJumpModal);
+        }
+    }
+
+    function handlePageJump() {
+        const input = document.getElementById('pageJumpInput');
+        const pageNum = parseInt(input.value);
+
+        if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= currentPagination.total_pages) {
+            currentPage = pageNum;
+            loadStockList();
+            input.value = '';
+        } else {
+            alert(`Please enter a valid page number between 1 and ${currentPagination.total_pages}`);
+        }
+    }
+
+    function showMobilePageJumpModal() {
+        const modal = new bootstrap.Modal(document.getElementById('mobilePageJumpModal'));
+        const input = document.getElementById('mobilePageJumpInput');
+        input.value = '';
+        modal.show();
+    }
+
+    function setLoadingState(loading) {
+        const applyBtn = document.getElementById("applyFilter");
+        const resetBtn = document.getElementById("resetFilters");
+
+        if (loading) {
+            applyBtn.disabled = true;
+            resetBtn.disabled = true;
+            applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        } else {
+            applyBtn.disabled = false;
+            resetBtn.disabled = false;
+            applyBtn.innerHTML = "Apply Filter";
+        }
+    }
+
+    document.getElementById('mobilePageJumpBtn').addEventListener('click', function () {
+        const input = document.getElementById('mobilePageJumpInput');
+        const pageNum = parseInt(input.value);
+
+        if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= currentPagination.total_pages) {
+            currentPage = pageNum;
+            loadStockList();
+            bootstrap.Modal.getInstance(document.getElementById('mobilePageJumpModal')).hide();
+        } else {
+            alert(`Please enter a valid page number between 1 and ${currentPagination.total_pages}`);
+        }
+    });
+
+    // PDF Download functionality
+    document.getElementById('downloadPdfBtn').addEventListener('click', function () {
+        const filters = {
+            category: document.getElementById('category').value,
+            subcategory: document.getElementById('subcategory').value,
+            brand: document.getElementById('brand').value,
+            attribute: document.getElementById('attribute').value,
+            variation: document.getElementById('variation').value,
+            location: document.getElementById('location').value,
+            start_date: document.getElementById('start_date').value,
+            end_date: document.getElementById('end_date').value,
+            status: document.getElementById('status').value,
+            item: document.getElementById('item').value,
+            sort_by: document.getElementById('sort_by').value,        // ADD THIS
+            sort_order: document.getElementById('sort_order').value,
+            hide_zero_items: document.getElementById('hideZeroItems').checked
+        };
+
+        // Show loading state
+        const originalHTML = this.innerHTML;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+        this.disabled = true;
+
+        fetch('/download_stock_list', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(filters)
+        })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                }
+                throw new Error('Network response was not ok.');
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+
+                // Update filename
+                let filename = 'stock_list_report';
+                if (filters.start_date) filename += `_from_${filters.start_date}`;
+                if (filters.end_date) filename += `_to_${filters.end_date}`;
+                if (filters.hide_zero_items) filename += '_no_zero_items';
+                if (filters.status) filename += `_${filters.status.toLowerCase().replace(/ /g, '_')}`;
+                if (filters.item) filename += '_specific_item';  // 🔴 ADD THIS
+                filename += '.pdf';
+
+
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+
+                this.innerHTML = '<i class="fas fa-download"></i> PDF';
+                this.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error downloading report:', error);
+                alert('Error downloading report');
+
+                this.innerHTML = '<i class="fas fa-download"></i> PDF';
+                this.disabled = false;
+            });
+    });
+
+    // Event listeners
+    applyFilterBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        currentPage = 1;
+        categoryId = document.getElementById('category').value;
+        subcategoryId = document.getElementById('subcategory').value;
+        brandId = document.getElementById('brand').value;
+        attributeId = document.getElementById('attribute').value;
+        variationId = document.getElementById('variation').value;
+        locationId = document.getElementById('location').value;
+        status = document.getElementById('status').value;
+        itemId = document.getElementById('item').value;
+        startDate = document.getElementById('start_date').value;
+        sortBy = document.getElementById('sort_by').value;        // ADD THIS
+        sortOrder = document.getElementById('sort_order').value;
+        endDate = document.getElementById('end_date').value;
+        perPage = document.getElementById('per_page').value;
+
+        console.log('Filters being sent:', {
+            categoryId, subcategoryId, brandId, attributeId,
+            variationId, locationId, startDate, endDate, perPage, hideZeroItems, status
+        });
+
+        loadStockList(); // This will use AJAX for filtering
+    });
+
+    resetFiltersBtn.addEventListener('click', () => {
+        document.getElementById('filter-form').reset();
+        currentPage = 1;
+        categoryId = '';
+        subcategoryId = '';
+        brandId = '';
+        attributeId = '';
+        variationId = '';
+        locationId = '';
+        itemId = '';
+        status = '';
+        startDate = '';
+        endDate = '';
+        sortBy = 'item_name';        // ADD THIS
+        sortOrder = 'asc';
+        perPage = 20;
+        hideZeroItems = false;
+        hideZeroItemsToggle.checked = false;
+
+        // 🆕 CHANGED: Reload the page to get fresh server data
+        window.location.href = "{{ url_for('inventory.stock_list_list') }}";
+    });
+
+    document.getElementById('toggleFilterForm').addEventListener('click', () => {
+        document.getElementById('filter-section').classList.toggle('visible');
+    });
+
+
+
+        // 🆕 REMOVED: No initial loadStockList() call - we already rendered server data
+    });
+</script>
+
+
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "transaction_base_template.html" %}
+{% block content %}
+<div class="container" style="width: 80%;">
+    <main>
+        <h1>Select App</h1>
+        <form action="{{ url_for('select_app') }}" method="post">
+            <ul>
+                {% for user in users %}
+                <li>
+                    <input type="radio" id="user_{{ user.id }}" name="selected_user_id" value="{{ user.id }}" required>
+                    <label for="user_{{ user.id }}">{{ user.company.name }} ({{ user.role }})</label>
+                </li>
+                {% endfor %}
+            </ul>
+            <button type="submit">Continue</button>
+        </form>
+    </main>
+</div>
+
+
+{% endblock %}

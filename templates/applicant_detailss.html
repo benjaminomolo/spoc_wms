@@ -1,0 +1,133 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    .table-responsive {
+        overflow-x: auto;
+        margin-bottom: 20px;
+    }
+
+    table {
+        width: 100%;
+        background-color: #fff;
+        border-collapse: collapse;
+        border-radius: 8px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    }
+
+    th, td {
+        padding: 10px;
+        border: 1px solid #ddd;
+    }
+
+    th {
+        background-color: #f4f4f4;
+    }
+</style>
+
+<div class="container" style="width: 80%;">
+    <main>
+        <div class="container-fluid px-4">
+            <h1 class="mt-4">Applicant Details</h1>
+            <div class="table-responsive">
+                <table id="loans-table" class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Row Number</th>
+                            <th>Name</th>
+                            <th>NIN Number</th>
+                            <th>Telephone</th>
+                            <th>Total Amount Paid</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for applicant in applicants %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ applicant.name }}</td>
+                            <td>{{ applicant.nin }}</td>
+                            <td>{{ applicant.telephone }}</td>
+                            <td>{{ applicant.total_paid }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th></th>
+                            <th></th>
+                            <th></th>
+                            <th></th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    $(document).ready(function() {
+        var table = $('#loans-table').DataTable({
+            "lengthMenu": [
+                [10, 25, 50, 100, -1],
+                [10, 25, 50, 100, 'All']
+            ],
+            "aaSorting": [],
+            "initComplete": function () {
+                this.api().columns().every(function () {
+                    let column = this;
+                    let index = column.index();
+                    let title = $(column.footer()).text();
+
+                    // Only add search input to specific columns (1: Name, 2: NIN Number)
+                    if (index === 1 || index === 2) {
+                        let input = $('<input>').attr('placeholder', 'Search ' + title).addClass('form-control form-control-sm search-input');
+                        input.prepend('<i class="fas fa-search"></i>');
+                        $(column.footer()).empty().append(input);
+
+                        input.on('keyup change', function() {
+                            column.search($(this).val()).draw();
+                        });
+                    } else {
+                        // Remove any existing search input for Telephone and Total Amount Paid columns
+                        $(column.footer()).empty();
+                    }
+                });
+            },
+            "footerCallback": function ( row, data, start, end, display ) {
+                var api = this.api();
+
+                // Function to format numbers with thousands separators
+                function formatNumber(num) {
+                    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+
+                // Calculate totals
+                var intVal = function ( i ) {
+                    return typeof i === 'string' ?
+                        i.replace(/[\$,]/g, '')*1 :
+                        typeof i === 'number' ?
+                            i : 0;
+                };
+
+                var total_paid = api
+                    .column( 4, { page: 'current'} )
+                    .data()
+                    .reduce( function (a, b) {
+                        return intVal(a) + intVal(b);
+                    }, 0 );
+
+                // Update footer with formatted totals
+                $( api.column( 4 ).footer() ).html(
+                    'Total: ' + formatNumber(total_paid)
+                );
+            }
+        });
+        
+        // Trigger initial update of footer totals
+        table.draw();
+    });
+</script>
+
+{% endblock %}

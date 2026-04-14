@@ -1,0 +1,426 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<div class="content-container">
+    <!-- Header Section -->
+    <div class="header-section">
+        <h1>Receivable Accounts</h1>
+
+        <nav aria-label="dashboard-shortcuts">
+            <ol class="dashboard-shortcuts">
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item"><a href="{{url_for('add_transaction')}}">Journal Entry</a></li>
+
+                <li class="shortcut-item"><a
+                        href="{{ url_for('general_ledger_routes.general_ledger_dashboard') }}">Dashboard</a></li>
+                {% endif %}
+
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <li class="shortcut-item">
+                    <div class="shortcut-dropdown" onclick="toggleDropdown(event)">
+                        <span>Manage </span>
+                        <i class="fas fa-caret-down"></i>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('general_ledger.new_category') }}">Parent Category</a>
+                            <a href="{{ url_for('general_ledger.add_chart_of_accounts') }}">Chart of Accounts</a>
+                            <a href="{{ url_for('manage_projects') }}">Projects</a>
+                            <a href="{{ url_for('general_ledger.add_vendor_form') }}">Vendors & Customers</a>
+                            <a href="{{ url_for('add_payment_mode_form') }}">Payment Modes</a>
+                        </div>
+                    </div>
+                </li>
+                {% endif %}
+
+                <li class="shortcut-item">
+                    <div class="action-icons">
+                        <button class="filter-icon" type="button" id="toggleFilterForm" data-tooltip="Apply Filter">
+                            <i class="fas fa-filter"></i>
+                        </button>
+
+                        <button id="downloadReportBtn" class="filter-icon" type="button"
+                            data-tooltip="Download PDF Report" style="margin-left: 8px;">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+
+        <div class="account-balances-card">
+            <div class="balance-totals">
+                <div class="balance-total right">
+                    <span class="balance-total-title">Total Outstanding</span>
+                    <span
+                        class="balance-total-amount badge bg-secondary {{ 'negative-color' if total_company_receivable < 0 else 'positive-color' }}">
+                        {{ "{:,.2f}".format(total_company_receivable) }} {{ base_currency }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section {% if filter_customer_id or filter_account_id or filter_start_date or filter_end_date or filter_currency %}visible{% endif %}"
+        id="filter-section">
+        <form method="GET" action="{{ url_for('report_routes.receivable_accounts_report') }}" class="date-filter-form"
+            id="filter-form">
+            <div class="filter-group">
+                <label for="customer_id" class="filter-label">Customer</label>
+                <select id="customer_id" name="customer_id" class="form-select">
+                    <option value="">All Customers</option>
+                    {% for customer in customers %}
+                    <option value="{{ customer.id }}" {% if filter_customer_id==customer.id %}selected{% endif %} {% if
+                        customer.designation or customer.address or customer.email or customer.city or customer.country
+                        %}
+                        title="{{ customer.designation }} | {{ customer.address }} | {{ customer.email }} | {{ customer.city }} | {{ customer.country }}"
+                        {% endif %}>
+                        {{ customer.vendor_name }} {% if customer.vendor_id %} - {{ customer.vendor_id }} {% endif %}
+                        {% if customer.designation or customer.city %}
+                        <small>({{ customer.designation }}{% if customer.city %}, {{ customer.city }}{% endif
+                            %})</small>
+                        {% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+
+            </div>
+
+            <div class="filter-group">
+                <label for="account_id" class="filter-label">Receivable Account</label>
+                <select id="account_id" name="account_id" class="form-select">
+                    <option value="">All Accounts</option>
+                    {% for account in receivable_accounts %}
+                    <option value="{{ account.id }}" {% if filter_account_id==account.id %}selected{% endif %}>
+                        {{ account.sub_category }} ({{ account.sub_category_id }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="start_date" class="filter-label">From Date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control"
+                    value="{{ filter_start_date }}">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date" class="filter-label">To Date</label>
+                <input type="date" id="end_date" name="end_date" class="form-control" value="{{ filter_end_date }}">
+            </div>
+
+            <div class="filter-group">
+                <label for="currency" class="filter-label">Currency</label>
+                <select id="currency" name="currency" class="form-select">
+                    <option value="" {% if not filter_currency %}selected{% endif %}>
+                        Base Currency ({{ base_currency }})
+                    </option>
+                    {% for curr in currencies %}
+                    <option value="{{ curr.id }}" {% if filter_currency==curr.id %}selected{% endif %}>
+                        {{ curr.user_currency }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit" class="add-button">Apply Filter</button>
+                <a href="{{ url_for('report_routes.receivable_accounts_report') }}" class="btn reset-button">Reset</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Receivable Accounts -->
+    <div class="receivables-container">
+        {% for account in receivable_report %}
+        <div class="receivable-payable-account-card">
+            <div class="account-header" onclick="toggleAccountDetails(this)">
+                <div class="account-info">
+                    <h4 class="account-title">
+                        <i class="fas fa-file-invoice"></i>
+                        {{ account.account_name }}
+                        <small><span>({{ account.account_code }})</span></small>
+                    </h4>
+                    <div class="account-meta">
+                        <span class="customer-count text-muted">
+                            <i class="fas fa-users"></i> {{ account.customers|length }} customers
+                        </span>
+                    </div>
+                </div>
+                <div class="account-balance-group">
+                    <div class="balance-label">Outstanding Balance</div>
+                    <div
+                        class="account-balance {% if account.total_balance < 0 %}negative-color {% elif account.total_balance > 0 %}positive-color{% endif %}">
+                        {{ "{:,.2f}".format(account.total_balance) }} {{ account.currency }}
+                    </div>
+                </div>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+
+            <div class="account-details" style="display: none;">
+                <div class="customer-list-container">
+                    <table class="customer-list">
+                        <thead>
+                            <tr>
+                                <th width="25%">Customer</th>
+                                <th width="25%">Contact</th>
+                                <th width="25%" class="text-end">Balance</th>
+                                <th width="25%" class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for customer in account.customers %}
+                            <tr class="customer-item">
+                                <td>
+                                    <div class="customer-name">
+                                        <strong>{{ customer.customer_info.name }}</strong>
+                                        <small class="text-muted">
+                                            {{ customer.customer_info.customer_id if customer.customer_info and
+                                            customer.customer_info.customer_id else '' }}
+                                        </small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="customer-contact">
+                                        <div><i class="fas fa-phone customer-icon"></i> {{
+                                            customer.customer_info.contact if
+                                            customer.customer_info.contact else 'N/A'}}
+                                        </div>
+                                        <div><i class="fas fa-envelope customer-icon"></i> {{
+                                            customer.customer_info.email if
+                                            customer.customer_info.email else 'N/A' }}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-end {% if customer.balance < 0 %}negative-color{% endif %}">
+                                    {{ "{:,.2f}".format(customer.balance) }} {{ account.currency }}
+                                </td>
+                                <td class="text-end">
+                                    <button class="button period-btn toggle-transactions"
+                                        onclick="toggleTransactions(this, '{{ account.account_id }}-{{ customer.customer_info.id }}')">
+                                        <i class="fas fa-chevron-down"></i> Transactions
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="transaction-row"
+                                id="transactions-{{ account.account_id }}-{{ customer.customer_info.id }}"
+                                style="display: none;">
+                                <td colspan="5">
+                                    <div class="transactions-panel">
+                                        <div class="transactions-header">
+                                            <h5>
+                                                <i class="fas fa-list"></i>
+                                                Transactions for {{ customer.customer_info.name }}
+                                            </h5>
+                                            <span class="badge bg-secondary">
+                                                {{customer.transaction_count}} Transactions
+                                            </span>
+                                        </div>
+                                        <div class="transactions-table-wrapper">
+                                            <table class="transactions-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th width="10%">Date</th>
+                                                        <th width="15%">Reference</th>
+                                                        <th with="25%">Description</th>
+                                                        <th width="10%">Project</th>
+                                                        <th width="10%">Method</th>
+                                                        <th width="15%" class="text-end">Amount</th>
+                                                        {% if company.has_multiple_currencies and not filter_currency %}
+                                                        <th width="15%" class="text-end">Converted</th>
+                                                        {% endif %}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for trans in customer.transactions %}
+                                                    <tr>
+                                                        <td>{{ trans.date }}</td>
+                                                        <td><strong>{{ trans.journal_number }}</strong></td>
+                                                        <td>{{ trans.description }}</td>
+                                                        <td>{{ trans.project_name if trans.project_name else '-' }}</td>
+                                                        <td>{{ trans.payment_mode if trans.payment_mode else '-'}}</td>
+                                                        <td
+                                                            class="text-end {% if trans.dr_cr == 'D' %}{% else %}negative-color{% endif %}">
+                                                            {{ "{:,.2f}".format(trans.original_amount) }} {{
+                                                            trans.original_currency }}
+                                                        </td>
+
+                                                        {%if company.has_multiple_currencies and not filter_currency%}
+                                                        <td
+                                                            class="text-end {% if trans.dr_cr == 'C' %}negative-color{% else %}text-success{% endif %}">
+                                                            {{ "{:,.2f}".format(trans.converted_amount) }} {{
+                                                            base_currency }}
+                                                        </td>
+                                                        {% endif %}
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="fas fa-file-invoice"></i>
+            </div>
+            <h4>No Receivable Accounts Found</h4>
+            <p class="text-muted">Try adjusting your search or filter criteria</p>
+            <a href="{{ url_for('report_routes.receivable_accounts_report') }}" class="btn btn-primary">
+                <i class="fas fa-sync"></i> Reset Filters
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    // Toggle account details
+    function toggleAccountDetails(header) {
+        const card = header.closest('.receivable-payable-account-card');
+        const details = card.querySelector('.account-details');
+        const isVisible = details.style.display === 'block';
+
+        details.style.display = isVisible ? 'none' : 'block';
+        header.classList.toggle('active', !isVisible);
+
+        // Close all transaction rows when closing account
+        if (isVisible) {
+            card.querySelectorAll('.transaction-row').forEach(row => {
+                row.style.display = 'none';
+                const btn = row.previousElementSibling.querySelector('.toggle-transactions');
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-chevron-down"></i> Transactions';
+                }
+            });
+        }
+    }
+
+    // Toggle transaction rows
+    function toggleTransactions(button, id) {
+        const row = document.getElementById(`transactions-${id}`);
+        const isVisible = row.style.display === 'table-row';
+
+        row.style.display = isVisible ? 'none' : 'table-row';
+        button.innerHTML = isVisible
+            ? '<i class="fas fa-chevron-down"></i> Transactions'
+            : '<i class="fas fa-chevron-up"></i> Hide Transactions';
+    }
+
+    // Toggle filter section
+    document.getElementById('toggleFilterForm').addEventListener('click', function () {
+        const filterSection = document.getElementById('filter-section');
+        filterSection.classList.toggle('visible');
+    });
+
+    // Initialize tooltips
+    document.addEventListener('DOMContentLoaded', function () {
+        const tooltipElements = document.querySelectorAll('[data-tooltip]');
+        tooltipElements.forEach(el => {
+            el.addEventListener('mouseenter', function () {
+                const tooltip = document.createElement('div');
+                tooltip.className = 'tooltip';
+                tooltip.textContent = this.getAttribute('data-tooltip');
+                document.body.appendChild(tooltip);
+
+                const rect = this.getBoundingClientRect();
+                tooltip.style.left = `${rect.left + rect.width / 2 - tooltip.offsetWidth / 2}px`;
+                tooltip.style.top = `${rect.top - tooltip.offsetHeight - 5}px`;
+
+                this._tooltip = tooltip;
+            });
+
+            el.addEventListener('mouseleave', function () {
+                if (this._tooltip) {
+                    this._tooltip.remove();
+                    this._tooltip = null;
+                }
+            });
+        });
+    });
+
+    // Add data-labels for mobile responsive tables
+    document.addEventListener('DOMContentLoaded', function () {
+        if (window.innerWidth < 768) {
+            // Customer list table
+            const customerHeaders = document.querySelectorAll('.customer-list thead th');
+            const customerCells = document.querySelectorAll('.customer-list tbody td');
+
+            customerHeaders.forEach((header, index) => {
+                const label = header.textContent;
+                customerCells.forEach(cell => {
+                    if (cell.cellIndex === index) {
+                        cell.setAttribute('data-label', label);
+                    }
+                });
+            });
+
+            // Transactions table
+            const transHeaders = document.querySelectorAll('.transactions-table thead th');
+            const transCells = document.querySelectorAll('.transactions-table tbody td');
+
+            transHeaders.forEach((header, index) => {
+                const label = header.textContent;
+                transCells.forEach(cell => {
+                    if (cell.cellIndex === index) {
+                        cell.setAttribute('data-label', label);
+                    }
+                });
+            });
+        }
+    });
+
+    document.getElementById('downloadReportBtn').addEventListener('click', async () => {
+        // Gather current filter values from the filter form inputs
+        const form = document.getElementById('filter-form');
+        const customer_id = form.customer_id.value || null;
+        const account_id = form.account_id.value || null;
+        const start_date = form.start_date.value || null;
+        const end_date = form.end_date.value || null;
+        const currency = form.currency.value || null;
+
+        const payload = {
+            customer_id: customer_id ? parseInt(customer_id) : null,
+            account_id: account_id ? parseInt(account_id) : null,
+            start_date: start_date || null,
+            end_date: end_date || null,
+            currency: currency ? parseInt(currency) : null
+        };
+
+        try {
+            const response = await fetch('{{ url_for("download_route.download_receivable_accounts_report") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/pdf', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                alert('Error generating report: ' + (err.error || 'Unknown error'));
+                return;
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Receivable_Accounts_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            alert('An error occurred while downloading the report.');
+            console.error(error);
+        }
+    });
+</script>
+
+{% endblock %}

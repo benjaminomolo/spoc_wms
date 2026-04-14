@@ -1,0 +1,180 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/activity_logs.css') }}">
+
+<div class="container" style="width: 80%;">
+    <main>
+        <div class="container-fluid px-4">
+            <h1 class="mt-4">Activity Logs</h1>
+
+            <!-- Add a breadcrumb navigation -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item active" aria-current="page">Activity Logs</li>
+                </ol>
+            </nav>
+
+            <!-- Filter Controls -->
+            <div class="filter-container">
+                <div class="filter-group">
+                    <label for="user-filter">User:</label>
+                    <select id="user-filter">
+                        <option value="">All</option>
+                        <!-- Populate users dynamically -->
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="activity-filter">Activity:</label>
+                    <select id="activity-filter">
+                        <option value="">All</option>
+                        <!-- Populate activities dynamically -->
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="date-filter">Date:</label>
+                    <input type="date" id="date-filter">
+                </div>
+            </div>
+
+            <!-- Activity Logs Table -->
+            <div class="activity-logs">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Activity</th>
+                                <th>Date</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activity-logs-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const userFilter = document.getElementById('user-filter');
+        const activityFilter = document.getElementById('activity-filter');
+        const dateFilter = document.getElementById('date-filter');
+        let logData = [];
+
+        fetch('/get_activity_logs')
+            .then(response => response.json())
+            .then(data => {
+                logData = data;
+                populateActivityLogsTable(data);
+                populateFilters(data);
+            });
+
+        function populateActivityLogsTable(data) {
+            const tableBody = document.getElementById('activity-logs-table-body');
+            tableBody.innerHTML = '';
+
+            data.forEach(log => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${log.user}</td>
+                    <td>${log.activity}</td>
+                    <td>${new Date(log.date).toLocaleString()}</td>
+                    <td>${log.details}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        function populateFilters(data) {
+            const users = [...new Set(data.map(log => log.user))];
+            const activities = [...new Set(data.map(log => log.activity))];
+
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user;
+                option.textContent = user;
+                userFilter.appendChild(option);
+            });
+
+            activities.forEach(activity => {
+                const option = document.createElement('option');
+                option.value = activity;
+                option.textContent = activity;
+                activityFilter.appendChild(option);
+            });
+        }
+
+        function filterData(data) {
+            return data.filter(log => 
+                (userFilter.value === "" || log.user === userFilter.value) &&
+                (activityFilter.value === "" || log.activity === activityFilter.value) &&
+                (dateFilter.value === "" || new Date(log.date).toISOString().slice(0, 10) === dateFilter.value)
+            );
+        }
+
+        // Event listeners for filters
+        userFilter.addEventListener('change', () => {
+            populateActivityLogsTable(filterData(logData));
+        });
+
+        activityFilter.addEventListener('change', () => {
+            populateActivityLogsTable(filterData(logData));
+        });
+
+        dateFilter.addEventListener('change', () => {
+            populateActivityLogsTable(filterData(logData));
+        });
+    });
+</script>
+
+<style>
+    .filter-container {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+
+    .filter-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .filter-group label {
+        margin-right: 0.5rem;
+        font-weight: bold;
+    }
+
+    .filter-group select,
+    .filter-group input[type="date"] {
+        padding: 0.375rem 0.75rem;
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+        box-shadow: inset 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .filter-group select:focus,
+    .filter-group input[type="date"]:focus {
+        border-color: #80bdff;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .activity-logs {
+        margin-top: 2rem;
+    }
+</style>
+
+{% endblock %}

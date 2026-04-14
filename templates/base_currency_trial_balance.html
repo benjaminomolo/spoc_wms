@@ -1,0 +1,528 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        font-size: 0.9em;
+        text-align: left;
+    }
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 8px;
+    }
+
+    th {
+        background-color: #f4f4f4;
+    }
+
+    .category-row {
+        font-weight: bold;
+        background-color: #f9f9f9;
+    }
+
+    .subtotal-row,
+    .total-row {
+        font-style: italic;
+    }
+
+    .total-row {
+        font-weight: bold;
+        background-color: #e8f5e8;
+    }
+
+    .unbalanced-row {
+        background-color: #ffe6e6;
+    }
+
+    .total-row td {
+        text-align: right;
+    }
+
+    tfoot tr td {
+        border-top: 2px solid #ddd;
+    }
+
+    .amount-column,
+    .amount {
+        text-align: right;
+        width: 25%;
+    }
+
+    .category-column {
+        width: 30%;
+    }
+
+    .subcategory-column {
+        width: 30%;
+    }
+
+    /* Loading spinner */
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.9);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    #loading-spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        border-left: 4px solid var(--primary-color);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Report period display */
+    .report-period-display {
+        margin: 10px 0;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        border-left: 4px solid #008c8a;
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-5px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .balance-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: 500;
+    }
+
+    .balance-status.balanced {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .balance-status.unbalanced {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .empty-message {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6c757d;
+        font-style: italic;
+    }
+
+    .empty-message i {
+        font-size: 48px;
+        color: #dee2e6;
+        margin-bottom: 15px;
+        display: block;
+    }
+</style>
+
+<div class="content-container">
+    <div class="header-section">
+        <h1>Trial Balance Report</h1>
+        <div class="view-toggle-buttons">
+            <button class="cta-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+            <button class="button cta-button" id="download-pdf">
+                <i class="fas fa-file-pdf"></i> Download PDF
+            </button>
+        </div>
+    </div>
+
+    <div id="loading-overlay">
+        <div id="loading-spinner"></div>
+    </div>
+
+    <!-- Report Period Display -->
+    <div class="report-period-display" id="report-period-display" style="display: none;">
+        <div
+            style="display: flex; font-size: 0.9rem; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="font-weight: 500;">
+                <i class="fas fa-calendar-alt" style="margin-right: 8px;"></i>
+                Report Period: <span id="report-period-text">All transactions</span>
+            </div>
+            <div id="balance-status-display">
+                <!-- Balance status will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section date-filter date-filter-form" id="filter-section">
+        <div class="filter-group">
+            <label for="start-date" class="filter-label">From Date</label>
+            <input type="date" id="start-date" name="start-date" class="form-control">
+        </div>
+        <div class="filter-group">
+            <label for="end-date" class="filter-label">To Date</label>
+            <input type="date" id="end-date" name="end-date" class="form-control">
+        </div>
+        <div class="filter-actions">
+            <button id="apply-filter" class="add-button">Apply Filter</button>
+            <a href="{{ url_for('trial_balance') }}" class="btn reset-button">Reset to All</a>
+        </div>
+    </div>
+
+    <!-- Trial Balance Table -->
+    <table id="trial-balance-table">
+        <thead>
+            <tr>
+                <th class="category-column">Account</th>
+                <th class="subcategory-column">Sub Account</th>
+                <th class="amount-column">Debit ({{ base_currency }})</th>
+                <th class="amount-column">Credit ({{ base_currency }})</th>
+            </tr>
+        </thead>
+        <tbody id="trial-balance-body"></tbody>
+        <tfoot>
+            <tr id="total-trial-balance-row" class="total-row">
+                <td colspan="2"><strong>Total</strong></td>
+                <td class="amount"><strong id="total-debit">0.00</strong></td>
+                <td class="amount"><strong id="total-credit">0.00</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <!-- Report Stats -->
+    <div id="report-stats"
+        style="margin-top: 20px;font-size: 0.9rem; padding: 10px 15px; background: #f8f9fa; border-radius: 4px; font-size: 0.9em; color: #6c757d;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <i class="fas fa-info-circle"></i>
+                Report generated: <span id="report-generation-time">Just now</span>
+            </div>
+            <div>
+                Showing <span id="account-count">0</span> accounts
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const companyName = "{{ company.name }}";
+    const apiKey = "{{ api_key }}";
+    const baseCurrency = "{{ base_currency }}";
+    let currentData = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Setup event listeners
+        setupEventListeners();
+
+        // Load initial data (all transactions)
+        fetchTrialBalanceReport();
+    });
+
+    function formatNumber(number) {
+        return number.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    }
+
+    function setupEventListeners() {
+        // Apply filter button
+        document.getElementById('apply-filter').addEventListener('click', fetchTrialBalanceReport);
+
+        // Reset button
+        document.querySelector('a.reset-button').addEventListener('click', function (e) {
+            e.preventDefault();
+            document.getElementById('start-date').value = '';
+            document.getElementById('end-date').value = '';
+            fetchTrialBalanceReport();
+        });
+
+        // Download PDF button
+        document.getElementById('download-pdf').addEventListener('click', downloadPDF);
+
+        // Toggle filter section
+        document.getElementById('toggleFilterForm').addEventListener('click', function () {
+            const filterSection = document.getElementById('filter-section');
+            filterSection.classList.toggle('visible');
+        });
+
+        // Update period display when dates change
+        document.getElementById('start-date').addEventListener('change', updateReportPeriodDisplay);
+        document.getElementById('end-date').addEventListener('change', updateReportPeriodDisplay);
+    }
+
+    function updateReportPeriodDisplay() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        let periodText = '';
+
+        if (startDate && endDate) {
+            periodText = `${formatDate(startDate)} to ${formatDate(endDate)}`;
+        } else if (startDate) {
+            periodText = `From ${formatDate(startDate)} to present`;
+        } else if (endDate) {
+            periodText = `Up to ${formatDate(endDate)}`;
+        } else {
+            periodText = 'All transactions (no date filter)';
+        }
+
+        document.getElementById('report-period-text').textContent = periodText;
+    }
+
+    function fetchTrialBalanceReport() {
+        setLoadingState(true);
+
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        // Validate dates
+        if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+            alert('Start date cannot be after end date');
+            setLoadingState(false);
+            return;
+        }
+
+        // Build URL
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+
+        const url = `/api/trial_balance_summary?${params.toString()}`;
+
+        fetch(url, {
+            headers: {
+                'X-API-Key': apiKey,
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.error || `Error: ${response.status}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Fetched trial balance:', data);
+                currentData = data;
+                renderTrialBalance(data);
+            })
+            .catch(error => {
+                console.error('Error fetching trial balance:', error);
+                setLoadingState(false);
+                alert('Error: ' + error.message);
+            });
+    }
+
+    function renderTrialBalance(data) {
+        // Show period display
+        document.getElementById('report-period-display').style.display = 'block';
+        updateReportPeriodDisplay();
+
+        // Update report generation time
+        const reportTime = new Date(data.report_date).toLocaleString();
+        document.getElementById('report-generation-time').textContent = reportTime;
+
+        // Render accounts table
+        renderAccountsTable(data.accounts);
+
+        // Update totals
+        document.getElementById('total-debit').textContent = formatNumber(data.total_debit);
+        document.getElementById('total-credit').textContent = formatNumber(data.total_credit);
+
+        // Update balance status
+        updateBalanceStatus(data);
+
+        // Update account count
+        document.getElementById('account-count').textContent = data.accounts.length;
+
+        setLoadingState(false);
+    }
+
+    function renderAccountsTable(accounts) {
+        const tableBody = document.getElementById('trial-balance-body');
+        tableBody.innerHTML = '';
+
+        if (!accounts || accounts.length === 0) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td colspan="4" class="empty-message">
+                    <i class="fas fa-balance-scale"></i>
+                    <div>No transactions found for the selected period</div>
+                    <div style="font-size: 0.85em; margin-top: 5px;">
+                        Try adjusting your date range
+                    </div>
+                </td>
+            `;
+            tableBody.appendChild(row);
+            return;
+        }
+
+        // Group by category
+        const groupedByCategory = {};
+        accounts.forEach(account => {
+            const category = account.category || 'Uncategorized';
+            if (!groupedByCategory[category]) {
+                groupedByCategory[category] = [];
+            }
+            groupedByCategory[category].push(account);
+        });
+
+        // Sort categories
+        const sortedCategories = Object.keys(groupedByCategory).sort();
+
+        sortedCategories.forEach(category => {
+            const categoryAccounts = groupedByCategory[category];
+            const categoryDebit = categoryAccounts.reduce((sum, acc) => sum + acc.debit, 0);
+            const categoryCredit = categoryAccounts.reduce((sum, acc) => sum + acc.credit, 0);
+
+            // Skip categories with zero totals
+            if (categoryDebit === 0 && categoryCredit === 0) {
+                return;
+            }
+
+            // Category header row
+            const categoryRow = document.createElement('tr');
+            categoryRow.classList.add('category-row');
+            categoryRow.innerHTML = `<td colspan="4"><strong>${category}</strong></td>`;
+            tableBody.appendChild(categoryRow);
+
+            // Subcategory rows
+            categoryAccounts.forEach(account => {
+                // Skip accounts with zero balances
+                if (account.debit === 0 && account.credit === 0) {
+                    return;
+                }
+
+                const accountRow = document.createElement('tr');
+                accountRow.innerHTML = `
+                    <td></td>
+                    <td>${account.subcategory || 'No Subcategory'}</td>
+                    <td class="amount">${formatNumber(account.debit)}</td>
+                    <td class="amount">${formatNumber(account.credit)}</td>
+                `;
+                tableBody.appendChild(accountRow);
+            });
+
+            // Category subtotal row
+            const subtotalRow = document.createElement('tr');
+            subtotalRow.classList.add('subtotal-row');
+            subtotalRow.innerHTML = `
+                <td></td>
+                <td><strong>Subtotal</strong></td>
+                <td class="amount"><strong>${formatNumber(categoryDebit)}</strong></td>
+                <td class="amount"><strong>${formatNumber(categoryCredit)}</strong></td>
+            `;
+            tableBody.appendChild(subtotalRow);
+        });
+    }
+
+    function updateBalanceStatus(data) {
+        const statusElement = document.getElementById('balance-status-display');
+        const balanceCheck = Math.abs(data.balance_check);
+
+        if (data.is_balanced || balanceCheck < 0.01) {
+            statusElement.innerHTML = `
+                <span class="balance-status balanced">
+                    <i class="fas fa-check-circle"></i>
+                    Balanced (Difference: ${formatNumber(balanceCheck)})
+                </span>
+            `;
+            document.getElementById('total-trial-balance-row').classList.remove('unbalanced-row');
+        } else {
+            statusElement.innerHTML = `
+                <span class="balance-status unbalanced">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Unbalanced (Difference: ${formatNumber(balanceCheck)})
+                </span>
+            `;
+            document.getElementById('total-trial-balance-row').classList.add('unbalanced-row');
+        }
+    }
+
+    function downloadPDF() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        const filters = {
+            start_date: startDate,
+            end_date: endDate,
+            company_name: companyName
+        };
+
+        fetch("/download_trial_balance_report", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(filters),
+        })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${companyName} - Trial Balance Report.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error("Error downloading PDF:", error);
+                alert('Error downloading PDF: ' + error.message);
+            });
+    }
+
+    function setLoadingState(isLoading) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (isLoading) {
+            loadingOverlay.style.display = 'flex';
+        } else {
+            loadingOverlay.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

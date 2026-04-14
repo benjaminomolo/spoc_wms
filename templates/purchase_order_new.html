@@ -1,0 +1,760 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+
+<style>
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .header h1 {
+        margin: 0;
+        color: var(--primary-color, #333);
+    }
+
+    .header .date-po {
+        text-align: right;
+    }
+
+    .header .date-po div {
+        margin-bottom: 3px;
+        display: flex;
+        align-items: center;
+    }
+
+    .header .date-po label {
+        width: 120px;
+        text-align: right;
+        margin-right: 10px;
+        display: inline-block;
+        vertical-align: top;
+    }
+
+    .header .date-po input[type="date"],
+    .header .date-po input[type="text"],
+    .header .date-po input[type="number"] {
+        width: 200px;
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        vertical-align: top;
+    }
+
+    .info-section {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    .info-section div {
+        flex-basis: 15%;
+        margin: 5px;
+    }
+
+    .info-section div p {
+        margin: 5px 0;
+    }
+
+    .info-section div label {
+        font-weight: bold;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    .info-section div input[type="text"],
+    .info-section div input[type="tel"],
+    .info-section div input[type="email"],
+    .info-section div select {
+        width: 200px;
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .table-container {
+        overflow-x: auto;
+        margin-bottom: 20px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: var(--secondary-color, #fff);
+    }
+
+    table th,
+    table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+        box-sizing: border-box;
+    }
+
+    table th {
+        background-color: var(--primary-color, #333);
+        color: white;
+        font-weight: bold;
+    }
+
+    table td {
+        background-color: var(--secondary-color, #fff);
+    }
+
+    table th:nth-child(1),
+    table td:nth-child(1) {
+        width: 5%;
+    }
+
+    table th:nth-child(2),
+    table td:nth-child(2) {
+        width: 12%;
+    }
+
+    table th:nth-child(3),
+    table td:nth-child(3) {
+        width: 18%;
+    }
+
+    table th:nth-child(4),
+    table td:nth-child(4) {
+        width: 20%;
+    }
+
+    table th:nth-child(5),
+    table td:nth-child(5) {
+        width: 8%;
+    }
+
+    table th:nth-child(6),
+    table td:nth-child(6) {
+        width: 10%;
+    }
+
+    table th:nth-child(7),
+    table td:nth-child(7) {
+        width: 10%;
+    }
+
+    table th:nth-child(8),
+    table td:nth-child(8) {
+        width: 15%;
+    }
+
+    .table-container input[type="text"],
+    .table-container input[type="number"] {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+
+
+    }
+
+    .table-container input[type="number"] {
+        text-align: right;
+    }
+
+    .table-container input[type="text"] {
+        font-family: Arial, sans-serif;
+    }
+
+    .table-container .btn-remove-row {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .table-container .btn-remove-row:hover {
+        background-color: #c82333;
+    }
+
+    .table-container #add-row {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 2px
+    }
+
+    .table-container .btn-add-row:hover {
+        background-color: #0056b3;
+    }
+
+
+    .total-comments-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+
+    }
+
+    .comments {
+        flex: 1;
+        margin-right: 20px;
+
+    }
+
+    .comments #payment_terms {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+
+    .total-comments-container textarea::placeholder {
+        font-family: 'Arial', sans-serif;
+        /* Replace with your desired font family */
+        color: #888;
+        /* Optional: Set placeholder text color */
+    }
+
+    .total-section {
+        flex: 1;
+        text-align: right;
+
+    }
+
+    .total-section div {
+        margin-bottom: 5px;
+
+    }
+
+    .total-section input {
+        width: 200px;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+
+    .btn-submit {
+        background-color: #4CAF50;
+        color: white;
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .btn-submit:hover {
+        background-color: #45a049;
+    }
+
+    /* Theme Colors */
+    :root {
+        --primary-color: #333;
+        --secondary-color: #fff;
+    }
+
+    /* Change theme colors */
+    .theme-blue {
+        --primary-color: #007bff;
+        --secondary-color: #e9f7ff;
+    }
+
+    .theme-green {
+        --primary-color: #28a745;
+        --secondary-color: #e6ffed;
+    }
+
+    .theme-red {
+        --primary-color: #dc3545;
+        --secondary-color: #ffe6e6;
+    }
+
+    .currency-section {
+        margin-bottom: 20px;
+    }
+
+    .currency-section label {
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    .currency-section select {
+        width: 200px;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .ship-to-section {
+        display: none;
+        /* Default to hidden */
+    }
+
+    .ship-to-section.show {
+        display: block;
+    }
+
+    .uom-dropdown {
+        width: 100%;
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+
+    }
+
+
+
+
+</style>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+
+
+
+<div class="container">
+    <main>
+        <div class="container-fluid px-4">
+
+   
+        <!-- Flash Messages Section -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <form id="po-content" action="{{ url_for('create_po') }}" method="POST">
+
+            <div class="header">
+                <div class="company-info">
+                    {% if company.name %}
+                    <h2>{{ company.name }}</h2>
+                    {% endif %}
+
+                    {% if company.address %}
+                    <p>{{ company.address }}</p>
+                    {% endif %}
+
+                    {% if company.phone %}
+                    <p>Phone: {{ company.phone }}</p>
+                    {% endif %}
+
+                    {% if company.email %}
+                    <p>Email: {{ company.email }}</p>
+                    {% endif %}
+
+                    {% if company.website %}
+                    <p>Website: {{ company.website }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="date-po">
+                    <h1 class="mt-4">Purchase Order</h1>
+                    <div><label for="po_date">DATE:</label> <input type="date" id="po_date" name="po_date"></div>
+                    <div><label for="po_number">PO #:</label> <input type="text" id="po_number" name="po_number"
+                            value="{{ po_number }}" readonly></div>
+                    <div><label for="delivery_date">DELIVERY DATE:</label> <input type="date" id="delivery_date"
+                            name="delivery_date"></div>
+                    <div><label for="lead_time">LEAD TIME (DAYS):</label> <input type="number" id="lead_time"
+                            name="lead_time" readonly></div>
+                </div>
+            </div>
+
+
+            <!-- Currency Selection Section -->
+            <div class="currency-section">
+                <label for="currency">Select Currency:</label>
+                <select id="currency" name="currency" required>
+                    <option value="" disabled selected>Select Currency</option>
+                    {% for currency in currencies %}
+                    <option value="{{ currency.id }}">
+                        {{ currency.user_currency }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+            <div class="info-section">
+
+                <div>
+                    <h4 class="mt-4">VENDOR</h4>
+                    <select id="vendor-dropdown" name="vendor" required>
+                        <option value="" disabled selected>Select Vendor</option>
+                        {% for vendor in vendors %}
+                        <option value="{{ vendor.id }}" data-designation="{{ vendor.designation }}"
+                            data-phone="{{ vendor.tel_contact }}" data-email="{{ vendor.email }}">
+                            {{ vendor.vendor_name }} - {{ vendor.vendor_id }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div id="vendor-details">
+                        {% for vendor in vendors %}
+                        {% if vendor.designation %}
+                        <p id="designation-section" class="vendor-info" style="display: none;">Designation: <input
+                                type="text" id="vendor-designation" readonly></p>
+                        {% endif %}
+                        {% if vendor.tel_contact %}
+                        <p id="phone-section" class="vendor-info" style="display: none;">Phone: <input type="text"
+                                id="vendor-phone" readonly></p>
+                        {% endif %}
+                        {% if vendor.email %}
+                        <p id="email-section" class="vendor-info" style="display: none;">Email: <input type="text"
+                                id="vendor-email" readonly></p>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="ship-to-section"
+                    style="display: {% if company.name or company.address or company.phone or company.email %}block{% else %}none{% endif %};">
+                    <h4>SHIP TO</h4>
+                    {% if company.name %}
+                    <p><input type="text" name="ship_to" value="{{ company.name }}"></p>
+                    {% endif %}
+                    {% if company.address %}
+                    <p>Address:<input type="text" name="address" id="address" value="{{ company.address }}"></p>
+                    {% endif %}
+                    {% if company.phone %}
+                    <p><input type="tel" name="phone" id="phone" value="{{ company.phone }}"></p>
+                    {% endif %}
+                    {% if company.email %}
+                    <p><input type="email" name="email" id="email" value="{{ company.email }}"></p>
+                    {% endif %}
+                </div>
+
+            </div>
+            <div class="table-container">
+                <table id="product-table">
+                    <thead>
+                        <tr>
+                            <th>#</th> <!-- Row Number -->
+                            <th>ITEM TYPE</th>
+                            <th>ITEM</th>
+                            <th>DESCRIPTION</th>
+                            <th>QTY</th>
+                            <th>UOM</th>
+                            <th>UNIT PRICE</th>
+                            <th>TOTAL</th>
+                            <th>ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Default row -->
+                        <tr class="product-row">
+                            <td class="row-number">1</td>
+                            <td>
+                                <select class="uom-dropdown" name="item_type[]" id="item_type-1">
+                                  <option selected value="inventory">Inventory</option>
+                                  <option value="service">Service</option>
+                                </select>
+                              </td>
+                            <td>
+                                <input required type="text" name="item[]" list="item-list" onchange="updateItemDetails(this)" />
+
+                                <datalist id="item-list">
+                                    {% for item in items %}
+                                    <option value="{{ item.item_name }}" data-description="{{ item.description }}"
+                                        data-uom="{{ item.uom }}" data-unit_price="{{ item.unit_price }}">
+                                        {{ item.item_name }}
+                                    </option>
+                                    {% endfor %}
+                                </datalist>
+                            </td>
+                            <td><input type="text" name="description[]" id="description-1" /></td>
+                            <td><input required type="number" name="qty[]" class="qty" step="any"/></td>
+                            <td>
+                                <select required name="uom[]" class="uom-dropdown" id="uom-1">
+                                    <option value=""></option>
+                                    <option value="kg">Kilogram(s)</option>
+                                    <option value="g">Gram(s)</option>
+                                    <option value="mg">Milligram(s)</option>
+                                    <option value="t">Ton(s)</option>
+                                    <option value="oz">Ounce(s)</option>
+                                    <option value="lb">Pound(s)</option>
+                                    <option value="l">Liter(s)</option>
+                                    <option value="ml">Milliliter(s)</option>
+                                    <option value="m">Meter(s)</option>
+                                    <option value="cm">Centimeter(s)</option>
+                                    <option value="mm">Millimeter(s)</option>
+                                    <option value="in">Inch(es)</option>
+                                    <option value="ft">Foot(Feet)</option>
+                                    <option value="yd">Yard(s)</option>
+                                    <option value="mi">Mile(s)</option>
+                                    <option value="pc">Piece(s)</option>
+                                    <option value="box">Box(es)</option>
+                                    <option value="pkt">Packet(s)</option>
+                                    <option value="unit">Unit(s)</option>
+                                    <option value="h">Hour(s)</option>
+                                    <option value="min">Minute(s)</option>
+                                    <option value="s">Second(s)</option>
+                                    <option value="d">Day(s)</option>
+                                    <option value="wk">Week(s)</option>
+                                    <option value="mo">Month(s)</option>
+                                    <option value="yr">Year(s)</option>
+                                </select>
+                            </td>
+
+                            <td><input required type="number" name="unit_price[]" id="unit_price" class="unit-price" /></td>
+                            <td><input required type="number" name="total[]" class="total" /></td>
+                            <td><button type="button" class="btn-remove-row">Remove</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button type="button" id="add-row" class="btn-submit">Add Row</button>
+            </div>
+            <div class="total-comments-container">
+                <div class="comments">
+                    <h6>Payment Terms and Conditions / Comments</h6>
+                    <textarea id="payment_terms" name="payment_terms" rows="4" cols="50"
+                        placeholder="[Enter Payment Terms and Conditions or any comments here]"></textarea>
+                </div>
+                <div class="total-section">
+                    <div>SUBTOTAL: <input type="number" step="1" id="subtotal" name="subtotal" readonly></div>
+                    <div>TAX: <input type="number" step="1" id="tax" name="tax"></div>
+                    <div>SHIPPING: <input type="number" step="1" id="shipping" name="shipping"></div>
+                    <div>OTHER: <input type="number" step="1" id="other" name="other"></div>
+                    <div>Discount(less): <input type="number" step="1" id="discount" name="discount"></div>
+                    <div><strong>TOTAL: <input type="number" step="1" id="total" name="overall_total" readonly></strong>
+                    </div>
+                </div>
+            </div>
+            <div>
+
+                <button type="submit" class="btn-submit">Submit</button>
+            </div>
+        </form>
+</div>
+</main>
+</div>
+
+<script>
+    function calculateTotal() {
+        const rows = document.querySelectorAll('.product-row');
+        let subtotal = 0;
+
+        rows.forEach((row) => {
+            const qty = parseFloat(row.querySelector('.qty').value) || 0;
+            const unitPrice = parseFloat(row.querySelector('.unit-price').value) || 0;
+            const total = row.querySelector('.total');
+
+            total.value = (qty * unitPrice).toFixed(2);
+            subtotal += parseFloat(total.value) || 0;
+        });
+
+        document.getElementById('subtotal').value = subtotal.toFixed(2);
+
+        const tax = parseFloat(document.getElementById('tax').value) || 0;
+        const shipping = parseFloat(document.getElementById('shipping').value) || 0;
+        const other = parseFloat(document.getElementById('other').value) || 0;
+        const discount = parseFloat(document.getElementById('discount').value) || 0;
+        
+
+        const total = document.getElementById('total');
+        total.value = (subtotal + tax + shipping + other-discount).toFixed(2);
+    }
+
+    function calculateLeadTime() {
+        const poDate = new Date(document.getElementById('po_date').value);
+        const deliveryDate = new Date(document.getElementById('delivery_date').value);
+        const leadTime = document.getElementById('lead_time');
+
+        if (!isNaN(poDate) && !isNaN(deliveryDate)) {
+            const timeDifference = deliveryDate - poDate;
+            const dayDifference = timeDifference / (1000 * 3600 * 24);
+            leadTime.value = dayDifference >= 0 ? dayDifference : 0;
+        } else {
+            leadTime.value = 0;
+        }
+    }
+
+    document.addEventListener('input', calculateTotal);
+    document.getElementById('po_date').addEventListener('change', calculateLeadTime);
+    document.getElementById('delivery_date').addEventListener('change', calculateLeadTime);
+
+    document.getElementById('add-row').addEventListener('click', () => {
+        const table = document.getElementById('product-table').getElementsByTagName('tbody')[0];
+        const newRow = table.insertRow();
+        newRow.classList.add('product-row');
+        const rowIndex = table.rows.length;
+        newRow.innerHTML = `
+            <td class="row-number">${rowIndex}</td>
+            <td>
+                                <select class="uom-dropdown" name="item_type[]" id="item_type-1">
+                                  <option selected value="inventory">Inventory</option>
+                                  <option value="service">Service</option>
+                                </select>
+                              </td>
+            <td>
+                    <input required type="text" name="item[]" list="item-list" onchange="updateItemDetails(this)" />
+
+                    <datalist id="item-list">
+                        {% for item in items %}
+                            <option value="{{ item.item_name }}"
+                                    data-description="{{ item.description }}"
+                                    data-uom="{{ item.uom }}"
+                                    data-unit_price="{{ item.unit_price }}">
+                                {{ item.item_name }}
+                            </option>
+                        {% endfor %}
+                    </datalist>
+                </td>
+            <td><input type="text" name="description[]" id="description-1"  /></td>
+                <td><input required type="number" name="qty[]" class="qty" /></td>
+              <td>
+                    <select required name="uom[]" class="uom-dropdown">
+                        <option value=""></option>
+                        <option value="kg">Kilogram(s)</option>
+                        <option value="g">Gram(s)</option>
+                        <option value="mg">Milligram(s)</option>
+                        <option value="t">Ton(s)</option>
+                        <option value="oz">Ounce(s)</option>
+                        <option value="lb">Pound(s)</option>
+                        <option value="l">Liter(s)</option>
+                        <option value="ml">Milliliter(s)</option>
+                        <option value="m">Meter(s)</option>
+                        <option value="cm">Centimeter(s)</option>
+                        <option value="mm">Millimeter(s)</option>
+                        <option value="in">Inch(es)</option>
+                        <option value="ft">Foot(Feet)</option>
+                        <option value="yd">Yard(s)</option>
+                        <option value="mi">Mile(s)</option>
+                        <option value="pc">Piece(s)</option>
+                        <option value="box">Box(es)</option>
+                        <option value="pkt">Packet(s)</option>
+                        <option value="unit">Unit(s)</option>
+                        <option value="h">Hour(s)</option>
+                        <option value="min">Minute(s)</option>
+                        <option value="s">Second(s)</option>
+                        <option value="d">Day(s)</option>
+                        <option value="wk">Week(s)</option>
+                        <option value="mo">Month(s)</option>
+                        <option value="yr">Year(s)</option>
+
+
+                    </select>
+                </td>
+            
+                <td><input required type="number" name="unit_price[]" id="unit_price" class="unit-price" /></td>
+            <td><input type="number" name="total[]" class="total" readonly /></td>
+            <td><button type="button" class="btn-remove-row">Remove</button></td>
+        `;
+        updateRowNumbers();
+    });
+
+    document.getElementById('product-table').addEventListener('click', (event) => {
+        if (event.target.classList.contains('btn-remove-row')) {
+            event.target.closest('tr').remove();
+            updateRowNumbers();
+            calculateTotal();
+        }
+    });
+
+    function updateRowNumbers() {
+        const rows = document.querySelectorAll('.product-row');
+        rows.forEach((row, index) => {
+            row.querySelector('.row-number').textContent = index + 1;
+        });
+    }
+
+    document.getElementById('vendor-dropdown').addEventListener('change', function () {
+        const selectedOption = this.options[this.selectedIndex];
+        const designation = selectedOption.getAttribute('data-designation');
+        const phone = selectedOption.getAttribute('data-phone');
+        const email = selectedOption.getAttribute('data-email');
+
+        document.getElementById('vendor-designation').value = designation;
+        document.getElementById('vendor-phone').value = phone;
+        document.getElementById('vendor-email').value = email;
+    });
+
+    document.getElementById('vendor-dropdown').addEventListener('change', function () {
+        const selectedOption = this.options[this.selectedIndex];
+        const designation = selectedOption.getAttribute('data-designation');
+        const phone = selectedOption.getAttribute('data-phone');
+        const email = selectedOption.getAttribute('data-email');
+
+        if (designation) {
+            document.getElementById('vendor-designation').value = designation;
+            document.getElementById('designation-section').style.display = 'block';
+        } else {
+            document.getElementById('designation-section').style.display = 'none';
+        }
+
+        if (phone) {
+            document.getElementById('vendor-phone').value = phone;
+            document.getElementById('phone-section').style.display = 'block';
+        } else {
+            document.getElementById('phone-section').style.display = 'none';
+        }
+
+        if (email) {
+            document.getElementById('vendor-email').value = email;
+            document.getElementById('email-section').style.display = 'block';
+        } else {
+            document.getElementById('email-section').style.display = 'none';
+        }
+    });
+
+
+
+    function updateItemDetails(itemInput) {
+        const itemName = itemInput.value;
+        const row = itemInput.closest('tr');
+        const descriptionInput = row.querySelector('input[name="description[]"]');
+        const uomSelect = row.querySelector('select[name="uom[]"]');
+        const unitPriceInput = row.querySelector('input[name="unit_price[]"]');
+
+        const option = Array.from(document.querySelectorAll('#item-list option'))
+            .find(option => option.value === itemName);
+
+        if (option) {
+            descriptionInput.value = option.dataset.description || '';
+            unitPriceInput.value = option.dataset.unit_price || '';
+
+            // Find the matching UOM and set it in the select element
+            const uom = option.dataset.uom || '';
+            uomSelect.value = uom;
+        } else {
+            descriptionInput.value = '';
+            uomSelect.value = '';
+            unitPriceInput.value = '';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const shipToSection = document.querySelector('.ship-to-section');
+        const name = "{{ company.name }}";
+        const address = "{{ company.address }}";
+        const phone = "{{ company.phone }}";
+        const email = "{{ company.email }}";
+
+        if (name || address || phone || email) {
+            shipToSection.style.display = 'block';
+        }
+    });
+
+   
+    document.getElementById('po_date').valueAsDate = new Date();
+</script>
+
+
+{% endblock %}

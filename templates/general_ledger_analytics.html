@@ -1,0 +1,16 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Deep Analytics</h1>
+    <p>Here you can view the analytics specific to your company.</p>
+
+    <div class="analytics-container">
+        <!-- Power BI Embedded Report with dynamic filtering -->
+        <iframe title="Company Deep Analytics" width="100%" height="600"
+            src="https://app.powerbi.com/view?r=eyJrIjoiMDMwMGIxZDAtZThlYy00YmVkLWFlMmMtZTQ0YWE1MjAxMzI1IiwidCI6IjUwMTMzMTkwLTcwMzctNGVmYi05ZTg2LTUxZThmYjc2MTZjNCJ9&filter=get_company/CompanyID eq '{{ company.id }}'"
+            frameborder="0" allowFullScreen="true">
+        </iframe>
+    </div>
+</div>
+{% endblock %}

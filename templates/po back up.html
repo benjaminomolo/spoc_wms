@@ -1,0 +1,1118 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<title>Inventory Entry</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f9;
+        margin: 0;
+        padding: 20px;
+    }
+
+    .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+        margin-bottom: 20px;
+        color: #333;
+    }
+
+    .form-group {
+        margin-bottom: 10px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 3px;
+        font-weight: bold;
+        color: #555;
+        font-size: 14px;
+        /* Smaller font size for labels */
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 6px;
+        /* Reduced padding for inputs */
+        box-sizing: border-box;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        /* Smaller font size for inputs */
+    }
+
+    .form-group textarea {
+        resize: vertical;
+    }
+
+    .form-group .helper-text {
+        font-size: 0.75em;
+        /* Smaller font size for helper text */
+        color: #888;
+        margin-top: 3px;
+    }
+
+    /* Flexbox layout for horizontal alignment */
+    .flex-row {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        /* Adjust the space between the fields */
+    }
+
+    .btn-add-row,
+    .btn-remove-row {
+        margin-left: 20px;
+        height: fit-content;
+    }
+
+    /* Optional: Make inputs and labels align better */
+    .form-group label {
+        min-width: 100px;
+    }
+
+    .form-group input {
+        flex: 1;
+    }
+
+    .btn-submit {
+        background-color: #4CAF50;
+        color: white;
+        padding: 8px 16px;
+        /* Reduced padding for buttons */
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        /* Smaller font size for buttons */
+    }
+
+    .btn-submit:hover {
+        background-color: #45a049;
+    }
+
+    .nav-tabs {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 15px;
+    }
+
+    .nav-tabs .nav-item {
+        margin-right: 15px;
+    }
+
+    .nav-tabs .nav-link {
+        padding: 6px 12px;
+        /* Reduced padding for tab links */
+        cursor: pointer;
+        border: 1px solid transparent;
+        border-radius: 4px 4px 0 0;
+        color: #555;
+        font-size: 14px;
+        /* Smaller font size for tab links */
+    }
+
+    .nav-tabs .nav-link.active {
+        background-color: #fff;
+        border-color: #ddd #ddd #fff;
+        color: #333;
+    }
+
+    .form-section {
+        display: none;
+    }
+
+    .form-section.active {
+        display: block;
+    }
+
+    .form-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        /* Reduced gap between form groups */
+    }
+
+    .form-row .form-group {
+        flex: 1;
+    }
+
+    .form-row .form-group.wide {
+        flex: 2;
+    }
+
+    .form-row.currency-price,
+    .form-row.quantity-uom {
+        display: flex;
+        gap: 10px;
+        /* Reduced gap between form groups */
+    }
+
+    .header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+
+    .header-row h1 {
+        margin: 0;
+        flex: 1;
+    }
+
+    .btn-submit {
+        flex-shrink: 0;
+    }
+
+    .btn-remove-row {
+        background: none;
+        /* Remove default button background */
+        border: none;
+        /* Remove default button border */
+        cursor: pointer;
+        /* Change cursor to pointer */
+        color: #ff0000;
+        /* Optional: color for the icon */
+        font-size: 18px;
+        /* Adjust size as needed */
+    }
+
+    .btn-remove-row:hover {
+        opacity: 0.7;
+        /* Optional: effect on hover */
+    }
+
+
+    .btn-add-row {
+        background: #007bff;
+        /* Background color */
+        border: none;
+        /* Remove default border */
+        color: #ffffff;
+        /* Icon color */
+        cursor: pointer;
+        /* Pointer cursor on hover */
+        font-size: 18px;
+        /* Adjust icon size */
+        padding: 10px;
+        /* Add padding */
+        border-radius: 5px;
+        /* Optional: rounded corners */
+        transition: background 0.3s;
+        /* Smooth background color transition */
+    }
+
+    .btn-add-row:hover {
+        background: #0056b3;
+        /* Darker background on hover */
+    }
+
+    @media (max-width: 768px) {
+        .form-row {
+            flex-direction: column;
+        }
+
+        .form-row.currency-price,
+        .form-row.quantity-uom {
+            flex-direction: column;
+        }
+    }
+</style>
+
+<div class="container">
+    <main>
+        <div class="container-fluid px-4">
+            <div class="header-row">
+                <h1 class="mt-4">Inventory Entry Form</h1>
+                <button type="submit" class="btn-submit" onclick="onclicksubmitInventoryItem()">Add New
+                    Inventory</button>
+            </div>
+
+            <!-- Flash Messages Section -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            <!-- Navigation Tabs -->
+            <ul class="nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link active" href="javascript:void(0)" onclick="showSection('section-1')">Main
+                        Fields</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="javascript:void(0)" onclick="showSection('section-2')">Additional
+                        Fields</a>
+                </li>
+            </ul>
+
+            <form id="inventory-entry-form" method="POST" action="{{ url_for('inventory_entry') }}"
+                enctype="multipart/form-data">
+                <!-- Main Fields Section -->
+                <div class="form-section active" id="section-1">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item_name">Item Name: <a style="font-size: 10px ;margin-bottom:-15px;"
+                                    href="/add-item" class="btn btn-link">Add New Item</a></label>
+                            <select id="item_name" name="item_name" class="form-control">
+                                <option value=""></option>
+                                {% for item in inventory_item %}
+                                <option value="{{ item.id }}">{{item.item_name }}</option>
+                                {% endfor %}
+                                <option value="add_new_item">Add new item</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="item_code">Item Code:</label>
+                            <input type="text" id="item_code" value="" name="item_code" readonly>
+
+                        </div>
+
+
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="category">Category:</label>
+                            <select id="category" name="category" class="form-control">
+                                <option value=""></option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.category_name }}</option>
+                                {% endfor %}
+                                <option value="add_new_category">Add new category...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="subcategory">Subcategory:</label>
+                            <select id="subcategory" name="subcategory" class="form-control">
+                                <option value=""></option>
+                                {% for subcategory in subcategories %}
+                                <option value="{{ subcategory.id }}">{{ subcategory.subcategory_name }}</option>
+                                {% endfor %}
+                                <option value="add_new_subcategory">Add new subcategory...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row currency-price">
+                        <div class="form-group">
+                            <label for="project">Project:</label>
+                            <select id="project_id" name="project_id">
+                                <option value=""></option>
+                                {% for project in projects %}
+                                <option value="{{ project.id }}">{{ project.name }} - {{ project.project_id }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="supplier">Supplier:</label>
+                            <select id="supplier" name="supplier">
+                                <option value="">
+                                </option>
+                                {% for supplier in suppliers %}
+                                <option value="{{ supplier.id }}">{{ supplier.vendor_name }} - {{ supplier.vendor_id }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="helper-text">Supplier of the inventory item.</div>
+                        </div>
+                    </div>
+
+                    <div class="form-row quantity-uom">
+                        <div class="form-group">
+                            <label for="uom">Unit of Measurement (UOM):</label>
+                            <select id="uom" name="uom" required>
+                                <option value="pcs">Piece(s)</option>
+                                <option value="kg">Kilogram(s)</option>
+                                <option value="liters">Liter(s)</option>
+                                <option value="boxes">Box(es)</option>
+                                <option value="meters">Meter(s)</option>
+                                <option value="packets">Packet(s)</option>
+                                <option value="units">Unit(s)</option>
+                                <option value="grams">Gram(s)</option>
+                                <option value="ounces">Ounce(s)</option>
+                                <option value="pounds">Pound(s)</option>
+                                <option value="tons">Ton(s)</option>
+                                <option value="milliliters">Milliliter(s)</option>
+                                <option value="centimeters">Centimeter(s)</option>
+                                <option value="inches">Inch(es)</option>
+                                <option value="feet">Foot(Feet)</option>
+                                <option value="yards">Yard(s)</option>
+                                <option value="miles">Mile(s)</option>
+                                <option value="hours">Hour(s)</option>
+                                <option value="minutes">Minute(s)</option>
+                                <option value="seconds">Second(s)</option>
+                                <option value="days">Day(s)</option>
+                                <option value="weeks">Week(s)</option>
+                                <option value="months">Month(s)</option>
+                                <option value="years">Year(s)</option>
+                            </select>
+                            <div class="helper-text">Select the unit of measurement for the item.</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="currency">Currency:</label>
+                            <select id="currency" name="currency" required>
+                                {% for currency in currencies %}
+                                <option value="{{ currency.id }}">{{ currency.user_currency }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+
+                    </div>
+
+                    <!-- Toggle Switch for Attributes & Variations -->
+                    <div class="form-group" style="display: flex; align-items: center;">
+                        <label for="toggle_variations" style="margin-right: 10px;">Item variation:</label>
+                        <input type="checkbox" id="toggle_variations" name="toggle_variations"
+                            onchange="toggleVariations()">
+                    </div>
+
+                    <div class="form-row">
+
+
+                        <!-- Dynamic Rows Section (Initially Hidden) -->
+                        <div id="dynamic_rows_section" style="display: none;">
+                            <div id="dynamic_rows">
+                                <div class="dynamic-row flex-row">
+                                    <div class="form-group">
+                                        <label for="attribute_1">Attribute:</label>
+                                        <select id="attribute_1" name="attribute_ids[]" class="form-control">
+                                            <option value=""></option>
+                                            {% for attribute in inventory_attributes %}
+                                            <option value="{{ attribute.id }}">{{ attribute.attribute_name }}</option>
+                                            {% endfor %}
+                                            <option value="add_new">Add new attribute...</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="variation_1">Variation:</label>
+                                        <select id="variation_1" name="variation_ids[]" class="form-control">
+                                            <option value=""></option>
+
+                                            {% for variation in inventory_variations %}
+                                            <option value="{{ variation.id }}">{{variation.variation_name }}</option>
+                                            {% endfor %}
+
+                                            <option value="add_new">Add new variation</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="quantity_1">Quantity:</label>
+                                        <input type="number" id="quantity_1" name="quantities[]">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="unit_price_1">Unit Price:</label>
+                                        <input type="number" step="0.01" id="unit_price_1" name="unit_prices[]">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="selling_price">Selling Price:</label>
+                                        <input type="number" step="1" id="selling_price_1" name="selling_prices[]">
+
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="reorder_point">Reorder Point:</label>
+                                        <input type="number" id="reorder_point_1" name="reorder_points[]">
+                                    </div>
+
+
+                                    <button type="button" class="btn-remove-row" onclick="removeDynamicRow(this)"><i
+                                            class="fas fa-trash"></i></button>
+                                </div>
+                            </div>
+
+                            <button type="button" class="btn-add-row" onclick="addDynamicRow()"><i
+                                    class="fas fa-plus"></i> </button>
+                        </div>
+
+                        <!-- Default Quantity and Unit Price Section -->
+                        <div id="default_quantity_price_section" class="flex-row form-group">
+                            <div class="form-group">
+                                <label for="quantity">Quantity:</label>
+                                <input type="number" id="quantity" name="quantity">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="unit_price">Unit Price:</label>
+                                <input type="number" step="0.01" id="unit_price" name="unit_price">
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="selling_price">Selling Price:</label>
+                                <input type="number" value="0.0" step="1" id="selling_price" name="selling_price">
+
+                            </div>
+                            <div class="form-group">
+                                <label for="reorder_point">Reorder Point:</label>
+                                <input value="0" type="number" id="reorder_point" name="reorder_point">
+                            </div>
+
+                        </div>
+
+
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item_image">Item Image:</label>
+                            <input type="file" id="item_image" name="item_image" accept="image/*"
+                                onchange="previewImage()">
+                            <small class="helper-text">Upload an image to represent the item (optional).</small>
+                            <img id="image_preview" src="#" alt="Image Preview"
+                                style="display: none; max-width: 200px; margin-top: 10px;">
+                        </div>
+                    </div>
+
+
+                </div>
+                <!-- Additional Fields Section -->
+                <div class="form-section" id="section-2">
+
+                    <div class="form-row">
+                        <!-- Description Section -->
+                        <div class="form-group">
+                            <label for="description">Description:</label>
+                            <textarea id="description" name="description"></textarea>
+                            <div class="helper-text">Provide a brief description of the item.</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="expiration_date">Expiration Date:</label>
+                            <input type="date" id="expiration_date" name="expiration_date">
+                            <div class="helper-text">The date when the item expires.</div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="location">Location:</label>
+                            <input type="text" id="location" name="location" list="locations">
+                            <datalist id="locations">
+                                {% for location in locations %}
+                                <option value="{{ location }}"></option>
+                                {% endfor %}
+                            </datalist>
+                            <div class="helper-text">Physical location of the inventory item / Ware-house.</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="supplier_information">Supplier Information:</label>
+                            <textarea id="supplier_information" name="supplier_information"></textarea>
+                            <div class="helper-text">Details about the supplier.</div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="lot">Lot / Batch:</label>
+                            <input type="text" id="lot" name="lot">
+                            <div class="helper-text">For tracking individual items or batches.</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="purchase_date">Purchase Date:</label>
+                            <input type="date" id="purchase_date" name="purchase_date">
+                            <div class="helper-text">Date when the items were purchased.</div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+
+            </form>
+
+            <!-- Modal dialog -->
+            <div class="modal fade" id="addAttributeModal" tabindex="-1" role="dialog"
+                aria-labelledby="addAttributeModalLabel" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="addAttributeModalLabel">Add New Attribute</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="addAttributeForm">
+                                <div class="form-group">
+                                    <label for="newAttributeName">Attribute Name:</label>
+                                    <input type="text" id="newAttributeName" name="attribute_name" class="form-control"
+                                        required>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary" form="addAttributeForm">Add Attribute</button>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" id="current_row_id">
+            </div>
+
+            <!-- Modal dialog for adding new variation -->
+            <div class="modal fade" id="addVariationModal" tabindex="-1" role="dialog"
+                aria-labelledby="addVariationModalLabel" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="addVariationModalLabel">Add New Variation</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="addVariationForm">
+                                <div class="form-group">
+                                    <label for="attribute_select">Attribute:</label>
+                                    <select id="attribute_select" name="attribute_id" class="form-control" required>
+                                        <option value=""></option>
+                                        {% for attribute in inventory_attributes %}
+                                        <option value="{{ attribute.id }}">{{ attribute.attribute_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="newVariationName">Variation Name:</label>
+                                    <input type="text" id="newVariationName" name="variation_name" class="form-control"
+                                        required>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary" form="addVariationForm">Add Variation</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modals for adding new categories and subcategories -->
+            <div class="modal fade" id="addCategoryModal" tabindex="-1" role="dialog"
+                aria-labelledby="addCategoryModalLabel" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="addCategoryModalLabel">Add New Category</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="addCategoryForm">
+                                <div class="form-group">
+                                    <label for="newCategoryName">Category Name:</label>
+                                    <input type="text" id="newCategoryName" name="category_name" class="form-control"
+                                        required>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary" form="addCategoryForm">Add Category</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Subcategory Modal -->
+            <div id="addSubcategoryModal" class="modal fade" tabindex="-1" role="dialog">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Add New Subcategory</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <form id="addSubcategoryForm">
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="newSubcategoryName">Subcategory Name:</label>
+                                    <input type="text" id="newSubcategoryName" name="subcategory_name"
+                                        class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="relatedCategory">Related Category:</label>
+                                    <select id="relatedCategory" name="category_id" class="form-control" required>
+                                        {% for category in categories %}
+                                        <option value="{{ category.id }}">{{ category.category_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="submit" form="addSubcategoryForm" class="btn btn-primary">Add
+                                    Subcategory</button>
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add New item Modal -->
+            <div class="modal fade" id="addItemModal" tabindex="-1" aria-labelledby="addItemModalLabel"
+                aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="addItemModalLabel">Add New Inventory Item</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="add-item-form" method="POST" action="{{ url_for('add_new_inventory_item') }}">
+                                <div class="form-group mb-3">
+                                    <label for="modal_item_name">Item Name:</label>
+                                    <input type="text" id="modal_item_name" name="item_name" class="form-control"
+                                        required>
+                                </div>
+                                <div class="form-group mb-3">
+                                    <label for="item_code">Item Code:</label>
+                                    <input type="text" id="item_code" name="item_code" readonly>
+                                    <div class="helper-text">A unique code for identifying the item.</div>
+                                </div>
+                                <div class="form-group mb-3">
+                                    <label for="modal_item_category">Category:</label>
+                                    <select id="category" name="category" class="form-control">
+                                        <option value=""></option>
+                                        {% for category in categories %}
+                                        <option value="{{ category.id }}">{{ category.category_name }}</option>
+                                        {% endfor %}
+                                        <option value="add_new_category">Add new category...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group mb-3">
+                                    <label for="modal_item_subcategory">Subcategory:</label>
+                                    <select id="subcategory" name="subcategory" class="form-control">
+                                        <option value=""></option>
+                                        {% for subcategory in subcategories %}
+                                        <option value="{{ subcategory.id }}">{{ subcategory.subcategory_name }}</option>
+                                        {% endfor %}
+                                        <option value="add_new_subcategory">Add new subcategory...</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Add Item</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+    </main>
+</div>
+
+<script>
+
+    
+    let newCategories = []; // Array to store new categories
+    let newSubcategories = []; // Array to store new subcategories
+    let newAttributes = []; // Array to store new attributes
+    let newVariations = []; // Array to store new variations
+    let currentRowId = ''; // ID of the current row where the new attribute or variation was added
+
+    function showSection(sectionId) {
+        document.querySelectorAll('.form-section').forEach(section => {
+            section.classList.remove('active');
+        });
+        document.getElementById(sectionId).classList.add('active');
+
+        document.querySelectorAll('.nav-link').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelector(`[onclick="showSection('${sectionId}')"]`).classList.add('active');
+    }
+
+    function toggleVariations() {
+        const toggle = document.getElementById('toggle_variations');
+        const dynamicSection = document.getElementById('dynamic_rows_section');
+        const defaultSection = document.getElementById('default_quantity_price_section');
+
+        if (toggle.checked) {
+            dynamicSection.style.display = 'flex';
+            defaultSection.style.display = 'none';
+        } else {
+            dynamicSection.style.display = 'none';
+            defaultSection.style.display = 'flex';
+
+            const dynamicRows = document.getElementById('dynamic_rows');
+            while (dynamicRows.children.length > 1) {
+                dynamicRows.removeChild(dynamicRows.lastChild);
+            }
+        }
+    }
+
+    function addDynamicRow() {
+        const dynamicRows = document.getElementById('dynamic_rows');
+        const newRowCount = dynamicRows.children.length + 1;
+        const newRow = document.createElement('div');
+        newRow.classList.add('dynamic-row', 'flex-row');
+        newRow.innerHTML = `
+            <div class="form-group">
+                <label for="attribute_${newRowCount}">Attribute:</label>
+                <select id="attribute_${newRowCount}" name="attribute_ids[]" class="form-control">
+                    <option value=""></option>
+                    {% for attribute in inventory_attributes %}
+                    <option value="{{ attribute.id }}">{{ attribute.attribute_name }}</option>
+                    {% endfor %}
+                    <option value="add_new">Add new attribute...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="variation_${newRowCount}">Variation:</label>
+                <select id="variation_${newRowCount}" name="variation_ids[]">
+                    <option value=""></option>
+                    {% for variation in inventory_variations %}
+                    <option value="{{ variation.id }}">{{ variation.variation_name }}</option>
+                    {% endfor %}
+                    <option value="add_new">Add new variation</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="quantity_${newRowCount}">Quantity:</label>
+                <input type="number" id="quantity_${newRowCount}" name="quantities[]">
+            </div>
+            <div class="form-group">
+                <label for="unit_price_${newRowCount}">Unit Price:</label>
+                <input type="number" step="0.01" id="unit_price_${newRowCount}" name="unit_prices[]">
+            </div>
+            <div class="form-group">
+                <label for="selling_price_${newRowCount}">Selling Price:</label>
+                <input type="number" step="1" id="selling_price_${newRowCount}" name="selling_prices[]">
+            </div>
+            <div class="form-group">
+                <label for="reorder_point_${newRowCount}">Reorder Point:</label>
+                <input type="number" id="reorder_point_${newRowCount}" name="reorder_points[]">
+            </div>
+            <button type="button" class="btn-remove-row" onclick="removeDynamicRow(this)"><i class="fas fa-trash"></i></button>
+        `;
+        dynamicRows.appendChild(newRow);
+    }
+
+    function removeDynamicRow(button) {
+        button.parentElement.remove();
+    }
+
+    function onclicksubmitInventoryItem() {
+        const form = document.getElementById('inventory-entry-form');
+
+        const requiredFields = form.querySelectorAll('[required]');
+        let valid = true;
+
+        requiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                valid = false;
+                field.classList.add('error'); // Highlight empty fields
+            } else {
+                field.classList.remove('error');
+            }
+        });
+
+        if (!valid) {
+            alert('Please fill out all required fields.');
+            return; // Prevent form submission if validation fails
+        }
+
+        form.submit();
+    }
+
+    document.querySelector('.btn-submit').addEventListener('click', (e) => {
+        e.preventDefault();
+        onclicksubmitInventoryItem();
+    });
+
+    // Handle row-specific select element change to open the modal for attributes
+    $(document).on('change', 'select[name="attribute_ids[]"]', function () {
+        if ($(this).val() === 'add_new') {
+            currentRowId = $(this).attr('id');
+            $('#addAttributeModal').modal('show');
+            $(this).val('');
+        }
+    });
+
+    // Handle row-specific select element change to open the modal for variations
+    $(document).on('change', 'select[name="variation_ids[]"]', function () {
+        if ($(this).val() === 'add_new') {
+            currentRowId = $(this).attr('id');
+            $('#addVariationModal').modal('show');
+            $(this).val('');
+        }
+    });
+
+    // Handle category select change
+    document.getElementById('category').addEventListener('change', function () {
+        if (this.value === 'add_new_category') {
+            $('#addCategoryModal').modal('show');
+            this.value = ''; // Clear the selection
+        }
+    });
+
+    // Handle subcategory select change
+    document.getElementById('subcategory').addEventListener('change', function () {
+        if (this.value === 'add_new_subcategory') {
+            $('#addSubcategoryModal').modal('show');
+            this.value = ''; // Clear the selection
+        }
+    });
+
+
+    // Handle form submission for adding new attribute
+    $('#addAttributeForm').submit(function (event) {
+        event.preventDefault();
+        $.ajax({
+            type: 'POST',
+            url: '/add_attribute',
+            data: $(this).serialize(),
+            success: function (data) {
+                if (data.id) {
+                    // Store the new attribute
+                    newAttributes.push({ id: data.id, name: data.attribute_name });
+
+                    // Close the modal dialog
+                    $('#addAttributeModal').modal('hide');
+
+                    // Update the current row's dropdown
+                    if (currentRowId) {
+                        const currentSelect = document.getElementById(currentRowId);
+                        const newOption = document.createElement('option');
+                        newOption.value = data.id;
+                        newOption.text = data.attribute_name;
+                        currentSelect.add(newOption);
+                        currentSelect.value = data.id;
+                    }
+                } else if (data.error) {
+                    console.error(data.error);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error(error);
+            }
+        });
+    });
+
+    // Handle form submission for adding new variation
+    $('#addVariationForm').submit(function (event) {
+        event.preventDefault();
+        $.ajax({
+            type: 'POST',
+            url: '/add_variation',
+            data: $(this).serialize(),
+            success: function (data) {
+                if (data.id) {
+                    // Store the new variation
+                    newVariations.push({ id: data.id, name: data.variation_name });
+
+                    // Close the modal dialog
+                    $('#addVariationModal').modal('hide');
+
+                    // Update the current row's dropdown
+                    if (currentRowId) {
+                        const currentSelect = document.getElementById(currentRowId);
+                        const newOption = document.createElement('option');
+                        newOption.value = data.id;
+                        newOption.text = data.variation_name;
+                        currentSelect.add(newOption);
+                        currentSelect.value = data.id;
+                    }
+                } else if (data.error) {
+                    console.error(data.error);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error(error);
+            }
+        });
+    });
+
+    // Handle form submission for adding new category
+    $('#addCategoryForm').submit(function (event) {
+        event.preventDefault();
+        $.ajax({
+            type: 'POST',
+            url: '/add_inventory_category',
+            data: $(this).serialize(),
+            success: function (data) {
+                if (data.id) {
+                    // Store the new category
+                    newCategories.push({ id: data.id, name: data.category_name });
+
+                    // Close the modal dialog
+                    $('#addCategoryModal').modal('hide');
+
+
+                    // Update the category dropdown
+                    const categorySelect = document.getElementById('category'); // Adjust the ID to your actual category dropdown ID
+                    const newCategoryOption = document.createElement('option');
+                    newCategoryOption.value = data.id;
+                    newCategoryOption.text = data.category_name;
+                    categorySelect.add(newCategoryOption);
+                    categorySelect.value = data.id; // Set the newly added category as selected
+
+                    // Update the subcategory dropdown
+                    const relatedCategorySelect = document.getElementById('relatedCategory');
+                    const newSubcategoryOption = document.createElement('option');
+                    newSubcategoryOption.value = data.id;
+                    newSubcategoryOption.text = data.category_name;
+                    relatedCategorySelect.add(newSubcategoryOption);
+                    relatedCategorySelect.value = data.id; // Set the newly added category as selected
+                } else if (data.error) {
+                    console.error(data.error);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error(error);
+            }
+        });
+    });
+
+    // Handle form submission for adding new subcategory
+    $('#addSubcategoryForm').submit(function (event) {
+        event.preventDefault();
+        $.ajax({
+            type: 'POST',
+            url: '/add_inventory_subcategory',
+            data: $(this).serialize(),
+            success: function (data) {
+                if (data.id) {
+                    // Store the new subcategory
+                    newSubcategories.push({ id: data.id, name: data.subcategory_name, category_id: data.category_id });
+
+                    // Close the modal dialog
+                    $('#addSubcategoryModal').modal('hide');
+
+                    // Update the subcategory dropdown
+                    const subcategorySelect = document.getElementById('subcategory');
+                    const newOption = document.createElement('option');
+                    newOption.value = data.id;
+                    newOption.text = data.subcategory_name;
+                    subcategorySelect.add(newOption);
+                    subcategorySelect.value = data.id;
+                } else if (data.error) {
+                    console.error(data.error);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error(error);
+            }
+        });
+    });
+
+    // Update dropdown with new attributes when focused
+    $(document).on('focus', 'select[name="attribute_ids[]"]', function () {
+        const $select = $(this);
+        const $options = $select.find('option');
+
+        // Update dropdown options for non-current rows
+        if ($select.attr('id') !== currentRowId) {
+            newAttributes.forEach(attr => {
+                if ($options.filter(`option[value="${attr.id}"]`).length === 0) {
+                    $select.append(`<option value="${attr.id}">${attr.name}</option>`);
+                }
+            });
+        }
+    });
+
+    // Update dropdown with new variations when focused
+    $(document).on('focus', 'select[name="variation_ids[]"]', function () {
+        const $select = $(this);
+        const $options = $select.find('option');
+
+        // Update dropdown options for non-current rows
+        if ($select.attr('id') !== currentRowId) {
+            newVariations.forEach(variation => {
+                if ($options.filter(`option[value="${variation.id}"]`).length === 0) {
+                    $select.append(`<option value="${variation.id}">${variation.name}</option>`);
+                }
+            });
+        }
+    });
+
+    // Clear the modal form and hidden input when it's closed
+    $('#addAttributeModal').on('hidden.bs.modal', function () {
+        $('#newAttributeName').val('');
+        currentRowId = ''; // Clear the current row ID
+    });
+
+    $('#addVariationModal').on('hidden.bs.modal', function () {
+        $('#newVariationName').val('');
+        currentRowId = ''; // Clear the current row ID
+    });
+
+    // Ensure the modal functions are properly initialized
+    $('#addAttributeModal').modal({ show: false });
+    $('#addVariationModal').modal({ show: false });
+
+    //Preview Image
+
+    function previewImage() {
+        const fileInput = document.getElementById('item_image');
+        const file = fileInput.files[0];
+        const imagePreview = document.getElementById('image_preview');
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = function () {
+                imagePreview.src = reader.result;
+                imagePreview.style.display = 'block'; // Show the image preview
+            };
+            reader.readAsDataURL(file); // Convert the file to a data URL
+        } else {
+            imagePreview.style.display = 'none'; // Hide the preview if no file is selected
+        }
+    }
+
+
+// Get item details and auto fill item code category and subcategory
+
+document.getElementById('item_name').addEventListener('change', function() {
+        const itemId = this.value;
+
+        if (itemId) {
+            fetch(`/get_item_details/${itemId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        document.getElementById('item_code').value = data.item_code || '';
+                        document.getElementById('category').value = data.category_id || '';
+                        document.getElementById('subcategory').value = data.subcategory_id || '';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching item details:', error);
+                });
+        } else {
+            // Clear the fields if no item is selected
+            document.getElementById('item_code').value = '';
+            document.getElementById('category').value = '';
+            document.getElementById('subcategory').value = '';
+        }
+    });
+</script>
+
+
+
+{% endblock %}

@@ -1,0 +1,71 @@
+
+{% extends "payrollbase.html" %}
+{% block content %}
+            <h2>Edit Employee</h2>
+            <!-- Flash messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+            <form action="/edit_employee/{{ employee.id }}" method="POST">
+                <div class="form-group">
+                    <label for="employee_name">Employee Name<span style="color: red;">*</span></label>
+                    <input type="text" class="form-control form-control-sm" id="employee_name" name="employee_name"
+                           value="{{ employee.employee_name }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="nssf_num">NSSF Number<span style="color: red;">*</span></label>
+                    <input type="text" class="form-control form-control-sm" id="nssf_num" name="nssf_num"
+                           value="{{ employee.nssf_num }}" minlength="13" maxlength="13" required>
+                </div>
+                <div class="form-group">
+                    <label for="tin_num">TIN Number<span style="color: red;">*</span></label>
+                    <input type="text" class="form-control form-control-sm" id="tin_num" name="tin_num" value="{{ employee.tin_num }}" minlength="10" maxlength="10"
+                           required>
+                </div>
+                <div class="form-group">
+                    <label for="basic_salary">Basic Salary</label>
+                    <input type="text" class="form-control form-control-sm" id="basic_salary" name="basic_salary"
+                           value="{{ employee.basic_salary }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="gender">Gender</label>
+
+                    <select type="text" class="form-control form-control-sm" id="gender" name="gender"  required>
+                    <option value ="{{ employee.gender }}">{{ employee.gender }}</option>
+                    <option value="M">Male</option>
+                    <option value="F">Female</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="tel">Phone</label>
+                    <input type="text" class="form-control form-control-sm" id="tel" name="tel" value="{{ employee.tel }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" class="form-control form-control-sm" id="email" name="email" value="{{ employee.email }}"
+                           required>
+                </div>
+                <div class="form-group">
+                    <label for="date_of_birth">Date of Birth</label>
+                    <input type="date" class="form-control form-control-sm" id="date_of_birth" name="date_of_birth"
+                           value="{{ employee.date_of_birth }}">
+                </div>
+                <div class="form-group">
+                    <label for="position">Position</label>
+                    <input type="text" class="form-control form-control-sm" id="position" name="position"
+                           value="{{ employee.position }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="employee_id">Employee ID<span style="color: red;">*</span></label>
+                    <input type="number" class="form-control form-control-sm" id="employee_id" name="employee_id"
+                           value="{{ employee.employee_id }}" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Update Employee</button>
+            </form>
+
+{% endblock %}

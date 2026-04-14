@@ -1,0 +1,215 @@
+{% extends "transaction_base_template.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div class="header-section">
+        <h1>Manage Units of Measurement</h1>
+        {% if role == 'Admin' or role == 'Contributor' %}
+        <button class="button cta-button" id="addUomBtn">Add UOM</button>
+        {% endif %}
+    </div>
+
+    <table id="uoms-table" class="display">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>UOM Name</th>
+                <th>Abbreviation</th>
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% if uoms|length > 0 %}
+            {% for uom in uoms %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>
+                    <span id="uomName_{{ uom.id }}">{{ uom.full_name }}</span>
+                    {% if role == 'Admin' or role == 'Contributor' %}
+                    <div id="editUomForm_{{ uom.id }}" class="edit-form" style="display:none;">
+                        <input type="text" id="uomNameInput_{{ uom.id }}" value="{{ uom.full_name }}" />
+                        <input type="text" id="uomAbbrInput_{{ uom.id }}" value="{{ uom.abbreviation }}" />
+                        <button class="cta-button" onclick="saveUom({{ uom.id }})">Save</button>
+                        <button class="remove-button" onclick="cancelEditUom({{ uom.id }})">Cancel</button>
+                    </div>
+                    {% endif %}
+                </td>
+                <td>{{ uom.abbreviation or '-' }}</td>
+                {% if role == 'Admin' or role == 'Contributor' %}
+                <td>
+                    <div class="action-icons-clean">
+                        <div class="custom-tooltip-container">
+                            <a href="#" class="edit-icon" onclick="editUom({{ uom.id }})">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <span class="custom-tooltip">Edit</span>
+                        </div>
+                        <div class="custom-tooltip-container">
+                            <a href="#" class="delete-icon" onclick="confirmDeleteUom(event, {{ uom.id }})">
+                                <i class="fas fa-trash-alt"></i>
+                            </a>
+                            <span class="custom-tooltip">Delete</span>
+                        </div>
+                    </div>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="4" class="text-center">No units of measurement available</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add UOM Modal -->
+<div class="modal fade" id="addUomModal" tabindex="-1" aria-labelledby="addUomModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addUomModalLabel">Add New Unit of Measurement</h5>
+                <button type="button" class="button add-button" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label for="uom_name">Name:</label>
+                    <input type="text" id="uom_name" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="uom_abbreviation">Abbreviation:</label>
+                    <input type="text" id="uom_abbreviation" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="button remove-button" data-bs-dismiss="modal">Cancel</button>
+                <button class="button cta-button" id="saveNewUomBtn">Add UOM</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Show Add UOM modal
+    document.getElementById('addUomBtn')?.addEventListener('click', () => {
+        new bootstrap.Modal(document.getElementById('addUomModal')).show();
+    });
+
+    // Save new UOM
+    document.getElementById('saveNewUomBtn')?.addEventListener('click', async () => {
+        const name = document.getElementById('uom_name').value.trim();
+        const abbreviation = document.getElementById('uom_abbreviation').value.trim();
+
+        if (!name) return showNotification('UOM name is required', 'error');
+
+        try {
+            const res = await fetch('/inventory/uom/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ name, abbreviation })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.success || 'UOM added successfully', 'success');
+                location.reload();
+            } else {
+                showNotification(data.error || 'Failed to add UOM', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            showNotification('An error occurred', 'error');
+        }
+    });
+
+    // Inline edit UOM
+    function editUom(id) {
+        document.getElementById(`editUomForm_${id}`).style.display = 'block';
+        document.getElementById(`uomName_${id}`).style.display = 'none';
+    }
+
+    function cancelEditUom(id) {
+        document.getElementById(`editUomForm_${id}`).style.display = 'none';
+        document.getElementById(`uomName_${id}`).style.display = 'inline';
+    }
+
+    async function saveUom(id) {
+        const name = document.getElementById(`uomNameInput_${id}`).value.trim();
+        const abbreviation = document.getElementById(`uomAbbrInput_${id}`).value.trim();
+
+        if (!name) return showNotification('UOM name is required', 'error');
+
+        try {
+            const res = await fetch(`/inventory/uom/${id}/edit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ name, abbreviation })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.success || 'UOM updated successfully', 'success');
+                location.reload();
+            } else {
+                showNotification(data.error || 'Failed to update UOM', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            showNotification('An error occurred', 'error');
+        }
+    }
+
+    // Delete UOM
+    async function confirmDeleteUom(event, id) {
+        event.preventDefault();
+        Swal.fire({
+            title: 'Delete UOM?',
+            text: 'Are you sure you want to delete this unit of measurement?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!',
+            customClass: {
+                popup: 'custom-swal-popup',
+                title: 'custom-swal-title',
+                content: 'custom-swal-content',
+                confirmButton: 'custom-swal-confirm-btn',
+                cancelButton: 'custom-swal-cancel-btn',
+                icon: 'custom-swal-icon'
+            }
+
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const res = await fetch(`/inventory/uom/${id}/delete`, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken }
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        showNotification(data.success || 'UOM deleted', 'success');
+                        location.reload();
+                    } else {
+                        showNotification(data.error || 'Cannot delete UOM', 'error');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showNotification('An error occurred', 'error');
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

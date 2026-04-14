@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan Application Form</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+        integrity="sha512-BLdH8RwMRO+6Hj5/91hbpxuJxA11xguE/Bq+Hz1uRGXePTZ8RPruE9t3qT82jyD7WbCUBflFLFuz32aC/dP3YQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(45deg, rgba(0, 0, 0, 0.5) 20%, rgba(0, 0, 0, 0.8) 40%, rgba(0, 0, 0, 0.5) 60%), url('/static/laptop.jpg');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+        }
+
+        .form-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 700px;
+        }
+
+        h2 {
+            color: #005c8b;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.row {
+            flex-direction: row;
+            justify-content: space-between;
+        }
+
+        .form-group.row .column {
+            flex: 1;
+            margin: 0 5px;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="number"],
+        input[type="date"],
+        select {
+            width: calc(100% - 20px);
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 12px;
+        }
+
+        button[type="submit"] {
+            background-color: #005c8b;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.3s ease;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #004269;
+        }
+
+        .readonly-input {
+            background-color: #f0f0f0;
+        }
+
+        .country-code {
+            width: 30%;
+            display: inline-block;
+        }
+
+        .phone-number {
+            width: 60%;
+            display: inline-block;
+            margin-left: 10%;
+        }
+
+        .section-header {
+            background-color: #005c8b;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: left;
+            margin-bottom: 10px;
+        }
+
+        label {
+            font-size: 12px;
+        }
+
+        label span {
+            color: red;
+        }
+
+        .country-code,
+        .phone-number,
+        #email_user,
+        #email_domain {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-left: 3%;
+        }
+
+        .error-message {
+            color: red;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            /* Hidden by default */
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0, 0, 0);
+            background-color: rgba(0, 0, 0, 0.4);
+            padding-top: 60px;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 8px;
+            font: 0.8em Roboto, sans-serif;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .policy-agreement {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .policy-agreement input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .policy-agreement label {
+            font-size: 12px;
+        }
+
+        /* Flash Messages Container */
+        .alerts-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            width: 300px;
+        }
+
+        /* Flash Message Styles */
+        .alert {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #fff;
+            box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        /* Alert Types */
+        .alert-success {
+            background: #28a745;
+        }
+
+        /* Green */
+        .alert-error {
+            background: #dc3545;
+        }
+
+        /* Red */
+        .alert-warning {
+            background: #ffc107;
+        }
+
+        /* Yellow */
+        .alert-info {
+            background: #17a2b8;
+        }
+
+        /* Blue */
+
+        /* Alert Icons */
+        .alert-icon {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        /* Close Button */
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: white;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .close-btn:hover {
+            color: #000;
+        }
+
+        /* Loading Bar Styles */
+        .loading-bar {
+            display: none;
+            /* Hidden by default */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background-color: #005c8b;
+            z-index: 1000;
+            animation: load 2s linear infinite;
+        }
+
+        @keyframes load {
+            0% {
+                transform: scaleX(0);
+                transform-origin: left;
+            }
+
+            50% {
+                transform: scaleX(1);
+                transform-origin: left;
+            }
+
+            51% {
+                transform-origin: right;
+            }
+
+            100% {
+                transform: scaleX(0);
+                transform-origin: right;
+            }
+        }
+
+        /* Fade-in Animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+
+
+        /* Fade-in Animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+
+        @media (max-width: 600px) {
+            .form-group.row {
+                flex-direction: column;
+            }
+
+            .form-group.row .column {
+                margin: 0;
+            }
+
+            .country-code,
+            .phone-number {
+                width: 100%;
+                margin-left: 0;
+            }
+
+            .row {
+                flex-direction: column;
+            }
+
+            .row .column {
+                margin: 0;
+            }
+        }
+
+        /* Spinner Styles */
+        .spinner {
+            display: none;
+            /* Hidden by default */
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 40px;
+            height: 40px;
+            background-color: #005c8b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left: 4px solid var(--primary-color);
+
+
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+
+        /* Loading spinner */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Loading Bar -->
+    <!-- Spinner -->
+    <div class="spinner" id="spinner"></div>
+
+
+
+    <div class="form-container">
+        <h2>Loan Application Form</h2>
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="alerts-container">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" role="alert">
+                <span class="alert-icon">
+                    {% if category == 'success' %}
+                    <i class="fas fa-check-circle"></i>
+                    {% elif category == 'error' %}
+                    <i class="fas fa-times-circle"></i>
+                    {% elif category == 'warning' %}
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {% elif category == 'info' %}
+                    <i class="fas fa-info-circle"></i>
+                    {% endif %}
+                </span>
+                {{ message }}
+                <button class="close-btn" onclick="this.parentElement.style.display='none';">&times;</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <div class="section-header">I. Your Information</div>
+        <form method="post" onsubmit="return validateForm()">
+
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group row">
+                <div class="column">
+                    <label for="loan_applicant_name">Name <span>*</span></label>
+                    <input type="text" id="loan_applicant_name" name="loan_applicant_name" required>
+                </div>
+                <div class="column">
+                    <label for="nin_number">NIN Number <span>*</span></label>
+                    <input type="text" id="nin_number" name="nin_number" required>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <div class="column">
+                    <label for="telephone">Telephone <span>*</span></label>
+                    <div class="row" style="display: flex; align-items: center; width: 97%;">
+                        <select class="country-code" id="country_code" name="country_code" required>
+                            <option value="+256" selected>+256</option>
+                        </select>
+                        <input type="text" class="phone-number" id="telephone" name="telephone" required
+                            style="margin-left: 10px;" placeholder="785010203" maxlength="9">
+                    </div>
+                </div>
+                <div class="column">
+                    <label for="email">Email <span>*</span></label>
+                    <input type="email" id="email" name="email" placeholder="Enter your email" required
+                        style="width: 97%;">
+                </div>
+
+            </div>
+
+            <div class="form-group row">
+                <div class="column">
+                    <label for="guarantor_name">Guarantor Name <span>*</span></label>
+                    <input type="text" id="guarantor_name" name="guarantor_name" required>
+                </div>
+                <div class="column">
+                    <label for="guarantor_contact">Guarantor Contact <span>*</span></label>
+                    <input type="text" id="guarantor_contact" name="guarantor_contact"
+                        placeholder="Enter either email or tel" required>
+                </div>
+            </div>
+
+            <div class="section-header">II. Loan details</div>
+            <div class="form-group row">
+                <div class="column">
+                    <label for="principal_amount">Amount <span>*</span></label>
+                    <input type="number" id="principal_amount" name="principal_amount" oninput="updateMaxDate()"
+                        required min="50000" max="2000000" step="1000">
+                </div>
+                <div class="column">
+                    <label for="date_of_payment">Date of Payment <span>*</span></label>
+                    <input type="date" id="date_of_payment" name="date_of_payment" onchange="validateDate()" disabled
+                        required>
+                    <div id="error-message" class="error-message"></div>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <div class="column">
+                    <label for="repayment_period">Repayment Period (Days) <span>*</span></label>
+                    <input type="text" id="repayment_period" name="repayment_period" class="readonly-input" readonly>
+                </div>
+                <div class="column">
+                    <label for="repayment_amount">Total Repayment <span>*</span></label>
+                    <input type="text" id="repayment_amount" name="repayment_amount" class="readonly-input" readonly>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <div class="column">
+                    <label for="interest_amount" hidden>Interest Amount <span>*</span></label>
+                    <input type="text" id="interest_amount" name="interest_amount" class="readonly-input" hidden
+                        readonly>
+                </div>
+            </div>
+
+
+
+            <div class="section-header">III. Deposit Information</div>
+            <div class="form-group row">
+                <div class="column">
+                    <label for="deposit_number">Deposit Number <span>*</span></label>
+                    <div class="row" style="display: flex; align-items: center; width: 97%;">
+                        <select class="country-code" id="country_code" name="country_code" required>
+                            <option value="+256" selected>+256</option>
+                        </select>
+
+
+                        <input style="width: 97%; margin-left: 3%;" type="text" id="deposit_number"
+                            name="deposit_number" placeholder="785010203" maxlength="9" required>
+                    </div>
+                </div>
+                <div class="column">
+                    <label for="registered_names">Full Registered Names <span>*</span></label>
+                    <input type="text" id="registered_names" name="registered_names" required>
+                </div>
+            </div>
+
+            <!-- Policy Agreement Checkbox -->
+            <div class="form-group policy-agreement">
+                <input type="checkbox" id="agree_policy" name="agree_policy" required>
+                <label for="agree_policy">I agree to the <span class="loan-policy-link" onclick="showLoanPolicy()">Loan
+                        Policy</span></label>
+            </div>
+
+            <div class="form-group">
+                <button type="submit">Submit Application</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Loan Policy Modal -->
+    <div id="loanPolicyModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeLoanPolicy()">&times;</span>
+            <h2>Loan Policy</h2>
+            <p>
+                The following loan policy applies to all loans provided by Creditrust. Please read the policy carefully:
+            </p>
+            <h3>Interest Rates and Loan Brackets</h3>
+            <ul>
+                <li><strong>Loans up to 500,000 UGX: Start at 15% interest rate:</strong></li>
+                <li><strong>Loans beyond 500,000 UGX: Start at 10% interest rate:</strong></li>
+                <li><strong>Loans between 50,000 and 300,000 UGX:</strong> Increase daily at the initial rate to reach
+                    35% by the end of 8 weeks (56 days).</li>
+                <li><strong>Loans starting from and above 300,000 UGX:</strong> Increase daily at the initial rateto
+                    reach 30% by the end of 12 weeks (84 days).</li>
+                <li><strong>Loans exceeding 1,000,000 UGX:</strong> The maximum interest rate is capped at 25% for a 14
+                    weeks (100 days) repayment period.</li>
+                </li>
+            </ul>
+            <h3>Loan Application Process</h3>
+            <ul>
+                <li>Fill out the loan application form with accurate and complete information.</li>
+                <li>Submit the form for review by our loan officers.</li>
+                <li>Wait for a confirmation email or call regarding the status of your application.</li>
+                <li>If approved, follow the instructions provided to receive your loan.</li>
+            </ul>
+            <h3>Repayment and Penalties</h3>
+            <ul>
+                <li>Repayment must be made within the agreed period to avoid penalties.</li>
+                <li>Failure to repay on time will result in a fine and the loan will keep increasily at a
+                    similar daily linear rate.</li>
+                <li>Unpaid loans beyond the final bracket will incur additional fines, and the repayment cycle
+                    will restart with respective interest rates.</li>
+                <li>Creditrust provides loans based on trust and expects you to fulfill your obligation by clearing your
+                    loan.</li>
+            </ul>
+
+            <p><strong>By applying for a loan, you acknowledge and agree to abide by this loan policy.</strong>
+            </p>
+        </div>
+    </div>
+
+
+
+    <script>
+
+
+        // Function to calculate the maximum allowed date based on loan amount
+        function getMaxDate(principalAmount) {
+            const today = new Date();
+            let maxDate = new Date();
+
+            // Set maximum date based on loan amount
+            if (principalAmount > 1000000) {
+                maxDate.setDate(today.getDate() + 100); // 100 days for loans above 1 million
+            } else if (principalAmount > 200000) {
+                maxDate.setDate(today.getDate() + 84); // 84 days for loans above 200k
+            } else {
+                maxDate.setDate(today.getDate() + 56); // 56 days for other loans
+            }
+            return maxDate.toISOString().split('T')[0];
+        }
+
+        // Update the max date when the user changes the loan amount
+        function updateMaxDate() {
+            const principalAmount = parseFloat(document.getElementById('principal_amount').value);
+            const maxDate = getMaxDate(principalAmount);
+            const dateInput = document.getElementById('date_of_payment');
+            const errorMessageElement = document.getElementById('error-message');
+
+            // Enable the date field and set the max date
+            if (principalAmount >= 50000 && principalAmount <= 2000000) {
+                dateInput.disabled = false;
+                dateInput.max = maxDate;
+            } else {
+                dateInput.disabled = true;
+                dateInput.value = '';
+                errorMessageElement.textContent = "Loan amount must be between 50,000 and 2,000,000 UGX.";
+            }
+
+            // Clear repayment date and period if amount changes
+            document.getElementById('date_of_payment').value = '';
+            document.getElementById('repayment_period').value = '';
+            document.getElementById('interest_amount').value = '';
+            document.getElementById('repayment_amount').value = '';
+        }
+
+        // Validate the date selected by the user
+        function validateDate() {
+            const principalAmount = parseFloat(document.getElementById('principal_amount').value);
+            const selectedDate = new Date(document.getElementById('date_of_payment').value);
+            const maxDate = new Date(getMaxDate(principalAmount));
+
+            const errorMessageElement = document.getElementById('error-message');
+
+            if (selectedDate > maxDate) {
+                errorMessageElement.textContent = "The selected date is beyond the allowed repayment period.";
+                document.getElementById('date_of_payment').value = '';  // Reset date
+            } else {
+                errorMessageElement.textContent = '';  // Clear error message
+                calculateRepaymentPeriod();  // Recalculate details if the date is valid
+            }
+        }
+
+        // Calculate repayment period, interest amount, and total repayment
+        function calculateRepaymentPeriod() {
+            const principalAmount = parseFloat(document.getElementById('principal_amount').value);
+            const dateOfPayment = new Date(document.getElementById('date_of_payment').value);
+            const today = new Date();
+            let repaymentPeriod = Math.ceil((dateOfPayment - today) / (1000 * 3600 * 24)); // Calculate days difference
+
+            // Set repayment period
+            let maxDays = 0;
+            if (principalAmount > 1000000) {
+                maxDays = 100; // 100 days for loans above 1M
+            } else if (principalAmount > 200000) {
+                maxDays = 84; // 84 days for loans between 200k and 1M
+            } else {
+                maxDays = 56; // 56 days for loans below 200k
+            }
+
+            // Cap the repayment period days at the max limit
+            if (repaymentPeriod > maxDays) {
+                repaymentPeriod = maxDays;  // Adjust the repayment period for interest calculation
+            }
+
+            document.getElementById('repayment_period').value = repaymentPeriod;
+
+            // Determine the starting interest rate based on the loan amount
+            let startingInterestRate = principalAmount < 500000 ? 0.15 : 0.12;
+
+            // Calculate interest based on days
+            let maxInterestRate = 0.40;
+
+            if (principalAmount > 1000000) {
+                maxInterestRate = 0.30; // Cap interest rate at 25% for amounts above 1M
+            } else if (principalAmount >= 300000 && principalAmount <= 1000000) {
+                maxInterestRate = 0.35; // Cap interest rate at 30% for amounts between 200K and 1M
+            }
+
+            // Now, use the startingInterestRate logic to calculate the interest based on days
+            let interestAmount = principalAmount * (startingInterestRate + (maxInterestRate - startingInterestRate) * (repaymentPeriod / maxDays)); // Linear increase from startingInterestRate to maxInterestRate based on days
+
+            // Round the interest amount to the nearest integer
+            interestAmount = Math.round(interestAmount);
+
+            document.getElementById('interest_amount').value = interestAmount.toLocaleString();
+
+            const totalRepayment = principalAmount + interestAmount;
+            document.getElementById('repayment_amount').value = totalRepayment.toLocaleString();
+        }
+
+        // Show the loan policy modal
+        function showLoanPolicy() {
+            document.getElementById("loanPolicyModal").style.display = "block";
+        }
+
+        // Close the loan policy modal
+        function closeLoanPolicy() {
+            document.getElementById("loanPolicyModal").style.display = "none";
+        }
+
+        // Validate the form before submission
+        function validateForm() {
+            const agreePolicy = document.getElementById('agree_policy').checked;
+            if (!agreePolicy) {
+                alert("You must agree to the loan policy before submitting the form.");
+                return false;
+            }
+            return true;
+        }
+
+        // Show loading bar on form submission
+        function showLoadingBar() {
+            var loadingBar = document.getElementById('loadingBar');
+            loadingBar.style.display = 'block'; // Show the loading bar
+        }
+
+        // Hide loading bar after the form is successfully submitted or when there is an error
+        function hideLoadingBar() {
+            var loadingBar = document.getElementById('loadingBar');
+            loadingBar.style.display = 'none'; // Hide the loading bar
+        }
+
+        // Submit form with loading bar visibility
+        // Show spinner on form submission
+        function showSpinner() {
+            var spinner = document.getElementById('spinner');
+            spinner.style.display = 'block'; // Show the spinner
+        }
+
+        // Hide spinner after the form is successfully submitted or when there is an error
+        function hideSpinner() {
+            var spinner = document.getElementById('spinner');
+            spinner.style.display = 'none'; // Hide the spinner
+        }
+
+        // Submit form with spinner visibility
+        document.querySelector('form').onsubmit = function (e) {
+            // Prevent default form submission
+            e.preventDefault();
+
+            // Show spinner
+            showSpinner();
+
+            // Simulate a delay for the form submission process (e.g., an AJAX request)
+            setTimeout(function () {
+                // Hide the spinner after the form processing is complete (e.g., on success or failure)
+                hideSpinner();
+
+                // If the form is valid, submit the form, otherwise show an error
+                if (validateForm()) {
+                    e.target.submit(); // Submit the form
+                } else {
+                    // Handle validation errors or form submission failure
+                    alert('There was an error with the form submission.');
+                }
+            }, 5000); // Simulate a delay of 5 seconds for the form submission process (change as needed)
+        };
+
+
+
+        window.showLoanPolicy = showLoanPolicy;
+        window.closeLoanPolicy = closeLoanPolicy;
+
+
+    </script>
+
+</body>
+
+</html>
