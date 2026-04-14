@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool  # ADD THIS LINE
 from models import Base
 
 # SQLite database - no connection limits, perfect for demo
@@ -8,8 +9,7 @@ engine = create_engine(
     'sqlite:////home/omolobe/spoc_wms/spoc_wms.db',
     echo=False,  # Set to True if you want to see SQL logs
     connect_args={'check_same_thread': False},  # Required for Flask
-    pool_size=1,
-    max_overflow=0,
+    poolclass=NullPool,  # CHANGE THIS LINE (remove pool_size and max_overflow)
 )
 
 Session = sessionmaker(bind=engine, expire_on_commit=False)
