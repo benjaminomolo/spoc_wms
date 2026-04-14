@@ -1,21 +1,18 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
 from models import Base
-from configs import db_username, db_password, db_hostname, db_name
 
-
-# Create SQLAlchemy engine with pool_recycle to avoid timeout issues
-# After upgrading to Web Dev plan
+# SQLite database - no connection limits, perfect for demo
+# The database file will be created in your spoc_wms directory
 engine = create_engine(
-    f'mysql+mysqldb://{db_username}:{db_password}@{db_hostname}/{db_name}',
-    pool_recycle=28000,
-    pool_pre_ping=True,
-    pool_size=10,          # Comfortable base
-    max_overflow=20,       # Handle peaks
-    pool_timeout=30,
+    'sqlite:////home/omolobe/spoc_wms/spoc_wms.db',
+    echo=False,  # Set to True if you want to see SQL logs
+    connect_args={'check_same_thread': False},  # Required for Flask
+    pool_size=1,
+    max_overflow=0,
 )
 
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 
+# Create all tables automatically
 Base.metadata.create_all(engine)
