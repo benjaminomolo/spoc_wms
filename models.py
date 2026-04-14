@@ -36,9 +36,9 @@ class Company(Base):
     footer = Column(String(255))
     footer_type = Column(String(255))
     has_multiple_currencies = Column(Boolean, default=False, nullable=False,
-                                     server_default='false',
-                                     comment="Flag indicating if company uses multiple currencies")
-
+                                 server_default='0',
+                                 comment="Flag indicating if company uses multiple currencies")
+    
     # 🚀 Replace the Boolean flag with a Date column
     opening_balances_date = Column(
         Date,
