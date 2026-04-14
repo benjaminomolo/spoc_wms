@@ -10,7 +10,7 @@ from flask_login import current_user
 db_username = 'omolobe'
 db_password = os.environ.get('DB_PASSWORD')
 db_hostname = 'omolobe.mysql.pythonanywhere-services.com'
-db_name = 'omolobe$swiftresolvedb'
+db_name = 'omolobe$spoc_wmsdb'
 
 # *********************************Handling Image and File uploads section ********************************************
 # Define the main uploads folder and the inventory subfolder
