@@ -27,7 +27,7 @@ class Company(Base):
     phone = Column(String(100))
     email = Column(String(200))
     website = Column(String(100))
-    date_created = Column(Date, server_default=func.current_date(), nullable=False)
+    date_created = Column(Date, default=date.today, nullable=False)
 
     api_key = Column(String(64), unique=True, nullable=False,
                      default=lambda: f"{datetime.today().strftime('%d%m%y')}-api-{uuid.uuid4()}")
