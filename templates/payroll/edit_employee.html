@@ -173,8 +173,6 @@
     <div class="form-tabs">
         <button type="button" class="form-tab active" data-tab="personal">Personal Info</button>
         <button type="button" class="form-tab" data-tab="employment">Employment</button>
-        <button type="button" class="form-tab" data-tab="compensation">Compensation</button>
-        <button type="button" class="form-tab" data-tab="accounting">Accounting</button>
         <button type="button" class="form-tab" data-tab="additional">Additional Info</button>
     </div>
 
@@ -339,146 +337,7 @@
             </div>
         </div>
 
-        <!-- Compensation Information Tab -->
-        <div class="form-tab-content" id="compensation-tab">
-            <h5>Compensation Information</h5>
-            <div class="form-grid">
-                <div class="form-group">
-                    <select class="form-control" id="salary_type" name="salary_type" required>
-                        <option value="">-- Select Salary Type --</option>
-                        <option value="Monthly" {% if employee.salary_type=='Monthly' %}selected{% endif %}>Monthly
-                        </option>
-                        <option value="Bi-weekly" {% if employee.salary_type=='Bi-weekly' %}selected{% endif %}>
-                            Bi-weekly</option>
-                        <option value="Weekly" {% if employee.salary_type=='Weekly' %}selected{% endif %}>Weekly
-                        </option>
-                        <option value="Hourly" {% if employee.salary_type=='Hourly' %}selected{% endif %}>Hourly
-                        </option>
-                        <option value="Daily" {% if employee.salary_type=='Daily' %}selected{% endif %}>Daily
-                        </option>
-                        <option value="Piece Rate" {% if employee.salary_type=='Piece Rate' %}selected{% endif %}>
-                            Piece Rate</option>
-                        <option value="Commission" {% if employee.salary_type=='Commission' %}selected{% endif %}>
-                            Commission</option>
-                        <option value="Other" {% if employee.salary_type=='Other' %}selected{% endif %}>Other
-                        </option>
-                    </select>
-                    <label for="salary_type" class="form-label">Salary Type: <span class="required">*</span></label>
-                </div>
 
-                <div class="form-group">
-                    <input type="number" id="base_salary" class="form-control format-number" name="base_salary"
-                        placeholder="" value="{{ employee.base_salary if employee.base_salary is not none else '' }}"
-                        autocomplete="off">
-                    <label for="base_salary" class="form-label">Base Salary (Gross):</label>
-                </div>
-
-                <div class="form-group">
-                    <select class="form-control" id="base_currency" name="base_currency" required>
-                        <option value="">--Select Currency--</option>
-                        {% for c in company.currency %}
-                        <option value="{{ c.id }}" {% if employee.base_currency==c.id %}selected{% endif %}>
-                            {{ c.user_currency }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <label for="base_currency" class="form-label">Base Currency: <span class="required">*</span></label>
-                </div>
-
-                <div class="form-group">
-                    <input type="text" id="payment_account_number" class="form-control" name="payment_account_number"
-                        placeholder="" value="{{ employee.payment_account_number or '' }}" autocomplete="off">
-                    <label for="payment_account_number" class="form-label">Payment Account Number:</label>
-                </div>
-
-                <div class="form-group">
-                    <input type="text" id="payment_account_name" class="form-control" name="payment_account_name"
-                        placeholder="" value="{{ employee.payment_account_name or '' }}" autocomplete="off">
-                    <label for="payment_account_name" class="form-label">Payment Account Name:</label>
-                </div>
-
-                <div class="form-group">
-                    <input type="text" id="payment_platform" class="form-control" name="payment_platform" placeholder=""
-                        value="{{ employee.payment_platform or '' }}" autocomplete="off">
-                    <label for="payment_platform" class="form-label">Payment Platform / Entity:</label>
-                </div>
-
-                <!-- Multi-select for Benefits -->
-                <div class="form-group" style="grid-column: span 2;">
-                    <label for="benefits" class="form-label">Select Benefits:</label>
-                    <select class="form-control select2-custom" id="benefits" name="benefits[]" multiple>
-                        {% for benefit in company.benefit_types %}
-                        <option value="{{ benefit.id }}" {% if benefit.id in employee_benefit_ids %}selected{% endif %}>
-                            {{ benefit.name }}
-                        </option>
-                        {% endfor %}
-                        <option value="add_new_benefit" class="add-new-option">Add New Benefit</option>
-                    </select>
-                    <small class="form-text text-muted">Selected benefits will increase the employee's total
-                        compensation.</small>
-                </div>
-
-                <!-- Multi-select for Deductions -->
-                <div class="form-group" style="grid-column: span 2;">
-                    <label for="deductions" class="form-label">Select Deductions:</label>
-                    <select class="form-control select2-custom" id="deductions" name="deductions[]" multiple>
-                        {% for deduction in company.deduction_types %}
-                        <option value="{{ deduction.id }}" {% if deduction.id in employee_deduction_ids %}selected{%
-                            endif %}>
-                            {{ deduction.name }}
-                        </option>
-                        {% endfor %}
-                        <option value="add_new_deduction" class="add-new-option">Add New Deduction</option>
-                    </select>
-                    <small class="form-text text-muted">Deductions selected here will be applied to reduce the gross
-                        amount.</small>
-                </div>
-            </div>
-        </div>
-
-        <!-- Accounting Information Tab -->
-        <div class="form-tab-content" id="accounting-tab">
-            <h5>Accounting Information</h5>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="payroll_expense_account" class="form-label">Payroll Expense Account:<span
-                            class="required">*</span></label>
-                    <select id="payroll_expense_account" name="payroll_expense_account_id"
-                        class="form-control form-select2" required>
-                        <option value="">Loading payroll expense accounts...</option>
-                    </select>
-                    <div class="text-muted">Expense account for recording payroll costs.</div>
-                </div>
-
-                <div class="form-group">
-                    <label for="payable_account" class="form-label">Payable Account:<span
-                            class="required">*</span></label>
-                    <select id="payable_account" name="payable_account_id" class="form-control form-select2" required>
-                        <option value="">Loading payable accounts...</option>
-                    </select>
-                    <div class="text-muted">Liability account for recording payroll payables.</div>
-                </div>
-
-                <div class="form-group">
-                    <label for="deduction_payable_account" class="form-label">Deduction Payable Account:
-                        (Optional)</label>
-                    <select id="deduction_payable_account" name="deduction_payable_account_id"
-                        class="form-control form-select2">
-                        <option value="">Loading deduction payable accounts...</option>
-                    </select>
-                    <div class="text-muted">Liability account for employee deductions (taxes, benefits, etc.).</div>
-                </div>
-
-                <div class="form-group">
-                    <label for="advance_account" class="form-label">Advance Account:<span
-                            class="required">*</span></label>
-                    <select id="advance_account" name="advance_account_id" class="form-control form-select2" required>
-                        <option value="">Loading advance accounts...</option>
-                    </select>
-                    <div class="text-muted">Asset account for tracking employee advances.</div>
-                </div>
-            </div>
-        </div>
 
         <!-- Additional Information Tab -->
         <div class="form-tab-content" id="additional-tab">
@@ -822,12 +681,7 @@
                 nextBtn.text('Next');
             }
 
-            // Load accounting dropdowns when accounting tab is opened
-            if (tabIndex === 3) {
-                setTimeout(() => {
-                    loadEmployeeAccountingDropdowns();
-                }, 100);
-            }
+
         }
 
         // Modal handling - KEEP THE ORIGINAL CODE
@@ -1113,110 +967,7 @@
 
     });
 
-    // Function to load accounting dropdowns - KEEP THE ORIGINAL CODE
-    function loadEmployeeAccountingDropdowns() {
-        const payrollExpenseDropdown = document.getElementById('payroll_expense_account');
-        const payableDropdown = document.getElementById('payable_account');
-        const deductionPayableDropdown = document.getElementById('deduction_payable_account');
-        const advanceDropdown = document.getElementById('advance_account');
 
-        if (!payrollExpenseDropdown || !payableDropdown || !deductionPayableDropdown || !advanceDropdown) {
-            console.error("Could not find accounting dropdown elements");
-            return;
-        }
-
-        // Show loading state
-        payrollExpenseDropdown.innerHTML = '<option value="">Loading payroll expense accounts...</option>';
-        payableDropdown.innerHTML = '<option value="">Loading payable accounts...</option>';
-        deductionPayableDropdown.innerHTML = '<option value="">Loading deduction payable accounts...</option>';
-        advanceDropdown.innerHTML = '<option value="">Loading advance accounts...</option>';
-
-        fetch('/api/chart_of_accounts_grouped')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Clear old options
-                payrollExpenseDropdown.innerHTML = '<option value="">Select Payroll Expense Account</option>';
-                payableDropdown.innerHTML = '<option value="">Select Payable Account</option>';
-                deductionPayableDropdown.innerHTML = '<option value="">Select Deduction Payable Account</option>';
-                advanceDropdown.innerHTML = '<option value="">Select Advance Account</option>';
-
-                // Sort categories alphabetically
-                const sortedCategories = data.chart_of_accounts_grouped.sort((a, b) =>
-                    a.category.localeCompare(b.category)
-                );
-
-                // Helper function to populate dropdown and set selected value
-                function populateDropdown(dropdown, accountType, filterFn, currentValue) {
-                    sortedCategories.forEach(cat => {
-                        const accounts = cat.accounts
-                            .filter(filterFn)
-                            .sort((a, b) => a.sub_category.localeCompare(b.sub_category));
-
-                        if (accounts.length > 0) {
-                            const optGroup = document.createElement('optgroup');
-                            optGroup.label = `${cat.category} (${cat.category_code})`;
-
-                            accounts.forEach(acc => {
-                                const option = document.createElement('option');
-                                option.value = acc.sub_category_id;
-                                option.textContent = `${acc.sub_category} (${acc.sub_category_code})`;
-                                option.setAttribute('data-account-type', acc.account_type);
-                                if (currentValue && acc.sub_category_id == currentValue) {
-                                    option.selected = true;
-                                }
-                                optGroup.appendChild(option);
-                            });
-
-                            dropdown.appendChild(optGroup);
-                        }
-                    });
-
-                    // Trigger change event to update Select2 after populating
-                    $(dropdown).trigger('change');
-                }
-                // Get current employee accounting values from the template
-                const currentPayrollExpense = {{ employee.payroll_expense_account_id | tojson | default ('null')
-            }};
-    const currentPayable = {{ employee.payable_account_id | tojson | default ('null') }};
-    const currentDeductionPayable = {{ employee.deduction_payable_account_id | tojson | default ('null') }};
-    const currentAdvance = {{ employee.advance_account_id | tojson | default ('null') }};
-
-    // Populate each dropdown with current selection
-    populateDropdown(payrollExpenseDropdown, 'Expense',
-        acc => acc.account_type === 'Expense', currentPayrollExpense);
-
-    populateDropdown(payableDropdown, 'Liability',
-        acc => acc.account_type === 'Liability' && acc.is_payable === true, currentPayable);
-
-    populateDropdown(deductionPayableDropdown, 'Liability',
-        acc => acc.account_type === 'Liability', currentDeductionPayable);
-
-    populateDropdown(advanceDropdown, 'Asset',
-        acc => acc.account_type === 'Asset' &&
-            acc.is_receivable !== true &&
-            acc.is_cash !== true &&
-            acc.is_bank !== true, currentAdvance);
-
-    console.log("Successfully loaded employee accounting options for edit form");
-            })
-            .catch (error => {
-        console.error('Error loading accounting accounts:', error);
-        payrollExpenseDropdown.innerHTML = '<option value="">Error loading accounts</option>';
-        payableDropdown.innerHTML = '<option value="">Error loading accounts</option>';
-        deductionPayableDropdown.innerHTML = '<option value="">Error loading accounts</option>';
-        advanceDropdown.innerHTML = '<option value="">Error loading accounts</option>';
-    });
-    }
-
-    // Load accounting dropdowns when the page loads
-    document.addEventListener('DOMContentLoaded', function () {
-        loadEmployeeAccountingDropdowns();
-    });
 
     // Back button function
     function goBack() {

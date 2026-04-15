@@ -472,13 +472,25 @@
 
 
 
-                    <!-- Accounting Information Section -->
+                    <!-- Handled By - ALWAYS VISIBLE (outside conditional section) -->
+                    <div class="form-group" id="handled_by_group">
+                        <label for="handled_by" id="handled_by_label">Handled By:</label>
+                        <select id="handled_by" name="handled_by" class="form-select2">
+                            <option value="">Select employee</option>
+                            {% for employee in employees %}
+                            <option value="{{ employee.id }}">
+                                {{ employee.first_name }} {{ employee.last_name }}
+                                {% if employee.department %}
+                                ({{ employee.department.department_name }})
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
-                    <!-- Additional Details Section -->
-                    <!-- Additional Details Section - Make the whole section conditional -->
+                    <!-- Additional Details Section - CONDITIONALLY SHOWN -->
                     <div class="form-section conditional-field" id="additional_details_section">
                         <h2>Additional Details (Optional)</h2>
-
                         <div class="form-group conditional-field" id="project_field">
                             <select id="project_id" name="project_id">
                                 <option value=""></option>
@@ -488,8 +500,6 @@
                             </select>
                             <label for="project">Project:</label>
                         </div>
-
-
                     </div>
                 </div>
 
@@ -549,9 +559,9 @@
                         <div class="form-group">
                             <label for="vendorType">Party Type:</label>
                             <select id="vendorType" name="vendorType" required>
-                                <option value="vendor">Sender</option>
+                                <option value="vendor">Vendor</option>
 
-                                <option value="client">Recipient</option>
+                                <option value="customer">Recipient</option>
                             </select>
                         </div>
 
@@ -889,6 +899,26 @@
     }
 
 
+    function updateHandledByLabel(movementType) {
+        const handledByLabel = document.getElementById('handled_by_label');
+        if (!handledByLabel) return;
+
+        switch (movementType) {
+            case 'acquisition':
+            case 'donation_in':
+                handledByLabel.textContent = 'Received By:';
+                break;
+            case 'sale':
+            case 'donation_out':
+            case 'disposal':
+            case 'assignment':
+            case 'transfer':
+                handledByLabel.textContent = 'Dispatched By:';
+                break;
+            default:
+                handledByLabel.textContent = 'Handled By:';
+        }
+    }
 
     /**
  * Update asset identification fields based on selected asset and movement type
@@ -1155,10 +1185,10 @@
                 <div class="form-row conditional-field" 
                     style="display: ${movementType === 'acquisition' || movementType === 'donation_in' ? 'block' : 'none'}">
                     <div class="form-group">
-                        <label for="supplier_id">${movementType === 'acquisition' ? 'From (Sender)' : 'Donor'} <span class="required">*</span></label>
+                        <label for="supplier_id">${movementType === 'acquisition' ? 'Vendor' : 'Donor'} <span class="required">*</span></label>
                         <input type="hidden" name="supplier_id[]" class="asset-supplier-id">
                         <input type="text" name="supplier_name[]" class="asset-supplier-name" 
-                            list="supplier_list" placeholder="${movementType === 'acquisition' ? 'Select sender' : 'Enter donor name'}" 
+                            list="supplier_list" placeholder="${movementType === 'acquisition' ? 'Select Vendor' : 'Enter donor name'}" 
                             required>
                     </div>
                 </div>
@@ -2411,10 +2441,10 @@
 
                 if (shouldShowSupplier) {
                     // Update label text
-                    supplierLabel.innerHTML = movementType === 'acquisition' ? 'From (Sender) <span class="required">*</span>' : 'Donor <span class="required">*</span>';
+                    supplierLabel.innerHTML = movementType === 'acquisition' ? 'Vendor <span class="required">*</span>' : 'Donor <span class="required">*</span>';
 
                     // Update placeholder
-                    supplierInput.placeholder = movementType === 'acquisition' ? 'Select Sender' : 'Enter donor name';
+                    supplierInput.placeholder = movementType === 'acquisition' ? 'Select Vendor' : 'Enter donor name';
                 }
             }
             // ============================================================
@@ -2564,6 +2594,8 @@
 
         // Initialize accounting section visibility
         const initialMovementType = document.getElementById('movement_type').value;
+        // ADD THIS LINE
+        updateHandledByLabel(initialMovementType);
 
 
 
@@ -2783,6 +2815,7 @@
 
                 // Additional Details
                 'project_id',
+                'handled_by'
             ];
 
             staticFields.forEach(field => {
@@ -3175,7 +3208,7 @@
                             isValid = false;
                             const supplierNameInput = document.querySelector('.asset-supplier-name');
                             if (supplierNameInput) supplierNameInput.style.border = '2px solid red';
-                            errorMessages.push('Sender is required for receiving assets');
+                            errorMessages.push('Vendor is required for receiving assets');
                         }
                     }
                     break;

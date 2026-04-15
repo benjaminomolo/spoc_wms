@@ -4,7 +4,9 @@
 
 <style>
     /* Dashboard Header with Tabs and Refresh */
-
+    .filter-controls {
+        margin-top: 10px;
+    }
 
 
     .tab-btn.active {
@@ -50,6 +52,9 @@
         <div class="dashboard-tabs">
             <button class="tab-btn active" data-tab="inventory">Inventory Dashboard</button>
             <button class="tab-btn" data-tab="assets">Asset Dashboard</button>
+            <button class="filter-button" type="button" id="toggleFilterForm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
         </div>
 
     </div>
@@ -57,7 +62,7 @@
     <!-- ==================== INVENTORY DASHBOARD TAB ==================== -->
     <div class="tab-pane active" id="tab-inventory">
         <div class="dashboard-header">
-            <div class="filter-wrapper">
+            <div class="filter-section inventory-filters" style="display: none;">
                 <div class="filter-controls">
                     <div class="filter-group">
                         <label for="item-select">Inventory Item</label>
@@ -114,7 +119,7 @@
                         </select>
                     </div>
 
-                    <div class="filter-group">
+                    <div class="filter-group" style="display: none;">
                         <label for="status-select">Status</label>
                         <select id="status-select" class="form-select">
                             <option value="active" selected>Active</option>
@@ -122,6 +127,27 @@
                             <option value="all">All Statuses</option>
                         </select>
                     </div>
+
+                    <div class="filter-group">
+                        <label for="handled-by-select">Handled By</label>
+                        <select id="handled-by-select" class="form-select form-select2">
+                            <option value="">All Handlers</option>
+                            {% for emp in employees %}
+                            <option value="{{ emp.id }}">{{ emp.first_name }} {{ emp.last_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="vendor-filter-select">Vendor/Supplier</label>
+                        <select id="vendor-filter-select" class="form-select form-select2">
+                            <option value="">All Vendors</option>
+                            {% for vendor in suppliers %}
+                            <option value="{{ vendor.id }}">{{ vendor.vendor_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -244,7 +270,8 @@
     <!-- ==================== ASSET DASHBOARD TAB (No Financial Values) ==================== -->
     <div class="tab-pane" id="tab-assets">
         <div class="dashboard-header">
-            <div class="filter-wrapper">
+
+            <div class="filter-section assets-filters" style="display: none; margin-bottom: 20px;">
                 <div class="filter-controls">
                     <div class="filter-group">
                         <label for="asset-type-select">Asset Type</label>
@@ -290,7 +317,7 @@
                     <div class="filter-group">
                         <label for="assigned-select">Assigned To</label>
                         <select id="assigned-select" class="form-select form-select2">
-                            <option value="">All Employees</option>
+                            <option value="">All handlers</option>
                             {% for emp in employees %}
                             <option value="{{ emp.id }}">{{ emp.first_name }} {{ emp.last_name }}</option>
                             {% endfor %}
@@ -318,16 +345,16 @@
                     </div>
 
                     <div class="filter-group">
-                        <label for="supplier-select">Supplier</label>
+                        <label for="supplier-select">Vendor</label>
                         <select id="supplier-select" class="form-select form-select2">
-                            <option value="">All Suppliers</option>
+                            <option value="">All Vendors</option>
                             {% for supplier in suppliers %}
                             <option value="{{ supplier.id }}">{{ supplier.vendor_name }}</option>
                             {% endfor %}
                         </select>
                     </div>
 
-                    <div class="filter-group">
+                    <div class="filter-group" style="display: none;">
                         <label for="project-select">Project</label>
                         <select id="project-select" class="form-select form-select2">
                             <option value="">All Projects</option>
@@ -338,6 +365,7 @@
                     </div>
                 </div>
             </div>
+
         </div>
 
         <!-- Summary Cards - No financial values -->
@@ -497,6 +525,7 @@
 </div>
 
 <script>
+
     const apiKey = "{{ api_key }}";
     const baseCurrency = "{{ base_currency }}";
 
@@ -827,7 +856,8 @@
             });
 
             const filterIds = ['asset-type-select', 'asset-status-select', 'asset-location-select', 'department-select',
-                'assigned-select', 'asset-category-select', 'brand-select-asset', 'supplier-select', 'project-select'];
+                'assigned-select', 'asset-category-select', 'brand-select-asset', 'supplier-select', 'project-select',
+                'handled-by-select', 'vendor-filter-select'];
 
             filterIds.forEach(id => {
                 const element = document.getElementById(id);
@@ -870,7 +900,9 @@
                 category_id: document.getElementById('asset-category-select')?.value || '',
                 brand_id: document.getElementById('brand-select-asset')?.value || '',
                 supplier_id: document.getElementById('supplier-select')?.value || '',
-                project_id: document.getElementById('project-select')?.value || ''
+                project_id: document.getElementById('project-select')?.value || '',
+                handled_by_id: document.getElementById('handled-by-select')?.value || '',      // ADD THIS
+                vendor_id: document.getElementById('vendor-filter-select')?.value || ''       // ADD THIS
             };
         }
 
@@ -1100,12 +1132,41 @@
         new AssetDashboard();
 
         // Tab switching
+        // Tab switching
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', function () {
+                const newTab = this.dataset.tab;
+
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
                 this.classList.add('active');
-                document.getElementById(`tab-${this.dataset.tab}`).classList.add('active');
+                document.getElementById(`tab-${newTab}`).classList.add('active');
+
+                // Restore filter state when switching tabs
+                const filterButton = document.getElementById('toggleFilterForm');
+                if (newTab === 'inventory') {
+                    const filterSection = document.querySelector('#tab-inventory .filter-section');
+                    if (inventoryFiltersVisible) {
+                        filterSection.classList.add('visible');
+                        filterSection.style.display = 'block';
+                        filterButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+                    } else {
+                        filterSection.classList.remove('visible');
+                        filterSection.style.display = 'none';
+                        filterButton.innerHTML = '<i class="fas fa-filter"></i> Show Filters';
+                    }
+                } else {
+                    const filterSection = document.querySelector('#tab-assets .filter-section');
+                    if (assetsFiltersVisible) {
+                        filterSection.classList.add('visible');
+                        filterSection.style.display = 'block';
+                        filterButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+                    } else {
+                        filterSection.classList.remove('visible');
+                        filterSection.style.display = 'none';
+                        filterButton.innerHTML = '<i class="fas fa-filter"></i> Show Filters';
+                    }
+                }
 
                 setTimeout(() => {
                     if (stockStatusChart) stockStatusChart.resize();
@@ -1119,6 +1180,49 @@
             });
         });
     });
+
+
+    // Track filter visibility for each tab
+    let inventoryFiltersVisible = false;
+    let assetsFiltersVisible = false;
+
+
+
+
+
+    // Simple filter toggle - works exactly like your stock movement template
+    document.getElementById('toggleFilterForm').addEventListener('click', () => {
+        // Get the currently active tab
+        const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+
+        // Target the filter section in the active tab
+        const filterSection = document.querySelector(`#tab-${activeTab} .filter-section`);
+
+        if (filterSection) {
+            filterSection.classList.toggle('visible');
+
+            // Update button text (optional)
+            const isVisible = filterSection.classList.contains('visible');
+            const filterButton = document.getElementById('toggleFilterForm');
+
+            // Save state for the current tab
+            if (activeTab === 'inventory') {
+                inventoryFiltersVisible = isVisible;
+            } else {
+                assetsFiltersVisible = isVisible;
+            }
+
+            if (isVisible) {
+                filterButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+                filterSection.style.display = 'block';
+            } else {
+                filterButton.innerHTML = '<i class="fas fa-filter"></i> Show Filters';
+                filterSection.style.display = 'none';
+            }
+        }
+    });
+
+
 </script>
 
 {% endblock %}

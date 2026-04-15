@@ -18,7 +18,7 @@ from models import InventoryLocation, Vendor, Project, InventoryItemVariationLin
     InventoryCategory, PaymentMode, InventorySubCategory, InventoryItemVariation, InventoryItemAttribute, Brand, \
     UnitOfMeasurement, Currency, Company, InventoryEntry, ExchangeRate, InventoryEntryLineItem, InventorySummary, \
     InventoryTransactionDetail, ChartOfAccounts, JournalEntry, Journal, DirectSalesTransaction, UserLocationAssignment, \
-    User
+    User, Employee
 from services.chart_of_accounts_helpers import update_retained_earnings_opening_balance, \
     reverse_retained_earnings_balance
 
@@ -496,9 +496,10 @@ def render_inventory_entry_form(db_session, app_id, company, role, modules_data,
     attributes = db_session.query(InventoryItemAttribute).filter_by(app_id=app_id).all()
     locations = db_session.query(InventoryLocation).filter_by(app_id=app_id).all()
     brands = db_session.query(Brand).filter_by(app_id=app_id).all()
+    employees = db_session.query(Employee).filter_by(app_id=app_id).all()
 
     # GET request - render edit form
-    vendor_types = ['vendor', 'vendors', 'supplier', 'suppliers', 'seller', 'sellers']
+    vendor_types = ['vendor', 'vendors', 'supplier', 'suppliers', 'seller', 'sellers', 'customer', 'customers']
     vendor_types = [v.lower() for v in vendor_types]
 
     suppliers = (
@@ -527,9 +528,11 @@ def render_inventory_entry_form(db_session, app_id, company, role, modules_data,
         brands=brands,
         movement_type=movement_type,
         suppliers=suppliers,
+        employees=employees,
         currencies=currencies,
         payment_modes=payment_modes,
         title="Inventory Entry"
+
     )
 
 
@@ -987,7 +990,7 @@ def process_inventory_entries(db_session, app_id, inventory_items, quantities,
                               source_type=None, system_quantities=None, adjustments=None,
                               payable_account_id=None, write_off_account_id=None, adjustment_account_id=None,
                               sales_account_id=None, batch_notifications=None, exchange_rate_id=None,
-                              is_posted_to_ledger=None, source_id=None):
+                              is_posted_to_ledger=None, source_id=None, handled_by=None):
     """
     Process inventory entries with proper batch handling
     """
@@ -998,7 +1001,7 @@ def process_inventory_entries(db_session, app_id, inventory_items, quantities,
         write_off_reason, source_type, movement_type,
         from_location, to_location, form_currency_id, payable_account_id,
         write_off_account_id, adjustment_account_id, sales_account_id,
-        exchange_rate_id, source_id
+        exchange_rate_id, source_id, handled_by
     )
 
     # Process each line item
@@ -1049,7 +1052,7 @@ def create_inventory_entry_header(db_session, app_id, transaction_date, supplier
                                   expiration_date, project_id, reference, write_off_reason, source_type, movement_type,
                                   from_location, to_location, form_currency_id, payable_account_id,
                                   write_off_account_id, adjustment_account_id, sales_account_id, exchange_rate_id,
-                                  source_id):
+                                  source_id, handled_by):
     """
     Create inventory entry header
     """
@@ -1081,7 +1084,8 @@ def create_inventory_entry_header(db_session, app_id, transaction_date, supplier
         sales_account_id=sales_account_id,
         exchange_rate_id=exchange_rate_id,
         notes=write_off_reason,
-        source_id=source_id
+        source_id=source_id,
+        handled_by=handled_by
     )
 
     db_session.add(inventory_entry)
@@ -2616,8 +2620,9 @@ def render_edit_inventory_entry_form(db_session, app_id, company, role, modules_
     attributes = db_session.query(InventoryItemAttribute).filter_by(app_id=app_id).all()
     locations = db_session.query(InventoryLocation).filter_by(app_id=app_id).all()
     brands = db_session.query(Brand).filter_by(app_id=app_id).all()
-    vendor_types = ['vendor', 'vendors', 'supplier', 'suppliers', 'seller', 'sellers']
+    vendor_types = ['vendor', 'vendors', 'supplier', 'suppliers', 'seller', 'sellers', 'customer', 'customers']
     vendor_types = [v.lower() for v in vendor_types]
+    employees = db_session.query(Employee).filter_by(app_id=app_id).all()
 
     suppliers = (
         db_session.query(Vendor)
@@ -2650,6 +2655,7 @@ def render_edit_inventory_entry_form(db_session, app_id, company, role, modules_
         'adjustment_account_id': inventory_entry.adjustment_account_id,
         'sales_account_id': inventory_entry.sales_account_id,
         'version': inventory_entry.version,
+        'handled_by': inventory_entry.handled_by,
         'line_items': [
             {
                 'item_id': line.item_id,
@@ -2682,6 +2688,7 @@ def render_edit_inventory_entry_form(db_session, app_id, company, role, modules_
         payment_modes=payment_modes,
         edit_data=edit_data,
         inventory_entry=inventory_entry,
+        employees=employees,
         title="Edit Inventory Entry"
     )
 

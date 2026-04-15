@@ -94,6 +94,7 @@ def process_asset_entries(
         payable_account_id=None,
         adjustment_account_id=None,
         sales_account_id=None,
+        handled_by=None,
         additional_data=None
 ):
     """
@@ -113,7 +114,8 @@ def process_asset_entries(
             sales_account_id=sales_account_id,
             status='completed',
             created_by=current_user_id,
-            created_at=func.now()
+            created_at=func.now(),
+            handled_by=handled_by
         )
 
         db_session.add(asset_movement)
@@ -1047,7 +1049,8 @@ def process_edit_asset_entries(
                     serial_value = serial_numbers[idx] if idx < len(serial_numbers) else "N/A"
 
                     # In edit mode, check if this serial belongs to the SAME asset
-                    if existing_asset_id and serial_value:
+                    # Only check uniqueness if serial_number has a value (not None, not empty string, not just whitespace)
+                    if existing_asset_id and serial_value and serial_value.strip():
                         # Check if this serial is used by a DIFFERENT asset
                         existing_asset = db_session.query(Asset).filter(
                             Asset.serial_number == serial_value,
@@ -1061,12 +1064,7 @@ def process_edit_asset_entries(
                         else:
                             # Serial belongs to current asset - this is fine
                             logger.info(f"Serial number '{serial_value}' belongs to current asset {existing_asset_id}, skipping uniqueness check")
-                            # Continue with the operation - don't raise error
                             continue
-                    else:
-                        raise ValueError(
-                            f"Serial number '{serial_value}' is already in use. Please use a unique serial number.")
-
                 # Generic integrity error
                 else:
                     # Try to extract more details

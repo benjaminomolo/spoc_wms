@@ -237,6 +237,8 @@
                     <th>From Location</th>
                     <th>To Location</th>
                     <th>Reference</th>
+                    <th>Handled By</th>
+                    <th>Party</th>
                     <th>UOM</th> <!-- 🆕 NEW: Add UOM column -->
                     <th class="text-center">Quantity</th>
                     <th class="text-center">Qty at Hand</th>
@@ -799,6 +801,8 @@
             <td>${entry.from_location || '-'}</td>
             <td>${entry.to_location || '-'}</td>
             <td class="reference-link">${referenceLink}</td>
+            <td>${entry.handled_by || '-'}</td>
+            <td>${entry.vendor_name || '-'}</td>
 
             <td>${entry.uom || '-'}</td>
             <td class="text-center ${quantityClass}">${entry.quantity}</td>

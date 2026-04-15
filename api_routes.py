@@ -1552,6 +1552,8 @@ def get_inventory_data():
             end_date = request.args.get("end_date")
             time_filter = request.args.get("time_filter")  # today, week, month, quarter, year
             currency_id = request.args.get("currency")
+            handled_by_id = request.args.get("handled_by_id")  # ADD THIS
+            vendor_id = request.args.get("vendor_id")
 
             # Get base currency info if needed for valuation
             if not currency_id:
@@ -1671,6 +1673,14 @@ def get_inventory_data():
             # Apply brand filter
             if brand_id:
                 query = query.filter(InventoryItem.brand_id == brand_id)
+
+            # Apply vendor filter (supplier)
+            if vendor_id:
+                query = query.filter(InventoryEntry.supplier_id == vendor_id)
+
+            # Apply handled_by filter (employee who received/dispatched)
+            if handled_by_id:
+                query = query.filter(InventoryEntry.handled_by == handled_by_id)
 
             # Apply location filter - this is complex due to the many-to-many relationship
             if location_id:
@@ -2322,6 +2332,8 @@ def get_inventory_transactions():
     status = request.args.get("status", "active")
     item_id = request.args.get("item")
     variation_id = request.args.get("variation_id")
+    handled_by_id = request.args.get("handled_by_id")  # ADD THIS
+    vendor_id = request.args.get("vendor_id")
 
     with Session() as db_session:
         try:
@@ -2408,6 +2420,14 @@ def get_inventory_transactions():
 
             if location_id:
                 base_query = base_query.filter(InventoryTransactionDetail.location_id == location_id)
+
+            # Apply vendor filter (supplier)
+            if vendor_id:
+                query = query.filter(InventoryEntry.supplier_id == vendor_id)
+
+            # Apply handled_by filter (employee who received/dispatched)
+            if handled_by_id:
+                query = query.filter(InventoryEntry.handled_by == handled_by_id)
 
             # Execute query
             all_results = base_query.all()

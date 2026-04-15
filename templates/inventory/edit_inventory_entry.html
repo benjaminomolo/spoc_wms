@@ -430,7 +430,7 @@
                     <p>Party: <span id="summarysupplier">-</span></p>
                 </div>
 
-                <div class="currency-section">
+                <div class="currency-section" style="display: none;">
                     <p>Currency: <span id="summaryCurrency">-</span></p>
                 </div>
                 <p>Movement Type: <span id="summaryMovementType">-</span></p>
@@ -540,7 +540,7 @@
 
                         <!-- Supplier Section (only for purchases) -->
                         <div class="form-group conditional-field" id="supplier_group">
-                            <label for="supplier_name_label">Supplier: <span class="required">*</span></label>
+                            <label for="supplier_name_label">Vendor: <span class="required">*</span></label>
                             <input type="text" id="supplier_name" name="supplier_name" list="supplier_list"
                                 placeholder="Select or type party name">
 
@@ -760,8 +760,29 @@
 
                 </div>
                 <!-- Additional Details Section -->
+                <!-- Additional Details Section -->
                 <div class="form-section">
                     <h2>Additional Details (Optional)</h2>
+
+                    <!-- ADD THIS - Handled By field -->
+
+                    <div class="form-group " id="handled_by_group">
+                        <label for="handled_by" id="handled_by_label">Handled By:</label>
+                        <select id="handled_by" name="handled_by" class="form-select2">
+                            <option value="">Select employee</option>
+                            {% for employee in employees %}
+                            <option value="{{ employee.id }}" {% if edit_data.handled_by==employee.id %}selected{% endif
+                                %}
+                                data-department="{{ employee.department.department_name if employee.department else 'No Department' }}">
+                                {{ employee.first_name }} {{ employee.last_name }}
+                                {% if employee.department %}
+                                ({{ employee.department.department_name }})
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
                     <!-- Project Dropdown -->
                     <div class="form-group">
                         <select id="project_id" name="project_id">
@@ -776,21 +797,7 @@
                         <label for="project">Project:</label>
                     </div>
 
-
-
-
-
-
-                    <div class="form-group d-none hidden">
-
-                        <input type="date" id="expiration_date" name="expiration_date">
-                        <label for="expiration_date">Expiration Date:</label>
-
-                    </div>
-
-
                 </div>
-
 
 
 
@@ -872,12 +879,8 @@
                         <div class="form-group">
                             <label for="vendorType">Party Type:</label>
                             <select id="vendorType" name="vendorType" required>
-                                <option value="supplier">supplier</option>
                                 <option value="vendor">Vendor</option>
-
-                                <option value="client">Client</option>
-                                <option value="partner">Partner</option>
-                                <option value="other">Other</option>
+                                <option value="customer">Recipient</option>
                             </select>
                         </div>
 
@@ -1193,6 +1196,24 @@
 
 
 
+        function updateHandledByLabel(movementType) {
+            const handledByLabel = document.getElementById('handled_by_label');
+            if (!handledByLabel) return;
+
+            let newLabel = '';
+            switch (movementType) {
+                case 'in':
+                    newLabel = 'Received By:';
+                    break;
+                case 'stock_out_sale':
+                    newLabel = 'Dispatched By:';
+                    break;
+                default:
+                    newLabel = 'Handled By:';
+            }
+            handledByLabel.textContent = newLabel;
+        }
+
 
         function validateLocations() {
             const fromLocation = document.getElementById('location').value;
@@ -1358,7 +1379,7 @@
                     });
 
                     if (supplierLabel) {
-                        supplierLabel.textContent = 'Supplier:';
+                        supplierLabel.textContent = 'Vendor:';
                     }
 
 
@@ -1377,7 +1398,7 @@
                     });
 
                     if (supplierLabel) {
-                        supplierLabel.textContent = 'Customer:';
+                        supplierLabel.textContent = 'Recipient:';
                     }
 
                     break;
@@ -2008,6 +2029,7 @@
         // Initialize form visibility on page load
         document.addEventListener('DOMContentLoaded', function () {
             const initialMovementType = document.getElementById('movement_type').value;
+            updateHandledByLabel(initialMovementType);
             updateFormVisibility(initialMovementType);
 
 
@@ -2515,7 +2537,8 @@
                     // Additional Details
                     'project_id',
                     'expiration_date',
-                    'version'
+                    'version',
+                    'handled_by'
                 ];
 
                 staticFields.forEach(field => {

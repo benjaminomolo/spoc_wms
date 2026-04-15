@@ -257,33 +257,6 @@ def log_performance(response):
 
     return response
 
-
-# @app.before_request
-# def load_permissions():
-#     # Keep your existing double-submission prevention
-#     if request.method == 'POST':
-#         submission_key = f"{request.path}-{request.remote_addr}-{time.time() // 60}"
-#         if hasattr(g, 'last_submission') and g.last_submission == submission_key:
-#             return "Please don't double submit forms", 400
-#         g.last_submission = submission_key
-#
-#     # Load permissions for authenticated users
-#     if current_user.is_authenticated:
-#         g.user_permissions = {}
-#         if current_user.role == 'Admin':
-#             # Admins get full access to everything
-#             g.user_permissions['*'] = {'view': True, 'edit': True, 'approve': True, 'administer': True}
-#         else:
-#             # Regular users get their specific permissions
-#             for access in current_user.module_access:
-#                 g.user_permissions[access.module.module_name] = {
-#                     'view': access.can_view,
-#                     'edit': access.can_edit,
-#                     'approve': access.can_approve,
-#                     'administer': access.can_administer
-#                 }
-
-
 # Add this to your context processor
 @app.context_processor
 def inject_permissions():

@@ -867,13 +867,27 @@
                         </div>
                     </div>
 
+                    <!-- Handled By - ALWAYS VISIBLE (outside conditional section) -->
+                    <div class="form-group" id="handled_by_group">
+                        <label for="handled_by" id="handled_by_label">Handled By:</label>
+                        <select id="handled_by" name="handled_by" class="form-select2">
+                            <option value="">Select employee</option>
+                            {% for employee in employees %}
+                            <option value="{{ employee.id }}" {% if asset_movement.handled_by==employee.id %}selected{%
+                                endif %}>
+                                {{ employee.first_name }} {{ employee.last_name }}
+                                {% if employee.department %}
+                                ({{ employee.department.department_name }})
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
-
-                    <!-- Additional Details Section -->
+                    <!-- Additional Details Section - CONDITIONALLY SHOWN -->
                     <div class="form-section conditional-field" id="additional_details_section"
                         style="display: {{ 'block' if asset_movement.movement_type in ['acquisition', 'opening_balance', 'donation_in'] else 'none' }}">
                         <h2>Additional Details (Optional)</h2>
-
                         <div class="form-group conditional-field" id="project_field"
                             style="display: {{ 'block' if asset_movement.movement_type in ['acquisition', 'opening_balance', 'donation_in'] else 'none' }}">
                             <select id="project_id" name="project_id">
@@ -893,7 +907,7 @@
                 <!-- Form Actions - Add this section before the closing </form> tag -->
                 <div class="form-actions" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e9ecef;">
                     <button type="button" class="button remove-button"
-                        onclick="window.location.href='{{ url_for('inventory.stock_movement_history', movement_id=asset_movement.id) }}'">
+                        onclick="window.location.href='{{ url_for('assets.movement_history', movement_id=asset_movement.id) }}'">
                         <i class="fas fa-times"></i> Cancel
                     </button>
                     <button type="button" id="saveAndExitBtn" class="button cta-button">
@@ -1140,6 +1154,11 @@
             document.getElementById('transaction_date').value = formattedDate;
         }
 
+        // Initialize handled_by label based on movement type
+        const currentMovementType = '{{ asset_movement.movement_type }}';
+        updateHandledByLabel(currentMovementType);
+
+
 
 
         // Initialize Select2 for all dropdowns
@@ -1172,6 +1191,27 @@
             allowClear: true,
             dropdownParent: $(document.body)
         });
+    }
+
+    function updateHandledByLabel(movementType) {
+        const handledByLabel = document.getElementById('handled_by_label');
+        if (!handledByLabel) return;
+
+        switch (movementType) {
+            case 'acquisition':
+            case 'donation_in':
+                handledByLabel.textContent = 'Received By:';
+                break;
+            case 'sale':
+            case 'donation_out':
+            case 'disposal':
+            case 'assignment':
+            case 'transfer':
+                handledByLabel.textContent = 'Dispatched By:';
+                break;
+            default:
+                handledByLabel.textContent = 'Handled By:';
+        }
     }
 
     function setupEventListeners() {
@@ -1306,10 +1346,10 @@
                     <div class="form-row conditional-field" 
                         style="display: ${['acquisition', 'donation_in'].includes(movementType) ? 'block' : 'none'}">
                         <div class="form-group">
-                            <label for="supplier_id">${movementType === 'acquisition' ? 'From (Sender)' : 'Donor'} <span class="required">*</span></label>
+                            <label for="supplier_id">${movementType === 'acquisition' ? 'Vendor' : 'Donor'} <span class="required">*</span></label>
                             <input type="hidden" name="supplier_id[]" class="asset-supplier-id">
                             <input type="text" name="supplier_name[]" class="asset-supplier-name" 
-                                list="supplier_list" placeholder="${movementType === 'acquisition' ? 'Select sender' : 'Enter donor name'}" 
+                                list="supplier_list" placeholder="${movementType === 'acquisition' ? 'Select vendor' : 'Enter donor name'}" 
                                 required>
                         </div>
                     </div>
@@ -1891,7 +1931,7 @@
         const partyTypeBtn = document.getElementById('partyTypeBtn');
 
         enteredNameSpan.textContent = partyName;
-        const displayType = partyType === 'supplier' ? 'Supplier' : 'Customer';
+        const displayType = partyType === 'Vendor' ? 'Vendor' : 'Customer';
         partyTypeText.textContent = displayType.toLowerCase();
         partyTypeBtn.textContent = displayType;
 

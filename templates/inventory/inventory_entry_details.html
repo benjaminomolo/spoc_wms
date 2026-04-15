@@ -175,18 +175,23 @@
                     {% elif entry.source_type == 'transfer' %}source-transfer
                     {% elif entry.source_type == 'adjustment' %}source-adjustment
                     {% endif %}">
-                    {{ entry.source_type or 'manual' }}
+                    {% if entry.source_type == 'purchase' %}Receipt
+                    {% elif entry.source_type == 'sale' %}Dispatch
+                    {% elif entry.source_type == 'transfer' %}Transfer
+                    {% elif entry.source_type == 'adjustment' %}Adjust
+                    {% elif entry.source_type == 'opening_balance' %}Opening
+                    {% else %}Manual
+                    {% endif %}
                 </span>
                 <span class="movement-badge movement-{{ entry.stock_movement }}">
-                    {{ entry.stock_movement or 'N/A' }}
-                </span>
-                <span class="status-badge {{ 'posted' if entry.is_posted_to_ledger else 'not-posted' }}">
-                    {{ 'Posted' if entry.is_posted_to_ledger else 'Not Posted' }}
+                    {% if entry.stock_movement == 'in' %}In
+                    {% elif entry.stock_movement == 'out' %}Out
+                    {% elif entry.stock_movement == 'transfer' %}Transfer
+                    {% else %}Move
+                    {% endif %}
                 </span>
             </p>
-            {% if entry.inventory_source %}
-            <p><small>Source: {{ entry.inventory_source }}</small></p>
-            {% endif %}
+
 
         </div>
     </div>
@@ -202,8 +207,14 @@
             <span>{{ entry.to_inventory_location.location if entry.to_inventory_location else 'N/A' }}</span>
         </div>
         <div class="info-item">
-            <strong>Currency</strong>
-            <span>{{ entry.currency.user_currency if entry.currency else 'N/A' }}</span>
+            <strong>Handled by</strong>
+            <span>
+                {% if entry.handled_by_employee %}
+                {{ entry.handled_by_employee.first_name }} {{ entry.handled_by_employee.last_name }}
+                {% else %}
+                N/A
+                {% endif %}
+            </span>
         </div>
         {% if entry.vendor %}
         <div class="info-item">

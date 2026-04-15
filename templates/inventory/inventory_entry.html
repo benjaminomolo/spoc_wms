@@ -592,12 +592,32 @@
                     <div class="form-section">
                         <h2>Additional Details (Optional)</h2>
 
+                        <div class="form-group " id="handled_by_group">
+                            <label for="handled_by" id="handled_by_label">Handled By:</label>
+                            <!-- NEW: Handled By (Person who received/dispatched) -->
+                            <select id="handled_by" name="handled_by" class="form-select2">
+                                <option value="">Select employee</option>
+                                {% for employee in employees %}
+
+                                <option value="{{ employee.id }}"
+                                    data-department="{{ employee.department.department_name if employee.department else 'No Department' }}">
+                                    {{ employee.first_name }} {{ employee.last_name }}
+                                    {% if employee.department %}
+                                    ({{ employee.department.department_name }})
+                                    {% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+
+                        </div>
+
                         <div class="form-group">
 
                             <select id="project_id" name="project_id">
                                 <option value=""></option>
                                 {% for project in projects %}
-                                <option value="{{ project.id }}">{{ project.name }} - {{ project.project_id }}</option>
+                                <option value="{{ project.id }}">{{ project.name }} - {{ project.project_id }}
+                                </option>
                                 {% endfor %}
                             </select>
                             <label for="project">Project:</label>
@@ -709,9 +729,8 @@
                         <div class="form-group">
                             <label for="vendorType">Party Type:</label>
                             <select id="vendorType" name="vendorType" required>
-                                <option value="supplier">Recipient</option>
-                                <option value="vendor">Sender</option>
-                                <option value="other">Other</option>
+                                <option value="vendor">Vendor</option>
+                                <option value="customer">Recipient</option>
                             </select>
                         </div>
 
@@ -963,11 +982,33 @@
 
 
 
+    function updateHandledByLabel(movementType) {
+        const handledByLabel = document.getElementById('handled_by_label');
+        if (!handledByLabel) return;
 
+        let newLabel = '';
+        switch (movementType) {
+            case 'in':
+                newLabel = 'Received By:';
+                break;
+            case 'stock_out_sale':
+            case 'stock_out_write_off':
+            case 'transfer':
+                newLabel = 'Dispatched By:';
+                break;
+            default:
+                newLabel = 'Handled By:';
+        }
 
+        handledByLabel.textContent = newLabel;
+    }
+    // Call this function whenever movement type changes
     // Movement type change handler
     document.getElementById('movement_type').addEventListener('change', function () {
         const movementType = this.value;
+
+        // ADD THIS LINE - Update the handled_by label
+        updateHandledByLabel(movementType);
 
         // Clear all form fields including Select2 dropdowns
         document.querySelectorAll('input, select, textarea').forEach(field => {
@@ -1007,9 +1048,6 @@
         if (lineItemsContainer) {
             lineItemsContainer.innerHTML = '';
         }
-
-        // // Add back the first line item
-        // addLineItem();
 
         updateFormVisibility(movementType);
         updateSummary();
@@ -1166,7 +1204,7 @@
                 });
 
                 if (supplierLabel) {
-                    supplierLabel.textContent = 'Sender:';
+                    supplierLabel.textContent = 'Vendor:';
                 }
 
 
@@ -1336,7 +1374,7 @@
                     }
 
                     if (supplierLabel) {
-                        supplierLabel.textContent = 'Customer:';
+                        supplierLabel.textContent = 'Recipient:';
                     }
 
 
@@ -1485,6 +1523,14 @@
         const movementTypeText = movementTypeSelect.options[movementTypeSelect.selectedIndex].text;
         document.getElementById('summaryMovementType').textContent = movementTypeText;
 
+        // Add handled by to summary
+        const handledBySelect = document.getElementById('handled_by');
+        const handledByText = handledBySelect.options[handledBySelect.selectedIndex]?.text || '-';
+        const movementType = document.getElementById('movement_type').value;
+        const handledByLabel = movementType === 'in' ? 'Received By:' : 'Dispatched By:';
+
+
+
         // Count total quantity across all line items
         let totalQuantity = 0;
         document.querySelectorAll('.line-item input[name="quantity[]"]').forEach(quantityInput => {
@@ -1549,7 +1595,7 @@
                     if (!supplierId && !supplierName) {
                         isValid = false;
                         document.getElementById('supplier_name').style.border = '2px solid red';
-                        errorMessages.push('Supplier/Sender is required for stock in movements');
+                        errorMessages.push('Supplier/Vendor is required for stock in movements');
                     }
                 }
                 break;
@@ -1819,6 +1865,7 @@
     // Initialize form visibility on page load
     document.addEventListener('DOMContentLoaded', function () {
         const initialMovementType = document.getElementById('movement_type').value;
+        updateHandledByLabel(initialMovementType);
         updateFormVisibility(initialMovementType);
 
         // Set today's date as default
@@ -2369,6 +2416,7 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
                 // Additional Details
                 'project_id',
                 'expiration_date',
+                'handled_by'
 
 
             ];
@@ -2804,28 +2852,6 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
         });
     }
 
-    // Call this function when movement type changes
-    document.getElementById('movement_type').addEventListener('change', function () {
-
-        const movementType = this.value;
-        updateFormVisibility(movementType);
-        updateSummary();
-
-
-        // Update adjustment calculations for all line items
-        if (movementType === 'adjustment') {
-            document.querySelectorAll('.line-item').forEach(lineItem => {
-                updateAdjustmentCalculation(lineItem);
-            });
-        }
-
-
-        handleUnitPriceRequirements();
-        updateRequiredAttributes(); // Also update other required attributes
-
-        // Also update line items to handle donation-specific behavior
-        updateLineItemsForMovementType(movementType);
-    });
 
     // Also call it on page load
     document.addEventListener('DOMContentLoaded', function () {
@@ -2849,65 +2875,8 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
         document.querySelectorAll('.line-item').forEach(setUnitPriceFieldBehavior);
     });
 
-    // Function to update available quantity for inventory items in the inventory entry form
-    // function updateAvailableQuantity(lineItem) {
-    //     const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
-    //     const stockDisplay = lineItem.querySelector('.stock-display');
-
-    //     if (!inventoryDropdown || !stockDisplay) {
-    //         return; // Exit if elements don't exist
-    //     }
-
-    //     // Get the selected inventory item ID
-    //     const inventoryItemId = $(inventoryDropdown).val();
-    //     const locationId = document.getElementById('location').value;
-
-    //     // Clear display if selections aren't complete
-    //     if (!inventoryItemId || !locationId) {
-    //         stockDisplay.innerHTML = '<div class="badge bg-secondary">Select item and location</div>';
-    //         return;
-    //     }
-
-    //     // Show loading state
-    //     stockDisplay.innerHTML = '<div class="stock-loading">Checking stock...</div>';
-
-    //     // Fetch available quantity
-    //     fetch(`/api/inventory/available?item_id=${inventoryItemId}&location_id=${locationId}`)
-    //         .then((response) => {
-    //             if (!response.ok) throw new Error("Network response was not ok");
-    //             return response.json();
-    //         })
-    //         .then((data) => {
-    //             const availableQty = data.available_quantity || 0;
-    //             let badgeClass = 'bg-info';
-    //             let warningText = '';
 
 
-    //             if (availableQty < 0) {
-    //                 badgeClass = 'bg-danger';       // red badge
-    //                 warningText = ' (Negative stock!)';
-    //                 showNotification(`⚠️ Warning: Stock for this item is negative (${availableQty}). Please review inventory adjustments.`, 'error');
-    //             } else if (availableQty === 0) {
-    //                 badgeClass = 'bg-warning';      // yellow badge
-    //                 warningText = ' (Out of stock)';
-    //             }
-
-
-    //             stockDisplay.innerHTML = `
-    //             <div class="badge ${badgeClass}">
-    //                 <span>Available: ${availableQty}${warningText}</span>
-    //             </div>
-    //         `;
-    //         })
-    //         .catch((error) => {
-    //             console.error("Error fetching available quantity:", error);
-    //             stockDisplay.innerHTML = '<div class="badge bg-danger">Error loading quantity</div>';
-    //         });
-    // }
-
-
-
-    // Function to update available quantity for inventory items in the inventory entry form
     function updateAvailableQuantity(lineItem) {
         const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
         const stockDisplay = lineItem.querySelector('.stock-display');

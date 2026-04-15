@@ -171,10 +171,11 @@
                     <th>Reference</th>
                     <th>Asset Tag/Serial</th>
                     <th>Asset Type</th>
-                    <th>Sender/Recipient</th>
+                    <th>Party</th>
+                    <th>Handled By</th>
 
-                    <th>From</th>
-                    <th>To</th>
+
+                    <th>Location</th>
                     <th>Project</th>
                     <th>Actions</th>
                 </tr>
@@ -496,13 +497,13 @@
                 let toDisplay = '';
                 if (movement.line_items && movement.line_items.length > 0) {
                     const fromItems = movement.line_items.map(item => {
-                        if (item.from_location_name) return `Loc: ${item.from_location_name}`;
+                        if (item.from_location_name) return `📍: ${item.from_location_name}`;
                         if (item.from_department_name) return `Dept: ${item.from_department_name}`;
                         return null;
                     }).filter(Boolean);
 
                     const toItems = movement.line_items.map(item => {
-                        if (item.to_location_name) return `Loc: ${item.to_location_name}`;
+                        if (item.to_location_name) return `📍 ${item.to_location_name}`;
                         if (item.to_department_name) return `Dept: ${item.to_department_name}`;
                         if (item.assigned_to_name) return `Emp: ${item.assigned_to_name}`;
                         return null;
@@ -531,8 +532,8 @@
             <td>${assetDisplay || '-'}</td>
             <td>${movement.line_items?.[0]?.asset_item_name || '-'}</td>
             <td>${partyDisplay || '-'}</td>
+            <td>${movement.handled_by || '-'}</td>
 
-            <td>${fromDisplay || '-'}</td>
             <td>${toDisplay || '-'}</td>
             <td>${movement.project_name || '-'}</td>
             <td style="width:40px;" class="text-center">

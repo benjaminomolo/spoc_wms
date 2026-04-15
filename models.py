@@ -9,7 +9,6 @@ from sqlalchemy import Column, Integer, String, DateTime, func, ForeignKey, Enum
 from sqlalchemy.orm import relationship, object_session, validates, declared_attr
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import event, select, func
-
 from datetime import datetime, timezone, date
 
 Base = declarative_base()
@@ -38,7 +37,7 @@ class Company(Base):
     has_multiple_currencies = Column(Boolean, default=False, nullable=False,
                                  server_default='0',
                                  comment="Flag indicating if company uses multiple currencies")
-    
+
     # 🚀 Replace the Boolean flag with a Date column
     opening_balances_date = Column(
         Date,
@@ -1487,7 +1486,7 @@ class Employee(Base):
     job_title = Column(String(100), nullable=False)
     address = Column(String(255), nullable=True)
     salary_type = Column(Enum('Hourly', 'Monthly', 'Daily', 'Weekly', 'Bi-weekly', 'Piece Rate', 'Commission', 'Other',
-                              name='salary_type_enum'), nullable=False)
+                              name='salary_type_enum'), nullable=True)
     base_salary = Column(Numeric(scale=2))
     base_currency = Column(Integer, ForeignKey('currency.id'), nullable=True)
     payment_account_number = Column(String(50), nullable=True)
@@ -1553,6 +1552,13 @@ class Employee(Base):
         foreign_keys="[AssetMovementLineItem.assigned_to_id]",
         back_populates="assigned_to"
     )
+
+    # In Employee class
+    inventory_entries = relationship('InventoryEntry', foreign_keys='InventoryEntry.handled_by',
+                                 back_populates='handled_by_employee')
+
+    asset_movements = relationship('AssetMovement', foreign_keys='AssetMovement.handled_by',
+                               back_populates='handled_by_employee')
     __table_args__ = (
         UniqueConstraint('employee_id', 'app_id', name='uq_employee_id_app_id'),
     )
@@ -2181,6 +2187,9 @@ class AssetMovement(Base):
     # Project
     project_id = Column(Integer, ForeignKey('projects.id'), nullable=True)
 
+    # NEW: Person who handled the asset (received or dispatched)
+    handled_by = Column(Integer, ForeignKey('employees.id'), nullable=True)
+
     # Currency
     currency_id = Column(Integer, ForeignKey('currency.id'), nullable=False)
 
@@ -2209,6 +2218,8 @@ class AssetMovement(Base):
 
     # Project relationship
     project = relationship('Project', back_populates='asset_movements')
+
+    handled_by_employee = relationship('Employee', foreign_keys=[handled_by], back_populates='asset_movements')
 
     # Accounting relationships (to ChartOfAccounts)
     payable_account = relationship(
@@ -2820,6 +2831,8 @@ class InventoryEntry(Base):
     app_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
     transaction_date = Column(Date, nullable=False, default=func.current_date())
     supplier_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
+    handled_by = Column(Integer, ForeignKey('employees.id'), nullable=True)
+
     date_added = Column(Date, nullable=False, default=func.current_date())
     created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
     updated_by = Column(Integer, ForeignKey('users.id'), nullable=True)
@@ -2855,6 +2868,9 @@ class InventoryEntry(Base):
     version = Column(Integer, default=1, nullable=False)
 
     # Relationships
+    # Relationship
+    handled_by_employee = relationship('Employee', foreign_keys=[handled_by],
+                                    back_populates='inventory_entries')
     company = relationship('Company', back_populates='inventory_entries')
     vendor = relationship("Vendor", back_populates='inventory_entries')
     project = relationship('Project', back_populates='inventory_entries')
