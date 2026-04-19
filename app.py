@@ -129,7 +129,17 @@ UPLOAD_FOLDER_LOGOS = os.path.join(UPLOAD_FOLDER_MAIN, UPLOAD_FOLDER_LOGOS_NAME)
 UPLOAD_FOLDER_FOOTER = os.path.join(UPLOAD_FOLDER_MAIN, UPLOAD_FOLDER_FOOTER_NAME)
 
 # --- Setup variables ---
-log_file = 'app.log'
+# Detect PythonAnywhere by checking if we're in a read-only environment
+try:
+    # Try to write a test file - if it fails, use home directory
+    with open('test_write.tmp', 'w') as f:
+        f.write('test')
+    os.remove('test_write.tmp')
+    log_file = 'app.log'  # Can write to current directory
+except (IOError, OSError):
+    # Can't write here, use home directory
+    log_file = os.path.join(os.path.expanduser('~'), 'app.log')
+
 log_max_bytes = int(2.5 * 1024 * 1024)  # 2.5 MB
 backup_count = 0  # Delete instead of rotate
 log_level = logging.DEBUG  # Capture all log levels, including debug

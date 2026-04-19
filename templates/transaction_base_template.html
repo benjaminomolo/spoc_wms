@@ -8,6 +8,14 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>NetBooks Suite</title>
 
+    <style>
+        /* Ensure dropdown stays open when active class is present */
+        .dropdown.active .dropdown-content,
+        .module-dropdown.active .dropdown-content {
+            display: block !important;
+        }
+    </style>
+
     <!-- CSS Links -->
     <link href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css" rel="stylesheet" />
     <!-- DataTables CSS -->
@@ -163,7 +171,8 @@
 
 
         <!-- INVENTORY Module -->
-        <div class="dropdown module-dropdown" data-module="Inventory" onclick="toggleDropdown(event)">
+        <div class="dropdown module-dropdown" data-module="Inventory" data-menu-id="inventory_menu"
+            onclick="toggleDropdown(event)">
             <a href="#"><i class="fas fa-cubes sb-nav-link-icon"></i> Inventory <i class="fas fa-caret-down"></i></a>
             <div class="dropdown-content">
 
@@ -205,7 +214,8 @@
         </div>
 
         <!-- ASSETS Module -->
-        <div class="dropdown module-dropdown" data-module="Assets" onclick="toggleDropdown(event)">
+        <div class="dropdown module-dropdown" data-module="Assets" data-menu-id="assets_menu"
+            onclick="toggleDropdown(event)">
             <a href="#"><i class="fas fa-laptop sb-nav-link-icon"></i> Assets <i class="fas fa-caret-down"></i></a>
             <div class="dropdown-content">
 
@@ -247,7 +257,7 @@
 
         <div class="side-nav-menu-heading">Reports</div>
 
-        <div class="dropdown" onclick="toggleDropdown(event)">
+        <div class="dropdown" data-menu-id="reports_menu" onclick="toggleDropdown(event)">
             <a href="#"><i class="fas fa-chart-bar sb-nav-link-icon"></i> Reports <i class="fas fa-caret-down"></i></a>
             <div class="dropdown-content">
 
@@ -294,7 +304,7 @@
 
         <div class="side-nav-menu-heading">Setup</div>
 
-        <div class="dropdown" onclick="toggleDropdown(event)">
+        <div class="dropdown" data-menu-id="config_menu" onclick="toggleDropdown(event)">
             <a href="#"><i class="fas fa-cog sb-nav-link-icon"></i> Configuration <i class="fas fa-caret-down"></i></a>
             <div class="dropdown-content">
 
@@ -931,40 +941,24 @@
         }
 
         function toggleDropdown(event) {
-
-
-
-
             event.stopPropagation();
-
             const dropdown = event.currentTarget;
-            dropdown.classList.toggle('active'); // Toggle the clicked dropdown's state
-            const isExpanded = dropdown.getAttribute('aria-expanded') === 'true';
-            dropdown.setAttribute('aria-expanded', !isExpanded);
 
+            // Toggle the active class - this keeps menu open until clicked again
+            dropdown.classList.toggle('active');
 
-            const moduleElement = document.getElementById('module-name');
-            const currentModule = moduleElement ? moduleElement.getAttribute('data-module') : null;
+            const isExpanded = dropdown.classList.contains('active');
+            dropdown.setAttribute('aria-expanded', isExpanded);
 
-            if (!currentModule) {
-                console.warn("Module name not found! Skipping state save.");
-                return;
+            // Save state to localStorage
+            const dropdownId = dropdown.getAttribute('data-menu-id') || dropdown.querySelector('a')?.textContent.trim();
+            if (dropdownId) {
+                const states = JSON.parse(localStorage.getItem('dropdownStates') || '{}');
+                states[dropdownId] = isExpanded;
+                localStorage.setItem('dropdownStates', JSON.stringify(states));
             }
-
-            const dropdownTitleElement = dropdown.querySelector('a');
-            const dropdownTitle = dropdownTitleElement ? dropdownTitleElement.textContent.trim() : "Unknown";
-
-            let dropdownState = JSON.parse(localStorage.getItem('dropdownState')) || {};
-
-            if (!dropdownState[currentModule]) {
-                dropdownState[currentModule] = {};
-            }
-
-            // Save or remove state based on toggling
-            dropdownState[currentModule][dropdownTitle] = dropdown.classList.contains('active');
-
-            localStorage.setItem('dropdownState', JSON.stringify(dropdownState));
         }
+
 
         function restoreDropdownState() {
             const dropdowns = document.querySelectorAll('.module-dropdown');
@@ -984,6 +978,22 @@
                 }
             });
         }
+
+
+        // Restore saved dropdown states
+        function restoreDropdownStates() {
+            const savedStates = JSON.parse(localStorage.getItem('dropdownStates') || '{}');
+            const dropdowns = document.querySelectorAll('.dropdown, .module-dropdown');
+
+            dropdowns.forEach(dropdown => {
+                const dropdownId = dropdown.getAttribute('data-menu-id');
+                if (dropdownId && savedStates[dropdownId] === true) {
+                    dropdown.classList.add('active');
+                    dropdown.setAttribute('aria-expanded', 'true');
+                }
+            });
+        }
+
 
         function clearOtherModules() {
             const moduleElement = document.getElementById('module-name');
@@ -1060,15 +1070,15 @@
                 body.style.visibility = 'visible'; // Show the body after the theme is applied
             }, 50); // Short delay to ensure theme is applied before visibility is changed
         });
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function (event) {
-            const dropdowns = document.querySelectorAll('.dropdown, .user-dropdown, .shortcut-dropdown');
-            dropdowns.forEach(dropdown => {
-                if (!dropdown.contains(event.target)) {
-                    dropdown.classList.remove('active');
-                }
-            });
-        });
+        // // Close dropdowns when clicking outside
+        // document.addEventListener('click', function (event) {
+        //     const dropdowns = document.querySelectorAll('.dropdown, .user-dropdown, .shortcut-dropdown');
+        //     dropdowns.forEach(dropdown => {
+        //         if (!dropdown.contains(event.target)) {
+        //             dropdown.classList.remove('active');
+        //         }
+        //     });
+        // });
 
         // Automatically hide alerts after 2 seconds
         setTimeout(function () {
@@ -1278,6 +1288,8 @@
          */
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', function () {
+
+            restoreDropdownStates();
             // Handle ALL form submissions
             document.addEventListener('submit', function (e) {
                 const form = e.target;
