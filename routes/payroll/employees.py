@@ -1,5 +1,6 @@
 # app/routes/payroll/employees.py
 import logging
+import traceback
 from datetime import datetime
 
 from flask import Blueprint, jsonify, render_template, redirect, url_for, flash, request
@@ -51,11 +52,11 @@ def add_employee():
                     department_id = int(request.form.get('department_id'))
                     project_id = request.form.get('project_id') or None
                     job_title = request.form.get('job_title').strip()
-                    base_salary = request.form.get('base_salary').strip() or 0
-                    base_currency = request.form.get('base_currency') or None
-                    payment_account_number = request.form.get('payment_account_number').strip() or None
-                    payment_account_name = request.form.get('payment_account_name').strip() or None
-                    payment_platform = request.form.get('payment_platform').strip() or None
+                    base_salary = 0
+                    base_currency = None
+                    payment_account_number = None
+                    payment_account_name = None
+                    payment_platform = None
                     tax_id = request.form.get('tax_id').strip() or None
                     hire_date = request.form.get('hire_date')  # Format: YYYY-MM-DD
                     termination_date = request.form.get('termination_date')  # Optional, can be blank
@@ -83,7 +84,7 @@ def add_employee():
                     last_promotion_date = datetime.strptime(last_promotion_date,
                                                             '%Y-%m-%d') if last_promotion_date else None
 
-                    salary_type = request.form.get('salary_type')
+                    salary_type = "Monthly"
 
                     # Convert accounting IDs to integers if they exist
                     if payroll_expense_account_id:
@@ -213,7 +214,7 @@ def add_employee():
                 except Exception as e:
                     # Handle general errors
                     db_session.rollback()
-                    logger.error(f'Error Message is here {e}')
+                    logger.error(f'Error Message is here {e}\n{traceback.format_exc()}')
                     flash(f'An unexpected error occurred: {str(e)}', 'error')
 
             # If it's a GET request, render the form for adding an employee
