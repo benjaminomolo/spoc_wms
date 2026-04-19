@@ -86,6 +86,7 @@ def asset_entry():
 
                 # Get project (optional)
                 project_id = request.form.get('project_id')
+                handled_by = request.form.get('handled_by')
                 project_id = int(project_id) if project_id and project_id.isdigit() else None
 
                 # Get accounting information
@@ -178,6 +179,7 @@ def asset_entry():
                     payable_account_id=payable_account_id,
                     adjustment_account_id=adjustment_account_id,
                     sales_account_id=sales_account_id,
+                    handled_by=handled_by,
                     additional_data=request.form
                 )
 
@@ -257,7 +259,7 @@ def render_asset_entry_form(db_session, app_id, company, role, modules_data, mov
     # Get employees
     employees = db_session.query(Employee).filter_by(
         app_id=app_id,
-        employment_status='active'
+        is_active=True
     ).order_by(Employee.first_name).all()
 
     # Get departments
@@ -282,7 +284,7 @@ def render_asset_entry_form(db_session, app_id, company, role, modules_data, mov
         currency_index=1
     ).first()
 
-    vendor_types = ['vendor', 'vendors', 'supplier', 'suppliers', 'seller', 'sellers']
+    vendor_types = ['vendor', 'vendors', 'supplier', 'suppliers', 'seller', 'sellers', 'customer', 'customers']
     vendor_types = [v.lower() for v in vendor_types]
 
     suppliers = (
@@ -324,7 +326,8 @@ def render_asset_entry_form(db_session, app_id, company, role, modules_data, mov
         base_currency=base_currency,
         suppliers=suppliers,
         customers=customers,
-        movement_type=movement_type
+        movement_type=movement_type,
+
     )
 
 
@@ -348,13 +351,15 @@ def _load_edit_form_data(db_session, app_id, movement_type):
     # Get employees
     data['employees'] = db_session.query(Employee).filter_by(
         app_id=app_id,
-        employment_status='active'
+        is_active=True
     ).order_by(Employee.first_name).all()
 
     # Get departments
     data['departments'] = db_session.query(Department).filter_by(
         app_id=app_id
     ).order_by(Department.department_name).all()
+
+    data['employees'] = db_session.query(Employee).filter_by(app_id=app_id).all()
 
     # Get projects
     data['projects'] = db_session.query(Project).filter_by(
@@ -461,6 +466,7 @@ def asset_edit(movement_id):
                 reference = request.form.get('reference', '').strip() or asset_movement.reference
 
                 project_id = request.form.get('project_id')
+                handled_by = request.form.get('handled_by')
                 project_id = int(project_id) if project_id and project_id.isdigit() else asset_movement.project_id
 
                 # Get accounting information
@@ -563,6 +569,7 @@ def asset_edit(movement_id):
                     asset_movement.sales_account_id = sales_account_id
                     asset_movement.updated_by = current_user.id
                     asset_movement.updated_at = func.now()
+                    asset_movement.handled_by = handled_by
 
                     db_session.flush()
 
@@ -711,7 +718,7 @@ def movement_history():
             {'value': 'acquisition', 'label': 'Purchase/Acquisition'},
             {'value': 'donation_in', 'label': 'Donation Received'},
             {'value': 'opening_balance', 'label': 'Opening Balance'},
-            {'value': 'sale', 'label': 'Sale'},
+            {'value': 'sale', 'label': 'Dispatch'},
             {'value': 'donation_out', 'label': 'Donation Given'},
             {'value': 'disposal', 'label': 'Disposal/Write-off'},
             {'value': 'transfer', 'label': 'Transfer'},
@@ -982,6 +989,7 @@ def api_movement_history():
                 'project_id': movement.project_id,
                 'project_name': movement.project.name if movement.project else None,
                 'currency_id': movement.currency_id,
+                'handled_by': movement.handled_by_employee.first_name + ' ' + movement.handled_by_employee.last_name if movement.handled_by_employee else None,
                 'currency_code': currency_code,
                 'exchange_rate': float(exchange_rate),
                 'total_value': float(total_value),
