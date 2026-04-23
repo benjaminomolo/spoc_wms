@@ -23,6 +23,7 @@ from models import Company, SalesTransaction, DirectSalesTransaction, Currency, 
     PurchaseOrder, InventoryEntryLineItem, InventoryTransactionDetail, InventorySummary, Vendor, Project, \
     InventoryCategory, JournalEntry, Journal, PurchasePaymentAllocation, InventorySubCategory, Brand, \
     InventoryItemVariation, Asset, AssetMovementLineItem, AssetMovement, AssetItem, Department
+from services.inventory_helpers import get_user_accessible_locations
 from utils import get_converted_cost, get_cash_balances, get_cash_balances_with_base, is_cash_related, \
     calculate_batch_available_quantity, calculate_available_quantity
 from utils_and_helpers.cache_keys import inventory_dashboard_cache_key
@@ -2343,6 +2344,15 @@ def get_inventory_transactions():
                 return jsonify({"error": "Invalid API key"}), 403
 
             app_id = company.id
+            # Get user's accessible locations
+            user_locations = get_user_accessible_locations(current_user.id, app_id)
+            user_location_ids = [loc.id for loc in user_locations]
+
+            if not user_location_ids:
+                return jsonify({
+                    "error": "You do not have access to any locations"
+                }), 403
+
 
             base_currency_info = get_base_currency(db_session, app_id)
             if not base_currency_info:
@@ -2396,7 +2406,8 @@ def get_inventory_transactions():
                 InventoryEntry,
                 InventoryEntryLineItem.inventory_entry_id == InventoryEntry.id
             ).filter(
-                InventoryTransactionDetail.app_id == app_id
+                InventoryTransactionDetail.app_id == app_id,
+                InventoryTransactionDetail.location_id.in_(user_location_ids)
             )
 
             # Apply filters
@@ -2423,7 +2434,7 @@ def get_inventory_transactions():
 
             # Apply vendor filter (supplier)
             if vendor_id:
-                query = query.filter(InventoryEntry.supplier_id == vendor_id)
+                query = base_query.filter(InventoryEntry.supplier_id == vendor_id)
 
             # Apply handled_by filter (employee who received/dispatched)
             if handled_by_id:
@@ -2622,6 +2633,7 @@ def get_inventory_transactions():
         except Exception as e:
             logger.error(f'Error retrieving inventory transactions: {str(e)}\n{traceback.format_exc()}')
             return jsonify({"error": str(e)}), 500
+
 
 @api_routes.route('/api/user-modules/<int:user_id>')
 @login_required

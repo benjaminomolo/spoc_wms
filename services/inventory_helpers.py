@@ -1,28 +1,27 @@
 import datetime
 import logging
-import math
+import os
+import re
 import traceback
 from decimal import Decimal
 
-from flask import request, render_template, session
+from flask import current_app
+from flask import render_template
 from flask_login import current_user
-from sqlalchemy import func
-
-import re
-
+from sqlalchemy import func, case
 from sqlalchemy.orm import joinedload
 
 from ai import get_or_create_exchange_rate_id, get_exchange_rate, get_base_currency
 from db import Session
+from models import Attachment
 from models import InventoryLocation, Vendor, Project, InventoryItemVariationLink, \
     InventoryCategory, PaymentMode, InventorySubCategory, InventoryItemVariation, InventoryItemAttribute, Brand, \
-    UnitOfMeasurement, Currency, Company, InventoryEntry, ExchangeRate, InventoryEntryLineItem, InventorySummary, \
+    Currency, Company, InventoryEntry, ExchangeRate, InventoryEntryLineItem, InventorySummary, \
     InventoryTransactionDetail, ChartOfAccounts, JournalEntry, Journal, DirectSalesTransaction, UserLocationAssignment, \
     User, Employee
 from services.chart_of_accounts_helpers import update_retained_earnings_opening_balance, \
     reverse_retained_earnings_balance
-
-from utils import generate_unique_lot, create_notification, empty_to_none
+from utils import create_notification, empty_to_none
 from utils_and_helpers.cache_utils import clear_stock_history_cache
 
 logger = logging.getLogger(__name__)
@@ -494,7 +493,13 @@ def render_inventory_entry_form(db_session, app_id, company, role, modules_data,
     subcategories = db_session.query(InventorySubCategory).filter_by(app_id=app_id).all()
     variations = db_session.query(InventoryItemVariation).filter_by(app_id=app_id).all()
     attributes = db_session.query(InventoryItemAttribute).filter_by(app_id=app_id).all()
-    locations = db_session.query(InventoryLocation).filter_by(app_id=app_id).all()
+
+    # FROM Locations - Only locations user has access to (for sending stock)
+    from_locations = get_user_accessible_locations(current_user.id, app_id)
+
+    # TO Locations - ALL locations (for receiving stock - no permission needed)
+    all_locations = db_session.query(InventoryLocation).filter_by(app_id=app_id).all()
+
     brands = db_session.query(Brand).filter_by(app_id=app_id).all()
     employees = db_session.query(Employee).filter_by(app_id=app_id).all()
 
@@ -524,7 +529,8 @@ def render_inventory_entry_form(db_session, app_id, company, role, modules_data,
         subcategories=subcategories,
         inventory_variations=variations,
         inventory_attributes=attributes,
-        locations=locations,
+        from_locations=from_locations,  # For FROM dropdown (user has access)
+        all_locations=all_locations,  # For TO dropdown (all locations)
         brands=brands,
         movement_type=movement_type,
         suppliers=suppliers,
@@ -532,7 +538,6 @@ def render_inventory_entry_form(db_session, app_id, company, role, modules_data,
         currencies=currencies,
         payment_modes=payment_modes,
         title="Inventory Entry"
-
     )
 
 
@@ -986,7 +991,7 @@ def get_current_average_cost(db_session, app_id, item_id, location_id):
 def process_inventory_entries(db_session, app_id, inventory_items, quantities,
                               unit_prices, selling_prices, location, from_location, to_location,
                               transaction_date, supplier_id, form_currency_id, base_currency_id, expiration_date,
-                              reference, write_off_reason, project_id, movement_type, current_user_id,
+                              reference, write_off_reason, project_ids, movement_type, current_user_id,
                               source_type=None, system_quantities=None, adjustments=None,
                               payable_account_id=None, write_off_account_id=None, adjustment_account_id=None,
                               sales_account_id=None, batch_notifications=None, exchange_rate_id=None,
@@ -997,7 +1002,7 @@ def process_inventory_entries(db_session, app_id, inventory_items, quantities,
 
     # Create inventory entry header
     inventory_entry = create_inventory_entry_header(
-        db_session, app_id, transaction_date, supplier_id, current_user_id, expiration_date, project_id, reference,
+        db_session, app_id, transaction_date, supplier_id, current_user_id, expiration_date, reference,
         write_off_reason, source_type, movement_type,
         from_location, to_location, form_currency_id, payable_account_id,
         write_off_account_id, adjustment_account_id, sales_account_id,
@@ -1005,8 +1010,8 @@ def process_inventory_entries(db_session, app_id, inventory_items, quantities,
     )
 
     # Process each line item
-    for idx, (item_id, quantity, form_unit_price, selling_price) in enumerate(zip(
-            inventory_items, quantities, unit_prices, selling_prices), start=1):
+    for idx, (item_id, quantity, form_unit_price, selling_price, project_id) in enumerate(zip(
+            inventory_items, quantities, unit_prices, selling_prices, project_ids), start=1):
         process_single_line_item(
             db_session, app_id, idx, item_id, quantity, form_unit_price, selling_price,
             location, from_location, to_location, transaction_date, supplier_id,
@@ -1021,8 +1026,7 @@ def process_inventory_entries(db_session, app_id, inventory_items, quantities,
 def process_inventory_entries_for_edit(db_session, app_id, inventory_items, quantities,
                                        unit_prices, selling_prices, location, from_location, to_location,
                                        transaction_date, supplier_id, form_currency_id, base_currency_id,
-                                       expiration_date,
-                                       reference, project_id, movement_type, current_user_id,
+                                       expiration_date, reference, project_ids, movement_type, current_user_id,
                                        source_type=None, system_quantities=None, adjustments=None,
                                        payable_account_id=None, write_off_account_id=None, adjustment_account_id=None,
                                        sales_account_id=None, batch_notifications=None, exchange_rate_id=None,
@@ -1035,8 +1039,8 @@ def process_inventory_entries_for_edit(db_session, app_id, inventory_items, quan
     inventory_entry = existing_entry
 
     # Process each line item
-    for idx, (item_id, quantity, form_unit_price, selling_price) in enumerate(zip(
-            inventory_items, quantities, unit_prices, selling_prices), start=1):
+    for idx, (item_id, quantity, form_unit_price, selling_price, project_id) in enumerate(zip(
+            inventory_items, quantities, unit_prices, selling_prices, project_ids), start=1):
         process_single_line_item(
             db_session, app_id, idx, item_id, quantity, form_unit_price, selling_price,
             location, from_location, to_location, transaction_date, supplier_id,
@@ -1049,7 +1053,7 @@ def process_inventory_entries_for_edit(db_session, app_id, inventory_items, quan
 
 
 def create_inventory_entry_header(db_session, app_id, transaction_date, supplier_id, current_user_id,
-                                  expiration_date, project_id, reference, write_off_reason, source_type, movement_type,
+                                  expiration_date, reference, write_off_reason, source_type, movement_type,
                                   from_location, to_location, form_currency_id, payable_account_id,
                                   write_off_account_id, adjustment_account_id, sales_account_id, exchange_rate_id,
                                   source_id, handled_by):
@@ -1070,7 +1074,6 @@ def create_inventory_entry_header(db_session, app_id, transaction_date, supplier
         supplier_id=supplier_id,
         created_by=current_user_id,
         expiration_date=expiration_date,
-        project_id=project_id,
         reference=reference,
         inventory_source=inventory_source,
         source_type=source_type,
@@ -1134,7 +1137,7 @@ def process_single_line_item(db_session, app_id, idx, item_id, quantity, form_un
     line_item = create_line_item(
         db_session, app_id, inventory_entry.id, item_id, form_unit_price,
         selling_price_dec, inventory_quantity, adjustment_amount,
-        system_quantity, final_quantity, movement_type
+        system_quantity, final_quantity, movement_type, project_id
     )
     db_session.flush()  # Ensure line item gets an ID
 
@@ -1150,6 +1153,22 @@ def process_single_line_item(db_session, app_id, idx, item_id, quantity, form_un
             transaction_date, project_id, line_item.id, movement_type, is_posted_to_ledger=is_posted_to_ledger
         )
         line_item.unit_price = unit_cost
+
+    elif movement_type == 'dept_transfer':
+        # Remove from old department
+        process_out_movement(
+            db_session, app_id, item_id, form_currency_id, supplier_id,
+            old_project_id, transaction_date, location, quantity,
+            line_item.id, "out", is_posted_to_ledger
+        )
+
+        # Add to new department (same location)
+        process_in_movement(
+            db_session, app_id, item_id, location, quantity,
+            current_unit_cost, form_currency_id, supplier_id,
+            transaction_date, new_project_id, line_item.id, "in",
+            "dept_transfer", is_posted_to_ledger
+        )
 
     elif movement_type == 'adjustment':
         batch_variation_id, unit_cost = process_adjustment_movement(
@@ -1363,7 +1382,6 @@ def process_out_movement(db_session, app_id, item_id, currency_id, supplier_id, 
     Process OUT movement using average cost method
     """
 
-
     # Get current average cost for the transaction detail
     current_avg_cost = get_current_average_cost(db_session, app_id, item_id, location_id)
 
@@ -1403,7 +1421,7 @@ def process_transfer_movement(db_session, app_id, item_id, from_location_id, to_
 
     # Process OUT from source location
     out_detail_id, _ = process_out_movement(
-        db_session, app_id, item_id, currency_id, supplier_id, None, transaction_date, from_location_id, quantity,
+        db_session, app_id, item_id, currency_id, supplier_id, project_id, transaction_date, from_location_id, quantity,
         inventory_entry_line_item, "out", is_posted_to_ledger
     )
 
@@ -1585,7 +1603,7 @@ def handle_exchange_rate(db_session, movement_type, form_currency_id, base_curre
 def create_line_item(db_session, app_id, inventory_entry_id, item_id,
                      unit_price, selling_price, quantity,
                      adjustment_amount, system_quantity, final_quantity,
-                     movement_type):
+                     movement_type, project_id):
     """Create a line item"""
     line_item = InventoryEntryLineItem(
         inventory_entry_id=inventory_entry_id,
@@ -1597,6 +1615,7 @@ def create_line_item(db_session, app_id, inventory_entry_id, item_id,
         adjustment_amount=float(adjustment_amount) if adjustment_amount and movement_type == 'adjustment' else None,
         system_quantity=float(system_quantity) if system_quantity and movement_type == 'adjustment' else None,
         adjusted_quantity=float(final_quantity) if final_quantity and movement_type == 'adjustment' else None,
+        project_id=project_id if project_id else None
     )
 
     db_session.add(line_item)
@@ -1930,6 +1949,96 @@ def calculate_inventory_quantities(db_session, app_id, item_ids, use_variation_i
         return result
 
 
+def get_stock_by_department_filtered(db_session, app_id, item_ids, location_id, project_id, use_variation_ids=False):
+    """
+    Get stock quantity for a specific department
+    """
+    if not item_ids or not location_id or not project_id:
+        return {}
+
+    # Convert to variation link IDs if needed
+    if not use_variation_ids:
+        variation_link_ids = db_session.query(InventoryItemVariationLink.id).filter(
+            InventoryItemVariationLink.app_id == app_id,
+            InventoryItemVariationLink.inventory_item_id.in_(item_ids)
+        ).all()
+        target_ids = [id[0] for id in variation_link_ids]
+    else:
+        target_ids = item_ids
+
+    if not target_ids:
+        return {}
+
+    # Query transaction details for specific department
+    # Since out is already negative, just SUM directly
+    results = db_session.query(
+        InventoryTransactionDetail.item_id,
+        func.sum(InventoryTransactionDetail.quantity).label('available_quantity')
+    ).filter(
+        InventoryTransactionDetail.app_id == app_id,
+        InventoryTransactionDetail.item_id.in_(target_ids),
+        InventoryTransactionDetail.location_id == location_id,
+        InventoryTransactionDetail.project_id == project_id
+    ).group_by(
+        InventoryTransactionDetail.item_id
+    ).all()
+
+    return {row.item_id: float(row.available_quantity) for row in results}
+
+
+def get_stock_by_department_breakdown(db_session, app_id, item_ids, location_id, use_variation_ids=False):
+    """
+    Get stock quantities grouped by department for transfer form
+    """
+    if not item_ids or not location_id:
+        return None
+
+    # Convert to variation link IDs if needed
+    if not use_variation_ids:
+        variation_link_ids = db_session.query(InventoryItemVariationLink.id).filter(
+            InventoryItemVariationLink.app_id == app_id,
+            InventoryItemVariationLink.inventory_item_id.in_(item_ids)
+        ).all()
+        target_ids = [id[0] for id in variation_link_ids]
+    else:
+        target_ids = item_ids
+
+    if not target_ids:
+        return None
+
+    # Query transaction details grouped by department
+    # Since out is already negative, just SUM directly
+    results = db_session.query(
+        InventoryTransactionDetail.item_id,
+        Project.id.label('project_id'),
+        Project.name.label('project_name'),
+        func.sum(InventoryTransactionDetail.quantity).label('available_quantity')
+    ).join(
+        Project, InventoryTransactionDetail.project_id == Project.id
+    ).filter(
+        InventoryTransactionDetail.app_id == app_id,
+        InventoryTransactionDetail.item_id.in_(target_ids),
+        InventoryTransactionDetail.location_id == location_id,
+        Project.is_active == True
+    ).group_by(
+        InventoryTransactionDetail.item_id, Project.id, Project.name
+    ).having(
+        func.sum(InventoryTransactionDetail.quantity) != 0
+    ).all()
+
+    # Format response for frontend
+    departments = []
+    for row in results:
+        departments.append({
+            'item_id': row.item_id,
+            'project_id': row.project_id,
+            'project_name': row.project_name,
+            'available_quantity': float(row.available_quantity)
+        })
+
+    return departments
+
+
 def _map_variation_to_item_ids(db_session, app_id, variation_results):
     """
     Helper function to map variation link IDs back to inventory item IDs
@@ -2108,7 +2217,8 @@ def _map_variation_to_item_ids_with_cost(db_session, app_id, variation_results):
 
     # Check if results are location-grouped
     first_value = next(iter(variation_results.values())) if variation_results else None
-    is_location_grouped = isinstance(first_value, dict) and first_value and isinstance(next(iter(first_value.values())), dict)
+    is_location_grouped = isinstance(first_value, dict) and first_value and isinstance(next(iter(first_value.values())),
+                                                                                       dict)
 
     result = {}
 
@@ -2157,6 +2267,7 @@ def _map_variation_to_item_ids_with_cost(db_session, app_id, variation_results):
             }
 
     return result
+
 
 def get_weighted_average_cost(db_session, app_id, item_id, location_id=None, base_currency_id=None):
     """
@@ -2280,6 +2391,7 @@ def get_last_purchase_price(db_session, app_id, item_id, base_currency_id=None):
     except Exception as e:
         logger.error(f"Error getting last purchase price: {e}")
         return None
+
 
 def calculate_inventory_valuation(db_session, app_id, item_ids=None, use_variation_ids=False, **kwargs):
     """
@@ -2490,7 +2602,6 @@ def reverse_inventory_entry(db_session, inventory_entry):
     Reverse an inventory entry by deleting all related transactions and line items
     """
 
-    from services.post_to_ledger_reversal import reverse_inventory_posting
 
     try:
         total_reversed_cost = 0
@@ -2502,10 +2613,6 @@ def reverse_inventory_entry(db_session, inventory_entry):
             for transaction_detail in line_item.inventory_transaction_details:
                 if transaction_detail.is_posted_to_ledger:
                     transaction_detail_ids.append(transaction_detail.id)
-        if transaction_detail_ids:
-            ledger_reverse_result = reverse_inventory_posting(db_session, transaction_detail_ids, current_user)
-            if not ledger_reverse_result['success']:
-                raise Exception(f"Failed to reverse ledger transactions: {ledger_reverse_result['message']}")
 
         # First pass: collect all reversal data AND delete properly
         for line_item in inventory_entry.line_items:
@@ -2542,15 +2649,6 @@ def reverse_inventory_entry(db_session, inventory_entry):
                 item['total_cost']
             )
 
-        # ✅ Reverse retained earnings only if it's an opening balance (do it once)
-
-        if inventory_entry.inventory_source == "opening_balance":
-            reverse_retained_earnings_balance(
-                db_session=db_session,
-                app_id=inventory_entry.app_id,
-                reversal_amount=total_reversed_cost,  # Use the total
-                user_id=current_user.id
-            )
 
         # Commit the deletions
         db_session.flush()
@@ -2618,7 +2716,13 @@ def render_edit_inventory_entry_form(db_session, app_id, company, role, modules_
     subcategories = db_session.query(InventorySubCategory).filter_by(app_id=app_id).all()
     variations = db_session.query(InventoryItemVariation).filter_by(app_id=app_id).all()
     attributes = db_session.query(InventoryItemAttribute).filter_by(app_id=app_id).all()
-    locations = db_session.query(InventoryLocation).filter_by(app_id=app_id).all()
+
+    # FROM Locations - Only locations user has access to
+    from_locations = get_user_accessible_locations(current_user.id, app_id)
+
+    # TO Locations - ALL locations
+    all_locations = db_session.query(InventoryLocation).filter_by(app_id=app_id).all()
+
     brands = db_session.query(Brand).filter_by(app_id=app_id).all()
     vendor_types = ['vendor', 'vendors', 'supplier', 'suppliers', 'seller', 'sellers', 'customer', 'customers']
     vendor_types = [v.lower() for v in vendor_types]
@@ -2634,7 +2738,14 @@ def render_edit_inventory_entry_form(db_session, app_id, company, role, modules_
     )
     currencies = db_session.query(Currency).filter_by(app_id=app_id).order_by(Currency.currency_index).all()
 
-    # Prepare edit data
+    # Get existing attachments for this inventory entry
+    from models import Attachment
+    attachments = db_session.query(Attachment).filter_by(
+        record_type='inventory_entry',
+        record_id=inventory_entry.id
+    ).all()
+
+    # Prepare edit data (same as before)
     edit_data = {
         'movement_type': inventory_entry.inventory_source,
         'movement_direction': inventory_entry.stock_movement,
@@ -2644,7 +2755,7 @@ def render_edit_inventory_entry_form(db_session, app_id, company, role, modules_
         'supplier_id': inventory_entry.supplier_id,
         'expiration_date': inventory_entry.expiration_date.strftime(
             '%Y-%m-%d') if inventory_entry.expiration_date else '',
-        'project_id': inventory_entry.project_id,
+
         'reference': inventory_entry.reference,
         'notes': inventory_entry.notes,
         'from_location': inventory_entry.from_location,
@@ -2664,7 +2775,8 @@ def render_edit_inventory_entry_form(db_session, app_id, company, role, modules_
                 'selling_price': line.selling_price,
                 'system_quantity': line.system_quantity,
                 'adjustment_amount': line.adjustment_amount,
-                'adjusted_quantity': line.adjusted_quantity
+                'adjusted_quantity': line.adjusted_quantity,
+                'project_id': line.project_id,
             }
             for line in inventory_entry.line_items
         ]
@@ -2681,7 +2793,8 @@ def render_edit_inventory_entry_form(db_session, app_id, company, role, modules_
         subcategories=subcategories,
         inventory_variations=variations,
         inventory_attributes=attributes,
-        locations=locations,
+        from_locations=from_locations,
+        all_locations=all_locations,
         brands=brands,
         suppliers=suppliers,
         currencies=currencies,
@@ -2689,6 +2802,7 @@ def render_edit_inventory_entry_form(db_session, app_id, company, role, modules_
         edit_data=edit_data,
         inventory_entry=inventory_entry,
         employees=employees,
+        attachments=attachments,  # ← ADD THIS
         title="Edit Inventory Entry"
     )
 
@@ -2715,6 +2829,7 @@ def get_inventory_entry_with_details(db_session, entry_id, app_id, lock=False):
         query = query.with_for_update()
 
     return query.first()
+
 
 def get_retained_earnings_account(db_session, app_id, user_id=None):
     """
@@ -2811,19 +2926,35 @@ def suggest_next_pos_order_reference(db_session):
 
 
 def assign_user_to_location(user_id, location_id, app_id, assigned_by, role='staff'):
-    """Assign a user to a location"""
+    """Assign a user to a location - update if exists, create if not"""
     with Session() as db_session:
-        assignment = UserLocationAssignment(
+        # Check if assignment already exists
+        existing_assignment = db_session.query(UserLocationAssignment).filter_by(
             user_id=user_id,
             location_id=location_id,
-            app_id=app_id,
-            assigned_by=assigned_by,
-            role_at_location=role,
-            is_active=True
-        )
-        db_session.add(assignment)
-        db_session.commit()
-        return assignment
+            app_id=app_id
+        ).first()
+
+        if existing_assignment:
+            # Update existing record
+            existing_assignment.is_active = True
+            existing_assignment.role_at_location = role
+            existing_assignment.assigned_by = assigned_by
+            db_session.commit()
+            return existing_assignment
+        else:
+            # Create new record
+            assignment = UserLocationAssignment(
+                user_id=user_id,
+                location_id=location_id,
+                app_id=app_id,
+                assigned_by=assigned_by,
+                role_at_location=role,
+                is_active=True
+            )
+            db_session.add(assignment)
+            db_session.commit()
+            return assignment
 
 
 def get_user_accessible_locations(user_id, app_id):
@@ -2948,7 +3079,6 @@ def safe_clear_stock_history_cache(logger=None):
         # Don't raise the exception — allow main operation to continue
 
 
-
 def get_item_details(item):
     """Returns (item_name_with_variation, description) with guaranteed fallbacks"""
     # Primary path - when item_name exists
@@ -2997,10 +3127,101 @@ def get_item_details(item):
 
             return (
                 full_name,
-                inv_item.item_description if hasattr(inv_item, 'item_description') and inv_item.item_description else "-"
+                inv_item.item_description if hasattr(inv_item,
+                                                     'item_description') and inv_item.item_description else "-"
             )
     except AttributeError:
         pass
 
     # Final fallback
     return "-", "-"
+
+
+def process_attachments(request, record_type, record_id, current_user_id, db_session, existing_attachments=None):
+    """
+    Process attachments for a record (inventory_entry, asset_movement, etc.)
+
+    Args:
+        request: The Flask request object
+        record_type: String - 'inventory_entry', 'asset_movement', etc.
+        record_id: Integer - The ID of the record to attach files to
+        current_user_id: Integer - ID of the user uploading
+        db_session: The database session (passed from the route)
+        existing_attachments: List of existing Attachment objects (for edit mode)
+
+    Returns:
+        tuple: (new_attachments_count, deleted_attachments_count)
+    """
+    new_count = 0
+    deleted_count = 0
+
+    try:
+        # Handle deleted attachments (for edit mode)
+        deleted_ids = request.form.get('deleted_attachments', '')
+        if deleted_ids:
+            deleted_ids_list = [int(id) for id in deleted_ids.split(',') if id.strip().isdigit()]
+            for attachment_id in deleted_ids_list:
+                attachment = db_session.query(Attachment).filter_by(id=attachment_id).first()
+                if attachment and attachment.record_type == record_type and attachment.record_id == record_id:
+                    # Delete the physical file
+                    if os.path.exists(attachment.file_path):
+                        os.remove(attachment.file_path)
+                    # Delete the database record
+                    db_session.delete(attachment)
+                    deleted_count += 1
+
+        # Handle new attachments
+        uploaded_files = request.files.getlist('attachments[]')
+        attachment_descriptions = request.form.getlist('attachment_description[]')
+
+        # Create upload directory if it doesn't exist
+        upload_folder = current_app.config['UPLOAD_FOLDER_ATTACHMENTS']
+        os.makedirs(upload_folder, exist_ok=True)
+
+        for index, file in enumerate(uploaded_files):
+            if file and file.filename:
+                # Check file size (max 10MB)
+                file.seek(0, 2)
+                file_size = file.tell()
+                file.seek(0)
+
+                if file_size > 10 * 1024 * 1024:
+                    current_app.logger.warning(f"File {file.filename} exceeds 10MB limit. Skipped.")
+                    continue
+
+                # Generate unique filename
+                timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+                unique_filename = f"{record_type}_{record_id}_{timestamp}_{file.filename}"
+
+                # Save file
+                file_path = os.path.join(upload_folder, unique_filename)
+                file.save(file_path)
+
+                # Get file extension
+                file_ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+
+                # Get description
+                description = attachment_descriptions[index] if index < len(attachment_descriptions) else ''
+
+                # Create attachment record (NO commit here)
+                attachment = Attachment(
+                    record_type=record_type,
+                    record_id=record_id,
+                    filename=unique_filename,
+                    original_filename=file.filename,
+                    file_path=file_path,
+                    file_size=file_size,
+                    file_type=file_ext,
+                    description=description,
+                    uploaded_by=current_user_id
+                )
+                db_session.add(attachment)
+                new_count += 1
+
+        # NO commit here - let the main route handle it
+
+    except Exception as e:
+        current_app.logger.error(f"Error processing attachments: {str(e)}")
+        raise
+
+    return new_count, deleted_count

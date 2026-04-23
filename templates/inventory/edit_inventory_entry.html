@@ -455,7 +455,7 @@
                 {% else %}Stock Movement
                 {% endif %}
             </h1>
-            <form id="inventoryForm" method="post" autocomplete="off">
+            <form id="inventoryForm" method="post" autocomplete="off" enctype="multipart/form-data">
                 <!-- Basic Information Section -->
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" id="version" name="version" value="{{ edit_data.version }}">
@@ -556,10 +556,11 @@
 
 
                         <!-- From Location (for transfers) or Main Location (for others) -->
+                        <!-- FROM Location - Only shows locations user has access to -->
                         <div class="form-group">
                             <select id="location" name="location" required>
                                 <option value=""></option>
-                                {% for location in locations %}
+                                {% for location in from_locations %}
                                 <option value="{{ location.id }}" {% if ( edit_data.movement_type=='transfer' and
                                     edit_data.from_location==location.id ) or ( edit_data.movement_direction=='in' and
                                     edit_data.to_location==location.id ) or ( edit_data.movement_direction=='out' and
@@ -567,9 +568,11 @@
                                     {{ location.location }}
                                 </option>
                                 {% endfor %}
+                                {% if role == 'Admin' %}
                                 <option value="add_new_location">Add new location...</option>
+                                {% endif %}
                             </select>
-                            <label for="location">
+                            <label for="location" id="location_label">
                                 {% if edit_data.movement_type == 'transfer' %}
                                 From Location
                                 {% else %}
@@ -617,17 +620,18 @@
 
 
                         <!-- To Location (only for transfers) -->
+                        <!-- TO Location - Shows ALL locations (for receiving) -->
                         <div class="form-group conditional-field" id="to_location_group">
-                            <label for="to_location">To Location:</label>
                             <select id="to_location" name="to_location">
                                 <option value=""></option>
-                                {% for location in locations %}
+                                {% for location in all_locations %}
                                 <option value="{{ location.id }}" {% if edit_data.to_location==location.id %}selected{%
                                     endif %}>
                                     {{ location.location }}
                                 </option>
                                 {% endfor %}
                             </select>
+                            <label for="to_location" id="to_location_label">To Location:</label>
                         </div>
 
                     </div>
@@ -734,14 +738,14 @@
 
 
                                     <div class="conditional-field price-container">
-                                        <div class="form-group unit-price-group">
+                                        <div class="form-group unit-price-group" style="display: none;">
                                             <label for="unit_price">Unit Price</label>
                                             <input type="text" name="unit_price[]"
                                                 value="{% if edit_data.movement_type == 'sale' %}{{ line_item.selling_price or 0 }}{% else %}{{ line_item.unit_price or 0 }}{% endif %}"
                                                 required autocomplete="off">
                                         </div>
 
-                                        <div class="form-group selling-price-group">
+                                        <div class="form-group selling-price-group" style="display: none;">
                                             <label for="selling_price">Selling Price (Optional)</label>
                                             <input type="text" name="selling_price[]"
                                                 value="{{ line_item.selling_price or '' }}" autocomplete="off">
@@ -749,7 +753,18 @@
                                     </div>
                                 </div>
 
-
+                                <div class="form-group">
+                                    <label for="project_id">Department</label>
+                                    <select name="project_id[]" class="project-dropdown form-select2">
+                                        <option value="">Select Department</option>
+                                        {% for project in projects %}
+                                        <option value="{{ project.id }}" {% if line_item.project_id==project.id
+                                            %}selected{% endif %}>
+                                            {{ project.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
                             </div>
                             {% endfor %}
                         </div>
@@ -783,19 +798,62 @@
                         </select>
                     </div>
 
-                    <!-- Project Dropdown -->
-                    <div class="form-group">
-                        <select id="project_id" name="project_id">
-                            <option value=""></option>
-                            {% for project in projects %}
-                            <option value="{{ project.id }}" {% if edit_data.project_id==project.id %}selected{% endif
-                                %}>
-                                {{ project.name }} - {{ project.project_id }}
-                            </option>
+
+
+
+                    <!-- Attachments Section -->
+                    <div class="form-section">
+                        <h2>Attachments</h2>
+
+                        <!-- Existing Attachments -->
+                        {% if attachments %}
+                        <div id="existingAttachmentsContainer">
+                            <h4>Current Attachments</h4>
+                            {% for attachment in attachments %}
+                            <div class="existing-attachment-item" data-attachment-id="{{ attachment.id }}">
+                                <div class="attachment-info">
+                                    <i class="fas fa-paperclip"></i>
+                                    <a href="{{ url_for('inventory.serve_attachment', attachment_id=attachment.id) }}"
+                                        target="_blank">
+                                        {{ attachment.original_filename }}
+                                    </a>
+                                    <span class="attachment-size">({{ attachment.file_size_display }})</span>
+                                    <span class="attachment-description">{{ attachment.description or 'No description'
+                                        }}</span>
+                                    <button type="button" class="button remove-button remove-existing-attachment"
+                                        data-attachment-id="{{ attachment.id }}">
+                                        <i class="fas fa-trash"></i> Remove
+                                    </button>
+                                </div>
+                                <hr>
+                            </div>
                             {% endfor %}
-                        </select>
-                        <label for="project">Project:</label>
+                        </div>
+                        {% endif %}
+
+                        <!-- New Attachments Upload -->
+                        <div id="newAttachmentsContainer">
+                            <div class="attachment-item form-group">
+                                <label>Add New Document</label>
+                                <input type="file" name="attachments[]" class="attachment-file"
+                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                <input type="text" name="attachment_description[]" class="form-control mt-2"
+                                    placeholder="Description (e.g., Invoice, Delivery Note, Waybill)"
+                                    style="width: 100%;">
+                                <button type="button" class="button remove-button remove-attachment"
+                                    style="margin-top: 8px;">Remove</button>
+                                <hr>
+                            </div>
+                        </div>
+                        <button type="button" id="addAttachmentBtn" class="button add-button" style="margin-top: 10px;">
+                            <i class="fas fa-plus"></i> Add Another Document
+                        </button>
+                        <small class="text-muted" style="display: block; margin-top: 8px;">
+                            Supported formats: PDF, JPG, PNG, DOC, DOCX. Max file size: 10MB per file.
+                        </small>
                     </div>
+
+                    <input type="hidden" id="deleted_attachments" name="deleted_attachments" value="">
 
                 </div>
 
@@ -2101,18 +2159,13 @@
         // Add Line Item Functionality 
         document.getElementById('addLineItem').addEventListener('click', function () {
             const lineItemsContainer = document.getElementById('lineItemsContainer');
-
-            // Create a new line item with unique name attributes
             const lineItemNumber = lineItemsContainer.querySelectorAll('.line-item').length + 1;
             const lineItem = document.createElement('div');
             lineItem.classList.add('line-item');
 
-            // Generate unique IDs for the inputs to avoid duplication
-            const uniqueId = Date.now() + Math.random().toString(36).substr(2, 5);
-
             lineItem.innerHTML = `
         <div class="line-item-header">
-           <h3>Line Item (${lineItemNumber})</h3>
+            <h3>Line Item (${lineItemNumber})</h3>
             <button type="button" class="remove-line-item button remove-button">Remove</button>
         </div>
 
@@ -2128,8 +2181,8 @@
         
         <div class="form-row">
             <div class="form-group">
-                <label for="quantity_${uniqueId}">Quantity</label>
-                <input type="text" name="quantity[]" id="quantity_${uniqueId}" required autocomplete="off">
+                <label for="quantity">Quantity</label>
+                <input type="text" name="quantity[]" required autocomplete="off">
                 <div class="adjustment-display conditional-field" style="display: none;">
                     <div class="badge bg-info">
                         <span class="adjustment-info">System: 0 | Adjustment: 0</span>
@@ -2139,64 +2192,86 @@
             </div>
 
             <div class="form-group">
-                <label for="uom_${uniqueId}">Unit of Measurement</label>
+                <label for="uom">Unit of Measurement</label>
                 <div class="uom-display">
                     <input type="text" class="uom-readonly" readonly placeholder="Select an item first">
                     <input type="hidden" name="uom[]" class="uom-hidden">
                 </div>
             </div>
-                    
+
+            <!-- Department per line item -->
+            <div class="form-group">
+                <label for="project_id">Department</label>
+                <select name="project_id[]" class="project-dropdown form-select2">
+                    <option value="">Select Department</option>
+                    {% for project in projects %}
+                    <option value="{{ project.id }}">{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <div class="conditional-field price-container">
                 <div class="form-group unit-price-group">
-                    <label for="unit_price_${uniqueId}">Unit Price</label>
-                    <input type="text" name="unit_price[]" id="unit_price_${uniqueId}" required autocomplete="off">
+                    <label for="unit_price">Unit Price</label>
+                    <input type="text" name="unit_price[]" required autocomplete="off">
                 </div>
                 <div class="form-group selling-price-group">
-                    <label for="selling_price_${uniqueId}">Selling Price (Optional)</label>
-                    <input type="text" name="selling_price[]" id="selling_price_${uniqueId}" autocomplete="off">
+                    <label for="selling_price">Selling Price (Optional)</label>
+                    <input type="text" name="selling_price[]" autocomplete="off">
                 </div>
             </div>
-        </div>
-      
-        <div class="line-item-total conditional-field" style="display:none;">
-            Line Item Total: <span class="line-item-total-amount">0.00</span>
         </div>
     `;
 
             lineItemsContainer.appendChild(lineItem);
+
+            // Initialize Select2 for project dropdown
+            $(lineItem).find('.project-dropdown').select2({
+                width: '100%',
+                placeholder: "Select Department",
+                allowClear: true
+            });
 
             // Clear input fields after adding a line item
             lineItem.querySelector('input[name="quantity[]"]').value = '';
             lineItem.querySelector('input[name="unit_price[]"]').value = '';
             lineItem.querySelector('input[name="selling_price[]"]').value = '';
 
-            // Add event listeners to quantity and unit price fields
-            const quantityInput = lineItem.querySelector('input[name="quantity[]"]');
-            const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
-
-            quantityInput.addEventListener('input', function () {
-
+            // Add event listeners
+            lineItem.querySelector('input[name="quantity[]"]').addEventListener('input', function () {
+                updateSummary();
+            });
+            lineItem.querySelector('input[name="unit_price[]"]').addEventListener('input', function () {
                 updateSummary();
             });
 
-
-            // Initialize Select2 for the new dropdown
             const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
             $(inventoryDropdown).select2({ width: '100%' });
 
-            // Update summary
             updateSummary();
 
-            // Update line items based on movement type
             const movementType = document.getElementById('movement_type').value;
             updateLineItemsForMovementType(movementType);
 
-            // Setup adjustment event listeners if needed
-            if (movementType === 'adjustment') {
-                setupAdjustmentEventListeners(lineItem);
+            const newLineItem = lineItemsContainer.lastElementChild;
+            setupAdjustmentEventListeners(newLineItem);
+
+            if (movementType === 'adjustment' || movementType === 'transfer') {
+                const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
+                const sellingPriceInput = lineItem.querySelector('input[name="selling_price[]"]');
+
+                if (unitPriceInput) {
+                    unitPriceInput.value = '0';
+                    unitPriceInput.readOnly = true;
+                    unitPriceInput.removeAttribute('required');
+                }
+                if (sellingPriceInput) {
+                    sellingPriceInput.value = '0';
+                    sellingPriceInput.readOnly = true;
+                    sellingPriceInput.removeAttribute('required');
+                }
             }
         });
-
 
         // Single event delegation handler for all inventory dropdowns
         // Use jQuery delegated event for Select2
@@ -2474,6 +2549,7 @@
 
 
             // New function to handle form submission with different actions
+            // New function to handle form submission with different actions
             function processFormSubmission(action) {
                 const movementType = document.getElementById('movement_type').value;
                 const form = document.getElementById('inventoryForm');
@@ -2486,56 +2562,65 @@
 
                 // Validate the form
                 if (!validateForm()) {
-                    enableAllSubmitButtons(); // Re-enable if validation fails
+                    enableAllSubmitButtons();
                     return;
                 }
 
-                // Prepare form data manually (do not initialize from the form)
+                // Prepare form data manually
                 const formData = new FormData();
 
                 // Add the entry_id to the form data for the edit operation
                 formData.append('entry_id', '{{ inventory_entry.id }}');
 
-                // If supplier_id is empty, ensure supplier_name is included
+                // ===== GET PROJECT DROPDOWNS BEFORE THE LOOP =====
+                const projectSelects = document.querySelectorAll('select[name="project_id[]"]');
+
+                // ===== APPEND DELETED ATTACHMENTS =====
+                const deletedAttachments = document.getElementById('deleted_attachments')?.value;
+                if (deletedAttachments) {
+                    formData.append('deleted_attachments', deletedAttachments);
+                }
+
+                // ===== APPEND NEW ATTACHMENTS =====
+                const attachmentFiles = document.querySelectorAll('#newAttachmentsContainer .attachment-file');
+                const attachmentDescriptions = document.querySelectorAll('#newAttachmentsContainer input[name="attachment_description[]"]');
+
+                attachmentFiles.forEach((fileInput, index) => {
+                    if (fileInput.files.length > 0) {
+                        formData.append(`attachments[]`, fileInput.files[0]);
+                        const description = attachmentDescriptions[index] ? attachmentDescriptions[index].value : '';
+                        formData.append(`attachment_description[]`, description);
+                    }
+                });
+
+                // ===== HANDLE SUPPLIER =====
                 const hiddensupplierId = document.getElementById('supplier_id');
                 const supplierInput = document.getElementById('supplier_name');
 
                 if (!hiddensupplierId.value) {
                     formData.append('supplier_name', supplierInput.value.trim());
-                    hiddensupplierId.value = supplierInput.value.trim(); // Ensure supplier_id is set to supplierInput value
+                    hiddensupplierId.value = supplierInput.value.trim();
                     console.log(`Appended supplier_name: ${supplierInput.value.trim()}`);
                 }
 
-                // Append static form fields
+                // ===== APPEND STATIC FORM FIELDS =====
                 const staticFields = [
-                    // Basic Information
                     'reference',
                     'transaction_date',
                     'movement_type',
                     'source_type',
-                    'write_off_reason',  // ← ADD THIS LINE
-
-                    // Supplier Information
+                    'write_off_reason',
                     'supplier_id',
                     'is_one_time',
-
-                    // Location Information
                     'location',
-                    'to_location',             // For transfers
-
-                    // Currency and Payment
+                    'to_location',
                     'currency',
                     'payment_mode',
                     'amount_paid',
-
-                    // Accounting Information
                     'funding_account',
                     'payable_account',
                     'adjustment_account',
                     'sales_account',
-
-                    // Additional Details
-                    'project_id',
                     'expiration_date',
                     'version',
                     'handled_by'
@@ -2549,41 +2634,30 @@
                     }
                 });
 
-                // Process each line item and store the data in the array
-                let lineItems = [];
-
+                // ===== PROCESS EACH LINE ITEM WITH PROJECT ID =====
                 document.querySelectorAll('.line-item').forEach((row, index) => {
                     try {
                         console.log(`Processing Line Item ${index + 1}:`, row);
 
-                        const inventoryItem = row.querySelector('.inventory-dropdown').value || '';
-                        console.log(`Inventory Item: ${inventoryItem}`);
+                        const inventoryItem = row.querySelector('.inventory-dropdown')?.value || '';
+                        const quantity = parseFloat(row.querySelector('input[name="quantity[]"]')?.value) || 0;
+                        const uom = row.querySelector('input[name="uom[]"]')?.value || '';
+                        const unitPrice = parseFloat(row.querySelector('input[name="unit_price[]"]')?.value) || 0;
+                        const sellingPrice = parseFloat(row.querySelector('input[name="selling_price[]"]')?.value) || 0;
 
-                        const quantity = parseFloat(row.querySelector('input[name="quantity[]"]').value) || 0;
-                        console.log(`Quantity: ${quantity}`);
+                        // Get project ID from the pre-fetched projectSelects array
+                        const projectId = projectSelects[index] ? projectSelects[index].value : '';
 
-                        const uom = row.querySelector('input[name="uom[]"]').value || '';
-
-                        const unitPrice = parseFloat(row.querySelector('input[name="unit_price[]"]').value) || 0;
-                        console.log(`Unit Price: ${unitPrice}`);
-
-                        const sellingPrice = parseFloat(row.querySelector('input[name="selling_price[]"]').value) || 0;
-                        console.log(`Selling Price: ${sellingPrice}`);
-
-                        // Append line item data to the FormData object
                         formData.append(`inventory_item[]`, inventoryItem);
                         formData.append(`quantity[]`, quantity);
                         formData.append(`uom[]`, uom);
                         formData.append(`unit_price[]`, unitPrice);
                         formData.append(`selling_price[]`, sellingPrice);
+                        formData.append(`project_id[]`, projectId);
 
-                        // For adjustments, include system quantity and adjustment amount
                         if (movementType === 'adjustment') {
                             const systemQuantity = row.dataset.systemQuantity || 0;
                             const adjustment = row.dataset.adjustment || 0;
-
-                            console.log(`Line ${index + 1} - System: ${systemQuantity}, Adjustment: ${adjustment}`);
-
                             formData.append(`adjustment[]`, adjustment);
                             formData.append(`system_quantity[]`, systemQuantity);
                         }
@@ -2599,7 +2673,7 @@
                     console.log(`${pair[0]}: ${pair[1]}`);
                 }
 
-                // Use the correct URL for editing - this is the key change!
+                // Use the correct URL for editing
                 const editUrl = "{{ url_for('inventory.edit_inventory_entry', entry_id=inventory_entry.id) }}";
 
                 // Send the form data to the server
@@ -2615,11 +2689,9 @@
                         if (data.status === 'success') {
                             showNotification('Inventory updated successfully!', 'success');
 
-                            // Handle different actions
                             if (action === 'save-exit') {
-                                window.location.href = '/inventory/stock_movement_history'; // Redirect to inventory entries page
+                                window.location.href = '/inventory/stock_movement_history';
                             } else if (action === 'save-new') {
-                                // For edit form, "save and new" might not make sense, but you can redirect to create new
                                 window.location.href = "{{ url_for('inventory.inventory_entry') }}";
                             }
 
@@ -2634,12 +2706,12 @@
                         showNotification('There was an issue updating your inventory. Please try again later.', 'error');
                         enableAllSubmitButtons();
                     }).finally(() => {
-                        // Clear the timeout
                         if (window.submissionTimeout) {
                             clearTimeout(window.submissionTimeout);
                         }
                     });
             }
+
             // Function to reset form for new entry
             function resetFormForNewEntry() {
                 // Store movement type before reset
@@ -2977,26 +3049,37 @@
         function updateAvailableQuantity(lineItem) {
             const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
             const stockDisplay = lineItem.querySelector('.stock-display');
-
-            if (!inventoryDropdown || !stockDisplay) {
-                return; // Exit if elements don't exist
-            }
-
-            // Get the selected inventory item ID
-            const inventoryItemId = $(inventoryDropdown).val();
+            const movementType = document.getElementById('movement_type').value;
             const locationId = document.getElementById('location').value;
 
-            // Clear display if selections aren't complete
+            if (!inventoryDropdown || !stockDisplay) {
+                return;
+            }
+
+            const inventoryItemId = $(inventoryDropdown).val();
+
             if (!inventoryItemId || !locationId) {
                 stockDisplay.innerHTML = '<div class="badge bg-secondary">Select item and location</div>';
                 return;
             }
 
+            // Get selected department for ALL movement types
+            let departmentId = null;
+            const departmentSelect = lineItem.querySelector('.project-dropdown');
+            if (departmentSelect) {
+                departmentId = $(departmentSelect).val();
+            }
+
             // Show loading state
             stockDisplay.innerHTML = '<div class="stock-loading">Checking stock...</div>';
 
-            // Fetch available quantity using the existing api_inventory_stock endpoint
-            fetch(`/api/inventory_stock?item_ids[]=${inventoryItemId}&location_id=${locationId}&include_negative=true&use_variation_ids=true`)
+            // Build URL with optional department filter
+            let url = `/api/inventory_stock?item_ids[]=${inventoryItemId}&location_id=${locationId}&include_negative=true&use_variation_ids=true`;
+            if (departmentId) {
+                url += `&project_id=${departmentId}`;
+            }
+
+            fetch(url)
                 .then((response) => {
                     if (!response.ok) throw new Error("Network response was not ok");
                     return response.json();
@@ -3006,18 +3089,27 @@
                         throw new Error(data.message || 'Failed to fetch stock data');
                     }
 
-                    // Extract available quantity from the response
-                    // The response structure is: {stock_data: {item_id: quantity}}
-                    const availableQty = data.stock_data[inventoryItemId] || 0;
+                    let availableQty = data.stock_data[inventoryItemId] || 0;
                     let badgeClass = 'bg-info';
                     let warningText = '';
 
+                    // Show department breakdown for ALL movement types when no department selected
+                    if (!departmentId && data.departments && data.departments.length > 0) {
+                        let deptHtml = '<div class="dept-breakdown"><small>Available by department:</small><ul style="margin: 5px 0 0 15px; padding: 0;">';
+                        data.departments.forEach(dept => {
+                            deptHtml += `<li>${dept.project_name}: ${dept.available_quantity}</li>`;
+                        });
+                        deptHtml += '</ul></div>';
+                        stockDisplay.innerHTML = deptHtml;
+                        return;
+                    }
+
                     if (availableQty < 0) {
-                        badgeClass = 'bg-danger';       // red badge
+                        badgeClass = 'bg-danger';
                         warningText = ' (Negative stock!)';
                         showNotification(`⚠️ Warning: Stock for this item is negative (${availableQty}). Please review inventory adjustments.`, 'error');
                     } else if (availableQty === 0) {
-                        badgeClass = 'bg-warning';      // yellow badge
+                        badgeClass = 'bg-warning';
                         warningText = ' (Out of stock)';
                     }
 
@@ -3032,6 +3124,7 @@
                     stockDisplay.innerHTML = '<div class="badge bg-danger">Error loading quantity</div>';
                 });
         }
+
         // Add event listeners for inventory dropdown changes
         $(document).on('select2:select', '.inventory-dropdown', function (e) {
             const lineItem = this.closest('.line-item');
@@ -3087,5 +3180,84 @@
 
         // // Update Summary Section on initial load
         updateSummary();
+
+
+
+        // Attachments functionality for edit form
+        document.addEventListener('DOMContentLoaded', function () {
+            // Track deleted attachment IDs
+            let deletedAttachmentIds = [];
+
+            // Add new attachment row
+            document.getElementById('addAttachmentBtn').addEventListener('click', function () {
+                const container = document.getElementById('newAttachmentsContainer');
+                const attachmentCount = container.querySelectorAll('.attachment-item').length + 1;
+
+                const newAttachment = document.createElement('div');
+                newAttachment.classList.add('attachment-item', 'form-group');
+                newAttachment.innerHTML = `
+            <label>Add New Document ${attachmentCount}</label>
+            <input type="file" name="attachments[]" class="attachment-file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+            <input type="text" name="attachment_description[]" class="form-control mt-2" placeholder="Description (e.g., Invoice, Delivery Note, Waybill)" style="width: 100%;">
+            <button type="button" class="button remove-button remove-attachment" style="margin-top: 8px;">Remove</button>
+            <hr>
+        `;
+                container.appendChild(newAttachment);
+
+                // Add remove event listener to the new button
+                newAttachment.querySelector('.remove-attachment').addEventListener('click', function () {
+                    newAttachment.remove();
+                    // Renumber labels
+                    document.querySelectorAll('#newAttachmentsContainer .attachment-item').forEach((item, idx) => {
+                        const label = item.querySelector('label');
+                        if (label) {
+                            label.textContent = `Add New Document ${idx + 1}`;
+                        }
+                    });
+                });
+            });
+
+            // Remove existing attachments
+            document.querySelectorAll('.remove-existing-attachment').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const attachmentId = this.dataset.attachmentId;
+                    const attachmentItem = this.closest('.existing-attachment-item');
+
+                    // Add to deleted list
+                    deletedAttachmentIds.push(attachmentId);
+                    document.getElementById('deleted_attachments').value = deletedAttachmentIds.join(',');
+
+                    // Remove from UI
+                    attachmentItem.remove();
+
+                    showNotification('Attachment marked for deletion. Save to confirm.', 'info');
+                });
+            });
+
+            // Remove button for initial new attachment row
+            document.querySelectorAll('#newAttachmentsContainer .remove-attachment').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    this.closest('.attachment-item').remove();
+                    // Renumber labels
+                    document.querySelectorAll('#newAttachmentsContainer .attachment-item').forEach((item, idx) => {
+                        const label = item.querySelector('label');
+                        if (label) {
+                            label.textContent = `Add New Document ${idx + 1}`;
+                        }
+                    });
+                });
+            });
+        });
+
+
+        // Listen for department change to refresh available quantity
+        $(document).on('change', '.project-dropdown', function () {
+            const lineItem = $(this).closest('.line-item');
+            if (lineItem.length) {
+                updateAvailableQuantity(lineItem[0]);
+            }
+        });
+
+
     </script>
     {% endblock %}

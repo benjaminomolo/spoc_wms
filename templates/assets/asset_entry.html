@@ -376,7 +376,7 @@
         <!-- Main Content -->
         <div class="inventory-main-content">
             <h1>Record Asset Movement</h1>
-            <form id="inventoryForm" method="post" autocomplete="off">
+            <form id="inventoryForm" method="post" autocomplete="off" enctype="multipart/form-data">
                 <!-- Basic Information Section -->
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-section">
@@ -472,6 +472,7 @@
 
 
 
+
                     <!-- Handled By - ALWAYS VISIBLE (outside conditional section) -->
                     <div class="form-group" id="handled_by_group">
                         <label for="handled_by" id="handled_by_label">Handled By:</label>
@@ -488,19 +489,45 @@
                         </select>
                     </div>
 
-                    <!-- Additional Details Section - CONDITIONALLY SHOWN -->
-                    <div class="form-section conditional-field" id="additional_details_section">
-                        <h2>Additional Details (Optional)</h2>
-                        <div class="form-group conditional-field" id="project_field">
-                            <select id="project_id" name="project_id">
-                                <option value=""></option>
-                                {% for project in projects %}
-                                <option value="{{ project.id }}">{{ project.name }} - {{ project.project_id }}</option>
-                                {% endfor %}
-                            </select>
-                            <label for="project">Project:</label>
-                        </div>
+
+
+                    <div class="form-group" id="location_field_group">
+                        <label for="location_id">Location <span class="required">*</span></label>
+                        <select id="location_id" name="location_id" class="form-select2" required>
+                            <option value="">Select Location</option>
+                            {% for location in locations %}
+                            <option value="{{ location.id }}">{{ location.location }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
+
+
+
+
+                    <!-- Attachments Section -->
+                    <div class="form-section">
+                        <h2>Attachments</h2>
+                        <div id="attachmentsContainer">
+                            <div class="attachment-item form-group">
+                                <label>Upload Document</label>
+                                <input type="file" name="attachments[]" class="attachment-file"
+                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                <input type="text" name="attachment_description[]" class="form-control mt-2"
+                                    placeholder="Description (e.g., Invoice, Delivery Note, Waybill, Warranty, Transfer Form)"
+                                    style="width: 100%;">
+                                <button type="button" class="button remove-button remove-attachment"
+                                    style="margin-top: 8px;">Remove</button>
+                                <hr>
+                            </div>
+                        </div>
+                        <button type="button" id="addAttachmentBtn" class="button add-button" style="margin-top: 10px;">
+                            <i class="fas fa-plus"></i> Add Another Document
+                        </button>
+                        <small class="text-muted" style="display: block; margin-top: 8px;">
+                            Supported formats: PDF, JPG, PNG, DOC, DOCX. Max file size: 10MB per file.
+                        </small>
+                    </div>
+
                 </div>
 
 
@@ -679,6 +706,10 @@
                             <label for="notes">Notes:</label>
                             <textarea id="notes" name="notes"></textarea>
                         </div>
+
+
+
+
 
                         <!-- Submit and Close Buttons -->
                         <div class="form-actions">
@@ -920,6 +951,40 @@
         }
     }
 
+
+
+    // Initialize location and department field visibility on page load
+    function initializeFieldVisibility() {
+        const movementType = document.getElementById('movement_type').value;
+
+        // Hide/show location field
+        const locationFieldGroup = document.getElementById('location_field_group');
+        if (locationFieldGroup) {
+            if (movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal') {
+                locationFieldGroup.style.display = 'none';
+                document.getElementById('location_id').removeAttribute('required');
+            } else {
+                locationFieldGroup.style.display = 'block';
+                document.getElementById('location_id').setAttribute('required', 'required');
+            }
+        }
+
+        // Hide/show department fields in each line item
+        document.querySelectorAll('.line-item .department-field').forEach(departmentField => {
+            if (movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal') {
+                departmentField.style.display = 'none';
+                const departmentSelect = departmentField.querySelector('.project-dropdown');
+                if (departmentSelect) departmentSelect.removeAttribute('required');
+            } else {
+                departmentField.style.display = 'block';
+                const departmentSelect = departmentField.querySelector('.project-dropdown');
+                if (departmentSelect) departmentSelect.setAttribute('required', 'required');
+            }
+        });
+    }
+
+    // Call it on page load
+    initializeFieldVisibility();
     /**
  * Update asset identification fields based on selected asset and movement type
  */
@@ -1006,21 +1071,6 @@
     }
 
 
-    // Function to update Additional Details section visibility
-    function updateAdditionalDetailsVisibility(movementType) {
-        const additionalDetailsSection = document.getElementById('additional_details_section');
-        const projectField = document.getElementById('project_field');
-
-        // Show project only for receiving assets
-        const showProject = ['acquisition', 'opening_balance', 'donation_in'].includes(movementType);
-        projectField.style.display = showProject ? 'block' : 'none';
-
-
-        // Show the entire Additional Details section if ANY field inside it is visible
-        const shouldShowSection = showProject;
-        additionalDetailsSection.style.display = shouldShowSection ? 'block' : 'none';
-        additionalDetailsSection.classList.toggle('visible', shouldShowSection);
-    }
 
     /**
      * Clear asset cache when movement type changes
@@ -1194,7 +1244,7 @@
                 </div>
                 
                 <!-- Depreciation Overrides -->
-                <div class="form-row">
+                <div class="form-row" style="display: none;">
                     <div class="form-group">
                         <label for="useful_life_years">Useful Life (Years)</label>
                         <input type="number" name="useful_life_years[]" class="useful-life-input" 
@@ -1214,7 +1264,7 @@
                 </div>
                 
                 <!-- Capitalization Date -->
-                <div class="form-row">
+                <div class="form-row" style="display: none;">
                     <div class="form-group">
                         <label for="capitalization_date">Capitalization Date</label>
                         <input type="date" name="capitalization_date[]" class="capitalization-date-input"
@@ -1226,7 +1276,7 @@
             
             <!-- Warranty Information -->
             <div class="form-section conditional-field" 
-                 style="display: ${movementType === 'acquisition' ? 'block' : 'none'}">
+                 style="display: ${movementType === 'acquisition' ? 'none' : 'none'}">
                 <h4>Warranty Information</h4>
                 <div class="form-row">
                     <div class="form-group">
@@ -1255,6 +1305,20 @@
                 </div>
             </div>
         </div>
+
+
+    
+        <!-- Department field - appears for ALL movement types -->
+<div class="form-group department-field" style="display: ${movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal' ? 'none' : 'block'}">
+    <label for="project_id">Department</label>
+    <select name="project_id[]" class="project-dropdown form-select2" ${movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal' ? '' : 'required'}>
+        <option value="">Select Department</option>
+        {% for project in projects %}
+        <option value="{{ project.id }}">{{ project.name }}</option>
+        {% endfor %}
+    </select>
+</div>
+
         
         <!-- Sales-specific fields -->
         <div class="conditional-field sale-section" 
@@ -2312,10 +2376,20 @@
         clearAssetCache();
 
 
+        // ===== HIDE/SHOW LOCATION FIELD (MOVE THIS HERE - BEFORE THE LOOP) =====
+        const locationFieldGroup = document.getElementById('location_field_group');
+        if (locationFieldGroup) {
+            if (movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal') {
+                locationFieldGroup.style.display = 'none';
+                document.getElementById('location_id').removeAttribute('required');
+            } else {
+                locationFieldGroup.style.display = 'block';
+                document.getElementById('location_id').setAttribute('required', 'required');
+            }
+        }
+
         // Update adjustment account help
         updateAdjustmentAccountHelp(movementType);
-
-        updateAdditionalDetailsVisibility(movementType);
 
         // Refresh line items to show/hide current value field for donation_in
         const lineItemsContainer = document.getElementById('lineItemsContainer');
@@ -2368,9 +2442,25 @@
             const existingAssetIdentificationSection = lineItem.querySelector('.existing-asset-identification');
 
             // Show/hide Project field based on movement type
+            // Find this section in the movement_type change event handler:
+            // Show/hide Project field based on movement type
             const projectField = document.getElementById('project_id').closest('.form-group');
-            const showProject = ['acquisition', 'opening_balance', 'donation_in'].includes(movementType);
+            const showProject = ['acquisition', 'opening_balance', 'donation_in', 'transfer', 'assignment'].includes(movementType);
             projectField.style.display = showProject ? 'block' : 'none';
+
+            // Also make it not required for dispatch/sale
+            const projectSelects = document.querySelectorAll('select[name="project_id[]"]');
+            projectSelects.forEach(select => {
+                if (movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal') {
+                    select.removeAttribute('required');
+                    select.closest('.form-group').style.display = 'none';
+                } else {
+                    select.setAttribute('required', 'required');
+                }
+            });
+
+
+
 
             // Add this to the sections list
             const depreciationSection = lineItem.querySelector('.depreciation-section');
@@ -2598,13 +2688,12 @@
         updateHandledByLabel(initialMovementType);
 
 
+        initializeFieldVisibility();
+        // ===== END OF ADDED CODE =====
 
         updateSummary();
 
 
-        // Initialize adjustment account visibility
-
-        updateAdditionalDetailsVisibility(initialMovementType);
 
     });
 
@@ -2768,53 +2857,59 @@
 
             // Validate the form
             if (!validateForm()) {
-                enableAllSubmitButtons(); // Re-enable if validation fails
+                enableAllSubmitButtons();
                 return;
             }
 
-            // Prepare form data manually (do not initialize from the form)
+            // Prepare form data manually
             const formData = new FormData();
 
 
+            const locationId = document.getElementById('location_id')?.value;
+            if (locationId) {
+                formData.append('location_id', locationId);
+            }
 
-            // If supplier_id is empty, ensure supplier_name is included - SAME AS INVENTORY FORM
+            // ===== GET PROJECT DROPDOWNS BEFORE THE LOOP =====
+            const projectSelects = document.querySelectorAll('select[name="project_id[]"]');
+
+            // If supplier_id is empty, ensure supplier_name is included
             const hiddenSupplierId = document.getElementById('supplier_id');
             const supplierInputField = document.getElementById('supplier_name');
 
-            // SAME LOGIC AS INVENTORY FORM
             if (supplierInputField && supplierInputField.value.trim()) {
                 formData.append('supplier_name', supplierInputField.value.trim());
 
-                // Include supplier_id if it exists
                 if (hiddenSupplierId && hiddenSupplierId.value && hiddenSupplierId.value.trim() !== '') {
                     formData.append('supplier_id', hiddenSupplierId.value);
                     console.log(`Appended supplier_id: ${hiddenSupplierId.value}`);
                 } else {
-                    // If no supplier_id, use the name as the ID (for one-time suppliers)
                     formData.append('supplier_id', supplierInputField.value.trim());
                     console.log(`Using supplier name as ID: ${supplierInputField.value.trim()}`);
                 }
-
                 console.log(`Appended supplier_name: ${supplierInputField.value.trim()}`);
             }
 
+            // ===== APPEND ATTACHMENTS =====
+            const attachmentFiles = document.querySelectorAll('#attachmentsContainer .attachment-file');
+            const attachmentDescriptions = document.querySelectorAll('#attachmentsContainer input[name="attachment_description[]"]');
 
+            attachmentFiles.forEach((fileInput, index) => {
+                if (fileInput.files.length > 0) {
+                    formData.append(`attachments[]`, fileInput.files[0]);
+                    const description = attachmentDescriptions[index] ? attachmentDescriptions[index].value : '';
+                    formData.append(`attachment_description[]`, description);
+                    console.log(`Appended attachment ${index + 1}: ${fileInput.files[0].name}`);
+                }
+            });
 
-            // Append static form fields
+            // ===== APPEND STATIC FORM FIELDS =====
             const staticFields = [
-                // Basic Information
                 'reference',
                 'transaction_date',
                 'movement_type',
                 'currency',
-
-                // Supplier Information
-
                 'is_one_time',
-
-
-                // Additional Details
-                'project_id',
                 'handled_by'
             ];
 
@@ -2826,34 +2921,30 @@
                 }
             });
 
-            // Process each line item and store the data in the array
+            // ===== PROCESS EACH LINE ITEM =====
             document.querySelectorAll('.line-item').forEach((row, index) => {
                 try {
                     console.log(`Processing Asset Line Item ${index + 1}:`, row);
 
                     // Asset Item ID (always required)
-                    const assetItemId = row.querySelector('.asset-item-dropdown').value || '';
-                    console.log(`Asset Item ID: ${assetItemId}`);
+                    const assetItemId = row.querySelector('.asset-item-dropdown')?.value || '';
                     formData.append(`asset_item_id[]`, assetItemId);
 
                     // Asset Instance ID (for existing assets)
                     const assetId = row.querySelector('.asset-instance-dropdown')?.value || '';
                     if (assetId) {
-                        console.log(`Asset Instance ID: ${assetId}`);
                         formData.append(`asset_id[]`, assetId);
                     }
 
                     // Asset Tag (for new assets)
                     const assetTag = row.querySelector('.asset-tag-input')?.value || '';
                     if (assetTag) {
-                        console.log(`Asset Tag: ${assetTag}`);
                         formData.append(`asset_tag[]`, assetTag);
                     }
 
                     // Serial Number
                     const serialNumber = row.querySelector('.serial-number-input')?.value || '';
                     if (serialNumber) {
-                        console.log(`Serial Number: ${serialNumber}`);
                         formData.append(`serial_number[]`, serialNumber);
                     }
 
@@ -2863,14 +2954,14 @@
                     const salePrice = parseFloat(row.querySelector('.sale-price-input')?.value) || 0;
                     const disposalValue = parseFloat(row.querySelector('input[name="disposal_value[]"]')?.value) || 0;
 
-                    console.log(`Purchase Price: ${purchasePrice}`);
-                    console.log(`Current Value: ${currentValue}`);
-                    console.log(`Sale Price: ${salePrice}`);
-                    console.log(`Disposal Value: ${disposalValue}`);
-
                     formData.append(`current_value[]`, currentValue);
                     formData.append(`sale_price[]`, salePrice);
                     formData.append(`disposal_value[]`, disposalValue);
+
+                    // ===== DEPARTMENT/PROJECT ID =====
+                    const projectId = projectSelects[index] ? projectSelects[index].value : '';
+                    formData.append(`project_id[]`, projectId);
+                    console.log(`Line item ${index + 1} project_id: ${projectId}`);
 
                     // Supplier per asset (for acquisitions)
                     const assetSupplierId = row.querySelector('.asset-supplier-id')?.value || '';
@@ -2879,8 +2970,6 @@
                         formData.append(`supplier_id[]`, assetSupplierId);
                         formData.append(`supplier_name[]`, assetSupplierName);
                     }
-
-
 
                     // Customer for sales
                     const customerId = row.querySelector('.asset-customer-id')?.value || '';
@@ -2895,31 +2984,19 @@
                     const depreciationMethod = row.querySelector('.depreciation-method-input')?.value || '';
                     const capitalizationDate = row.querySelector('.capitalization-date-input')?.value || '';
 
-                    if (usefulLifeYears) {
-                        formData.append(`useful_life_years[]`, usefulLifeYears);
-                    }
-                    if (depreciationMethod) {
-                        formData.append(`depreciation_method[]`, depreciationMethod);
-                    }
-                    if (capitalizationDate) {
-                        formData.append(`capitalization_date[]`, capitalizationDate);
-                    }
+                    if (usefulLifeYears) formData.append(`useful_life_years[]`, usefulLifeYears);
+                    if (depreciationMethod) formData.append(`depreciation_method[]`, depreciationMethod);
+                    if (capitalizationDate) formData.append(`capitalization_date[]`, capitalizationDate);
 
                     // Warranty Information
                     const warrantyMonths = row.querySelector('.warranty-months-input')?.value || '';
                     const warrantyExpiry = row.querySelector('.warranty-expiry-input')?.value || '';
-                    if (warrantyMonths) {
-                        formData.append(`warranty_months[]`, warrantyMonths);
-                    }
-                    if (warrantyExpiry) {
-                        formData.append(`warranty_expiry[]`, warrantyExpiry);
-                    }
+                    if (warrantyMonths) formData.append(`warranty_months[]`, warrantyMonths);
+                    if (warrantyExpiry) formData.append(`warranty_expiry[]`, warrantyExpiry);
 
                     // Condition
                     const condition = row.querySelector('.condition-input')?.value || '';
-                    if (condition) {
-                        formData.append(`condition[]`, condition);
-                    }
+                    if (condition) formData.append(`condition[]`, condition);
 
                     // Assignment Information
                     const assignedToId = row.querySelector('.employee-dropdown')?.value || '';
@@ -2950,22 +3027,12 @@
                     if (disposalMethod) formData.append(`disposal_method[]`, disposalMethod);
                     if (disposalNotes) formData.append(`disposal_notes[]`, disposalNotes);
 
-
-                    // Depreciation Information
+                    // Depreciation Amount and Notes
                     const depreciationAmount = parseFloat(row.querySelector('.depreciation-amount-input')?.value) || 0;
                     const depreciationNotes = row.querySelector('.depreciation-notes-input')?.value || '';
 
-                    console.log(`Depreciation Amount: ${depreciationAmount}`);
-
-                    if (depreciationAmount > 0) {
-                        formData.append(`depreciation_amount[]`, depreciationAmount);
-                    }
-
-
-                    if (depreciationNotes) {
-                        formData.append(`depreciation_notes[]`, depreciationNotes);
-                    }
-
+                    if (depreciationAmount > 0) formData.append(`depreciation_amount[]`, depreciationAmount);
+                    if (depreciationNotes) formData.append(`depreciation_notes[]`, depreciationNotes);
 
                     // Donation Out Information
                     const recipientName = row.querySelector('input[name="customer_name[]"]')?.value || '';
@@ -2974,9 +3041,8 @@
                     if (recipientName) formData.append(`customer_name[]`, recipientName);
                     if (donationReason) formData.append(`donation_reason[]`, donationReason);
 
-                    // Sale Reference and Notes
+                    // Sale Notes
                     const saleNotes = row.querySelector('textarea[name="sale_notes[]"]')?.value || '';
-
                     if (saleNotes) formData.append(`sale_notes[]`, saleNotes);
 
                 } catch (error) {
@@ -3004,11 +3070,9 @@
                     if (data.status === 'success') {
                         showNotification('Asset movement recorded successfully!', 'success');
 
-                        // Handle different actions
                         if (action === 'save-exit') {
-                            window.location.href = '/assets/movement_history'; // Redirect to asset movements page
+                            window.location.href = '/assets/movement_history';
                         } else if (action === 'save-new') {
-                            // Reset form for new entry
                             resetFormForNewEntry();
                             showNotification('Asset movement saved successfully! Ready for new entry.', 'success');
                         }
@@ -3024,12 +3088,12 @@
                     showNotification('There was an issue recording your asset movement. Please try again later.', 'error');
                     enableAllSubmitButtons();
                 }).finally(() => {
-                    // Clear the timeout
                     if (window.submissionTimeout) {
                         clearTimeout(window.submissionTimeout);
                     }
                 });
         }
+
 
         // Function to reset form for new entry
         function resetFormForNewEntry() {
@@ -3464,6 +3528,59 @@
                     }
                 });
         }
+    });
+
+
+    // Attachments functionality for Asset Entry
+    document.addEventListener('DOMContentLoaded', function () {
+        // Add attachment row
+        const addAttachmentBtn = document.getElementById('addAttachmentBtn');
+        if (addAttachmentBtn) {
+            addAttachmentBtn.addEventListener('click', function () {
+                const container = document.getElementById('attachmentsContainer');
+                const attachmentCount = container.querySelectorAll('.attachment-item').length + 1;
+
+                const newAttachment = document.createElement('div');
+                newAttachment.classList.add('attachment-item', 'form-group');
+                newAttachment.innerHTML = `
+                <label>Upload Document ${attachmentCount}</label>
+                <input type="file" name="attachments[]" class="attachment-file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                <input type="text" name="attachment_description[]" class="form-control mt-2" placeholder="Description (e.g., Invoice, Delivery Note, Waybill, Warranty, Transfer Form)" style="width: 100%;">
+                <button type="button" class="button remove-button remove-attachment" style="margin-top: 8px;">Remove</button>
+                <hr>
+            `;
+                container.appendChild(newAttachment);
+
+                // Add remove event listener to the new button
+                newAttachment.querySelector('.remove-attachment').addEventListener('click', function () {
+                    newAttachment.remove();
+                    // Renumber labels
+                    document.querySelectorAll('#attachmentsContainer .attachment-item').forEach((item, idx) => {
+                        const label = item.querySelector('label');
+                        if (label) {
+                            label.textContent = `Upload Document ${idx + 1}`;
+                        }
+                    });
+                });
+            });
+        }
+
+        // Remove attachment button for existing rows
+        document.querySelectorAll('.remove-attachment').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const attachmentItem = this.closest('.attachment-item');
+                if (attachmentItem) {
+                    attachmentItem.remove();
+                    // Renumber labels
+                    document.querySelectorAll('#attachmentsContainer .attachment-item').forEach((item, idx) => {
+                        const label = item.querySelector('label');
+                        if (label) {
+                            label.textContent = `Upload Document ${idx + 1}`;
+                        }
+                    });
+                }
+            });
+        });
     });
 
 </script>

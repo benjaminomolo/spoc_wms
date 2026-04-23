@@ -35,8 +35,8 @@ class Company(Base):
     footer = Column(String(255))
     footer_type = Column(String(255))
     has_multiple_currencies = Column(Boolean, default=False, nullable=False,
-                                 server_default='0',
-                                 comment="Flag indicating if company uses multiple currencies")
+                                     server_default='0',
+                                     comment="Flag indicating if company uses multiple currencies")
 
     # 🚀 Replace the Boolean flag with a Date column
     opening_balances_date = Column(
@@ -80,7 +80,6 @@ class Company(Base):
     activity_logs = relationship("ActivityLog", back_populates="company")
     currency = relationship("Currency", back_populates="company")
     inventory_entries = relationship('InventoryEntry', back_populates='company')
-
 
     # Inventory
     inventory_summary = relationship('InventorySummary', back_populates='company')
@@ -293,7 +292,7 @@ class User(Base):
     purchase_order_notes = relationship('PurchaseOrderNote', back_populates='user',
                                         foreign_keys='PurchaseOrderNote.created_by')
     purchase_orders = relationship('PurchaseOrder', back_populates='user',
-                                        foreign_keys='PurchaseOrder.created_by')
+                                   foreign_keys='PurchaseOrder.created_by')
     purchase_order_notes_recipient = relationship('PurchaseOrderNote', back_populates='user_recipient',
                                                   foreign_keys='PurchaseOrderNote.recipient')
     purchase_order_approvals = relationship('PurchaseOrderApproval', back_populates='approver')
@@ -1555,10 +1554,10 @@ class Employee(Base):
 
     # In Employee class
     inventory_entries = relationship('InventoryEntry', foreign_keys='InventoryEntry.handled_by',
-                                 back_populates='handled_by_employee')
+                                     back_populates='handled_by_employee')
 
     asset_movements = relationship('AssetMovement', foreign_keys='AssetMovement.handled_by',
-                               back_populates='handled_by_employee')
+                                   back_populates='handled_by_employee')
     __table_args__ = (
         UniqueConstraint('employee_id', 'app_id', name='uq_employee_id_app_id'),
     )
@@ -1670,6 +1669,7 @@ class PayrollTransaction(Base):
         Index('idx_payroll_transactions_created_by', 'created_by'),
     )
 
+
 class PayrollPayment(Base):
     __tablename__ = 'payroll_payments'
 
@@ -1704,7 +1704,6 @@ class PayrollPayment(Base):
     payment_modes = relationship('PaymentMode', back_populates='payroll_payments')
     exchange_rate = relationship('ExchangeRate', back_populates='payroll_payments')
     creator = relationship("User", back_populates='payroll_payments')
-
 
 
 class PayrollPeriod(Base):
@@ -1816,6 +1815,7 @@ class Deduction(Base):
         Index('idx_deductions_app', 'app_id'),
         Index('idx_deductions_status', 'payment_status'),
     )
+
     def __repr__(self):
         return (f"<Deduction(id={self.id}, employee_id={self.employee_id}, "
                 f"deduction_type_id={self.deduction_type_id}, amount={self.amount}, "
@@ -1875,7 +1875,6 @@ class Benefit(Base):
     payroll_periods = relationship("PayrollPeriod", back_populates="benefits")
     exchange_rate = relationship('ExchangeRate', back_populates="benefits")
 
-
     __table_args__ = (
         Index('idx_benefits_payroll_transaction', 'payroll_transaction_id'),
         Index('idx_benefits_payroll_period', 'payroll_period_id'),
@@ -1883,6 +1882,7 @@ class Benefit(Base):
         Index('idx_benefits_exchange_rate', 'exchange_rate_id'),  # ADD THIS
         Index('idx_benefits_app', 'app_id'),
     )
+
     def __repr__(self):
         return (f"<Benefit(benefit_id={self.benefit_id}, employee_id={self.employee_id}, "
                 f"benefit_type_id={self.benefit_type_id}, amount={self.amount}, "
@@ -1946,6 +1946,7 @@ class DeductionPayment(Base):
     payment_modes = relationship('PaymentMode', back_populates='deduction_payments')
     exchange_rate = relationship("ExchangeRate", back_populates="deduction_payments")
     creator = relationship("User", back_populates="deduction_payments")
+
 
 class AdvancePayment(Base):
     __tablename__ = 'advance_payments'
@@ -2218,7 +2219,7 @@ class AssetMovement(Base):
 
     # Project relationship
     project = relationship('Project', back_populates='asset_movements')
-
+    location_id = Column(Integer, ForeignKey('inventory_location.id'), nullable=True)  # Source location
     handled_by_employee = relationship('Employee', foreign_keys=[handled_by], back_populates='asset_movements')
 
     # Accounting relationships (to ChartOfAccounts)
@@ -2250,6 +2251,17 @@ class AssetMovement(Base):
         cascade='all, delete-orphan'
     )
 
+    location = relationship('InventoryLocation', foreign_keys=[location_id])
+
+    # NEW: Attachments relationship
+    attachments = relationship(
+        "Attachment",
+        primaryjoin="and_(Attachment.record_type == 'asset_movement', "
+                    "foreign(Attachment.record_id) == AssetMovement.id)",
+        viewonly=True,
+        cascade="all, delete-orphan"
+    )
+
 
 class AssetMovementLineItem(Base):
     __tablename__ = 'asset_movement_line_items'
@@ -2276,6 +2288,10 @@ class AssetMovementLineItem(Base):
     # Party (for purchases, sales, donations)
     party_id = Column(Integer, ForeignKey('vendors.id'), nullable=True)
 
+    # Department/Project tracking (for stock counting by department)
+    project_id = Column(Integer, ForeignKey('projects.id'), nullable=True)
+
+
     # Notes
     line_notes = Column(Text, nullable=True)
 
@@ -2292,6 +2308,7 @@ class AssetMovementLineItem(Base):
     depreciation_record = relationship("DepreciationRecord", back_populates="movement_line_item",
                                        uselist=False)  # ✅ ADD THIS
 
+    project = relationship('Project', foreign_keys=[project_id])
 
 class MaintenanceRecord(Base):
     __tablename__ = 'maintenance_record'
@@ -2825,6 +2842,52 @@ class UserLocationAssignment(Base):
     company = relationship("Company", back_populates="user_location_assignments")
 
 
+class Attachment(Base):
+    __tablename__ = 'attachments'
+    id = Column(Integer, primary_key=True)
+
+    # Polymorphic association - can link to any record type
+    record_type = Column(String(50), nullable=False)  # 'inventory_entry', 'asset_entry', 'serialized_item'
+    record_id = Column(Integer, nullable=False)
+
+    # File information
+    filename = Column(String(255), nullable=False)  # Stored filename on server
+    original_filename = Column(String(255), nullable=False)  # Original user filename
+    file_path = Column(String(500), nullable=False)  # Full path or relative path
+    file_size = Column(Integer, nullable=True)  # Size in bytes
+    file_type = Column(String(100), nullable=True)  # MIME type or extension
+
+    # Metadata
+    description = Column(String(200), nullable=True)
+    uploaded_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    uploaded_at = Column(DateTime, default=func.current_timestamp())
+
+    # Relationships
+    user = relationship('User', foreign_keys=[uploaded_by])
+
+    @property
+    def file_size_display(self):
+        """Return file size in human readable format"""
+        if self.file_size is None:
+            return "Unknown"
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if self.file_size < 1024.0:
+                return f"{self.file_size:.1f} {unit}"
+            self.file_size /= 1024.0
+        return f"{self.file_size:.1f} TB"
+
+    @property
+    def is_image(self):
+        """Check if file is an image"""
+        image_types = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']
+        return self.file_type and self.file_type.lower() in image_types
+
+    @property
+    def is_pdf(self):
+        """Check if file is PDF"""
+        return self.file_type and self.file_type.lower() == 'pdf'
+
+
 class InventoryEntry(Base):
     __tablename__ = 'inventory_entries'
     id = Column(Integer, primary_key=True)
@@ -2870,7 +2933,7 @@ class InventoryEntry(Base):
     # Relationships
     # Relationship
     handled_by_employee = relationship('Employee', foreign_keys=[handled_by],
-                                    back_populates='inventory_entries')
+                                       back_populates='inventory_entries')
     company = relationship('Company', back_populates='inventory_entries')
     vendor = relationship("Vendor", back_populates='inventory_entries')
     project = relationship('Project', back_populates='inventory_entries')
@@ -2896,6 +2959,14 @@ class InventoryEntry(Base):
     to_inventory_location = relationship('InventoryLocation', foreign_keys=[to_location],
                                          back_populates='inventory_entries_to')
     exchange_rate = relationship("ExchangeRate", back_populates="inventory_entry")
+
+    attachments = relationship(
+        "Attachment",
+        primaryjoin="and_(Attachment.record_type == 'inventory_entry', "
+                    "foreign(Attachment.record_id) == InventoryEntry.id)",
+        viewonly=True,
+        cascade="all, delete-orphan"
+    )
 
     # Calculated properties
     @property
@@ -2937,6 +3008,9 @@ class InventoryEntryLineItem(Base):
     system_quantity = Column(Numeric(10, 2), nullable=True)
     adjusted_quantity = Column(Numeric(10, 2), nullable=True)
 
+    # Department/Project tracking
+    project_id = Column(Integer, ForeignKey('projects.id'), nullable=True)
+
     # Relationships
     inventory_entry = relationship("InventoryEntry", back_populates="line_items")
     company = relationship('Company', back_populates='inventory_entry_line_items')
@@ -2945,6 +3019,7 @@ class InventoryEntryLineItem(Base):
     inventory_transaction_details = relationship('InventoryTransactionDetail',
                                                  back_populates='inventory_entry_line_item')
 
+    project = relationship('Project', foreign_keys=[project_id])
     # Calculated properties with null handling
     @property
     def line_total(self):
@@ -3342,7 +3417,7 @@ class PurchaseTransaction(Base):
     user = relationship('User', back_populates='purchase_transactions')
 
     __table_args__ = (
-     # 1. Most critical - company + date range (used in dashboard and reports)
+        # 1. Most critical - company + date range (used in dashboard and reports)
         Index('idx_purchase_transactions_app_date', 'app_id', 'payment_date'),
 
         # 2. Filtering by company + status (used in dashboard filters)
@@ -3354,6 +3429,7 @@ class PurchaseTransaction(Base):
         # 4. Foreign key - used in JOINs with vendors (filtering by vendor)
         Index('idx_purchase_transactions_vendor_id', 'vendor_id'),
     )
+
 
 class DirectPurchaseTransaction(Base):
     __tablename__ = 'direct_purchases'
@@ -3534,6 +3610,8 @@ class PurchasePaymentAllocation(Base):
         Index('idx_purchase_payment_allocations_payment_id', 'payment_id'),
         Index('idx_purchase_payment_allocations_direct_purchase', 'direct_purchase_id'),
     )
+
+
 class GoodsReceipt(Base):
     __tablename__ = 'goods_receipts'
     id = Column(Integer, primary_key=True)
@@ -3816,7 +3894,6 @@ class SalesOrder(Base):
     exchange_rate_id = Column(Integer, ForeignKey('exchange_rates.id'), nullable=True)
     version = Column(Integer, default=1, nullable=False)
 
-
     customer = relationship('Vendor', back_populates='sales_orders')
     company = relationship('Company', back_populates='sales_orders')
     project = relationship('Project', back_populates='sales_orders')
@@ -3839,6 +3916,7 @@ class SalesOrder(Base):
         UniqueConstraint('sales_order_number', 'app_id', name='uq_sales_order_number_app_id'),
         Index('idx_sales_orders_exchange_rate', 'exchange_rate_id'),  # ✅ ADD THIS
     )
+
 
 # Sales Order Item Table
 class SalesOrderItem(Base):

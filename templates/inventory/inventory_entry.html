@@ -437,7 +437,7 @@
 
                 <p>Total Items: <span id="totalItems">0</span></p>
                 <div class="summary-details" style="display: none;">
-                    <p style="display: none;>Total Line Subtotals: <span id=" totalLineSubtotals">0.00</span></p>
+                    <p style="display: none;">Total Line Subtotals: <span id=" totalLineSubtotals">0.00</span></p>
                     <p style="display: none;>General Total: <span id=" generalTotal">0.00</span></p>
                 </div>
             </div>
@@ -446,7 +446,7 @@
         <!-- Main Content -->
         <div class="inventory-main-content">
             <h1>Record Stock Movement</h1>
-            <form id="inventoryForm" method="post" autocomplete="off">
+            <form id="inventoryForm" method="post" autocomplete="off" enctype="multipart/form-data">
                 <!-- Basic Information Section -->
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-section">
@@ -474,6 +474,7 @@
                                 (Unusable)</option>
                             <option value="opening_balance" {% if movement_type=='opening_balance' %}selected{% endif
                                 %}>Opening Balance (Initial Stock)</option>
+
                         </select>
                     </div>
 
@@ -530,29 +531,29 @@
                             <input type="hidden" id="supplier_id" name="supplier_id">
                         </div>
 
+                        <!-- FROM Location - Only locations user has access to -->
                         <div class="form-group">
-
                             <select id="location" name="location" required>
                                 <option value=""></option>
-                                {% for location in locations %}
+                                {% for location in from_locations %}
                                 <option value="{{ location.id }}">{{ location.location }}</option>
                                 {% endfor %}
+                                {% if role == 'Admin' %}
                                 <option value="add_new_location">Add new location...</option>
+                                {% endif %}
                             </select>
-                            <label for="location">Location / Warehouse:</label>
-
+                            <label for="location" id="location_label">From Location:</label>
                         </div>
 
-
-                        <!-- To Location (for transfers) -->
+                        <!-- TO Location - ALL locations (for receiving) -->
                         <div class="form-group conditional-field" id="to_location_group">
-                            <label for="to_location">To Location:</label>
                             <select id="to_location" name="to_location">
                                 <option value=""></option>
-                                {% for location in locations %}
+                                {% for location in all_locations %}
                                 <option value="{{ location.id }}">{{ location.location }}</option>
                                 {% endfor %}
                             </select>
+                            <label for="to_location" id="to_location_label">To Location:</label>
                         </div>
                     </div>
 
@@ -611,17 +612,7 @@
 
                         </div>
 
-                        <div class="form-group">
 
-                            <select id="project_id" name="project_id">
-                                <option value=""></option>
-                                {% for project in projects %}
-                                <option value="{{ project.id }}">{{ project.name }} - {{ project.project_id }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                            <label for="project">Project:</label>
-                        </div>
 
 
                         <!-- Payment Mode (only for purchases) -->
@@ -646,6 +637,33 @@
                         </div>
 
 
+                    </div>
+
+
+                    <!-- Add this after the Additional Details Section, before the Form Actions -->
+
+                    <!-- Attachments Section -->
+                    <div class="form-section">
+                        <h2>Attachments</h2>
+                        <div id="attachmentsContainer">
+                            <div class="attachment-item form-group">
+                                <label>Upload Document</label>
+                                <input type="file" name="attachments[]" class="attachment-file"
+                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                <input type="text" name="attachment_description[]" class="form-control mt-2"
+                                    placeholder="Description (e.g., Invoice, Delivery Note, Waybill)"
+                                    style="width: 100%;">
+                                <button type="button" class="button remove-button remove-attachment"
+                                    style="margin-top: 8px;">Remove</button>
+                                <hr>
+                            </div>
+                        </div>
+                        <button type="button" id="addAttachmentBtn" class="button add-button" style="margin-top: 10px;">
+                            <i class="fas fa-plus"></i> Add Another Document
+                        </button>
+                        <small class="text-muted" style="display: block; margin-top: 8px;">
+                            Supported formats: PDF, JPG, PNG, DOC, DOCX. Max file size: 10MB per file.
+                        </small>
                     </div>
                 </div>
 
@@ -1349,7 +1367,7 @@
 
 
                     if (supplierLabel) {
-                        supplierLabel.textContent = 'Supplier:';
+                        supplierLabel.textContent = 'Vendor:';
                     }
 
 
@@ -1935,81 +1953,70 @@
     // Add Line Item Functionality 
     document.getElementById('addLineItem').addEventListener('click', function () {
         const lineItemsContainer = document.getElementById('lineItemsContainer');
-
-        // Calculate the new line item number (1-based)
         const lineItemNumber = lineItemsContainer.querySelectorAll('.line-item').length + 1;
-
 
         const lineItem = document.createElement('div');
         lineItem.classList.add('line-item');
 
         lineItem.innerHTML = `
-            <div class="line-item-header">
-               <h3>Line Item (${lineItemNumber})</h3>
-                <button type="button" class="remove-line-item button remove-button">Remove</button>
+        <div class="line-item-header">
+            <h3>Line Item (${lineItemNumber})</h3>
+            <button type="button" class="remove-line-item button remove-button">Remove</button>
+        </div>
+
+        <input type="hidden" name="item_type[]" value="inventory">
+
+        <div class="form-group">
+            <label for="item">Item</label>
+            <select name="inventory_item[]" class="inventory-dropdown searchable-dropdown">
+                <option value="">Select Inventory Item</option>
+                ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom_id || ''}" data-uom-name="${item.uom_name || ''}">${item.name}</option>`).join('')}
+            </select>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="quantity">Quantity</label>
+                <input type="text" name="quantity[]" required autocomplete="off">
+                <div class="adjustment-display conditional-field" style="display: none;">
+                    <div class="badge bg-info">
+                        <span class="adjustment-info">System: 0 | Adjustment: 0</span>
+                    </div>
+                </div>
+                <div class="stock-display"></div>
             </div>
-
-
-                <!-- Hidden input for item type -->
-    <input type="hidden" name="item_type[]" value="inventory">
 
             <div class="form-group">
-                <label for="item">Item</label>
+                <label for="uom">Unit of Measurement</label>
+                <div class="uom-display">
+                    <input type="text" class="uom-readonly" readonly placeholder="Select an item first">
+                    <input type="hidden" name="uom[]" class="uom-hidden">
+                </div>
+            </div>
 
-                <select name="inventory_item[]" class="inventory-dropdown searchable-dropdown">
-                    <option value="">Select Inventory Item</option>
-                   // Added data-uom-id attribute to each option
-                    // In your addLineItem function, update the inventory dropdown options:
-${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom_id || ''}" data-uom-name="${item.uom_name || ''}">${item.name}</option>`).join('')}
+            <!-- NEW: Department per line item -->
+            <div class="form-group">
+                <label for="project_id">Department</label>
+                <select name="project_id[]" class="project-dropdown form-select2">
+                    <option value="">Select Department</option>
+                    {% for project in projects %}
+                    <option value="{{ project.id }}">{{ project.name }}</option>
+                    {% endfor %}
                 </select>
             </div>
-            
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="quantity">Quantity</label>
-                    <input type="text" name="quantity[]" required auto-complete="off">
 
-                        <!-- Adjustment display -->
-            <div class="adjustment-display conditional-field" style="display: none;">
-                <div class="badge bg-info">
-                    <span class="adjustment-info">System: 0 | Adjustment: 0</span>
+            <div class="conditional-field price-container">
+                <div class="form-group unit-price-group" style="display: none;">
+                    <label for="unit_price">Unit Price</label>
+                    <input type="text" name="unit_price[]" required autocomplete="off">
+                </div>
+                <div class="form-group selling-price-group" style="display: none;">
+                    <label for="selling_price">Selling Price (Optional)</label>
+                    <input type="text" name="selling_price[]" autocomplete="off">
                 </div>
             </div>
-            
-
-                    <div class="stock-display"></div>
-
-                </div>
-
-
-
-
-                <div class="form-group">
-                    <label for="uom">Unit of Measurement</label>
-                    <div class="uom-display">
-                        <input type="text" class="uom-readonly" readonly placeholder="Select an item first">
-                        <input type="hidden" name="uom[]" class="uom-hidden">
-                    </div>
-                </div>
-                        
-                            
-
-                            <div class="conditional-field price-container">
-                    <div class="form-group unit-price-group" style="display: none;">
-                        <label for="unit_price">Unit Price</label>
-                        <input type="text" name="unit_price[]" required autocomplete="off">
-                    </div>
-                    <div class="form-group selling-price-group" style="display: none;">
-                        <label for="selling_price">Selling Price (Optional)</label>
-                        <input type="text" name="selling_price[]" autocomplete="off">
-                    </div>
-                </div>
-
-
-            </div>
-          
-  
-        `;
+        </div>
+    `;
 
         lineItemsContainer.appendChild(lineItem);
 
@@ -2018,54 +2025,41 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
         lineItem.querySelector('input[name="unit_price[]"]').value = '';
         lineItem.querySelector('input[name="selling_price[]"]').value = '';
 
+        // Initialize Select2 for project dropdown
+        $(lineItem).find('.project-dropdown').select2({
+            width: '100%',
+            placeholder: "Select Department",
+            allowClear: true
+        });
+
         // Add event listeners to quantity and unit price fields
         lineItem.querySelector('input[name="quantity[]"]').addEventListener('input', function () {
-
             updateSummary();
         });
         lineItem.querySelector('input[name="unit_price[]"]').addEventListener('input', function () {
-
             updateSummary();
-
         });
-
 
         const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
-
-        // Reinitialize select2
         $(inventoryDropdown).select2({ width: '100%' });
 
-
-
-
-        // Update summary section immediately after adding a new line item
         updateSummary();
 
-        // Ensure the new line item's UOM dropdown gets updated with the latest UOM options
-        // After the line item is added, append the new UOM options
         $('#lineItemsContainer select[name="uom[]"]:last').each(function () {
-            $(this).append(newUOMOptions.join(''));  // Append all new UOMs to the last dropdown added
+            $(this).append(newUOMOptions.join(''));
         });
 
-
         const movementTypeSelect = document.getElementById('movement_type');
-
         const movementType = movementTypeSelect.value;
-        console.log('Add item line movement type is', movementType);
-
-        // Update line items based on movement type
         updateLineItemsForMovementType(movementType);
 
-        // After appending the line item, add this:
         const newLineItem = lineItemsContainer.lastElementChild;
         setupAdjustmentEventListeners(newLineItem);
 
-        // If current movement type is adjustment, show adjustment display
         if (movementType === 'adjustment') {
             const adjustmentDisplay = newLineItem.querySelector('.adjustment-display');
             adjustmentDisplay.style.display = 'block';
 
-
             const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
             const sellingPriceInput = lineItem.querySelector('input[name="selling_price[]"]');
 
@@ -2079,13 +2073,9 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
                 sellingPriceInput.readOnly = true;
                 sellingPriceInput.removeAttribute('required');
             }
-
         }
 
-        // If current movement type is adjustment, show adjustment display
         if (movementType === 'transfer') {
-
-
             const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
             const sellingPriceInput = lineItem.querySelector('input[name="selling_price[]"]');
 
@@ -2099,11 +2089,8 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
                 sellingPriceInput.readOnly = true;
                 sellingPriceInput.removeAttribute('required');
             }
-
         }
-
     });
-
 
 
     // Single event delegation handler for all inventory dropdowns
@@ -2363,22 +2350,30 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
             const movementType = document.getElementById('movement_type').value;
             const form = document.getElementById('inventoryForm');
 
-            // Disable buttons immediately when form submission starts
             disableSubmitButtonsWithTimeout(form);
-
-            // Update required attributes based on current visibility
             updateRequiredAttributes();
 
-            // Validate the form
             if (!validateForm()) {
-                enableAllSubmitButtons(); // Re-enable if validation fails
+                enableAllSubmitButtons();
                 return;
             }
 
-
-            // Prepare form data manually (do not initialize from the form)
             const formData = new FormData();
 
+            // Get project dropdowns BEFORE the loop
+            const projectIds = document.querySelectorAll('select[name="project_id[]"]');
+
+            // Append attachments
+            const attachmentFiles = document.querySelectorAll('.attachment-file');
+            const attachmentDescriptions = document.querySelectorAll('input[name="attachment_description[]"]');
+
+            attachmentFiles.forEach((fileInput, index) => {
+                if (fileInput.files.length > 0) {
+                    formData.append(`attachments[]`, fileInput.files[0]);
+                    const description = attachmentDescriptions[index] ? attachmentDescriptions[index].value : '';
+                    formData.append(`attachment_description[]`, description);
+                }
+            });
 
             // If supplier_id is empty, ensure supplier_name is included
             const hiddensupplierId = document.getElementById('supplier_id');
@@ -2386,39 +2381,25 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
 
             if (!hiddensupplierId.value) {
                 formData.append('supplier_name', supplierInput.value.trim());
-                hiddensupplierId.value = supplierInput.value.trim(); // Ensure supplier_id is set to supplierInput value
+                hiddensupplierId.value = supplierInput.value.trim();
                 console.log(`Appended supplier_name: ${supplierInput.value.trim()}`);
             }
 
-
             // Append static form fields
             const staticFields = [
-                // Basic Information
                 'reference',
                 'transaction_date',
                 'movement_type',
                 'source_type',
                 'write_off_reason',
-
-                // Supplier Information
                 'supplier_id',
                 'is_one_time',
-
-                // Location Information
                 'location',
-                'to_location',             // For transfers
-
-                // Currency and Payment
+                'to_location',
                 'currency',
                 'payment_mode',
-
-
-                // Additional Details
-                'project_id',
                 'expiration_date',
                 'handled_by'
-
-
             ];
 
             staticFields.forEach(field => {
@@ -2429,60 +2410,33 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
                 }
             });
 
-
-
-
-            // Process each line item and store the data in the array
-            let lineItems = [];
-
+            // Process each line item
             document.querySelectorAll('.line-item').forEach((row, index) => {
                 try {
                     console.log(`Processing Line Item ${index + 1}:`, row);
 
-
-
                     const inventoryItem = row.querySelector('.inventory-dropdown').value || '';
-                    console.log(`Inventory Item: ${inventoryItem}`);
-
-
                     const quantity = parseFloat(row.querySelector('input[name="quantity[]"]').value) || 0;
-                    console.log(`Quantity: ${quantity}`);
-
                     const uom = row.querySelector('input[name="uom[]"]').value || '';
-
-
-
                     const unitPrice = parseFloat(row.querySelector('input[name="unit_price[]"]').value) || 0;
-                    console.log(`Unit Price: ${unitPrice}`);
-
-
                     const sellingPrice = parseFloat(row.querySelector('input[name="selling_price[]"]').value) || 0;
-                    console.log(`Selling Price: ${sellingPrice}`);
 
-
-
-                    // Append line item data to the FormData object
+                    // Get project ID from the pre-fetched projectIds array
+                    const projectId = projectIds[index] ? projectIds[index].value : '';
 
                     formData.append(`inventory_item[]`, inventoryItem);
-
                     formData.append(`quantity[]`, quantity);
                     formData.append(`uom[]`, uom);
                     formData.append(`unit_price[]`, unitPrice);
                     formData.append(`selling_price[]`, sellingPrice);
+                    formData.append(`project_id[]`, projectId);
 
-                    // In your form submission logic, you can add:
-                    // In your form submission logic:
                     if (movementType === 'adjustment') {
                         const systemQuantity = row.dataset.systemQuantity || 0;
                         const adjustment = row.dataset.adjustment || 0;
-
-                        console.log(`Line ${index + 1} - System: ${systemQuantity}, Adjustment: ${adjustment}`);
-
                         formData.append(`adjustment[]`, adjustment);
                         formData.append(`system_quantity[]`, systemQuantity);
                     }
-
-
                 } catch (error) {
                     console.error(`Error processing Line Item ${index + 1}:`, error);
                 }
@@ -2494,7 +2448,6 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
                 console.log(`${pair[0]}: ${pair[1]}`);
             }
 
-            // Send the form data to the server
             // Send the form data to the server
             fetch("{{ url_for('inventory.inventory_entry') }}", {
                 method: 'POST',
@@ -2508,11 +2461,9 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
                     if (data.status === 'success') {
                         showNotification('Inventory added successfully!', 'success');
 
-                        // Handle different actions
                         if (action === 'save-exit') {
-                            window.location.href = '/inventory/stock_movement_history'; // Redirect to inventory entries page
+                            window.location.href = '/inventory/stock_movement_history';
                         } else if (action === 'save-new') {
-                            // Reset form for new entry
                             resetFormForNewEntry();
                             showNotification('Inventory saved successfully! Ready for new entry.', 'success');
                         }
@@ -2528,13 +2479,11 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
                     showNotification('There was an issue adding your inventory. Please try again later.', 'error');
                     enableAllSubmitButtons();
                 }).finally(() => {
-                    // Clear the timeout
                     if (window.submissionTimeout) {
                         clearTimeout(window.submissionTimeout);
                     }
                 });
         }
-
         // Function to reset form for new entry
         function resetFormForNewEntry() {
             // Store movement type before reset
@@ -2880,26 +2829,37 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
     function updateAvailableQuantity(lineItem) {
         const inventoryDropdown = lineItem.querySelector('.inventory-dropdown');
         const stockDisplay = lineItem.querySelector('.stock-display');
-
-        if (!inventoryDropdown || !stockDisplay) {
-            return; // Exit if elements don't exist
-        }
-
-        // Get the selected inventory item ID
-        const inventoryItemId = $(inventoryDropdown).val();
+        const movementType = document.getElementById('movement_type').value;
         const locationId = document.getElementById('location').value;
 
-        // Clear display if selections aren't complete
+        if (!inventoryDropdown || !stockDisplay) {
+            return;
+        }
+
+        const inventoryItemId = $(inventoryDropdown).val();
+
         if (!inventoryItemId || !locationId) {
             stockDisplay.innerHTML = '<div class="badge bg-secondary">Select item and location</div>';
             return;
         }
 
+        // Get selected department for ALL movement types
+        let departmentId = null;
+        const departmentSelect = lineItem.querySelector('.project-dropdown');
+        if (departmentSelect) {
+            departmentId = $(departmentSelect).val();
+        }
+
         // Show loading state
         stockDisplay.innerHTML = '<div class="stock-loading">Checking stock...</div>';
 
-        // Fetch available quantity using the existing api_inventory_stock endpoint
-        fetch(`/api/inventory_stock?item_ids[]=${inventoryItemId}&location_id=${locationId}&include_negative=true&use_variation_ids=true`)
+        // Build URL with optional department filter
+        let url = `/api/inventory_stock?item_ids[]=${inventoryItemId}&location_id=${locationId}&include_negative=true&use_variation_ids=true`;
+        if (departmentId) {
+            url += `&project_id=${departmentId}`;
+        }
+
+        fetch(url)
             .then((response) => {
                 if (!response.ok) throw new Error("Network response was not ok");
                 return response.json();
@@ -2909,18 +2869,27 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
                     throw new Error(data.message || 'Failed to fetch stock data');
                 }
 
-                // Extract available quantity from the response
-                // The response structure is: {stock_data: {item_id: quantity}}
-                const availableQty = data.stock_data[inventoryItemId] || 0;
+                let availableQty = data.stock_data[inventoryItemId] || 0;
                 let badgeClass = 'bg-info';
                 let warningText = '';
 
+                // Show department breakdown for ALL movement types when no department selected
+                if (!departmentId && data.departments && data.departments.length > 0) {
+                    let deptHtml = '<div class="dept-breakdown"><small>Available by department:</small><ul style="margin: 5px 0 0 15px; padding: 0;">';
+                    data.departments.forEach(dept => {
+                        deptHtml += `<li>${dept.project_name}: ${dept.available_quantity}</li>`;
+                    });
+                    deptHtml += '</ul></div>';
+                    stockDisplay.innerHTML = deptHtml;
+                    return;
+                }
+
                 if (availableQty < 0) {
-                    badgeClass = 'bg-danger';       // red badge
+                    badgeClass = 'bg-danger';
                     warningText = ' (Negative stock!)';
                     showNotification(`⚠️ Warning: Stock for this item is negative (${availableQty}). Please review inventory adjustments.`, 'error');
                 } else if (availableQty === 0) {
-                    badgeClass = 'bg-warning';      // yellow badge
+                    badgeClass = 'bg-warning';
                     warningText = ' (Out of stock)';
                 }
 
@@ -2935,8 +2904,6 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
                 stockDisplay.innerHTML = '<div class="badge bg-danger">Error loading quantity</div>';
             });
     }
-
-
     // Add event listeners for inventory dropdown changes
     $(document).on('select2:select', '.inventory-dropdown', function (e) {
         const lineItem = this.closest('.line-item');
@@ -2971,6 +2938,90 @@ ${inventoryItems.map(item => `<option value="${item.id}" data-uom-id="${item.uom
             .catch(err => {
                 console.error('Error checking reference:', err);
             });
+    });
+
+
+
+    // Attachments functionality
+    document.addEventListener('DOMContentLoaded', function () {
+        // Add attachment row
+        document.getElementById('addAttachmentBtn').addEventListener('click', function () {
+            const container = document.getElementById('attachmentsContainer');
+            const attachmentCount = container.querySelectorAll('.attachment-item').length + 1;
+
+            const newAttachment = document.createElement('div');
+            newAttachment.classList.add('attachment-item', 'form-group');
+            newAttachment.innerHTML = `
+            <label>Upload Document ${attachmentCount}</label>
+            <input type="file" name="attachments[]" class="attachment-file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+            <input type="text" name="attachment_description[]" class="form-control mt-2" placeholder="Description (e.g., Invoice, Delivery Note, Waybill)" style="width: 100%;">
+            <button type="button" class="button remove-button remove-attachment" style="margin-top: 8px;">Remove</button>
+            <hr>
+        `;
+            container.appendChild(newAttachment);
+
+            // Add remove event listener to the new button
+            newAttachment.querySelector('.remove-attachment').addEventListener('click', function () {
+                newAttachment.remove();
+                // Renumber labels
+                document.querySelectorAll('#attachmentsContainer .attachment-item').forEach((item, idx) => {
+                    const label = item.querySelector('label');
+                    if (label) {
+                        label.textContent = `Upload Document ${idx + 1}`;
+                    }
+                });
+            });
+        });
+
+        // Remove attachment button for existing rows
+        document.querySelectorAll('.remove-attachment').forEach(btn => {
+            btn.addEventListener('click', function () {
+                this.closest('.attachment-item').remove();
+                // Renumber labels
+                document.querySelectorAll('#attachmentsContainer .attachment-item').forEach((item, idx) => {
+                    const label = item.querySelector('label');
+                    if (label) {
+                        label.textContent = `Upload Document ${idx + 1}`;
+                    }
+                });
+            });
+        });
+    });
+
+
+
+    // Auto-select location if only one valid location exists
+    function autoSelectLocation() {
+        const locationSelect = document.getElementById('location');
+        if (!locationSelect) return;
+
+        // Get all valid location options (exclude empty value and 'add_new_location')
+        const validOptions = Array.from(locationSelect.options).filter(option => {
+            return option.value && option.value !== 'add_new_location';
+        });
+
+        if (validOptions.length === 1) {
+            const onlyLocation = validOptions[0];
+            locationSelect.value = onlyLocation.value;
+            console.log('Auto-selected location:', onlyLocation.text);
+
+            // Trigger change event
+            const changeEvent = new Event('change', { bubbles: true });
+            locationSelect.dispatchEvent(changeEvent);
+        }
+    }
+
+    // Call the function after locations are loaded
+    document.addEventListener('DOMContentLoaded', function () {
+        // Small delay to ensure Select2 is initialized if you're using it
+        setTimeout(autoSelectLocation, 100);
+    });
+    // Add this after your existing event listeners
+    $(document).on('change', '.project-dropdown', function () {
+        const lineItem = $(this).closest('.line-item');
+        if (lineItem.length) {
+            updateAvailableQuantity(lineItem[0]);
+        }
     });
 
 

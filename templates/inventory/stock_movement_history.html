@@ -62,7 +62,6 @@
             </button>
 
             <!-- Bulk action buttons (hidden by default) -->
-            <!-- Bulk action buttons (hidden by default) -->
             <div class="bulk-actions" id="bulkActions" style="gap: 10px; display: none;">
                 <div>
                     <button class="button-outline" type="button" id="bulkDelete">
@@ -77,9 +76,6 @@
             </button>
 
 
-            <!-- 🔍 Quick Search -->
-            <input type="text" id="inventorySearch" class="form-control search-input"
-                placeholder="Search Stock entries...">
 
 
             <div class="custom-tooltip-container">
@@ -94,22 +90,10 @@
 
         </div>
 
-
-
-
-
-
-
         <!-- Dashboard Shortcuts for Navigation -->
         <nav aria-label="dashboard-shortcuts">
             <ol class="dashboard-shortcuts">
 
-
-
-                {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
-                <li class="shortcut-item"><a href="{{ url_for('inventory.inventory_entry') }}">Stock Movement</a>
-                </li>
-                {% endif %}
 
                 <li class="shortcut-item"><a href="{{ url_for('inventory.stock_list_list') }}">Stock List</a></li>
 
@@ -134,6 +118,17 @@
                 </select>
             </div>
 
+            <!-- Project Filter -->
+            <div class="filter-group">
+                <label for="project" class="filter-label">Department</label>
+                <select id="project" name="project" class="form-select form-select2">
+                    <option value="">All departments</option>
+                    {% for project in projects %}
+                    <option value="{{ project.id }}">{{ project.name }} ({{ project.project_id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <div class="filter-group">
                 <label for="ledger_status" class="filter-label">Ledger Status</label>
                 <select id="ledger_status" name="ledger_status" class="form-select select2">
@@ -148,7 +143,7 @@
                 </select>
             </div>
 
-            <!-- Reference Filter - Change from select to input -->
+            <!-- Reference Filter -->
             <div class="filter-group">
                 <label for="reference" class="filter-label">Reference</label>
                 <input type="text" id="reference" name="reference" class="form-control" placeholder="Type reference...">
@@ -181,16 +176,15 @@
                 <label for="source_type" class="filter-label">Source Type</label>
                 <select id="source_type" name="source_type" class="form-select">
                     <option value="">All Sources</option>
-                    <option value="purchase">Purchase</option>
-                    <option value="sale">Sale</option>
+                    <option value="purchase">Receipt</option>
+                    <option value="sale">Dispatch</option>
                     <option value="transfer">Transfer</option>
                     <option value="adjustment">Adjustment</option>
                     <option value="missing">Missing</option>
-                    <option value="manufacture">Manufacture</option>
+                    <!-- <option value="manufacture">Manufacture</option>
                     <option value="donation">Donation</option>
                     <option value="return">Return</option>
-                    <option value="manual">Manual Entry</option>
-
+                    <option value="manual">Manual Entry</option> -->
                 </select>
             </div>
 
@@ -233,17 +227,15 @@
                     <th>Date</th>
                     <th>Item</th>
                     <th>Attribute/Variation</th>
-
                     <th>From Location</th>
                     <th>To Location</th>
                     <th>Reference</th>
                     <th>Handled By</th>
                     <th>Party</th>
-                    <th>UOM</th> <!-- 🆕 NEW: Add UOM column -->
+                    <th>Department</th>
+                    <th>UOM</th>
                     <th class="text-center">Quantity</th>
                     <th class="text-center">Qty at Hand</th>
-                    <!-- 🆕 NEW: Posted to Ledger column -->
-
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -261,13 +253,6 @@
 </div>
 
 <script>
-    // initialize Select2 for journal number
-    // $('#batch_number').select2({
-    //     placeholder: 'Select Batch Number',
-    //     allowClear: true,
-    //     width: '100%'
-    // });
-
     // Initialize Select2 for item selection
     $('#item').select2({
         placeholder: 'Select an Item',
@@ -275,12 +260,18 @@
         width: '100%'
     });
 
-
+    // Initialize Select2 for project filter
+    $('#project').select2({
+        placeholder: 'Select a Project',
+        allowClear: true,
+        width: '100%'
+    });
 
     document.addEventListener('DOMContentLoaded', function () {
         let currentPage = 1;
         let perPage = 20;
         let itemId = '';
+        let projectId = '';
         let ledgerStatus = '';
         let reference = '';
         let locationId = '';
@@ -306,15 +297,11 @@
         const filterButton = document.getElementById('toggleFilterForm');
         const shortcutButton = document.getElementById('shortcutToggleBtn');
         const dashboardShortcuts = document.querySelector('.dashboard-shortcuts');
-        const searchInput = document.getElementById('inventorySearch');
-
-
 
         const BASE_CURRENCY_ID = "{{ base_currency.id }}";
         const BASE_CURRENCY_CODE = "{{ base_currency.user_currency }}";
 
         console.log('Base currency is ', BASE_CURRENCY_CODE, BASE_CURRENCY_ID)
-
 
         // Toggle multi-select mode
         toggleMultiSelectBtn.addEventListener('click', () => {
@@ -330,8 +317,6 @@
             renderStockMovementHistory(currentEntries);
         });
 
-
-
         // Select all checkbox
         selectAllCheckbox.addEventListener('change', (e) => {
             const checkboxes = document.querySelectorAll('.entry-checkbox');
@@ -345,15 +330,13 @@
                 }
             });
             updateBulkActionButtons();
-            updateMultiSelectUI(); // FIX: Added this to update UI after selecting all
+            updateMultiSelectUI();
         });
 
-        // Bulk delete
-        // Bulk delete
+        // Bulk delete (same as before - keeping your existing code)
         bulkDeleteBtn.addEventListener('click', () => {
             if (selectedEntries.size === 0) return;
 
-            // Check selected entries for disallowed source types
             const disallowedSources = ['pos_sale', 'sales_invoice', 'direct_sale', 'goods_receipt', 'direct_purchase'];
             const invalidEntries = [];
             const validEntries = [];
@@ -373,25 +356,12 @@
             });
 
             if (invalidEntries.length > 0) {
-                // Show warning with list of invalid entries
-                let message = `
-            <div style="text-align: left;">
-                <p class="mb-2"><strong>The following entries cannot be deleted:</strong></p>
-                <div style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px;">
-        `;
-
+                let message = `<div style="text-align: left;"><p class="mb-2"><strong>The following entries cannot be deleted:</strong></p><div style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px;">`;
                 invalidEntries.forEach(item => {
-                    message += `<div style="padding: 4px 0; color: #dc3545;">
-                <i class="fas fa-times-circle"></i> ${item.reference} (${item.source})
-            </div>`;
+                    message += `<div style="padding: 4px 0; color: #dc3545;"><i class="fas fa-times-circle"></i> ${item.reference} (${item.source})</div>`;
                 });
-
                 if (validEntries.length > 0) {
-                    message += `
-                </div>
-                <p class="mt-2 text-success"><strong>${validEntries.length} entry(s) can be deleted.</strong></p>
-                <p class="text-warning mt-1">Do you want to proceed with the valid entries only?</p>
-            `;
+                    message += `</div><p class="mt-2 text-success"><strong>${validEntries.length} entry(s) can be deleted.</strong></p><p class="text-warning mt-1">Do you want to proceed with the valid entries only?</p>`;
                 } else {
                     message += `</div><p class="mt-2">No valid entries to delete.</p>`;
                 }
@@ -405,25 +375,15 @@
                     confirmButtonColor: '#3085d6',
                     cancelButtonColor: '#d33',
                     confirmButtonText: validEntries.length > 0 ? 'Yes, delete valid ones' : 'OK',
-                    cancelButtonText: 'Cancel',
-                    customClass: {
-                        popup: 'custom-swal-popup',
-                        title: 'custom-swal-title',
-                        content: 'custom-swal-content',
-                        confirmButton: 'custom-swal-confirm-btn',
-                        cancelButton: 'custom-swal-cancel-btn',
-                        icon: 'custom-swal-icon'
-                    }
+                    cancelButtonText: 'Cancel'
                 }).then((result) => {
                     if (result.isConfirmed && validEntries.length > 0) {
-                        // Proceed with only valid entries
                         deleteEntries(validEntries);
                     }
                 });
                 return;
             }
 
-            // All entries are valid - proceed with normal confirmation
             Swal.fire({
                 title: 'Delete Entries?',
                 text: `Are you sure you want to delete ${selectedEntries.size} entries? This action cannot be undone!`,
@@ -431,15 +391,7 @@
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, delete them!',
-                customClass: {
-                    popup: 'custom-swal-popup',
-                    title: 'custom-swal-title',
-                    content: 'custom-swal-content',
-                    confirmButton: 'custom-swal-confirm-btn',
-                    cancelButton: 'custom-swal-cancel-btn',
-                    icon: 'custom-swal-icon'
-                }
+                confirmButtonText: 'Yes, delete them!'
             }).then((result) => {
                 if (result.isConfirmed) {
                     deleteEntries(validEntries.length > 0 ? validEntries : Array.from(selectedEntries));
@@ -447,83 +399,63 @@
             });
         });
 
-
         function updateToggleButtonText() {
             if (isMultiSelectMode) {
                 toggleMultiSelectBtn.innerHTML = '<i class="fas fa-check-square"></i> Cancel';
-                toggleMultiSelectBtn.style.display = ''; // Keep it visible
-                hideMultiSelectBtn.style.display = ''; // Show the hide button
+                hideMultiSelectBtn.style.display = '';
             } else {
                 toggleMultiSelectBtn.innerHTML = '<i class="fas fa-check-square"></i> Select';
-                toggleMultiSelectBtn.style.display = ''; // Keep it visible
-                hideMultiSelectBtn.style.display = 'none'; // Hide the hide button
+                hideMultiSelectBtn.style.display = 'none';
             }
         }
-
-
 
         function updateOtherButtonsVisibility() {
             if (isMultiSelectMode) {
-                // Hide other buttons and elements when in select mode
                 filterButton.style.display = 'none';
                 exportBtn.style.display = 'none';
                 if (dashboardShortcuts) dashboardShortcuts.style.display = 'none';
-                if (searchInput) searchInput.style.display = 'none';
-
             } else {
-                // Show other buttons and elements when not in select mode
                 filterButton.style.display = '';
                 exportBtn.style.display = '';
                 if (dashboardShortcuts) dashboardShortcuts.style.display = '';
-                if (searchInput) searchInput.style.display = '';
             }
         }
 
-
         function updateMultiSelectUI() {
             if (isMultiSelectMode) {
-                // Hide other buttons and elements
                 filterButton.style.display = 'none';
                 exportBtn.style.display = 'none';
                 if (dashboardShortcuts) dashboardShortcuts.style.display = 'none';
-                if (searchInput) searchInput.style.display = 'none';
 
-                // Show multi-select elements
-                toggleMultiSelectBtn.style.display = 'none'; // Hide Select button
-                hideMultiSelectBtn.style.display = ''; // Show Hide button
+                toggleMultiSelectBtn.style.display = 'none';
+                hideMultiSelectBtn.style.display = '';
                 selectAllHeader.style.display = '';
 
                 document.querySelectorAll('.action-icons-clean').forEach(el => {
                     el.style.display = 'none';
                 });
 
-                // Show checkboxes in existing rows
                 document.querySelectorAll('#stockMovementBody tr td:first-child').forEach(td => {
                     td.style.display = '';
                 });
             } else {
-                // Show other buttons and elements
                 filterButton.style.display = '';
                 exportBtn.style.display = '';
                 if (dashboardShortcuts) dashboardShortcuts.style.display = '';
-                if (searchInput) searchInput.style.display = '';
 
-                // Hide multi-select elements
-                toggleMultiSelectBtn.style.display = ''; // Show Select button
-                hideMultiSelectBtn.style.display = 'none'; // Hide Hide button
+                toggleMultiSelectBtn.style.display = '';
+                hideMultiSelectBtn.style.display = 'none';
                 selectAllHeader.style.display = 'none';
 
                 document.querySelectorAll('.action-icons-clean').forEach(el => {
                     el.style.display = 'flex';
                 });
 
-                // Hide checkboxes in existing rows
                 document.querySelectorAll('#stockMovementBody tr td:first-child').forEach(td => {
                     td.style.display = 'none';
                 });
             }
 
-            // Show/hide bulk actions based on selections (only show if items are selected)
             if (selectedEntries.size > 0 && isMultiSelectMode) {
                 bulkActionsDiv.style.display = 'flex';
             } else {
@@ -536,7 +468,6 @@
         function updateBulkActionButtons() {
             const hasSelections = selectedEntries.size > 0;
             bulkDeleteBtn.disabled = !hasSelections;
-
             if (hasSelections) {
                 bulkDeleteBtn.textContent = `Delete (${selectedEntries.size})`;
             } else {
@@ -546,17 +477,17 @@
 
         let currentEntries = [];
 
-        // Load stock movement history
         function loadStockMovementHistory() {
             setLoadingState(true);
 
-            const columnCount = 13; // Updated column count for checkbox
+            const columnCount = 14;
             stockMovementBody.innerHTML = `<tr><td colspan="${columnCount}" class="text-center py-3">Loading stock movement history...</td></tr>`;
 
             const params = new URLSearchParams({
                 page: currentPage,
                 per_page: perPage,
                 item_id: itemId,
+                project_id: projectId,
                 ledger_status: ledgerStatus,
                 reference: reference,
                 location_id: locationId,
@@ -585,8 +516,6 @@
                 });
         }
 
-
-        // Helper function to get tooltip text - using custom-tooltip format
         function getTooltipText(entry) {
             if (entry.source_id) {
                 switch (entry.inventory_source) {
@@ -618,9 +547,6 @@
             }
         }
 
-
-        // Render stock movement history
-        // Render stock movement history
         function renderStockMovementHistory(entries) {
             if (entries.length === 0) {
                 stockMovementBody.innerHTML = `<tr><td colspan="14" class="text-center py-3">No stock movement records found</td></tr>`;
@@ -629,18 +555,13 @@
 
             let html = '';
             entries.forEach(entry => {
-                // Determine movement type badge class
                 let movementClass = 'bg-secondary';
                 let movementText = entry.movement_type;
-                // Generate reference link - now properly routed
-
-                // Generate reference link
                 let referenceLink = entry.reference_number || '-';
 
                 if (entry.reference_number && entry.reference_number !== '-') {
                     const linkUrl = getTransactionUrl(entry);
                     if (linkUrl) {
-                        // Use custom-tooltip-container and custom-tooltip classes
                         referenceLink = `
                     <div class="custom-tooltip-container">
                         <a href="${linkUrl}" class="reference-link">${entry.reference_number}</a>
@@ -649,7 +570,6 @@
                 `;
                     }
                 }
-
 
                 switch (entry.movement_type) {
                     case 'in':
@@ -674,7 +594,6 @@
                         break;
                 }
 
-                // Determine quantity class based on movement type and location
                 let quantityClass = '';
                 let displayQuantity = entry.quantity;
 
@@ -688,24 +607,18 @@
                         break;
                     case 'transfer':
                         if (locationId) {
-                            // Get the location name from the dropdown to compare with entry locations
                             const locationSelect = document.getElementById('location');
                             const selectedOption = locationSelect.options[locationSelect.selectedIndex];
                             const filteredLocationName = selectedOption.text;
-
                             if (entry.to_location === filteredLocationName) {
-                                // Transfer TO the filtered location - positive (receiving inventory)
                                 quantityClass = 'positive-color';
                             } else if (entry.from_location === filteredLocationName) {
-                                // Transfer FROM the filtered location - negative (sending inventory out)
                                 quantityClass = 'negative-color';
-                                displayQuantity = -entry.quantity; // Show as negative
+                                displayQuantity = -entry.quantity;
                             } else {
-                                // Transfer doesn't involve the filtered location
                                 quantityClass = 'positive-color';
                             }
                         } else {
-                            // No location filter - show transfers normally as positive
                             quantityClass = 'positive-color';
                         }
                         break;
@@ -714,8 +627,6 @@
                         break;
                 }
 
-                // Determine source type badge class
-                // Determine source type badge class and display text
                 let sourceClass = 'bg-secondary';
                 let sourceDisplayText = entry.source_type;
 
@@ -766,7 +677,6 @@
                         break;
                 }
 
-                // Format running total with color based on value
                 let runningTotalClass = '';
                 if (entry.running_total > 0) {
                     runningTotalClass = 'positive-color';
@@ -774,10 +684,7 @@
                     runningTotalClass = 'negative-color';
                 }
 
-                // Format amount with currency symbol (no color coding)
-                // Convert the string with commas to a number
                 const amountValue = parseFloat(entry.total_amount_base.replace(/,/g, '')) || 0;
-
                 const formattedAmount = new Intl.NumberFormat('en-US', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
@@ -786,69 +693,62 @@
                 const isChecked = selectedEntries.has(entry.id.toString());
 
                 html += `
-        <tr>
-            <td style="display: ${isMultiSelectMode ? '' : 'none'};">
-                <input type="checkbox" class="entry-checkbox" 
-                       data-entry-id="${entry.id}" 
-                       ${isChecked ? 'checked' : ''}>
-            </td>
-            <td style="width: 80px;">
-    ${entry.transaction_date} 
-    <span class="badge ${sourceClass} ms-2">${sourceDisplayText}</span>
-</td>
-            <td>${entry.item_name} ${entry.item_code ? `(${entry.item_code})` : ''}</td>
-            <td>${entry.attribute || ''} ${entry.variation ? `/ ${entry.variation}` : '-'}</td>
-            <td>${entry.from_location || '-'}</td>
-            <td>${entry.to_location || '-'}</td>
-            <td class="reference-link">${referenceLink}</td>
-            <td>${entry.handled_by || '-'}</td>
-            <td>${entry.vendor_name || '-'}</td>
-
-            <td>${entry.uom || '-'}</td>
-            <td class="text-center ${quantityClass}">${entry.quantity}</td>
-         
-            <td class="text-center ${runningTotalClass} fw-bold">${entry.running_total}</td>
-            
-            <td style="width:40px;" class="text-center">
-                <div class="action-icons-clean" style="display: ${isMultiSelectMode ? 'none' : 'flex'};">
-
-                     <!-- View Icon - Inside custom-tooltip-container -->
-            ${getTransactionUrl(entry) ? `
-            <div class="custom-tooltip-container">
-                <a href="${getTransactionUrl(entry)}" class="view-icon">
-                    <i class="fas fa-eye"></i>
-                </a>
-                <span class="custom-tooltip left">${getTooltipText(entry)}</span>
-            </div>
-            ` : ''}
-            
-                    <div class="custom-tooltip-container">
-
-    ${entry.inventory_source === 'adjustment' ? `
-    <a href="#" class="edit-icon disabled" onclick="return false;" style="pointer-events: none; opacity: 0.5;">
-        <i class="fas fa-edit"></i>
-    </a>
-    <span class="custom-tooltip custom-tooltip2 left-plus">Adjustments cannot be edited. Delete and create new adjustment instead.</span>
-    ` : `
-    <a href="/inventory/inventory_entry/${entry.entry_id}/edit" 
-       class="edit-icon ${['pos_sale', 'sales_invoice', 'direct_sale', 'goods_receipt', 'direct_purchase'].includes(entry.inventory_source) ? 'disabled' : ''}"
-       ${['pos_sale', 'sales_invoice', 'direct_sale', 'goods_receipt', 'direct_purchase'].includes(entry.inventory_source) ? 'onclick="return false;" style="pointer-events: none; opacity: 0.5;"' : ''}>
-        <i class="fas fa-edit"></i>
-    </a>
-    <span class="custom-tooltip left-plus">
-        ${['pos_sale', 'sales_invoice', 'direct_sale', 'goods_receipt', 'direct_purchase'].includes(entry.inventory_source) ? `Edit disabled for ${entry.inventory_source}` : 'Edit Entry'}
-    </span>
-    `}
-</div>
-                </div>
-            </td>
-        </tr>
-        `;
+                <tr>
+                    <td style="display: ${isMultiSelectMode ? '' : 'none'};">
+                        <input type="checkbox" class="entry-checkbox" 
+                               data-entry-id="${entry.id}" 
+                               ${isChecked ? 'checked' : ''}>
+                    </td>
+                    <td style="width: 80px;">
+                        ${entry.transaction_date} 
+                        <span class="badge ${sourceClass} ms-2">${sourceDisplayText}</span>
+                    </td>
+                    <td>${entry.item_name} ${entry.item_code ? `(${entry.item_code})` : ''}</td>
+                    <td>${entry.attribute || ''} ${entry.variation ? `/ ${entry.variation}` : '-'}</td>
+                    <td>${entry.from_location || '-'}</td>
+                    <td>${entry.to_location || '-'}</td>
+                    <td class="reference-link">${referenceLink}</td>
+                    <td>${entry.handled_by || '-'}</td>
+                    <td>${entry.vendor_name || '-'}</td>
+                    <td>${entry.project_name || '-'}</td>
+                    <td>${entry.uom || '-'}</td>
+                    <td class="text-center ${quantityClass}">${entry.quantity}</td>
+                    <td class="text-center ${runningTotalClass} fw-bold">${entry.running_total}</td>
+                    <td style="width:40px;" class="text-center">
+                        <div class="action-icons-clean" style="display: ${isMultiSelectMode ? 'none' : 'flex'};">
+                            ${getTransactionUrl(entry) ? `
+                            <div class="custom-tooltip-container">
+                                <a href="${getTransactionUrl(entry)}" class="view-icon">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <span class="custom-tooltip left">${getTooltipText(entry)}</span>
+                            </div>
+                            ` : ''}
+                            <div class="custom-tooltip-container">
+                                ${entry.inventory_source === 'adjustment' ? `
+                                <a href="#" class="edit-icon disabled" onclick="return false;" style="pointer-events: none; opacity: 0.5;">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <span class="custom-tooltip custom-tooltip2 left-plus">Adjustments cannot be edited. Delete and create new adjustment instead.</span>
+                                ` : `
+                                <a href="/inventory/inventory_entry/${entry.entry_id}/edit" 
+                                   class="edit-icon ${['pos_sale', 'sales_invoice', 'direct_sale', 'goods_receipt', 'direct_purchase'].includes(entry.inventory_source) ? 'disabled' : ''}"
+                                   ${['pos_sale', 'sales_invoice', 'direct_sale', 'goods_receipt', 'direct_purchase'].includes(entry.inventory_source) ? 'onclick="return false;" style="pointer-events: none; opacity: 0.5;"' : ''}>
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <span class="custom-tooltip left-plus">
+                                    ${['pos_sale', 'sales_invoice', 'direct_sale', 'goods_receipt', 'direct_purchase'].includes(entry.inventory_source) ? `Edit disabled for ${entry.inventory_source}` : 'Edit Entry'}
+                                </span>
+                                `}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                `;
             });
 
             stockMovementBody.innerHTML = html;
 
-            // Add event listeners to checkboxes
             document.querySelectorAll('.entry-checkbox').forEach(checkbox => {
                 checkbox.addEventListener('change', (e) => {
                     const entryId = e.target.getAttribute('data-entry-id');
@@ -864,55 +764,31 @@
             });
         }
 
-        // Helper function to determine the correct URL for a transaction
-        // Helper function to determine the correct URL for a transaction
         function getTransactionUrl(entry) {
-            // Log to debug
             console.log('Getting URL for:', entry.inventory_source, 'source_id:', entry.source_id);
 
-            // If source_id exists, it's from another module
             if (entry.source_id) {
                 switch (entry.inventory_source) {
-                    // Sales routes
                     case 'pos_sale':
                     case 'direct_sale':
                         return `/sales/direct_sales_transaction_details/${entry.source_id}`;
-
-                    case 'sales_invoice':  // This should now work
-                        console.log('Routing sales_invoice to:', `/sales/transaction/${entry.source_id}`);
+                    case 'sales_invoice':
                         return `/sales/invoice/${entry.source_id}`;
-
-                    // Purchase routes    
                     case 'purchase':
                     case 'direct_purchase':
                         return `/purchases/direct_purchase/${entry.source_id}`;
-
                     case 'goods_receipt':
-                        // Use the redirect endpoint to go from goods receipt to purchase order
                         return `/purchases/redirect_goods_receipt_to_po/${entry.source_id}`;
-
-
-                    // Transfer route
                     case 'transfer':
                         return `/inventory/inventory_entry/${entry.source_id}`;
-
-                    // Default fallback for other source_id transactions
                     default:
-                        console.log('No specific route for:', entry.inventory_source, 'fallback to inventory entry');
                         return `/inventory/inventory_entry/${entry.entry_id}`;
                 }
-            }
-            // No source_id - always go to inventory entry detail page
-            else if (entry.entry_id) {
+            } else if (entry.entry_id) {
                 return `/inventory/inventory_entry/${entry.entry_id}`;
             }
-
             return null;
         }
-
-
-
-        // API functions for bulk operations
 
         function deleteEntries(entryIds) {
             fetch('/inventory/api/bulk_delete_entries', {
@@ -931,7 +807,7 @@
                         isMultiSelectMode = false;
                         updateMultiSelectUI();
                         updateToggleButtonText();
-                        loadStockMovementHistory(); // Reload to reflect changes
+                        loadStockMovementHistory();
                     } else {
                         showNotification(data.message || 'Error deleting entries', 'error');
                     }
@@ -941,22 +817,18 @@
                 });
         }
 
-        // [Rest of your existing functions: pagination, setLoadingState, event listeners]
-        // Pagination functions
         function renderPagination(pagination) {
             const { page, per_page, total_pages, total_items, has_next, has_prev } = pagination;
             paginationInfoElement.textContent = `Showing ${(page - 1) * per_page + 1} to ${Math.min(page * per_page, total_items)} of ${total_items} entries`;
 
             let html = '';
 
-            // Previous button
             if (has_prev) {
                 html += `<li class="page-item"><a class="page-link" href="#" data-page="${page - 1}">‹ Previous</a></li>`;
             } else {
                 html += `<li class="page-item disabled"><a class="page-link">‹ Previous</a></li>`;
             }
 
-            // Page numbers
             const maxVisiblePages = 7;
             let startPage = Math.max(1, page - Math.floor(maxVisiblePages / 2));
             let endPage = Math.min(total_pages, startPage + maxVisiblePages - 1);
@@ -969,7 +841,6 @@
                 html += `<li class="page-item ${i === page ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
             }
 
-            // Next button
             if (has_next) {
                 html += `<li class="page-item"><a class="page-link" href="#" data-page="${page + 1}">Next ›</a></li>`;
             } else {
@@ -978,7 +849,6 @@
 
             paginationElement.innerHTML = html;
 
-            // Add event listeners
             document.querySelectorAll('.page-link[data-page]').forEach(el => {
                 el.addEventListener('click', e => {
                     e.preventDefault();
@@ -992,25 +862,26 @@
         function setLoadingState(loading) {
             const applyBtn = document.getElementById("applyFilter");
             const resetBtn = document.getElementById("resetFilters");
-            const exportBtn = document.getElementById("exportBtn");
+            const exportBtnElem = document.getElementById("exportBtn");
 
             if (loading) {
                 applyBtn.disabled = true;
                 resetBtn.disabled = true;
-                exportBtn.disabled = true;
+                exportBtnElem.disabled = true;
                 applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
             } else {
                 applyBtn.disabled = false;
                 resetBtn.disabled = false;
-                exportBtn.disabled = false;
+                exportBtnElem.disabled = false;
                 applyBtn.innerHTML = "Apply Filter";
             }
         }
 
-        // Event listeners
+        // Apply filter button
         applyFilterBtn.addEventListener('click', () => {
             currentPage = 1;
             itemId = document.getElementById('item').value;
+            projectId = document.getElementById('project').value;
             locationId = document.getElementById('location').value;
             ledgerStatus = document.getElementById('ledger_status').value;
             reference = document.getElementById('reference').value;
@@ -1022,12 +893,15 @@
             loadStockMovementHistory();
         });
 
+        // Reset filters button
         resetFiltersBtn.addEventListener('click', () => {
             document.getElementById('filter-form').reset();
             $('#item').val(null).trigger('change');
+            $('#project').val(null).trigger('change');
             $('#reference').val(null).trigger('change');
             currentPage = 1;
             itemId = '';
+            projectId = '';
             ledgerStatus = '';
             reference = '';
             locationId = '';
@@ -1039,29 +913,18 @@
             loadStockMovementHistory();
         });
 
-
-
+        // Toggle filter section
         document.getElementById('toggleFilterForm').addEventListener('click', () => {
             document.getElementById('filter-section').classList.toggle('visible');
         });
 
 
-        // Quick Search
-        document.getElementById('inventorySearch').addEventListener('input', function () {
-            const searchValue = this.value.toLowerCase();
-            const rows = stockMovementBody.getElementsByTagName('tr');
-            Array.from(rows).forEach(row => {
-                const rowText = row.textContent.toLowerCase();
-                row.style.display = rowText.includes(searchValue) ? '' : 'none';
-            });
-        });
 
-
-        // Add this to your existing JavaScript
+        // Export button
         exportBtn.addEventListener('click', () => {
-            // Collect current filter values
             const filters = {
                 item_id: document.getElementById('item').value,
+                project_id: document.getElementById('project').value,
                 ledger_status: document.getElementById('ledger_status').value,
                 reference: document.getElementById('reference').value,
                 location_id: document.getElementById('location').value,
@@ -1071,11 +934,9 @@
                 end_date: document.getElementById('end_date').value
             };
 
-            // Show loading state
             exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
             exportBtn.disabled = true;
 
-            // Send request to download endpoint
             fetch('/download_stock_movement_history', {
                 method: 'POST',
                 headers: {
@@ -1091,86 +952,64 @@
                     throw new Error('Network response was not ok.');
                 })
                 .then(blob => {
-                    // Create download link
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.style.display = 'none';
                     a.href = url;
-
-                    // Generate filename based on filters
                     let filename = 'stock_movement_history';
                     if (filters.start_date) filename += `_from_${filters.start_date}`;
                     if (filters.end_date) filename += `_to_${filters.end_date}`;
                     filename += '.pdf';
-
                     a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
-
-                    // Reset button state
-                    exportBtn.innerHTML = '<i class="fas fa-download"></i> Pdf';
+                    exportBtn.innerHTML = '<i class="fas fa-download"></i> PDF';
                     exportBtn.disabled = false;
                 })
                 .catch(error => {
                     console.error('Error downloading report:', error);
                     showNotification('Error downloading report', 'error');
-
-                    // Reset button state
-                    exportBtn.innerHTML = '<i class="fas fa-download"></i> Pdf';
+                    exportBtn.innerHTML = '<i class="fas fa-download"></i> PDF';
                     exportBtn.disabled = false;
                 });
         });
 
+        // Refresh cache button
+        const refreshCacheBtn = document.getElementById('refreshCacheBtn');
+        if (refreshCacheBtn) {
+            refreshCacheBtn.addEventListener('click', function () {
+                console.log('Refresh button clicked');
+                const originalHtml = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                this.disabled = true;
+
+                fetch('{{ url_for("inventory.refresh_stock_movement_history") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    }
+                })
+                    .then(response => {
+                        if (response.redirected) {
+                            window.location.href = response.url;
+                        } else {
+                            location.reload();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error refreshing cache:', error);
+                        this.innerHTML = originalHtml;
+                        this.disabled = false;
+                        alert('Error refreshing data. Please try again.');
+                    });
+            });
+        }
 
         // Initialize
         loadStockMovementHistory();
     });
-
-
-    // Refresh Cache Button functionality
-    const refreshCacheBtn = document.getElementById('refreshCacheBtn');
-    if (refreshCacheBtn) {
-        refreshCacheBtn.addEventListener('click', function () {
-
-            console.log('Refresh button clicked')
-            // Show loading state
-            const originalHtml = this.innerHTML;
-            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            this.disabled = true;
-
-            // Get current hide_zero_items parameter
-            const urlParams = new URLSearchParams(window.location.search);
-            const hideZeroItems = urlParams.get('hide_zero_items') || 'false';
-
-            // Send POST request to clear cache
-            fetch('{{ url_for("inventory.refresh_stock_movement_history") }}', {
-                method: 'POST',  // This should match the backend
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token() }}'
-                }
-            })
-                .then(response => {
-                    if (response.redirected) {
-                        window.location.href = response.url;
-                    } else {
-                        location.reload();
-                    }
-                })
-                .catch(error => {
-                    console.error('Error refreshing cache:', error);
-                    // Reset button state
-                    this.innerHTML = originalHtml;
-                    this.disabled = false;
-                    alert('Error refreshing data. Please try again.');
-                });
-        });
-    }
-
-
 </script>
-
-
 
 {% endblock %}

@@ -362,7 +362,7 @@
         <!-- Main Content -->
         <div class="inventory-main-content">
             <h1>Edit Asset Movement</h1>
-            <form id="inventoryForm" method="post" autocomplete="off">
+            <form id="inventoryForm" method="post" autocomplete="off" enctype="multipart/form-data">
                 <!-- Basic Information Section -->
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="movement_id" value="{{ asset_movement.id }}">
@@ -406,6 +406,7 @@
                             </optgroup>
                         </select>
                         <input type="hidden" name="movement_type" value="{{ asset_movement.movement_type }}">
+                        <input type="hidden" id="deleted_attachments" name="deleted_attachments" value="">
                     </div>
 
 
@@ -578,7 +579,7 @@
                                         </div>
 
                                         <!-- Depreciation Overrides -->
-                                        <div class="form-row">
+                                        <div class="form-row" style="display: none;">
                                             <div class="form-group">
                                                 <label for="useful_life_years">Useful Life (Years)</label>
                                                 <input type="number" name="useful_life_years[]"
@@ -608,7 +609,7 @@
                                         </div>
 
                                         <!-- Capitalization Date -->
-                                        <div class="form-row">
+                                        <div class="form-row" style="display: none;">
                                             <div class="form-group">
                                                 <label for="capitalization_date">Capitalization Date</label>
                                                 <input type="date" name="capitalization_date[]"
@@ -620,7 +621,7 @@
 
                                     <!-- Warranty Information -->
                                     <div class="form-section conditional-field"
-                                        style="display: {{ 'block' if asset_movement.movement_type == 'acquisition' else 'none' }}">
+                                        style="display: {{ 'none' if asset_movement.movement_type == 'acquisition' else 'none' }}">
                                         <h4>Warranty Information</h4>
                                         <div class="form-row">
                                             <div class="form-group">
@@ -654,6 +655,20 @@
                                             </select>
                                         </div>
                                     </div>
+                                </div>
+
+                                <!-- Department field - Add this after the condition field and before the sales-specific fields -->
+                                <div class="form-group">
+                                    <label for="project_id">Department</label>
+                                    <select name="project_id[]" class="project-dropdown form-select2" required>
+                                        <option value="">Select Department</option>
+                                        {% for project in projects %}
+                                        <option value="{{ project.id }}" {% if line_item.project_id==project.id
+                                            %}selected{% endif %}>
+                                            {{ project.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
 
                                 <!-- Sales-specific fields -->
@@ -884,23 +899,79 @@
                         </select>
                     </div>
 
-                    <!-- Additional Details Section - CONDITIONALLY SHOWN -->
-                    <div class="form-section conditional-field" id="additional_details_section"
-                        style="display: {{ 'block' if asset_movement.movement_type in ['acquisition', 'opening_balance', 'donation_in'] else 'none' }}">
-                        <h2>Additional Details (Optional)</h2>
-                        <div class="form-group conditional-field" id="project_field"
-                            style="display: {{ 'block' if asset_movement.movement_type in ['acquisition', 'opening_balance', 'donation_in'] else 'none' }}">
-                            <select id="project_id" name="project_id">
-                                <option value=""></option>
-                                {% for project in projects %}
-                                <option value="{{ project.id }}" {% if asset_movement.project_id==project.id
-                                    %}selected{% endif %}>
-                                    {{ project.name }} - {{ project.project_id }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                            <label for="project">Project:</label>
+                    <!-- ===== LOCATION FIELD - ADD HERE ===== -->
+                    <!-- ===== LOCATION FIELD - ADD HERE ===== -->
+                    <div class="form-group" id="location_field_group">
+                        <label for="location_id">Location <span class="required">*</span></label>
+                        <select id="location_id" name="location_id" class="form-select2" required>
+                            <option value="">Select Location</option>
+                            {% for location in locations %}
+                            <option value="{{ location.id }}" {% if asset_movement.location_id==location.id %}selected{%
+                                endif %}>
+                                {{ location.location }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <!-- ===== END LOCATION FIELD ===== -->
+
+
+
+                    <!-- Attachments Section -->
+                    <div class="form-section">
+                        <h2>Attachments</h2>
+
+                        <!-- Existing Attachments -->
+                        {% if attachments %}
+                        <div id="existingAttachmentsContainer">
+                            <h4>Current Attachments</h4>
+                            {% for attachment in attachments %}
+                            <div class="existing-attachment-item" data-attachment-id="{{ attachment.id }}">
+                                <div class="attachment-info"
+                                    style="display: flex; align-items: center; justify-content: space-between; padding: 8px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
+                                    <div>
+                                        <i class="fas fa-paperclip"></i>
+                                        <a href="{{ url_for('inventory.serve_attachment', attachment_id=attachment.id) }}"
+                                            target="_blank">
+                                            {{ attachment.original_filename }}
+                                        </a>
+                                        <span class="attachment-size text-muted" style="font-size: 0.8rem;">({{
+                                            attachment.file_size_display }})</span>
+                                        {% if attachment.description %}
+                                        <span class="attachment-description badge bg-info" style="margin-left: 8px;">{{
+                                            attachment.description }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <button type="button" class="button remove-button remove-existing-attachment btn-sm"
+                                        data-attachment-id="{{ attachment.id }}" style="padding: 4px 8px;">
+                                        <i class="fas fa-trash"></i> Remove
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
                         </div>
+                        {% endif %}
+
+                        <!-- New Attachments Upload -->
+                        <div id="newAttachmentsContainer">
+                            <div class="attachment-item form-group">
+                                <label>Add New Document</label>
+                                <input type="file" name="attachments[]" class="attachment-file"
+                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                <input type="text" name="attachment_description[]" class="form-control mt-2"
+                                    placeholder="Description (e.g., Invoice, Delivery Note, Waybill, Warranty, Transfer Form, Assignment Letter)"
+                                    style="width: 100%;">
+                                <button type="button" class="button remove-button remove-attachment"
+                                    style="margin-top: 8px;">Remove</button>
+                                <hr>
+                            </div>
+                        </div>
+                        <button type="button" id="addAttachmentBtn" class="button add-button" style="margin-top: 10px;">
+                            <i class="fas fa-plus"></i> Add Another Document
+                        </button>
+                        <small class="text-muted" style="display: block; margin-top: 8px;">
+                            Supported formats: PDF, JPG, PNG, DOC, DOCX. Max file size: 10MB per file.
+                        </small>
                     </div>
                 </div>
 
@@ -1182,6 +1253,40 @@
                 updateAdjustmentAccountVisibility();
             }, 500);
         });
+
+
+        // ===== HIDE/SHOW LOCATION AND DEPARTMENT FIELDS BASED ON MOVEMENT TYPE =====
+        function initializeFieldVisibility() {
+            const movementType = '{{ asset_movement.movement_type }}';
+
+            // Hide/show location field at header level
+            const locationFieldGroup = document.getElementById('location_field_group');
+            if (locationFieldGroup) {
+                if (movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal') {
+                    locationFieldGroup.style.display = 'none';
+                    document.getElementById('location_id').removeAttribute('required');
+                } else {
+                    locationFieldGroup.style.display = 'block';
+                    document.getElementById('location_id').setAttribute('required', 'required');
+                }
+            }
+
+            // Hide/show department fields in each line item
+            document.querySelectorAll('.line-item .form-group:has(select[name="project_id[]"])').forEach(departmentField => {
+                if (movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal') {
+                    departmentField.style.display = 'none';
+                    const departmentSelect = departmentField.querySelector('.project-dropdown');
+                    if (departmentSelect) departmentSelect.removeAttribute('required');
+                } else {
+                    departmentField.style.display = 'block';
+                    const departmentSelect = departmentField.querySelector('.project-dropdown');
+                    if (departmentSelect) departmentSelect.setAttribute('required', 'required');
+                }
+            });
+        }
+
+        initializeFieldVisibility();
+        // ===== END OF FIELD VISIBILITY INITIALIZATION =====
     });
     function initializeSelect2() {
         // Initialize all select2 dropdowns
@@ -1355,7 +1460,7 @@
                     </div>
                     
                     <!-- Depreciation Overrides -->
-                    <div class="form-row">
+                    <div class="form-row" style="display: none;">
                         <div class="form-group">
                             <label for="useful_life_years">Useful Life (Years)</label>
                             <input type="number" name="useful_life_years[]" class="useful-life-input" 
@@ -1375,7 +1480,7 @@
                     </div>
                     
                     <!-- Capitalization Date -->
-                    <div class="form-row">
+                    <div class="form-row" style="display: none;">
                         <div class="form-group">
                             <label for="capitalization_date">Capitalization Date</label>
                             <input type="date" name="capitalization_date[]" class="capitalization-date-input"
@@ -1386,7 +1491,7 @@
                 
                 <!-- Warranty Information -->
                 <div class="form-section conditional-field" 
-                    style="display: ${movementType === 'acquisition' ? 'block' : 'none'}">
+                    style="display: ${movementType === 'acquisition' ? 'none' : 'none'}">
                     <h4>Warranty Information</h4>
                     <div class="form-row">
                         <div class="form-group">
@@ -1415,6 +1520,17 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Department field - ADD THIS -->
+            <div class="form-group">
+                <label for="project_id">Department</label>
+                <select name="project_id[]" class="project-dropdown form-select2" required>
+                    <option value="">Select Department</option>
+                    {% for project in projects %}
+                    <option value="{{ project.id }}">{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             
             <!-- Sales-specific fields -->
             <div class="conditional-field sale-section" 
@@ -1441,6 +1557,8 @@
                     </div>
                 </div>
             </div>
+
+            
             
             <!-- Assignment-specific fields -->
             <div class="conditional-field assignment-section" 
@@ -2311,6 +2429,7 @@
     // Process form submission
     function processFormSubmission(action) {
         const form = document.getElementById('inventoryForm');
+        const movementId = document.querySelector('input[name="movement_id"]')?.value;
 
         // Validate form
         if (!validateForm()) {
@@ -2321,6 +2440,35 @@
         const formData = new FormData(form);
         formData.append('_method', 'PUT');  // For edit/update
         formData.append('action', action);
+
+        // ===== GET PROJECT DROPDOWNS AND APPEND TO FORMDATA =====
+        const projectSelects = document.querySelectorAll('select[name="project_id[]"]');
+        projectSelects.forEach((select, index) => {
+            if (select.value) {
+                formData.append(`project_id[]`, select.value);
+            } else {
+                formData.append(`project_id[]`, '');
+            }
+        });
+
+        // ===== APPEND DELETED ATTACHMENTS =====
+        const deletedAttachments = document.getElementById('deleted_attachments')?.value;
+        if (deletedAttachments) {
+            formData.append('deleted_attachments', deletedAttachments);
+        }
+
+        // ===== APPEND NEW ATTACHMENTS =====
+        const attachmentFiles = document.querySelectorAll('#newAttachmentsContainer .attachment-file');
+        const attachmentDescriptions = document.querySelectorAll('#newAttachmentsContainer input[name="attachment_description[]"]');
+
+        attachmentFiles.forEach((fileInput, index) => {
+            if (fileInput.files.length > 0) {
+                formData.append(`attachments[]`, fileInput.files[0]);
+                const description = attachmentDescriptions[index] ? attachmentDescriptions[index].value : '';
+                formData.append(`attachment_description[]`, description);
+                console.log(`Appended attachment ${index + 1}: ${fileInput.files[0].name}`);
+            }
+        });
 
         // Log form data for debugging
         console.log('Submitting form data:');
@@ -2340,7 +2488,7 @@
             .then(data => {
                 if (data.status === 'success') {
                     showNotification('Asset movement updated successfully!', 'success');
-                    window.location.href = data.redirect_url || `/assets/view_movement/${movementId}`;
+                    window.location.href = data.redirect_url || `/assets/movement_history/${movementId}`;
                 } else {
                     showNotification('Error: ' + data.message, 'error');
                 }
@@ -2361,6 +2509,13 @@
         if (lineItems.length === 0) {
             isValid = false;
             errorMessages.push('At least one asset line item is required');
+        }
+
+        // Check location
+        const locationSelect = document.getElementById('location_id');
+        if (!locationSelect?.value) {
+            isValid = false;
+            errorMessages.push('Location is required');
         }
 
         // Check each line item
@@ -2410,6 +2565,92 @@
         return isValid;
     }
 
+    // Attachments functionality for Edit Asset Movement
+    document.addEventListener('DOMContentLoaded', function () {
+        // Track deleted attachment IDs
+        let deletedAttachmentIds = [];
+
+        // Add new attachment row
+        const addAttachmentBtn = document.getElementById('addAttachmentBtn');
+        if (addAttachmentBtn) {
+            addAttachmentBtn.addEventListener('click', function () {
+                const container = document.getElementById('newAttachmentsContainer');
+                const attachmentCount = container.querySelectorAll('.attachment-item').length + 1;
+
+                const newAttachment = document.createElement('div');
+                newAttachment.classList.add('attachment-item', 'form-group');
+                newAttachment.innerHTML = `
+                <label>Add New Document ${attachmentCount}</label>
+                <input type="file" name="attachments[]" class="attachment-file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                <input type="text" name="attachment_description[]" class="form-control mt-2" placeholder="Description (e.g., Invoice, Delivery Note, Waybill, Warranty, Transfer Form, Assignment Letter)" style="width: 100%;">
+                <button type="button" class="button remove-button remove-attachment" style="margin-top: 8px;">Remove</button>
+                <hr>
+            `;
+                container.appendChild(newAttachment);
+
+                // Add remove event listener to the new button
+                newAttachment.querySelector('.remove-attachment').addEventListener('click', function () {
+                    newAttachment.remove();
+                    // Renumber labels
+                    document.querySelectorAll('#newAttachmentsContainer .attachment-item').forEach((item, idx) => {
+                        const label = item.querySelector('label');
+                        if (label) {
+                            label.textContent = `Add New Document ${idx + 1}`;
+                        }
+                    });
+                });
+            });
+        }
+
+        // Remove existing attachments
+        document.querySelectorAll('.remove-existing-attachment').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const attachmentId = this.dataset.attachmentId;
+                const attachmentItem = this.closest('.existing-attachment-item');
+
+                // Add to deleted list
+                deletedAttachmentIds.push(attachmentId);
+                document.getElementById('deleted_attachments').value = deletedAttachmentIds.join(',');
+
+                // Remove from UI
+                attachmentItem.remove();
+
+                showNotification('Attachment marked for deletion. Save to confirm.', 'info');
+            });
+        });
+
+        // Remove button for initial new attachment row
+        document.querySelectorAll('#newAttachmentsContainer .remove-attachment').forEach(btn => {
+            btn.addEventListener('click', function () {
+                this.closest('.attachment-item').remove();
+                // Renumber labels
+                document.querySelectorAll('#newAttachmentsContainer .attachment-item').forEach((item, idx) => {
+                    const label = item.querySelector('label');
+                    if (label) {
+                        label.textContent = `Add New Document ${idx + 1}`;
+                    }
+                });
+            });
+        });
+    });
+
+
+    // In addNewLineItem function, after initializing other Select2 dropdowns, add:
+    $(lineItem).find('.project-dropdown').select2({
+        width: '100%',
+        placeholder: "Select Department",
+        allowClear: true
+    });
+
+    function initializeSelect2() {
+        // Initialize all select2 dropdowns - ADD 'form-select2' to the list
+        $('.asset-item-dropdown, .asset-instance-dropdown, .employee-dropdown, .department-dropdown, .location-dropdown, .account-dropdown, .form-select2').select2({
+            width: '100%',
+            placeholder: "Select an option",
+            allowClear: true,
+            dropdownParent: $(document.body)
+        });
+    }
 
 </script>
 {% endblock %}

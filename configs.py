@@ -10,7 +10,7 @@ from flask_login import current_user
 db_username = 'omolobe'
 db_password = os.environ.get('DB_PASSWORD')
 db_hostname = 'omolobe.mysql.pythonanywhere-services.com'
-db_name = 'omolobe$spoc_wmsdb'
+db_name = 'omolobe$swiftresolvedb'
 
 # *********************************Handling Image and File uploads section ********************************************
 # Define the main uploads folder and the inventory subfolder
@@ -22,6 +22,9 @@ UPLOAD_FOLDER_SALES_ORDER_NAME = 'sales_orders'
 UPLOAD_FOLDER_LOGOS_NAME = 'logos'
 # Add to your configuration
 UPLOAD_FOLDER_FOOTER_NAME = 'footers'
+
+# All attachments go here
+UPLOAD_FOLDER_ATTACHMENTS_NAME = 'attachments'
 
 # Role Permissions
 

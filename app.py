@@ -24,6 +24,7 @@ from ai import check_existing_chart_of_accounts, get_industry_template, \
     get_base_currency, resolve_exchange_rate_for_transaction
 from api_routes import api_routes  # Import the Blueprint
 from configs import (
+    UPLOAD_FOLDER_ATTACHMENTS_NAME,
     UPLOAD_FOLDER_NAME,
     UPLOAD_FOLDER_INVENTORY_NAME,
     UPLOAD_FOLDER_QUOTATION_NAME,
@@ -212,6 +213,7 @@ if not os.path.exists(UPLOAD_FOLDER_LOGOS):
 app.config['UPLOAD_FOLDER_INVENTORY'] = UPLOAD_FOLDER_INVENTORY
 app.config['UPLOAD_FOLDER_LOGOS'] = UPLOAD_FOLDER_LOGOS
 app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'jpg', 'doc', 'docx'}
+app.config['UPLOAD_FOLDER_ATTACHMENTS'] = UPLOAD_FOLDER_ATTACHMENTS
 
 # Register Roboto font
 pdfmetrics.registerFont(TTFont('Roboto', 'Roboto-Regular.ttf'))

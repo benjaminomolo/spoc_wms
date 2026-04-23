@@ -89,7 +89,8 @@ def process_asset_entries(
         currency_id=None,
         base_currency_id=None,
         reference=None,
-        project_id=None,
+        project_ids=None,
+        location_id=None,
         current_user_id=None,
         payable_account_id=None,
         adjustment_account_id=None,
@@ -101,13 +102,23 @@ def process_asset_entries(
     Process asset entries using the NEW AssetMovement table structure
     """
     try:
+        # ===== VALIDATION FOR OUT MOVEMENTS =====
+        out_movements = ['sale', 'donation_out', 'disposal']
+
+        # For out movements, location should NOT be required/saved
+        if movement_type in out_movements:
+            # Override location_id to None (not saved)
+            location_id = None
+
+            # Log that we're ignoring location for out movements
+            logger.info(f"Movement type '{movement_type}' is an out movement - location will not be saved")
+
         # 1. Create AssetMovement header
         asset_movement = AssetMovement(
             app_id=app_id,
             movement_type=movement_type,
             transaction_date=transaction_date,
             reference=reference,
-            project_id=project_id,
             currency_id=currency_id,
             payable_account_id=payable_account_id,
             adjustment_account_id=adjustment_account_id,
@@ -115,7 +126,8 @@ def process_asset_entries(
             status='completed',
             created_by=current_user_id,
             created_at=func.now(),
-            handled_by=handled_by
+            handled_by=handled_by,
+            location_id=location_id  # Will be None for out movements
         )
 
         db_session.add(asset_movement)
@@ -228,7 +240,8 @@ def process_asset_entries(
                         asset_tag=asset_tags[idx] if idx < len(asset_tags) else None,
                         serial_number=serial_numbers[idx] if idx < len(serial_numbers) else None,
                         transaction_date=transaction_date,
-                        project_id=project_id,
+                        project_id=project_ids[idx] if idx < len(project_ids) else None,
+                        location_id=location_id,
                         party_id=line_party_id,
                         additional_data=additional_data,
                         idx=idx
@@ -249,7 +262,6 @@ def process_asset_entries(
                     updated_assets.append(asset)
 
                 # Handle depreciation
-                # In your process_asset_entries function, when handling depreciation
                 elif movement_type == 'depreciation':
                     # UPDATE EXISTING ASSET WITH DEPRECIATION
                     if idx < len(asset_ids) and asset_ids[idx]:
@@ -260,7 +272,8 @@ def process_asset_entries(
                             if asset:
                                 # Get depreciation data
                                 dep_amount = Decimal(depreciation_amounts[idx]) if idx < len(depreciation_amounts) and \
-                                                                                   depreciation_amounts[idx] else Decimal('0')
+                                                                                   depreciation_amounts[
+                                                                                       idx] else Decimal('0')
                                 dep_notes = depreciation_notes[idx] if idx < len(depreciation_notes) else None
 
                                 # Update asset's current value
@@ -312,7 +325,8 @@ def process_asset_entries(
                 if movement_type == 'sale' and idx < len(sale_notes) and sale_notes[idx]:
                     line_notes_parts.append(sale_notes[idx])
 
-                if movement_type == 'transfer' and transfer_reasons and idx < len(transfer_reasons) and transfer_reasons[idx]:
+                if movement_type == 'transfer' and transfer_reasons and idx < len(transfer_reasons) and \
+                        transfer_reasons[idx]:
                     line_notes_parts.append(transfer_reasons[idx])
 
                 if movement_type == 'assignment' and additional_data:
@@ -323,6 +337,9 @@ def process_asset_entries(
                 # Join with separator if multiple notes
                 line_notes = " | ".join(line_notes_parts) if line_notes_parts else ""
 
+                # ===== FIX: For out movements, DO NOT save project_id =====
+                should_save_project = movement_type not in out_movements
+
                 # Create the line item
                 line_item = AssetMovementLineItem(
                     asset_movement_id=asset_movement.id,
@@ -331,8 +348,8 @@ def process_asset_entries(
                     party_id=line_party_id,
                     transaction_value=transaction_value,
                     line_notes=line_notes if line_notes else '',
+                    project_id=project_ids[idx] if should_save_project and project_ids and idx < len(project_ids) else None,
                 )
-
 
                 # Set location/department fields based on movement type
                 if movement_type in ['transfer', 'assignment', 'return'] and asset:
@@ -379,6 +396,8 @@ def process_asset_entries(
                         if to_department_id and to_department_id.isdigit():
                             line_item.to_department_id = int(to_department_id)
 
+                # For out movements, we don't need to set any location/department fields
+                # since the asset is leaving the system
 
                 if movement_type == 'depreciation' and asset:
                     # Find the depreciation record we just created
@@ -386,13 +405,14 @@ def process_asset_entries(
                         app_id=app_id,
                         asset_id=asset.id,
                         depreciation_date=transaction_date,
-                        depreciation_amount=Decimal(depreciation_amounts[idx]) if idx < len(depreciation_amounts) and depreciation_amounts[idx] else Decimal('0')
+                        depreciation_amount=Decimal(depreciation_amounts[idx]) if idx < len(depreciation_amounts) and
+                                                                                  depreciation_amounts[
+                                                                                      idx] else Decimal('0')
                     ).order_by(DepreciationRecord.created_at.desc()).first()
 
                     if depreciation_record:
                         depreciation_record.asset_movement_line_item_id = line_item.id
                         logger.info(f"Linked depreciation record {depreciation_record.id} to line item {line_item.id}")
-
 
                 db_session.add(line_item)
                 db_session.flush()
@@ -445,16 +465,24 @@ def process_asset_entries(
         logger.error(f"Error in process_asset_entries: {str(e)}\n{traceback.format_exc()}")
         raise
 
-
 def _create_asset_from_line_item(db_session, app_id, movement_type, asset_item_id, transaction_value,
-                                 asset_tag, serial_number, transaction_date, project_id, party_id,
+                                 asset_tag, serial_number, transaction_date, project_id, location_id, party_id,
                                  additional_data, idx):
     """
     Create a new Asset with NEW model structure
+    Only called for INCOMING movements: acquisition, donation_in, opening_balance
     """
+    # Validate - this function should NOT be called for out movements
+    out_movements = ['sale', 'donation_out', 'disposal']
+    if movement_type in out_movements:
+        raise ValueError(f"_create_asset_from_line_item should not be called for movement type: {movement_type}")
+
     # Generate asset tag if not provided
-    if not asset_tag:
+    if not asset_tag or asset_tag.strip() == '':
         asset_tag = f"AST-{int(time.time())}-{asset_item_id}-{idx}"
+
+    # Ensure asset tag is unique - add timestamp for uniqueness
+    asset_tag = f"{asset_tag}-{int(time.time()*1000)}"[-50:]  # Trim to max length
 
     # Get additional data for this specific line
     prefix = f'line_{idx}_' if idx > 0 else ''
@@ -501,6 +529,25 @@ def _create_asset_from_line_item(db_session, app_id, movement_type, asset_item_i
     else:
         current_value = transaction_value
 
+    # For opening_balance, current_value should be the opening value
+    if movement_type == 'opening_balance':
+        current_value = transaction_value
+
+    # ===== VALIDATION FOR INCOMING MOVEMENTS =====
+    # For acquisitions and opening_balance, project_id and location_id are REQUIRED
+    if movement_type in ['acquisition', 'opening_balance']:
+        if not project_id:
+            raise ValueError(f"Department (project) is required for {movement_type}")
+        if not location_id:
+            raise ValueError(f"Location is required for {movement_type}")
+
+    # For donation_in, project_id and location_id are REQUIRED but may have different rules
+    if movement_type == 'donation_in':
+        if not project_id:
+            raise ValueError(f"Department (project) is required for donation_in")
+        if not location_id:
+            raise ValueError(f"Location is required for donation_in")
+
     # Create the asset with NEW model structure
     asset = Asset(
         app_id=app_id,
@@ -514,9 +561,10 @@ def _create_asset_from_line_item(db_session, app_id, movement_type, asset_item_i
         purchase_date=transaction_date if movement_type in ['acquisition', 'donation_in'] else None,
         supplier_id=party_id if movement_type in ['acquisition', 'donation_in'] else None,
         project_id=project_id,
+        location_id=location_id,
         capitalization_date=capitalization_date,
         useful_life_years=int(
-            useful_life_years) if useful_life_years and useful_life_years.isdigit() else asset_item.expected_useful_life_years,
+            useful_life_years) if useful_life_years and str(useful_life_years).isdigit() else asset_item.expected_useful_life_years,
         depreciation_method=depreciation_method if depreciation_method else asset_item.depreciation_method,
         warranty_expiry=warranty_expiry,
         created_at=func.now()
@@ -525,9 +573,11 @@ def _create_asset_from_line_item(db_session, app_id, movement_type, asset_item_i
     if movement_type == 'opening_balance':
         asset.purchase_date = None
 
-
     db_session.add(asset)
     db_session.flush()
+
+    logger.info(f"Created new asset: {asset.asset_tag} (ID: {asset.id}) for movement type: {movement_type}")
+
     return asset
 
 
@@ -535,6 +585,7 @@ def _update_existing_asset_from_line_item(db_session, app_id, movement_type, ass
                                           transaction_date, additional_data, idx):
     """
     Update an existing Asset with NEW model structure
+    Called for: sale, donation_out, disposal, assignment, transfer, return
     """
     if not asset_id:
         raise ValueError(f"Asset ID is required for {movement_type}")
@@ -554,70 +605,95 @@ def _update_existing_asset_from_line_item(db_session, app_id, movement_type, ass
     previous_assigned = asset.assigned_to_id
     previous_department = asset.department_id
     previous_value = asset.current_value
+    previous_project = asset.project_id
 
     # Get additional data for this specific line
     prefix = f'line_{idx}_' if idx > 0 else ''
 
+    # ===== FIX: For out movements, clear department and location from asset =====
+    out_movements = ['sale', 'donation_out', 'disposal']
+
     # Update based on movement type
     if movement_type == 'sale':
         asset.status = 'sold'
+        # Clear department and location since asset is leaving
+        asset.project_id = None
+        asset.location_id = None
         # Get sale price if available
-        sale_price = get_form_value(additional_data, f'{prefix}sale_price[]', 'sale_price[]')
+        sale_price = get_form_value(additional_data, f'{prefix}sale_price[]', 'sale_price[]', idx=idx)
         if sale_price:
             try:
-                asset.current_value = Decimal(sale_price)
+                # Don't set current_value to sale price - keep book value for accounting
+                # Instead, store sale price separately or just update current_value if needed
+                # For accounting, you might want to keep original value
+                pass
             except:
                 pass
 
     elif movement_type == 'donation_out':
         asset.status = 'donated'
+        # Clear department and location since asset is leaving
+        asset.project_id = None
+        asset.location_id = None
 
     elif movement_type == 'disposal':
         asset.status = 'disposed'
+        # Clear department and location since asset is leaving
+        asset.project_id = None
+        asset.location_id = None
         # Get disposal value if available
-        disposal_value = get_form_value(additional_data, f'{prefix}disposal_value[]', 'disposal_value[]')
+        disposal_value = get_form_value(additional_data, f'{prefix}disposal_value[]', 'disposal_value[]', idx=idx)
         if disposal_value:
             try:
-                asset.current_value = Decimal(disposal_value)
+                # Record disposal value, but keep current value for accounting
+                pass
             except:
                 pass
 
     elif movement_type == 'assignment':
         asset.status = 'assigned'
-        assigned_to_id = get_form_value(additional_data, f'{prefix}assigned_to_id[]', 'assigned_to_id[]')
-        to_department_id = get_form_value(additional_data, f'{prefix}to_department_id[]', 'to_department_id[]')
+        assigned_to_id = get_form_value(additional_data, f'{prefix}assigned_to_id[]', 'assigned_to_id[]', idx=idx)
+        to_department_id = get_form_value(additional_data, f'{prefix}to_department_id[]', 'to_department_id[]', idx=idx)
 
-        if assigned_to_id and assigned_to_id.isdigit():
+        if assigned_to_id and str(assigned_to_id).isdigit():
             asset.assigned_to_id = int(assigned_to_id)
-        if to_department_id and to_department_id.isdigit():
+        if to_department_id and str(to_department_id).isdigit():
             asset.department_id = int(to_department_id)
+        # Note: For assignment, keep project_id and location_id as they are
 
     elif movement_type == 'return':
         asset.status = 'in_stock'
         asset.assigned_to_id = None
         asset.department_id = None
         # Optionally set to a storage location
-        to_location_id = get_form_value(additional_data, f'{prefix}to_location_id[]', 'to_location_id[]')
-        if to_location_id and to_location_id.isdigit():
+        to_location_id = get_form_value(additional_data, f'{prefix}to_location_id[]', 'to_location_id[]', idx=idx)
+        if to_location_id and str(to_location_id).isdigit():
             asset.location_id = int(to_location_id)
 
     elif movement_type == 'transfer':
-        to_location_id = get_form_value(additional_data, f'{prefix}to_location_id[]', 'to_location_id[]')
-        to_department_id = get_form_value(additional_data, f'{prefix}to_department_id[]', 'to_department_id[]')
+        to_location_id = get_form_value(additional_data, f'{prefix}to_location_id[]', 'to_location_id[]', idx=idx)
+        to_department_id = get_form_value(additional_data, f'{prefix}to_department_id[]', 'to_department_id[]', idx=idx)
 
-        if to_location_id and to_location_id.isdigit():
+        if to_location_id and str(to_location_id).isdigit():
             asset.location_id = int(to_location_id)
-        if to_department_id and to_department_id.isdigit():
+        if to_department_id and str(to_department_id).isdigit():
             asset.department_id = int(to_department_id)
+        # Note: For transfer, project_id stays the same unless changed
 
+    # Update timestamp
     asset.updated_at = func.now()
 
-    # Store previous values for line item creation
+    # Log the change for debugging
+    logger.info(f"Updated asset {asset.asset_tag} (ID: {asset.id}) - "
+                f"Movement: {movement_type}, Status: {previous_status} -> {asset.status}")
+
+    # Store previous values for line item creation (optional - for audit trail)
     asset._previous_status = previous_status
     asset._previous_location = previous_location
     asset._previous_assigned = previous_assigned
     asset._previous_department = previous_department
     asset._previous_value = previous_value
+    asset._previous_project = previous_project
 
     return asset
 
@@ -659,7 +735,6 @@ def get_form_value(form_data, specific_key, general_key, default=None, idx=None)
     return value if value is not None else default
 
 
-
 def process_edit_asset_entries(
         db_session,
         app_id,
@@ -685,7 +760,8 @@ def process_edit_asset_entries(
         currency_id=None,
         base_currency_id=None,
         reference=None,
-        project_id=None,
+        project_ids=None,
+        location_id=None,
         current_user_id=None,
         payable_account_id=None,
         adjustment_account_id=None,
@@ -697,10 +773,22 @@ def process_edit_asset_entries(
     Process asset entries for EDIT mode - uses existing AssetMovement header
     """
     try:
+        # ===== OUT MOVEMENTS HANDLING =====
+        out_movements = ['sale', 'donation_out', 'disposal']
+
+        # For out movements, DO NOT save project_id or location_id
+        should_save_project = movement_type not in out_movements
+        should_save_location = movement_type not in out_movements
+
+        if movement_type in out_movements:
+            # Override location_id to None for out movements
+            location_id = None
+            logger.info(f"Edit: Movement type '{movement_type}' is an out movement - location will not be saved")
+
         created_assets = []
         updated_assets = []
 
-        # --- ADD THIS: Delete mistakenly added assets for acquisition-type movements ---
+        # ===== DELETE REMOVED ASSETS FOR ACQUISITION-TYPE MOVEMENTS =====
         if movement_type in ['acquisition', 'opening_balance', 'donation_in'] and original_line_items:
             # Get original asset IDs from the movement
             original_asset_ids = {item.asset_id for item in original_line_items if item.asset_id}
@@ -716,7 +804,7 @@ def process_edit_asset_entries(
             removed_asset_ids = original_asset_ids - current_asset_ids
 
             for asset_id in removed_asset_ids:
-                # Check if this asset has any OTHER movements
+                # Check if this asset has any OTHER movements (excluding this one)
                 other_movements = db_session.query(AssetMovementLineItem).filter(
                     AssetMovementLineItem.asset_id == asset_id,
                     AssetMovementLineItem.asset_movement_id != asset_movement.id,
@@ -724,13 +812,13 @@ def process_edit_asset_entries(
                 ).first()
 
                 if not other_movements:
-                    # This asset was ONLY in this movement - it was mistakenly added
+                    # This asset was ONLY in this movement - delete it
                     asset = db_session.query(Asset).filter_by(id=asset_id, app_id=app_id).first()
                     if asset:
-                        logger.info(f"Deleting mistakenly added asset {asset_id} - {asset.asset_tag}")
+                        logger.info(f"Deleting removed asset {asset_id} - {asset.asset_tag}")
                         db_session.delete(asset)
                 else:
-                    logger.info(f"Asset {asset_id} has other movements, keeping it")
+                    logger.info(f"Asset {asset_id} has other movements, keeping it (removed from this movement only)")
 
         # 2. Process each line item
         for idx in range(len(asset_item_ids)):
@@ -844,7 +932,8 @@ def process_edit_asset_entries(
                         asset_tag=asset_tags[idx] if idx < len(asset_tags) else None,
                         serial_number=serial_numbers[idx] if idx < len(serial_numbers) else None,
                         transaction_date=transaction_date,
-                        project_id=project_id,
+                        project_id=project_ids[idx] if should_save_project and idx < len(project_ids) else None,
+                        location_id=location_id if should_save_location else None,
                         party_id=line_party_id,
                         additional_data=additional_data,
                         idx=idx,
@@ -870,7 +959,6 @@ def process_edit_asset_entries(
                     updated_assets.append(asset)
 
                 # Handle depreciation
-                # Handle depreciation
                 elif movement_type == 'depreciation':
                     # UPDATE EXISTING ASSET WITH DEPRECIATION
                     if idx < len(asset_ids) and asset_ids[idx]:
@@ -881,7 +969,8 @@ def process_edit_asset_entries(
                             if asset:
                                 # Get depreciation data
                                 dep_amount = Decimal(depreciation_amounts[idx]) if idx < len(depreciation_amounts) and \
-                                                                                   depreciation_amounts[idx] else Decimal('0')
+                                                                                   depreciation_amounts[
+                                                                                       idx] else Decimal('0')
                                 dep_notes = depreciation_notes[idx] if idx < len(depreciation_notes) else None
 
                                 # Update asset's current value
@@ -893,7 +982,7 @@ def process_edit_asset_entries(
                                     asset.current_value = new_value
                                     asset.last_depreciation_date = transaction_date
 
-                                    # ✅ CREATE DEPRECIATION RECORD (EDIT MODE)
+                                    # CREATE DEPRECIATION RECORD (EDIT MODE)
                                     depreciation_record = DepreciationRecord(
                                         app_id=app_id,
                                         asset_id=asset.id,
@@ -910,6 +999,7 @@ def process_edit_asset_entries(
                                     db_session.flush()
 
                                     updated_assets.append(asset)
+
                 # 4. Create line item with NEW MODEL STRUCTURE
                 # Determine transaction value
                 if movement_type == 'depreciation' and asset:
@@ -932,7 +1022,8 @@ def process_edit_asset_entries(
                 if movement_type == 'sale' and idx < len(sale_notes) and sale_notes[idx]:
                     line_notes_parts.append(sale_notes[idx])
 
-                if movement_type == 'transfer' and transfer_reasons and idx < len(transfer_reasons) and transfer_reasons[idx]:
+                if movement_type == 'transfer' and transfer_reasons and idx < len(transfer_reasons) and \
+                        transfer_reasons[idx]:
                     line_notes_parts.append(transfer_reasons[idx])
 
                 if movement_type == 'assignment' and additional_data:
@@ -944,6 +1035,11 @@ def process_edit_asset_entries(
                 line_notes = " | ".join(line_notes_parts) if line_notes_parts else ""
 
                 # Create the line item - USE EXISTING ASSET MOVEMENT ID
+                # For out movements, project_id should be None
+                line_item_project_id = None
+                if should_save_project and project_ids and idx < len(project_ids) and project_ids[idx]:
+                    line_item_project_id = project_ids[idx]
+
                 line_item = AssetMovementLineItem(
                     asset_movement_id=asset_movement.id,  # Use existing movement ID
                     app_id=app_id,
@@ -951,66 +1047,72 @@ def process_edit_asset_entries(
                     party_id=line_party_id,
                     transaction_value=transaction_value,
                     line_notes=line_notes if line_notes else '',
+                    project_id=line_item_project_id,
                 )
 
                 # Set location/department fields based on movement type
-                if movement_type in ['transfer', 'assignment', 'return'] and asset:
-                    # Get current location/department FROM THE ASSET
-                    if asset.location_id:
-                        line_item.from_location_id = asset.location_id
-                    if asset.department_id:
-                        line_item.from_department_id = asset.department_id
+                # Skip for out movements since no location/department needed
+                if movement_type not in out_movements:
+                    if movement_type in ['transfer', 'assignment', 'return'] and asset:
+                        # Get current location/department FROM THE ASSET
+                        if asset.location_id:
+                            line_item.from_location_id = asset.location_id
+                        if asset.department_id:
+                            line_item.from_department_id = asset.department_id
 
-                    # Get TO locations and departments from form
-                    prefix = f'line_{idx}_' if idx > 0 else ''
+                        # Get TO locations and departments from form
+                        prefix = f'line_{idx}_' if idx > 0 else ''
 
-                    if movement_type == 'transfer':
-                        to_location_id = get_form_value(additional_data, f'{prefix}to_location_id[]',
-                                                        'to_location_id[]')
-                        to_department_id = get_form_value(additional_data, f'{prefix}to_department_id[]',
-                                                          'to_department_id[]')
+                        if movement_type == 'transfer':
+                            to_location_id = get_form_value(additional_data, f'{prefix}to_location_id[]',
+                                                            'to_location_id[]', idx=idx)
+                            to_department_id = get_form_value(additional_data, f'{prefix}to_department_id[]',
+                                                              'to_department_id[]', idx=idx)
 
-                        if to_location_id and str(to_location_id).isdigit():
-                            line_item.to_location_id = int(to_location_id)
-                        if to_department_id and str(to_department_id).isdigit():
-                            line_item.to_department_id = int(to_department_id)
+                            if to_location_id and str(to_location_id).isdigit():
+                                line_item.to_location_id = int(to_location_id)
+                            if to_department_id and str(to_department_id).isdigit():
+                                line_item.to_department_id = int(to_department_id)
 
-                    elif movement_type == 'assignment':
-                        assigned_to_id = get_form_value(additional_data, f'{prefix}assigned_to_id[]',
-                                                        'assigned_to_id[]')
-                        to_department_id = get_form_value(additional_data, f'{prefix}to_department_id[]',
-                                                          'to_department_id[]')
+                        elif movement_type == 'assignment':
+                            assigned_to_id = get_form_value(additional_data, f'{prefix}assigned_to_id[]',
+                                                            'assigned_to_id[]', idx=idx)
+                            to_department_id = get_form_value(additional_data, f'{prefix}to_department_id[]',
+                                                              'to_department_id[]', idx=idx)
 
-                        if assigned_to_id and str(assigned_to_id).isdigit():
-                            line_item.assigned_to_id = int(assigned_to_id)
-                        if to_department_id and str(to_department_id).isdigit():
-                            line_item.to_department_id = int(to_department_id)
+                            if assigned_to_id and str(assigned_to_id).isdigit():
+                                line_item.assigned_to_id = int(assigned_to_id)
+                            if to_department_id and str(to_department_id).isdigit():
+                                line_item.to_department_id = int(to_department_id)
 
-                    elif movement_type == 'return':
-                        # For returns, to_location/to_department might be a storage location
-                        to_location_id = get_form_value(additional_data, f'{prefix}to_location_id[]',
-                                                        'to_location_id[]')
-                        to_department_id = get_form_value(additional_data, f'{prefix}to_department_id[]',
-                                                          'to_department_id[]')
+                        elif movement_type == 'return':
+                            # For returns, to_location/to_department might be a storage location
+                            to_location_id = get_form_value(additional_data, f'{prefix}to_location_id[]',
+                                                            'to_location_id[]', idx=idx)
+                            to_department_id = get_form_value(additional_data, f'{prefix}to_department_id[]',
+                                                              'to_department_id[]', idx=idx)
 
-                        if to_location_id and str(to_location_id).isdigit():
-                            line_item.to_location_id = int(to_location_id)
-                        if to_department_id and str(to_department_id).isdigit():
-                            line_item.to_department_id = int(to_department_id)
+                            if to_location_id and str(to_location_id).isdigit():
+                                line_item.to_location_id = int(to_location_id)
+                            if to_department_id and str(to_department_id).isdigit():
+                                line_item.to_department_id = int(to_department_id)
 
-                # ✅ LINK DEPRECIATION RECORD TO LINE ITEM (EDIT MODE)
+                # LINK DEPRECIATION RECORD TO LINE ITEM (EDIT MODE)
                 if movement_type == 'depreciation' and asset:
                     # Find the depreciation record we just created
                     depreciation_record = db_session.query(DepreciationRecord).filter_by(
                         app_id=app_id,
                         asset_id=asset.id,
                         depreciation_date=transaction_date,
-                        depreciation_amount=Decimal(depreciation_amounts[idx]) if idx < len(depreciation_amounts) and depreciation_amounts[idx] else Decimal('0')
+                        depreciation_amount=Decimal(depreciation_amounts[idx]) if idx < len(depreciation_amounts) and
+                                                                                  depreciation_amounts[
+                                                                                      idx] else Decimal('0')
                     ).order_by(DepreciationRecord.created_at.desc()).first()
 
                     if depreciation_record:
                         depreciation_record.asset_movement_line_item_id = line_item.id
                         logger.info(f"Linked depreciation record {depreciation_record.id} to line item {line_item.id}")
+
                 db_session.add(line_item)
                 db_session.flush()
 
@@ -1035,14 +1137,17 @@ def process_edit_asset_entries(
                         ).first()
 
                         if existing_asset:
-                            raise ValueError(f"Asset tag '{asset_tag_value}' is already in use by another asset. Please use a unique asset tag.")
+                            raise ValueError(
+                                f"Asset tag '{asset_tag_value}' is already in use by another asset. Please use a unique asset tag.")
                         else:
                             # Tag belongs to current asset - this is fine
-                            logger.info(f"Asset tag '{asset_tag_value}' belongs to current asset {existing_asset_id}, skipping uniqueness check")
+                            logger.info(
+                                f"Asset tag '{asset_tag_value}' belongs to current asset {existing_asset_id}, skipping uniqueness check")
                             # Continue with the operation - don't raise error
                             continue
                     else:
-                        raise ValueError(f"Asset tag '{asset_tag_value}' is already in use. Please use a unique asset tag.")
+                        raise ValueError(
+                            f"Asset tag '{asset_tag_value}' is already in use. Please use a unique asset tag.")
 
                 # Check for serial_number constraint
                 elif 'asset.serial_number' in error_msg or 'UNIQUE constraint failed: asset.serial_number' in error_msg:
@@ -1063,8 +1168,19 @@ def process_edit_asset_entries(
                                 f"Serial number '{serial_value}' is already in use by another asset. Please use a unique serial number.")
                         else:
                             # Serial belongs to current asset - this is fine
-                            logger.info(f"Serial number '{serial_value}' belongs to current asset {existing_asset_id}, skipping uniqueness check")
+                            logger.info(
+                                f"Serial number '{serial_value}' belongs to current asset {existing_asset_id}, skipping uniqueness check")
                             continue
+                    else:
+                        # If no existing_asset_id, check for duplicates normally
+                        existing_asset = db_session.query(Asset).filter(
+                            Asset.serial_number == serial_value,
+                            Asset.app_id == app_id
+                        ).first()
+                        if existing_asset:
+                            raise ValueError(
+                                f"Serial number '{serial_value}' is already in use. Please use a unique serial number.")
+
                 # Generic integrity error
                 else:
                     # Try to extract more details
@@ -1078,6 +1194,14 @@ def process_edit_asset_entries(
             except Exception as e:
                 logger.error(f"Error processing asset line item {idx}: {str(e)}")
                 raise ValueError(f"Error processing asset {idx + 1}: {str(e)}")
+
+        db_session.flush()
+
+        # Update the asset movement header with new values
+        asset_movement.transaction_date = transaction_date
+        asset_movement.reference = reference
+        asset_movement.location_id = location_id if should_save_location else None
+        asset_movement.updated_at = func.now()
 
         db_session.flush()
 
@@ -1097,7 +1221,7 @@ def process_edit_asset_entries(
 
 
 def _create_asset_from_line_item_edit(db_session, app_id, movement_type, asset_item_id, transaction_value,
-                                      asset_tag, serial_number, transaction_date, project_id, party_id,
+                                      asset_tag, serial_number, transaction_date, project_id, location_id, party_id,
                                       additional_data, idx, existing_asset_id=None):
     """
     Create a new Asset or UPDATE existing asset for EDIT mode
@@ -1165,15 +1289,18 @@ def _create_asset_from_line_item_edit(db_session, app_id, movement_type, asset_i
             asset.condition = condition
             asset.purchase_price = purchase_price
             asset.current_value = current_value
-            asset.purchase_date = transaction_date if movement_type in ['acquisition', 'donation_in'] else asset.purchase_date
+            asset.purchase_date = transaction_date if movement_type in ['acquisition',
+                                                                        'donation_in'] else asset.purchase_date
             asset.supplier_id = party_id if movement_type in ['acquisition', 'donation_in'] else asset.supplier_id
             asset.project_id = project_id
             asset.capitalization_date = capitalization_date
             asset.useful_life_years = int(
-                useful_life_years) if useful_life_years and str(useful_life_years).isdigit() else asset_item.expected_useful_life_years
+                useful_life_years) if useful_life_years and str(
+                useful_life_years).isdigit() else asset_item.expected_useful_life_years
             asset.depreciation_method = depreciation_method if depreciation_method else asset_item.depreciation_method
             asset.warranty_expiry = warranty_expiry
             asset.updated_at = func.now()
+            asset.location_id = location_id
 
             if movement_type == 'opening_balance':
                 asset.purchase_date = None
@@ -1198,7 +1325,8 @@ def _create_asset_from_line_item_edit(db_session, app_id, movement_type, asset_i
         project_id=project_id,
         capitalization_date=capitalization_date,
         useful_life_years=int(
-            useful_life_years) if useful_life_years and str(useful_life_years).isdigit() else asset_item.expected_useful_life_years,
+            useful_life_years) if useful_life_years and str(
+            useful_life_years).isdigit() else asset_item.expected_useful_life_years,
         depreciation_method=depreciation_method if depreciation_method else asset_item.depreciation_method,
         warranty_expiry=warranty_expiry,
         created_at=func.now()

@@ -2,242 +2,371 @@
 
 {% block content %}
 <style>
-    .inventory-header {
+    .view-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    /* Simple Header - No gradient */
+    .view-header {
+        background: var(--white);
+        border-bottom: 2px solid var(--border-color);
+        padding: 20px 0;
+        margin-bottom: 24px;
+    }
+
+    .view-header-top {
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        border-bottom: 2px solid #eee;
-        padding-bottom: 20px;
-        margin-bottom: 20px;
-    }
-
-    .company-logo img {
-        max-width: 150px;
-        height: auto;
-    }
-
-    .inventory-meta h1 {
-        font-size: 28px;
-        margin: 0;
-    }
-
-    .status-badge {
-        padding: 5px 10px;
-        border-radius: 5px;
-        font-weight: bold;
-        color: #fff;
-        font-size: 12px;
-    }
-
-    .status-badge.posted {
-        background: #5cb85c;
-    }
-
-    .status-badge.not-posted {
-        background: #f0ad4e;
-    }
-
-    .source-badge {
-        padding: 3px 8px;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: 600;
-    }
-
-    .source-purchase {
-        background-color: #cce5ff;
-        color: #004085;
-    }
-
-    .source-sale {
-        background-color: #d4edda;
-        color: #155724;
-    }
-
-    .source-transfer {
-        background-color: #d1ecf1;
-        color: #0c5460;
-    }
-
-    .source-adjustment {
-        background-color: #fff3cd;
-        color: #856404;
-    }
-
-    .movement-badge {
-        padding: 3px 8px;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: 600;
-    }
-
-    .movement-in {
-        background-color: #d4edda;
-        color: #155724;
-    }
-
-    .movement-out {
-        background-color: #f8d7da;
-        color: #721c24;
-    }
-
-    .movement-transfer {
-        background-color: #d1ecf1;
-        color: #0c5460;
-    }
-
-    .movement-adjustment {
-        background-color: #fff3cd;
-        color: #856404;
-    }
-
-    .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        align-items: flex-start;
+        flex-wrap: wrap;
         gap: 15px;
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
+        margin-bottom: 15px;
+        padding: 10px;
     }
 
-    .info-item strong {
-        display: block;
+    .view-title h1 {
+        font-size: 24px;
+        margin: 0 0 5px 0;
+        font-weight: 600;
+        color: var(--text-color);
+    }
+
+    .view-title .reference {
+        font-size: 13px;
+        color: var(--text-lighter);
+    }
+
+    .view-badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 10px;
+    }
+
+    .badge-custom {
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        background: var(--body-bg-color);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+    }
+
+    .view-header-footer {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
         font-size: 12px;
-        color: #666;
-        text-transform: uppercase;
+        color: var(--text-lighter);
+        padding: 10px;
     }
 
-    table {
+    /* Simple Info Grid - No borders, just subtle separation */
+    .info-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 24px;
+        background: var(--white);
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+
+    .info-card-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-lighter);
+        margin-bottom: 6px;
+    }
+
+    .info-card-value {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-color);
+        word-break: break-word;
+    }
+
+    /* Simple Table */
+    .items-table-wrapper {
+        background: var(--white);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+        margin-bottom: 24px;
+    }
+
+    .items-table {
         width: 100%;
         border-collapse: collapse;
-        margin-bottom: 20px;
     }
 
-    th,
-    td {
-        padding: 12px;
-        border: 1px solid #ddd !important;
-    }
-
-    th {
-        background-color: #f9f9f9;
-    }
-
-    .numeric {
-        text-align: right;
-    }
-
-    .grande {
-        font-weight: 600;
-        background-color: #f9f9f9;
-    }
-
-    .inventory-actions {
-        display: flex;
-        gap: 10px;
-        margin-top: 20px;
-        flex-wrap: wrap;
-    }
-
-    .audit-info {
+    .items-table th {
+        background: var(--body-bg-color);
+        padding: 12px 16px;
+        text-align: left;
         font-size: 12px;
-        color: #666;
-        margin-top: 20px;
-        padding-top: 10px;
-        border-top: 1px solid #eee;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .items-table td {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 13px;
+    }
+
+    .items-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .item-name {
+        font-weight: 500;
+        color: var(--text-color);
+    }
+
+    .item-code {
+        font-size: 11px;
+        color: var(--text-lighter);
+        margin-left: 8px;
+    }
+
+    /* Simple Attachments */
+    .attachments-card {
+        background: var(--white);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        margin-bottom: 24px;
+        overflow: hidden;
+    }
+
+    .card-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-color);
+        font-weight: 600;
+        font-size: 14px;
+        background: var(--body-bg-color);
+        color: var(--text-color);
+    }
+
+    .card-header i {
+        margin-right: 8px;
+        color: var(--text-lighter);
+    }
+
+    .attachment-items {
+        padding: 4px 0;
+    }
+
+    .attachment-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .attachment-item:last-child {
+        border-bottom: none;
+    }
+
+    .attachment-icon {
+        width: 32px;
+        color: var(--text-lighter);
+        margin-right: 12px;
+    }
+
+    .attachment-details {
+        flex: 1;
+    }
+
+    .attachment-name {
+        font-weight: 500;
+        font-size: 13px;
+        color: var(--text-color);
+        text-decoration: none;
+    }
+
+    .attachment-name:hover {
+        color: var(--primary-color);
+        text-decoration: underline;
+    }
+
+    .attachment-meta {
+        font-size: 11px;
+        color: var(--text-lighter);
+        margin-top: 2px;
+    }
+
+    .attachment-desc {
+        margin-left: 10px;
+    }
+
+    /* Simple Notes */
+    .notes-card {
+        background: var(--body-bg-color);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 24px;
+        border: 1px solid var(--border-color);
+    }
+
+    .notes-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--text-lighter);
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+
+    .notes-content {
+        font-size: 13px;
+        color: var(--text-color);
+        line-height: 1.5;
+        white-space: pre-wrap;
+    }
+
+    /* Simple Audit */
+    .audit-bar {
+        background: var(--body-bg-color);
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-size: 11px;
+        color: var(--text-lighter);
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        border: 1px solid var(--border-color);
+    }
+
+    /* Simple Actions */
+    .action-buttons {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 30px;
+    }
+
+    .btn-edit {
+        background: var(--primary-color);
+        color: var(--white);
+        border: none;
+        padding: 8px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    .btn-edit:hover {
+        opacity: 0.9;
+    }
+
+    .btn-back {
+        background: var(--closed-color);
+        color: var(--white);
+        border: none;
+        padding: 8px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    .btn-back:hover {
+        opacity: 0.9;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-lighter);
+    }
+
+    .version-badge {
+        font-size: 11px;
+        color: var(--text-lighter);
+        margin-left: 8px;
+        font-weight: normal;
     }
 </style>
 
-<div class="content-container">
+<div class="view-container">
     <!-- Header -->
-    <div class="inventory-header">
-        <div class="company-logo">
-            <div class="back-button-container">
-                <a href="javascript:void(0);" class="back-button" onclick="window.history.back();">
-                    <i class="fas fa-chevron-left"></i> Back
-                </a>
+    <div class="view-header">
+        <div class="view-header-top">
+            <div class="view-title">
+                <h1>Inventory Entry #{{ entry.id }}
+                    <span class="version-badge">v{{ entry.version }}</span>
+                </h1>
+                <div class="reference">Ref: {{ entry.reference or '—' }}</div>
             </div>
-            {% if company.logo %}
-            <img src="{{ url_for('serve_logo', filename=company.logo) }}" alt="Logo">
-            {% endif %}
-            <h2>{{ company.name }}</h2>
+            <div class="view-badges">
+                <span class="badge-custom">
+                    {% if entry.source_type == 'purchase' %}📥 Receipt
+                    {% elif entry.source_type == 'sale' %}📤 Dispatch
+                    {% elif entry.source_type == 'transfer' %}🔄 Transfer
+                    {% elif entry.source_type == 'adjustment' %}⚙️ Adjust
+                    {% elif entry.source_type == 'opening_balance' %}📊 Opening
+                    {% else %}📝 Manual
+                    {% endif %}
+                </span>
+                <span class="badge-custom">
+                    {% if entry.stock_movement == 'in' %}⬇️ Stock In
+                    {% elif entry.stock_movement == 'out' %}⬆️ Stock Out
+                    {% elif entry.stock_movement == 'transfer' %}🔄 Transfer
+                    {% else %}📦 Movement
+                    {% endif %}
+                </span>
+            </div>
         </div>
-
-        <div class="inventory-meta">
-            <h1>Inventory Entry #{{ entry.id }}</h1>
-            <p><strong>Reference:</strong> {{ entry.reference or 'N/A' }}</p>
-            <p><strong>Date:</strong> {{ entry.transaction_date.strftime('%Y-%m-%d') }}</p>
-            <p>
-                <span class="source-badge 
-                    {% if entry.source_type == 'purchase' %}source-purchase
-                    {% elif entry.source_type == 'sale' %}source-sale
-                    {% elif entry.source_type == 'transfer' %}source-transfer
-                    {% elif entry.source_type == 'adjustment' %}source-adjustment
-                    {% endif %}">
-                    {% if entry.source_type == 'purchase' %}Receipt
-                    {% elif entry.source_type == 'sale' %}Dispatch
-                    {% elif entry.source_type == 'transfer' %}Transfer
-                    {% elif entry.source_type == 'adjustment' %}Adjust
-                    {% elif entry.source_type == 'opening_balance' %}Opening
-                    {% else %}Manual
-                    {% endif %}
-                </span>
-                <span class="movement-badge movement-{{ entry.stock_movement }}">
-                    {% if entry.stock_movement == 'in' %}In
-                    {% elif entry.stock_movement == 'out' %}Out
-                    {% elif entry.stock_movement == 'transfer' %}Transfer
-                    {% else %}Move
-                    {% endif %}
-                </span>
-            </p>
-
-
+        <div class="view-header-footer">
+            <span>📅 {{ entry.transaction_date.strftime('%d %b %Y') }}</span>
+            <span>🏢 {{ company.name }}</span>
         </div>
     </div>
 
-    <!-- Key Info -->
-    <div class="info-grid">
-        <div class="info-item">
-            <strong>From Location</strong>
-            <span>{{ entry.from_inventory_location.location if entry.from_inventory_location else 'N/A' }}</span>
+    <!-- Info Cards -->
+    <div class="info-cards">
+        <div class="info-card">
+            <div class="info-card-label">📍 FROM LOCATION</div>
+            <div class="info-card-value">{{ entry.from_inventory_location.location if entry.from_inventory_location else
+                '—' }}</div>
         </div>
-        <div class="info-item">
-            <strong>To Location</strong>
-            <span>{{ entry.to_inventory_location.location if entry.to_inventory_location else 'N/A' }}</span>
+        <div class="info-card">
+            <div class="info-card-label">📍 TO LOCATION</div>
+            <div class="info-card-value">{{ entry.to_inventory_location.location if entry.to_inventory_location else '—'
+                }}</div>
         </div>
-        <div class="info-item">
-            <strong>Handled by</strong>
-            <span>
-                {% if entry.handled_by_employee %}
-                {{ entry.handled_by_employee.first_name }} {{ entry.handled_by_employee.last_name }}
-                {% else %}
-                N/A
-                {% endif %}
-            </span>
+        <div class="info-card">
+            <div class="info-card-label">👤 HANDLED BY</div>
+            <div class="info-card-value">{{ entry.handled_by_employee.first_name }} {{
+                entry.handled_by_employee.last_name if entry.handled_by_employee else '—' }}</div>
         </div>
         {% if entry.vendor %}
-        <div class="info-item">
-            {%if entry.source_type == 'sale' %}
-            <strong>Customer</strong>
-            {%elif entry.source_type == 'purchase' %}
-            <strong>Vendor</strong>
-            {% else %}
-            <strong>Party</strong>
-            {% endif %}
-            <span>{{ entry.vendor.vendor_name }}</span>
-
+        <div class="info-card">
+            <div class="info-card-label">
+                {% if entry.source_type == 'sale' %}👥 CUSTOMER
+                {% elif entry.source_type == 'purchase' %}🏭 VENDOR
+                {% else %}🤝 PARTY
+                {% endif %}
+            </div>
+            <div class="info-card-value">{{ entry.vendor.vendor_name }}</div>
         </div>
         {% endif %}
     </div>
 
     <!-- Line Items Table -->
-    <div class="table-responsive">
-        <table>
+    <!-- Line Items Table -->
+    <div class="items-table-wrapper">
+        <table class="items-table">
             <thead>
                 <tr>
                     <th>Item</th>
-                    <th>Quantity</th>
+                    <th style="width: 120px; text-align: right;">Quantity</th>
+                    <th style="width: 150px;">Department</th> <!-- ADD THIS COLUMN -->
                 </tr>
             </thead>
             <tbody>
@@ -245,59 +374,99 @@
                 {% set variation_link = item.inventory_item_variation_link %}
                 <tr>
                     <td>
-                        {{ variation_link.inventory_item.item_name }}
+                        <span class="item-name">{{ variation_link.inventory_item.item_name }}</span>
                         {% if variation_link.inventory_item.item_code %}
-                        ({{ variation_link.inventory_item.item_code }})
+                        <span class="item-code">({{ variation_link.inventory_item.item_code }})</span>
                         {% endif %}
                         {% if variation_link.inventory_item_attributes or variation_link.inventory_item_variation %}
-                        <br><small>
+                        <div style="font-size: 11px; color: var(--text-lighter); margin-top: 4px;">
                             {% if variation_link.inventory_item_attributes %}
                             {{ variation_link.inventory_item_attributes.attribute_name }}
                             {% endif %}
                             {% if variation_link.inventory_item_variation %}
                             / {{ variation_link.inventory_item_variation.variation_name }}
                             {% endif %}
-                        </small>
+                        </div>
                         {% endif %}
                     </td>
-                    <td class="numeric">{{ item.quantity }} {{
-                        variation_link.inventory_item.unit_of_measurement.abbreviation }}</td>
+                    <td style="text-align: right; font-weight: 500;">
+                        {{ item.quantity }} {{ variation_link.inventory_item.unit_of_measurement.abbreviation }}
+                    </td>
+                    <td>
+                        {% if item.project %}
+                        <span class="badge-custom">{{ item.project.name }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="empty-state">No items found</td>
                 </tr>
                 {% endfor %}
             </tbody>
-
         </table>
     </div>
 
-    <!-- Notes -->
-    {% if entry.notes %}
-    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-        <strong>Notes:</strong>
-        <p class="preserve-newlines" style="margin: 10px 0 0;">{{ entry.notes }}</p>
+    <!-- Attachments -->
+    {% if attachments %}
+    <div class="attachments-card">
+        <div class="card-header">
+            <i class="fas fa-paperclip"></i> Attachments ({{ attachments|length }})
+        </div>
+        <div class="attachment-items">
+            {% for attachment in attachments %}
+            <div class="attachment-item">
+                <div class="attachment-icon">
+                    <i
+                        class="fas fa-file-{{ 'pdf' if attachment.file_type == 'pdf' else 'image' if attachment.file_type in ['jpg', 'jpeg', 'png', 'gif'] else 'alt' }}"></i>
+                </div>
+                <div class="attachment-details">
+                    <a href="{{ url_for('inventory.serve_attachment', attachment_id=attachment.id) }}" target="_blank"
+                        class="attachment-name">
+                        {{ attachment.original_filename }}
+                    </a>
+                    <div class="attachment-meta">
+                        {{ attachment.file_size_display }}
+                        {% if attachment.description %}
+                        <span class="attachment-desc">— {{ attachment.description }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
     </div>
     {% endif %}
 
-    <!-- Audit -->
-    <div class="audit-info">
-        <span><strong>Created:</strong> {{ entry.date_added.strftime('%Y-%m-%d %H:%M') }} by {{ entry.created_user.name
-            if entry.created_user else 'Unknown' }}</span>
+    <!-- Notes -->
+    {% if entry.notes %}
+    <div class="notes-card">
+        <div class="notes-label">📝 Notes</div>
+        <div class="notes-content">{{ entry.notes }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Audit Trail -->
+    <div class="audit-bar">
+        <span>🕒 Created: {{ entry.date_added.strftime('%d %b %Y %H:%M') }} by {{ entry.created_user.name if
+            entry.created_user else 'Unknown' }}</span>
         {% if entry.updated_user %}
-        | <span><strong>Updated:</strong> by {{
-            entry.updated_user.name }}</span>
+        <span>✏️ Updated: by {{ entry.updated_user.name }}</span>
         {% endif %}
     </div>
 
     <!-- Actions -->
-    <div class="inventory-actions">
+    <div class="action-buttons">
         {% if entry.inventory_source not in ['pos_sale', 'sales_invoice', 'direct_sale', 'goods_receipt',
         'direct_purchase'] %}
-        <button class="button add-button"
-            onclick="window.location.href='/inventory/inventory_entry/{{ entry.id }}/edit'">
-            <i class="fas fa-edit"></i> Edit
+        <button class="btn-edit" onclick="window.location.href='/inventory/inventory_entry/{{ entry.id }}/edit'">
+            <i class="fas fa-edit"></i> Edit Entry
         </button>
         {% endif %}
-        <button class="button closed" onclick="window.location.href='/inventory/stock_movement_history'">
-            <i class="fas fa-undo-alt"></i> Back
+        <button class="btn-back" onclick="window.location.href='/inventory/stock_movement_history'">
+            <i class="fas fa-arrow-left"></i> Back to History
         </button>
     </div>
 </div>
