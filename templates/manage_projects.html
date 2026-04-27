@@ -15,83 +15,82 @@
 
         <button class="tablinks" onclick="openTab(event, 'projectList')" id="defaultOpen"> Project List</button>
         {% if role == 'Admin' or role == 'Contributor' %}
-        <button class="tablinks" onclick="openTab(event, 'addProject')">Add New Project</button>
+        <button class="tablinks" onclick="openTab(event, 'addProject')">Add New Department</button>
         {% endif %}
 
     </div>
     <!-- Tab Content -->
     <div id="addProject" class="tabcontent">
 
-        <h1>Manage Projects</h1>
+        <h1>Manage Departments</h1>
 
-        <h4>Enter New Project Details<h4>
-
-
-                <form id="addProjectForm" action="/manage_projects" class="" method="post">
-
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="type" value="add">
-                    <div class="form-grid">
-                        <div class="form-group">
-
-                            <input type="text" id="name" class="form-control form-control-sm" autocomplete="off"
-                                name="name" required placeholder="">
-                            <label for="name" class="form-label">Project Name: <span
-                                    style="color: red;">*</span></label>
-                        </div>
-
-                        <div class="form-group">
+        <h4>Enter New Department Details</h4>
 
 
-                            <input type="text" class="form-control form-control-sm" id="project_id" autocomplete="off"
-                                name="project_id" required>
-                            <label for="project_id" class="form-label">Project ID: <span
-                                    style="color: red;">*</span><span class="input-helper" data-toggle="tooltip"
-                                    data-tooltip="Enter a Unique ID that should not already be in the database e.g 1000 or you can use the first a ref format such as FAR-24-1">
-                                    <i class="fas fa-question-circle"></i>
-                                </span></label>
-                        </div>
+        <form id="addProjectForm" action="/manage_projects" class="" method="post">
 
-                        <div class="form-group">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="type" value="add">
+            <div class="form-grid">
+                <div class="form-group">
+
+                    <input type="text" id="name" class="form-control form-control-sm" autocomplete="off" name="name"
+                        required placeholder="">
+                    <label for="name" class="form-label">Department Name: <span style="color: red;">*</span></label>
+                </div>
+
+                <div class="form-group">
 
 
-                            <input type="text" class="form-control form-control-sm" id="location" name="location"
-                                placeholder="" list="locations" autocomplete="off">
-                            <datalist id="locations">
-                                {% for location in locations %}
-                                <option value="{{ location }}">
-                                    {% endfor %}
-                            </datalist>
-                            <label for="location" class="form-label">Project Location:</label>
-                        </div>
+                    <input type="text" class="form-control form-control-sm" id="project_id" autocomplete="off"
+                        name="project_id" required>
+                    <label for="project_id" class="form-label">Department ID: <span style="color: red;">*</span><span
+                            class="input-helper" data-toggle="tooltip"
+                            data-tooltip="Enter a Unique ID that should not already be in the database e.g 1000 or you can use the first a ref format such as FAR-24-1">
+                            <i class="fas fa-question-circle"></i>
+                        </span></label>
+                </div>
 
-                        <!-- Updated Textarea -->
-                        <div class="form-group">
-                            <textarea id="description" class="form-control form-control-sm" name="description"
-                                placeholder=""></textarea>
-                            <label for="description" class="form-label">Project Description:</label>
-                        </div>
-                    </div>
+                <div class="form-group">
 
-                    <div class="col-12">
-                        <button type="submit" name="add" class="cta-button" value="Submit">Add
-                            Project</button>
-                    </div>
-                </form>
+
+                    <input type="text" class="form-control form-control-sm" id="location" name="location" placeholder=""
+                        list="locations" autocomplete="off">
+                    <datalist id="locations">
+                        {% for location in locations %}
+                        <option value="{{ location }}">
+                            {% endfor %}
+                    </datalist>
+                    <label for="location" class="form-label">Department Location:</label>
+                </div>
+
+                <!-- Updated Textarea -->
+                <div class="form-group">
+                    <textarea id="description" class="form-control form-control-sm" name="description"
+                        placeholder=""></textarea>
+                    <label for="description" class="form-label">Project Description:</label>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <button type="submit" name="add" class="cta-button" value="Submit">Add
+                    Project</button>
+            </div>
+        </form>
 
     </div>
 
     <!-- Tab Content -->
     <div id="projectList" class="tabcontent">
-        <h1>Manage Projects</h1>
-        <h4>Project List</h4>
+        <h1>Manage Departments</h1>
+        <h4>Department List</h4>
 
 
         <table id="project-list" class="">
             <thead>
                 <tr>
-                    <th>Project Name</th>
-                    <th>Project ID</th>
+                    <th>Department Name</th>
+                    <th>Department ID</th>
                     <th>Location</th>
                     <th>Description</th>
                     {% if role == 'Admin' or role == 'Contributor' %}
@@ -155,12 +154,12 @@
                 <div class="form-group">
 
                     <input type="text" id="update_name" class="form-control form-control-sm" name="name" required>
-                    <label for="update_name" class="form-label">Project Name:</label>
+                    <label for="update_name" class="form-label">Department Name:</label>
                 </div>
                 <div class="form-group">
 
                     <input type="text" id="update_project_id" class="form-control form-control-sm" name="project_id">
-                    <label for="update_project_id" class="form-label">Project ID:</label>
+                    <label for="update_project_id" class="form-label">Department ID:</label>
                 </div>
                 <div class="form-group">
 
