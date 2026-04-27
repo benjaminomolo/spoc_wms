@@ -55,7 +55,7 @@ from models import ActivityLog, Currency, Company, Category, ChartOfAccounts, Di
     DeliveryNoteItem, \
     Deduction, Benefit, \
     ExchangeRate, Module, Vendor, UnitOfMeasurement, User, LoanStatus, LoanHistory, CurrencyExchangeTransaction, \
-    UserModuleAccess
+    UserModuleAccess, AssetMovement, Asset
 from multi_currency_routes import multi_currency_routes
 from payroll_routes import payroll_routes
 from public import public_routes
@@ -1142,42 +1142,52 @@ def manage_projects():
         modules_data = [mod.module_name for mod in
                         db_session.query(Module).filter_by(app_id=app_id).filter_by(included='yes').all()]
 
-        locations = [loc[0] for loc in db_session.query(Project.location).filter_by(app_id=app_id).distinct().all()]
-        descriptions = [desc[0] for desc in
-                        db_session.query(Project.description).filter_by(app_id=app_id).distinct().all()]
+        # Get distinct locations and descriptions for filter dropdowns
+        locations = [loc[0] for loc in db_session.query(Project.location).filter_by(app_id=app_id).distinct().all() if loc[0]]
+        descriptions = [desc[0] for desc in db_session.query(Project.description).filter_by(app_id=app_id).distinct().all() if desc[0]]
 
+        # Get all projects for display
         projects = [{
             "id": project.id,
             "name": project.name,
             "project_id": project.project_id,
             "location": project.location,
-            "description": project.description
+            "description": project.description,
+            "is_active": project.is_active if hasattr(project, 'is_active') else True
         } for project in db_session.query(Project).filter_by(app_id=app_id).all()]
 
         if request.method == 'POST':
             try:
                 action_type = request.form.get('type')
+
                 if action_type == 'add':
-                    project_id = request.form['project_id'].strip()
+                    project_id = request.form.get('project_id', '').strip()
+
+                    # Validate required fields
+                    if not project_id:
+                        flash('Project ID is required.', 'danger')
+                        return redirect(url_for('manage_projects'))
+
                     # Check if project_id already exists within the same company
                     existing_project = db_session.query(Project).filter_by(project_id=project_id, app_id=app_id).first()
                     if existing_project:
                         flash('Project ID already exists within your company. Please choose another.', 'danger')
                     else:
                         new_project = Project(
-                            name=request.form['name'].strip(),
+                            name=request.form.get('name', '').strip(),
                             project_id=project_id,
-                            location=request.form['location'].strip(),
-                            description=request.form['description'].strip(),
-                            app_id=app_id
+                            location=request.form.get('location', '').strip(),
+                            description=request.form.get('description', '').strip(),
+                            app_id=app_id,
+                            is_active=True
                         )
                         db_session.add(new_project)
 
-                        # Store login activity
+                        # Store activity log
                         new_log = ActivityLog(
-                            activity="project management",
+                            activity="project_management",
                             user=current_user.email,
-                            details=f"{request.form['name'].strip()}: {project_id} has been added successfully",
+                            details=f"Project added: {new_project.name} ({project_id})",
                             app_id=current_user.app_id
                         )
                         db_session.add(new_log)
@@ -1186,33 +1196,33 @@ def manage_projects():
                         flash('Project added successfully!', 'success')
 
                 elif action_type == 'update':
-                    project_id = request.form['id']
+                    project_id = request.form.get('id')
                     project = db_session.query(Project).filter_by(id=project_id, app_id=app_id).first()
+
                     if project:
                         # Check if the new project_id is already taken by another project
-                        new_project_id = request.form['project_id'].strip()
-                        if new_project_id != project.project_id:
-                            existing = db_session.query(Project).filter_by(project_id=new_project_id,
-                                                                           app_id=app_id).first()
+                        new_project_id = request.form.get('project_id', '').strip()
+                        if new_project_id and new_project_id != project.project_id:
+                            existing = db_session.query(Project).filter_by(project_id=new_project_id, app_id=app_id).first()
                             if existing:
                                 flash('Project ID already exists within your company. Please choose another.', 'danger')
                                 return redirect(url_for('manage_projects'))
 
                         # Update project details
-                        project.name = request.form['name'].strip()
+                        project.name = request.form.get('name', '').strip()
                         project.project_id = new_project_id
-                        project.location = request.form['location'].strip()
-                        project.description = request.form['description'].strip()
+                        project.location = request.form.get('location', '').strip()
+                        project.description = request.form.get('description', '').strip()
 
-                        # Update related transactions
-                        db_session.query(Transaction).filter_by(project_id=project.project_id).update(
-                            {'project_id': new_project_id})
+                        # Update active status if field exists
+                        if hasattr(project, 'is_active'):
+                            project.is_active = request.form.get('is_active', 'on') == 'on'
 
-                        # Store login activity
+                        # Store activity log
                         new_log = ActivityLog(
-                            activity="project management",
+                            activity="project_management",
                             user=current_user.email,
-                            details=f"{request.form['name'].strip()}: {new_project_id} has been updated successfully",
+                            details=f"Project updated: {project.name} ({new_project_id})",
                             app_id=current_user.app_id
                         )
                         db_session.add(new_log)
@@ -1223,36 +1233,53 @@ def manage_projects():
                         flash('Project not found.', 'error')
 
                 elif action_type == 'delete':
-                    project_id = request.form['id']
+                    project_id = request.form.get('id')
                     project = db_session.query(Project).filter_by(id=project_id, app_id=app_id).first()
-                    if project:
-                        transactions = db_session.query(Transaction).filter_by(project_id=project_id).first()
-                        if transactions:
-                            flash('Cannot delete project with associated transactions.', 'danger')
-                        else:
-                            db_session.delete(project)
 
-                            # Store login activity
+                    if project:
+                        # Check if project is being used in any assets
+                        assets_using_project = db_session.query(Asset).filter_by(project_id=project.project_id, app_id=app_id).first()
+
+                        # Check if project is being used in any asset movements
+                        movements_using_project = db_session.query(AssetMovement).filter_by(project_id=project.id, app_id=app_id).first()
+
+                        # Check if project is being used in inventory (if applicable)
+                        inventory_using_project = db_session.query(InventoryEntry).filter_by(project_id=project.id, app_id=app_id).first()
+
+                        if assets_using_project or movements_using_project or inventory_using_project:
+                            flash('Cannot delete project. It is currently being used in assets or movements.', 'danger')
+                        else:
+                            # Option 1: Soft delete (set inactive)
+                            if hasattr(project, 'is_active'):
+                                project.is_active = False
+                                flash('Project deactivated successfully!', 'success')
+                            else:
+                                # Option 2: Hard delete
+                                db_session.delete(project)
+                                flash('Project deleted successfully!', 'success')
+
+                            # Store activity log
                             new_log = ActivityLog(
-                                activity="project management",
+                                activity="project_management",
                                 user=current_user.email,
-                                details=f"{project.name}: {project.project_id} has been deleted successfully",
+                                details=f"Project deleted: {project.name} ({project.project_id})",
                                 app_id=current_user.app_id
                             )
                             db_session.add(new_log)
 
                             db_session.commit()
-                            flash('Project deleted successfully!', 'success')
                     else:
                         flash('Project not found.', 'error')
 
                 return redirect(url_for('manage_projects'))
 
-            except IntegrityError:
+            except IntegrityError as e:
                 db_session.rollback()
-                flash('Database integrity error occurred. Please try again.', 'danger')
+                logger.error(f"IntegrityError in manage_projects: {str(e)}")
+                flash('Database integrity error occurred. This project ID may already be in use.', 'danger')
             except Exception as e:
                 db_session.rollback()
+                logger.error(f"Error in manage_projects: {str(e)}\n{traceback.format_exc()}")
                 flash(f'An error occurred: {str(e)}', 'danger')
 
         return render_template('manage_projects.html',
@@ -1262,12 +1289,16 @@ def manage_projects():
                                company=company,
                                role=role,
                                modules=modules_data,
-                               title="Manage Projects",
-                               module_name="General Ledger")
+                               title="Manage Departments",
+                               module_name="Warehouse Management")
 
+    except Exception as e:
+        logger.error(f"Unexpected error in manage_projects: {str(e)}\n{traceback.format_exc()}")
+        flash('An unexpected error occurred', 'error')
+        return redirect(url_for('dashboard'))
     finally:
         db_session.close()
-
+ 
 
 # Route for adding vendor
 
