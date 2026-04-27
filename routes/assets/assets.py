@@ -25,7 +25,7 @@ from services.assets_helpers import process_asset_entries, process_edit_asset_en
 from services.inventory_helpers import handle_supplier_logic, \
     render_inventory_entry_form, \
     process_inventory_entries, reverse_inventory_entry, get_inventory_entry_with_details, \
-    render_edit_inventory_entry_form, remove_inventory_journal_entries
+    render_edit_inventory_entry_form, remove_inventory_journal_entries, get_user_accessible_locations
 from services.post_to_ledger_reversal import _delete_asset_movement_ledger_entries
 from services.vendors_and_customers import handle_party_logic
 from utils import ensure_default_location, generate_unique_lot, create_notification, empty_to_none, \
@@ -46,9 +46,11 @@ logger = logging.getLogger(__name__)
 def asset_list():
     """
     Render the asset list page (individual assets)
+    Filtered by user's assigned locations
     """
     db_session = Session()
     app_id = current_user.app_id
+    user_id = current_user.id
 
     try:
         company = db_session.query(Company).filter_by(id=app_id).first()
@@ -56,14 +58,23 @@ def asset_list():
         modules_data = [mod.module_name for mod in
                         db_session.query(Module).filter_by(app_id=app_id, included='yes').all()]
 
-        # Get filter data
+        # ===== GET USER'S ACCESSIBLE LOCATIONS =====
+        user_locations = get_user_accessible_locations(user_id, app_id)
+        user_location_ids = [loc.id for loc in user_locations] if user_locations else []
+
+        # Get filter data - FILTERED BY USER'S LOCATIONS
         asset_types = db_session.query(AssetItem).filter_by(
             app_id=app_id, status='active'
         ).order_by(AssetItem.asset_name).all()
 
-        locations = db_session.query(InventoryLocation).filter_by(
-            app_id=app_id
-        ).order_by(InventoryLocation.location).all()
+        # Only show locations the user has access to
+        if user_location_ids:
+            locations = db_session.query(InventoryLocation).filter(
+                InventoryLocation.app_id == app_id,
+                InventoryLocation.id.in_(user_location_ids)
+            ).order_by(InventoryLocation.location).all()
+        else:
+            locations = []
 
         departments = db_session.query(Department).filter_by(
             app_id=app_id
@@ -94,14 +105,15 @@ def asset_list():
             modules=modules_data,
             role=role,
             asset_types=asset_types,
-            locations=locations,
+            locations=locations,  # Only user's accessible locations
             departments=departments,
             employees=employees,
             suppliers=suppliers,
             projects=projects,
             status_options=status_options,
             condition_options=condition_options,
-            now=datetime.now()
+            now=datetime.now(),
+            user_location_ids=user_location_ids  # Pass to template for JS filtering
         )
 
     except Exception as e:
@@ -118,9 +130,11 @@ def asset_list():
 def api_assets():
     """
     Return JSON data of individual assets with filtering and pagination
+    Filtered by user's assigned locations
     """
     db_session = Session()
     app_id = current_user.app_id
+    user_id = current_user.id
 
     try:
         # Get pagination and filter parameters
@@ -138,9 +152,29 @@ def api_assets():
         date_from = request.args.get('date_from', '')
         date_to = request.args.get('date_to', '')
 
-        # Build query
+        # ===== GET USER'S ACCESSIBLE LOCATIONS =====
+        user_locations = get_user_accessible_locations(user_id, app_id)
+        user_location_ids = [loc.id for loc in user_locations] if user_locations else []
+
+        # If user has no location access, return empty
+        if not user_location_ids:
+            return jsonify({
+                'success': True,
+                'assets': [],
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total_pages': 0,
+                    'total_items': 0,
+                    'has_next': False,
+                    'has_prev': False
+                }
+            })
+
+        # Build query - FILTER BY USER'S LOCATIONS
         query = db_session.query(Asset).filter(
-            Asset.app_id == app_id
+            Asset.app_id == app_id,
+            Asset.location_id.in_(user_location_ids)  # ← ADD LOCATION FILTER
         )
 
         # Apply joins for related data
@@ -151,7 +185,17 @@ def api_assets():
         query = query.outerjoin(Vendor, Asset.supplier_id == Vendor.id)
         query = query.outerjoin(Project, Asset.project_id == Project.id)
 
-        # Apply filters
+        # Apply location filter if specified
+        if location_id:
+            # Verify user has access to this location
+            if location_id not in user_location_ids:
+                return jsonify({
+                    'success': False,
+                    'message': 'You do not have permission to access this location'
+                }), 403
+            query = query.filter(Asset.location_id == location_id)
+
+        # Apply other filters
         if search:
             search_term = f'%{search}%'
             query = query.filter(
@@ -171,9 +215,6 @@ def api_assets():
 
         if condition:
             query = query.filter(Asset.condition == condition)
-
-        if location_id:
-            query = query.filter(Asset.location_id == location_id)
 
         if department_id:
             query = query.filter(Asset.department_id == department_id)
@@ -205,7 +246,7 @@ def api_assets():
         total_items = query.count()
 
         # Calculate pagination
-        total_pages = (total_items + per_page - 1) // per_page
+        total_pages = (total_items + per_page - 1) // per_page if total_items > 0 else 0
 
         # Get paginated results - newest first
         assets = query.order_by(
@@ -273,7 +314,6 @@ def api_assets():
 
     finally:
         db_session.close()
-
 
 @asset_bp.route('/api/assets/<int:asset_id>', methods=['GET'])
 @login_required
@@ -444,17 +484,53 @@ def api_assets_bulk_delete():
 def api_assets_export():
     """
     Export assets to CSV
+    Filtered by user's assigned locations
     """
     db_session = Session()
     app_id = current_user.app_id
+    user_id = current_user.id
 
     try:
         data = request.get_json()
 
-        # Build query with same filters as list
+        # ===== GET USER'S ACCESSIBLE LOCATIONS =====
+        user_locations = get_user_accessible_locations(user_id, app_id)
+        user_location_ids = [loc.id for loc in user_locations] if user_locations else []
+
+        # If user has no location access, return empty CSV
+        if not user_location_ids:
+            # Return empty CSV with headers only
+            import csv
+            from io import StringIO
+            output = StringIO()
+            writer = csv.writer(output)
+            writer.writerow([
+                'Asset Tag', 'Serial Number', 'Asset Type', 'Asset Code', 'Status', 'Condition',
+                'Location', 'Department', 'Assigned To', 'Purchase Date', 'Purchase Price',
+                'Current Value', 'Depreciation %', 'Supplier', 'Project', 'Warranty Expiry'
+            ])
+            writer.writerow(['No assets available for your assigned locations'])
+            output.seek(0)
+
+            from flask import make_response
+            response = make_response(output.getvalue())
+            response.headers["Content-Disposition"] = f"attachment; filename=assets_empty_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            response.headers["Content-type"] = "text/csv"
+            return response
+
+        # Build query with location filter
         query = db_session.query(Asset).filter(
-            Asset.app_id == app_id
+            Asset.app_id == app_id,
+            Asset.location_id.in_(user_location_ids)  # ← ADD LOCATION FILTER
         )
+
+        # Apply joins for related data
+        query = query.outerjoin(AssetItem, Asset.asset_item_id == AssetItem.id)
+        query = query.outerjoin(InventoryLocation, Asset.location_id == InventoryLocation.id)
+        query = query.outerjoin(Department, Asset.department_id == Department.id)
+        query = query.outerjoin(Employee, Asset.assigned_to_id == Employee.id)
+        query = query.outerjoin(Vendor, Asset.supplier_id == Vendor.id)
+        query = query.outerjoin(Project, Asset.project_id == Project.id)
 
         # Apply filters (same as api_assets)
         if data.get('asset_type_id'):
@@ -464,10 +540,46 @@ def api_assets_export():
         if data.get('condition'):
             query = query.filter(Asset.condition == data['condition'])
         if data.get('location_id'):
-            query = query.filter(Asset.location_id == data['location_id'])
+            location_id = data['location_id']
+            # Verify user has access to this location
+            if location_id not in user_location_ids:
+                return jsonify({
+                    'success': False,
+                    'message': 'You do not have permission to access this location'
+                }), 403
+            query = query.filter(Asset.location_id == location_id)
         if data.get('department_id'):
             query = query.filter(Asset.department_id == data['department_id'])
+        if data.get('assigned_to_id'):
+            query = query.filter(Asset.assigned_to_id == data['assigned_to_id'])
+        if data.get('supplier_id'):
+            query = query.filter(Asset.supplier_id == data['supplier_id'])
+        if data.get('project_id'):
+            query = query.filter(Asset.project_id == data['project_id'])
+        if data.get('date_from'):
+            try:
+                date_from_obj = datetime.strptime(data['date_from'], "%Y-%m-%d").date()
+                query = query.filter(Asset.purchase_date >= date_from_obj)
+            except ValueError:
+                pass
+        if data.get('date_to'):
+            try:
+                date_to_obj = datetime.strptime(data['date_to'], "%Y-%m-%d").date()
+                query = query.filter(Asset.purchase_date <= date_to_obj)
+            except ValueError:
+                pass
+        if data.get('search'):
+            search_term = f"%{data['search']}%"
+            query = query.filter(
+                or_(
+                    Asset.asset_tag.ilike(search_term),
+                    Asset.serial_number.ilike(search_term),
+                    AssetItem.asset_name.ilike(search_term),
+                    AssetItem.asset_code.ilike(search_term)
+                )
+            )
 
+        # Get all assets (no pagination for export)
         assets = query.order_by(Asset.asset_tag).all()
 
         # Generate CSV
@@ -526,8 +638,20 @@ def api_assets_export():
 
         from flask import make_response
         response = make_response(output.getvalue())
-        response.headers[
-            "Content-Disposition"] = f"attachment; filename=assets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+        # Generate filename with filters info
+        filename_parts = ['assets']
+        if data.get('status'):
+            filename_parts.append(data['status'].replace('_', '_'))
+        if data.get('location_id'):
+            filename_parts.append(f"loc_{data['location_id']}")
+        if data.get('date_from'):
+            filename_parts.append(f"from_{data['date_from']}")
+        if data.get('date_to'):
+            filename_parts.append(f"to_{data['date_to']}")
+        filename_parts.append(datetime.now().strftime('%Y%m%d_%H%M%S'))
+
+        response.headers["Content-Disposition"] = f"attachment; filename={'_'.join(filename_parts)}.csv"
         response.headers["Content-type"] = "text/csv"
 
         return response
@@ -541,7 +665,6 @@ def api_assets_export():
 
     finally:
         db_session.close()
-
 
 @asset_bp.route('/asset/<int:asset_id>/view')
 @login_required
