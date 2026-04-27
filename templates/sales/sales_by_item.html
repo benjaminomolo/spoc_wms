@@ -489,8 +489,12 @@
     }
 
     // ========== LOAD SUMMARY DATA ==========
+    // ========== LOAD SUMMARY DATA ==========
     function loadSummaryData() {
-        summaryBody.innerHTML = '=<td colspan="8" class="text-center">Loading summary data...<\/td>';
+        const summaryBody = document.getElementById('summaryBody');
+        if (!summaryBody) return;
+
+        summaryBody.innerHTML = '<tr><td colspan="8" class="text-center">Loading summary data...</td></tr>';
 
         const params = getFilterParams();
 
@@ -501,55 +505,68 @@
                     renderSummaryData(data.data, data.totals);
                     renderPagination(data.pagination);
                 } else {
-                    summaryBody.innerHTML = `=<td colspan="8" class="text-center text-danger">${data.message}<\/td><\/tr>`;
+                    summaryBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">${data.message || 'Error loading data'}</td></tr>`;
+                    // Reset totals on error
+                    const summaryTotalQty = document.getElementById('summaryTotalQty');
+                    if (summaryTotalQty) summaryTotalQty.textContent = '0';
                 }
             })
             .catch(err => {
                 console.error('Error loading summary:', err);
-                summaryBody.innerHTML = '=<td colspan="8" class="text-center text-danger">Error loading data<\/td><\/tr>';
+                summaryBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Network error loading data</td></tr>';
+                const summaryTotalQty = document.getElementById('summaryTotalQty');
+                if (summaryTotalQty) summaryTotalQty.textContent = '0';
             });
     }
 
     function renderSummaryData(items, totals) {
+        const summaryBody = document.getElementById('summaryBody');
+        if (!summaryBody) return;
+
         if (!items || items.length === 0) {
-            summaryBody.innerHTML = '=<td colspan="8" class="text-center">No sales data found for selected period<\/td><\/tr>';
-            document.getElementById('summaryTotalQty').textContent = '0';
-            document.getElementById('summaryTotalRevenue').textContent = `0.00 ${baseCurrency}`;
+            summaryBody.innerHTML = '<tr><td colspan="8" class="text-center">No sales data found for selected period</td></tr>';
+            const summaryTotalQty = document.getElementById('summaryTotalQty');
+            if (summaryTotalQty) summaryTotalQty.textContent = '0';
             return;
         }
 
         let totalQty = 0;
-        let totalRevenue = 0;
 
         let html = '';
         items.forEach(item => {
             totalQty += item.total_quantity;
-            totalRevenue += item.total_revenue;
 
             html += `
-                <tr>
-                    <td>${escapeHtml(item.item_name)}</td>
-                    <td>${escapeHtml(item.item_code || '-')}</td>
-                    <td>${escapeHtml(item.category_name || '-')}</td>
-                    <td>${escapeHtml(item.uom || '-')}</td>
-                    <td class="text-right">${formatNumber(item.total_quantity)}</td>
-                    <td>${item.last_sale_date || '-'}</td>
-                </tr>
-            `;
+            <tr>
+                <td>${escapeHtml(item.item_name)}</td>
+                <td>${escapeHtml(item.item_code || '-')}</td>
+                <td>${escapeHtml(item.category_name || '-')}</td>
+                <td>${escapeHtml(item.uom || '-')}</td>
+                <td class="text-right">${formatNumber(item.total_quantity)}</td>
+                <td>${item.last_sale_date || '-'}</td>
+            </tr>
+        `;
         });
 
         summaryBody.innerHTML = html;
 
-        if (totals) {
-            document.getElementById('summaryTotalQty').textContent = formatNumber(totals.total_quantity);
-        } else {
-            document.getElementById('summaryTotalQty').textContent = formatNumber(totalQty);
+        // Update total quantity
+        const summaryTotalQty = document.getElementById('summaryTotalQty');
+        if (summaryTotalQty) {
+            if (totals && totals.total_quantity) {
+                summaryTotalQty.textContent = formatNumber(totals.total_quantity);
+            } else {
+                summaryTotalQty.textContent = formatNumber(totalQty);
+            }
         }
     }
 
     // ========== LOAD DETAIL DATA ==========
     function loadDetailData() {
-        detailBody.innerHTML = '=<td colspan="11" class="text-center">Loading detail data...<\/td><\/tr>';
+        const detailBody = document.getElementById('detailBody');
+        if (!detailBody) return;
+
+        detailBody.innerHTML = '<tr><td colspan="11" class="text-center">Loading detail data...</td></tr>';
 
         const params = getFilterParams();
 
@@ -560,14 +577,67 @@
                     renderDetailData(data.data);
                     renderPagination(data.pagination);
                 } else {
-                    detailBody.innerHTML = `=<td colspan="11" class="text-center text-danger">${data.message}<\/td><\/tr>`;
+                    detailBody.innerHTML = `<tr><td colspan="11" class="text-center text-danger">${data.message || 'Error loading data'}</td></tr>`;
+                    const detailTotalQty = document.getElementById('detailTotalQty');
+                    if (detailTotalQty) detailTotalQty.textContent = '0';
                 }
             })
             .catch(err => {
                 console.error('Error loading detail:', err);
-                detailBody.innerHTML = '=<td colspan="11" class="text-center text-danger">Error loading data<\/td><\/tr>';
+                detailBody.innerHTML = '<tr><td colspan="11" class="text-center text-danger">Network error loading data</td></tr>';
+                const detailTotalQty = document.getElementById('detailTotalQty');
+                if (detailTotalQty) detailTotalQty.textContent = '0';
             });
     }
+
+    function renderDetailData(transactions) {
+        const detailBody = document.getElementById('detailBody');
+        if (!detailBody) return;
+
+        if (!transactions || transactions.length === 0) {
+            detailBody.innerHTML = '<tr><td colspan="11" class="text-center">No sales transactions found for selected period</td></tr>';
+            const detailTotalQty = document.getElementById('detailTotalQty');
+            if (detailTotalQty) detailTotalQty.textContent = '0';
+            return;
+        }
+
+        let totalQty = 0;
+
+        let html = '';
+        transactions.forEach(tx => {
+            totalQty += tx.quantity;
+
+            let transactionUrl = '#';
+            if (tx.transaction_type === 'Sales Invoice') {
+                transactionUrl = `/sales/invoice/${tx.transaction_id}`;
+            } else if (tx.transaction_type === 'Direct Sale') {
+                transactionUrl = `/sales/direct_sales_transaction_details/${tx.transaction_id}`;
+            } else if (tx.transaction_type === 'POS Sale') {
+                transactionUrl = `/sales/direct_sales_transaction_details/${tx.transaction_id}`;
+            } else if (tx.transaction_type === 'Inventory Entry') {
+                transactionUrl = `/inventory/inventory_entry/${tx.transaction_id}`;
+            }
+
+            html += `
+            <tr>
+                <td>${tx.transaction_date}</td>
+                <td><a href="${transactionUrl}" class="reference-link">${escapeHtml(tx.transaction_number)}</a></td>
+                <td>${escapeHtml(tx.customer_name)}</td>
+                <td>${escapeHtml(tx.item_name)}</td>
+                <td>${escapeHtml(tx.item_code || '-')}</td>
+                <td>${escapeHtml(tx.category_name || '-')}</td>
+                <td>${escapeHtml(tx.uom || '-')}</td>
+                <td class="text-right">${formatNumber(tx.quantity)}</td>
+            </tr>
+        `;
+        });
+
+        detailBody.innerHTML = html;
+
+        const detailTotalQty = document.getElementById('detailTotalQty');
+        if (detailTotalQty) detailTotalQty.textContent = formatNumber(totalQty);
+    }
+
 
     function renderDetailData(transactions) {
         if (!transactions || transactions.length === 0) {
@@ -615,6 +685,11 @@
 
     // ========== PAGINATION ==========
     function renderPagination(pagination) {
+        const paginationInfoElement = document.getElementById('paginationInfo');
+        const paginationElement = document.getElementById('pagination');
+
+        if (!paginationElement || !paginationInfoElement) return;
+
         const { page, total_pages, total_items, has_next, has_prev } = pagination;
 
         paginationInfoElement.textContent = `Showing ${(page - 1) * perPage + 1} to ${Math.min(page * perPage, total_items)} of ${total_items} entries`;
@@ -655,7 +730,6 @@
             });
         });
     }
-
     // ========== HELPER FUNCTIONS ==========
     function formatNumber(num) {
         return new Intl.NumberFormat('en-US', {

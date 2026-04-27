@@ -17,11 +17,7 @@
                 <th>Description</th>
                 <th>Project</th>
                 <th>Assigned Users</th>
-                <th>Discount Account</th>
-                <th>Payment Account</th>
-                <th>Card Payment Account</th>
-                <th>Mobile Money Account</th>
-                <th>Workflow Type</th>
+
                 {% if role in ['Admin', 'Contributor'] %}
                 <th>Actions</th>
                 {% endif %}
@@ -76,45 +72,7 @@
                         {% endif %}
                     </div>
                 </td>
-                <td>
-                    {% if loc.discount_account %}
-                    {{ loc.discount_account.sub_category }} ({{ loc.discount_account.sub_category_id }})
-                    {% else %}
-                    -
-                    {% endif %}
-                </td>
-                <td>
-                    {% if loc.payment_account %}
-                    {{ loc.payment_account.sub_category }} ({{ loc.payment_account.sub_category_id }})
-                    {% else %}
-                    -
-                    {% endif %}
-                </td>
-                <td>
-                    {% if loc.card_payment_account %}
-                    {{ loc.card_payment_account.sub_category }} ({{ loc.card_payment_account.sub_category_id }})
-                    {% else %}
-                    -
-                    {% endif %}
-                </td>
-                <td>
-                    {% if loc.mobile_money_account %}
-                    {{ loc.mobile_money_account.sub_category }} ({{ loc.mobile_money_account.sub_category_id }})
-                    {% else %}
-                    -
-                    {% endif %}
-                </td>
-                <td>
-                    {% if loc.workflow_type %}
-                    {% if loc.workflow_type == 'process_payment' %}
-                    <span class="badge bg-primary">Process Payment</span>
-                    {% elif loc.workflow_type == 'order_slip' %}
-                    <span class="badge bg-success">Order Slip</span>
-                    {% endif %}
-                    {% else %}
-                    -
-                    {% endif %}
-                </td>
+
                 {% if role in ['Admin', 'Contributor'] %}
                 <td>
                     <div class="action-icons-clean">

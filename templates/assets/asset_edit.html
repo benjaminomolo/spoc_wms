@@ -640,7 +640,7 @@
                                     </div>
 
                                     <!-- Condition -->
-                                    <div class="form-row">
+                                    <div class="form-row" style="display: none;">
                                         <div class="form-group">
                                             <label for="condition">Initial Condition</label>
                                             <select name="condition[]" class="condition-input">
@@ -751,10 +751,10 @@
                                 </div>
 
                                 <!-- Transfer-specific fields -->
+                                <!-- Transfer-specific fields -->
                                 <div class="conditional-field transfer-section"
                                     style="display: {{ 'block' if asset_movement.movement_type == 'transfer' else 'none' }}">
                                     <div class="form-section">
-                                        <h4>Transfer Details</h4>
                                         <div class="form-row">
                                             <div class="form-group">
                                                 <label for="to_location_id">To Location</label>
@@ -768,19 +768,6 @@
                                                     {% endfor %}
                                                 </select>
                                             </div>
-
-                                            <div class="form-group">
-                                                <label for="to_department_id">To Department</label>
-                                                <select name="to_department_id[]" class="department-dropdown">
-                                                    <option value="">Select Destination Department</option>
-                                                    {% for department in departments %}
-                                                    <option value="{{ department.id }}" {% if
-                                                        line_item.to_department_id==department.id %}selected{% endif %}>
-                                                        {{ department.department_name }}
-                                                    </option>
-                                                    {% endfor %}
-                                                </select>
-                                            </div>
                                         </div>
 
                                         <div class="form-group">
@@ -790,7 +777,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <!-- Disposal-specific fields -->
                                 <div class="conditional-field disposal-section"
                                     style="display: {{ 'block' if asset_movement.movement_type == 'disposal' else 'none' }}">
@@ -1256,13 +1242,14 @@
 
 
         // ===== HIDE/SHOW LOCATION AND DEPARTMENT FIELDS BASED ON MOVEMENT TYPE =====
+        // Initialize location and department field visibility on page load
         function initializeFieldVisibility() {
-            const movementType = '{{ asset_movement.movement_type }}';
+            const movementType = document.getElementById('movement_type').value;
 
-            // Hide/show location field at header level
+            // Hide/show location field
             const locationFieldGroup = document.getElementById('location_field_group');
             if (locationFieldGroup) {
-                if (movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal') {
+                if (movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal' || movementType === 'transfer') {
                     locationFieldGroup.style.display = 'none';
                     document.getElementById('location_id').removeAttribute('required');
                 } else {
@@ -1272,7 +1259,7 @@
             }
 
             // Hide/show department fields in each line item
-            document.querySelectorAll('.line-item .form-group:has(select[name="project_id[]"])').forEach(departmentField => {
+            document.querySelectorAll('.line-item .department-field').forEach(departmentField => {
                 if (movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal') {
                     departmentField.style.display = 'none';
                     const departmentSelect = departmentField.querySelector('.project-dropdown');
@@ -1508,8 +1495,8 @@
                 </div>
                 
                 <!-- Condition -->
-                <div class="form-row">
-                    <div class="form-group">
+                <div class="form-row" style="display:none;">
+                    <div class="form-group" >
                         <label for="condition">Initial Condition</label>
                         <select name="condition[]" class="condition-input">
                             <option value="excellent">Excellent</option>
@@ -1608,7 +1595,6 @@
             <div class="conditional-field transfer-section" 
                 style="display: ${movementType === 'transfer' ? 'block' : 'none'}">
                 <div class="form-section">
-                    <h4>Transfer Details</h4>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="to_location_id">To Location</label>
@@ -1620,15 +1606,7 @@
                             </select>
                         </div>
                         
-                        <div class="form-group">
-                            <label for="to_department_id">To Department</label>
-                            <select name="to_department_id[]" class="department-dropdown">
-                                <option value="">Select Destination Department</option>
-                                {% for department in departments %}
-                                <option value="{{ department.id }}">{{ department.department_name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
+              
                     </div>
                     
                     <div class="form-group">
@@ -2500,9 +2478,44 @@
     }
 
     // Validate form
+    // Validate form
     function validateForm() {
         let isValid = true;
         let errorMessages = [];
+
+        const currentMovementType = movementType;
+
+        // ===== ADD DEPARTMENT VALIDATION =====
+        const isDepartmentRequired = currentMovementType !== 'sale' &&
+            currentMovementType !== 'donation_out' &&
+            currentMovementType !== 'disposal';
+
+        if (isDepartmentRequired) {
+            const departmentSelects = document.querySelectorAll('select[name="project_id[]"]');
+            let hasDepartment = false;
+            let missingDepartments = [];
+
+            departmentSelects.forEach((select, index) => {
+                if (select.value && select.value !== '') {
+                    hasDepartment = true;
+                } else {
+                    missingDepartments.push(index + 1);
+                    select.style.border = '2px solid red';
+                }
+            });
+
+            if (!hasDepartment) {
+                isValid = false;
+                errorMessages.push('Department is required for this movement type');
+            } else if (missingDepartments.length > 0) {
+                isValid = false;
+                errorMessages.push(`Department is required for line item(s): ${missingDepartments.join(', ')}`);
+            } else {
+                document.querySelectorAll('select[name="project_id[]"]').forEach(select => {
+                    select.style.border = '';
+                });
+            }
+        }
 
         // Check line items
         const lineItems = document.querySelectorAll('.line-item');
@@ -2511,11 +2524,16 @@
             errorMessages.push('At least one asset line item is required');
         }
 
-        // Check location
-        const locationSelect = document.getElementById('location_id');
-        if (!locationSelect?.value) {
-            isValid = false;
-            errorMessages.push('Location is required');
+        // ===== CHECK LOCATION - ONLY IF IT'S VISIBLE =====
+        const locationFieldGroup = document.getElementById('location_field_group');
+        const isLocationVisible = locationFieldGroup && locationFieldGroup.style.display !== 'none';
+
+        if (isLocationVisible) {
+            const locationSelect = document.getElementById('location_id');
+            if (!locationSelect?.value) {
+                isValid = false;
+                errorMessages.push('Location is required');
+            }
         }
 
         // Check each line item
@@ -2526,8 +2544,8 @@
                 errorMessages.push(`Asset type is required for line item ${index + 1}`);
             }
 
-            const movementType = lineItem.dataset.movementType;
-            const showExistingAssetDropdown = ['assignment', 'return', 'transfer', 'sale', 'donation_out', 'disposal', 'depreciation'].includes(movementType);
+            const lineItemMovementType = lineItem.dataset.movementType;
+            const showExistingAssetDropdown = ['assignment', 'return', 'transfer', 'sale', 'donation_out', 'disposal', 'depreciation'].includes(lineItemMovementType);
 
             if (showExistingAssetDropdown) {
                 const assetInstanceSelect = lineItem.querySelector('.asset-instance-dropdown');
@@ -2537,8 +2555,8 @@
                 }
             }
 
-            // ADD THIS: For acquisition, check sender
-            if (movementType === 'acquisition') {
+            // For acquisition, check sender
+            if (lineItemMovementType === 'acquisition') {
                 const supplierNameInput = lineItem.querySelector('.asset-supplier-name');
                 const supplierIdInput = lineItem.querySelector('.asset-supplier-id');
                 if (!supplierNameInput?.value && !supplierIdInput?.value) {
@@ -2548,7 +2566,7 @@
             }
 
             // For sales, check customer
-            if (movementType === 'sale') {
+            if (lineItemMovementType === 'sale') {
                 const customerNameInput = lineItem.querySelector('.asset-customer-name');
                 const customerIdInput = lineItem.querySelector('.asset-customer-id');
                 if (!customerNameInput?.value && !customerIdInput?.value) {

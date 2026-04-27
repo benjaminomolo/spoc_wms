@@ -75,6 +75,11 @@
                 <i class="fas fa-download"></i> PDF
             </button>
 
+            <!-- ADD EXCEL DOWNLOAD BUTTON -->
+            <button class="button-outline" type="button" id="exportExcelBtn">
+                <i class="fas fa-file-excel"></i> Excel
+            </button>
+
 
 
 
@@ -974,6 +979,66 @@
                     exportBtn.disabled = false;
                 });
         });
+
+
+        // ===== ADD EXCEL EXPORT BUTTON =====
+        const exportExcelBtn = document.getElementById('exportExcelBtn');
+        if (exportExcelBtn) {
+            exportExcelBtn.addEventListener('click', () => {
+                const filters = {
+                    item_id: document.getElementById('item').value,
+                    project_id: document.getElementById('project').value,
+                    ledger_status: document.getElementById('ledger_status').value,
+                    reference: document.getElementById('reference').value,
+                    location_id: document.getElementById('location').value,
+                    movement_type: document.getElementById('movement_type').value,
+                    source_type: document.getElementById('source_type').value,
+                    start_date: document.getElementById('start_date').value,
+                    end_date: document.getElementById('end_date').value
+                };
+
+                exportExcelBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+                exportExcelBtn.disabled = true;
+
+                fetch('/download_stock_movement_history_excel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify(filters)
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.blob();
+                        }
+                        throw new Error('Network response was not ok.');
+                    })
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        let filename = 'stock_movement_history';
+                        if (filters.start_date) filename += `_from_${filters.start_date}`;
+                        if (filters.end_date) filename += `_to_${filters.end_date}`;
+                        if (filters.project_id) filename += '_by_department';
+                        filename += '.xlsx';
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        exportExcelBtn.innerHTML = '<i class="fas fa-file-excel"></i> Excel';
+                        exportExcelBtn.disabled = false;
+                    })
+                    .catch(error => {
+                        console.error('Error downloading Excel report:', error);
+                        showNotification('Error downloading Excel report', 'error');
+                        exportExcelBtn.innerHTML = '<i class="fas fa-file-excel"></i> Excel';
+                        exportExcelBtn.disabled = false;
+                    });
+            });
+        }
 
         // Refresh cache button
         const refreshCacheBtn = document.getElementById('refreshCacheBtn');

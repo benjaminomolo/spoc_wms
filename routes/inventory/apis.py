@@ -4,10 +4,11 @@
 # app/routes/inventory/apis.py
 
 import logging
+import os
 import traceback
 from datetime import datetime
 
-from flask import Blueprint, jsonify, render_template, flash, redirect, url_for, request
+from flask import Blueprint, jsonify, render_template, flash, redirect, url_for, request, abort, send_from_directory
 from flask_login import login_required, current_user
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
@@ -19,11 +20,11 @@ from db import Session
 from models import Company, Module, Currency, Project, ChartOfAccounts, PaymentMode, Category, Department, Employee, \
     PayrollPeriod, InventoryCategory, InventorySubCategory, InventoryLocation, InventoryItem, InventoryItemVariation, \
     InventoryItemAttribute, Brand, InventoryItemVariationLink, InventoryEntry, InventoryEntryLineItem, \
-    InventoryTransactionDetail, User, UserLocationAssignment
+    InventoryTransactionDetail, User, UserLocationAssignment, Attachment
 from services.inventory_helpers import suggest_next_inventory_reference, calculate_inventory_quantities, \
     reverse_inventory_entry, reverse_single_transaction_detail, suggest_next_pos_order_reference, \
     update_user_location_role, get_location_users, deactivate_user_location_assignment, assign_user_to_location, \
-    get_inventory_quantity_and_cost
+    get_inventory_quantity_and_cost, get_stock_by_department_filtered, get_stock_by_department_breakdown
 from utils_and_helpers.cache_utils import clear_stock_history_cache
 from utils_and_helpers.date_time_utils import get_date_range_from_filter
 from utils_and_helpers.numbers import safe_int_conversion
@@ -67,6 +68,7 @@ def suggest_inventory_reference():
 def api_inventory_stock():
     """
     Flexible API for inventory stock information with various filtering options
+    Supports department filtering for transfers
     """
     db_session = Session()
     app_id = current_user.app_id
@@ -75,31 +77,51 @@ def api_inventory_stock():
         # Get parameters
         location_id = request.args.get('location_id', type=int)
         item_ids = request.args.getlist('item_ids[]', type=int)
+        project_id = request.args.get('project_id', type=int)
         status = request.args.get('status', 'active')
         include_negative = request.args.get('include_negative', 'false').lower() == 'true'
         group_by_location = request.args.get('group_by_location', 'false').lower() == 'true'
         use_variation_ids = request.args.get('use_variation_ids', 'false').lower() == 'true'
-        # Build base query
-        query = db_session.query(InventoryItem).filter_by(app_id=app_id)
-        if status != 'all':
-            query = query.filter_by(status=status)
 
-        # Calculate quantities based on parameters
-        quantity_data = calculate_inventory_quantities(
-            db_session=db_session,
-            app_id=app_id,
-            item_ids=item_ids,
-            use_variation_ids=use_variation_ids,
-            location_id=location_id,
-            include_negative=include_negative,
-            group_by_location=group_by_location
-        )
+        # If project_id is provided, get stock for that specific department
+        if project_id:
+            stock_data = get_stock_by_department_filtered(
+                db_session=db_session,
+                app_id=app_id,
+                item_ids=item_ids,
+                location_id=location_id,
+                project_id=project_id,
+                use_variation_ids=use_variation_ids
+            )
+            departments_data = None
+        else:
+            # Get total stock (across all departments)
+            stock_data = calculate_inventory_quantities(
+                db_session=db_session,
+                app_id=app_id,
+                item_ids=item_ids,
+                use_variation_ids=use_variation_ids,
+                location_id=location_id,
+                include_negative=include_negative,
+                group_by_location=group_by_location
+            )
+
+            # Get department breakdown for transfer form
+            departments_data = get_stock_by_department_breakdown(
+                db_session=db_session,
+                app_id=app_id,
+                item_ids=item_ids,
+                location_id=location_id,
+                use_variation_ids=use_variation_ids
+            )
 
         return jsonify({
             'success': True,
-            'stock_data': quantity_data,
+            'stock_data': stock_data,
+            'departments': departments_data,
             'parameters': {
                 'location_id': location_id,
+                'project_id': project_id,
                 'include_negative': include_negative,
                 'group_by_location': group_by_location
             }
@@ -114,6 +136,7 @@ def api_inventory_stock():
 
     finally:
         db_session.close()
+
 
 
 @api_routes.route('/api/inventory_stock_with_cost', methods=['GET'])
@@ -319,7 +342,6 @@ def suggest_pos_order_reference():
 
     return jsonify({'suggested_reference': suggested_ref})
 
-
 @inventory_bp.route('/inventory_location/assign_user', methods=['POST'])
 @role_required(['Admin', 'Contributor'])
 def assign_user_to_location_route():
@@ -342,18 +364,7 @@ def assign_user_to_location_route():
             if not location:
                 return jsonify({'error': 'Location not found'}), 404
 
-            # Check if user is already assigned to this location
-            existing_assignment = db_session.query(UserLocationAssignment).filter_by(
-                user_id=user_id,
-                location_id=location_id,
-                app_id=current_user.app_id,
-                is_active=True
-            ).first()
-
-            if existing_assignment:
-                return jsonify({'error': 'User is already assigned to this location'}), 400
-
-        # Assign user to location
+        # Assign or update user to location (function handles both)
         assignment = assign_user_to_location(
             user_id=user_id,
             location_id=location_id,
@@ -370,7 +381,6 @@ def assign_user_to_location_route():
     except Exception as e:
         logger.error(f"Error assigning user to location: {str(e)}\n{traceback.format_exc()}")
         return jsonify({'error': 'An error occurred while assigning user to location'}), 500
-
 
 @inventory_bp.route('/inventory_location/remove_user', methods=['POST'])
 @role_required(['Admin', 'Contributor'])
@@ -912,3 +922,123 @@ def get_markup_analysis():
 
 
 
+@inventory_bp.route('/attachment/<int:attachment_id>')
+@login_required
+def serve_attachment(attachment_id):
+    """Serve attachment files with access control"""
+    db_session = None
+    try:
+        db_session = Session()
+        app_id = current_user.app_id
+
+        # Get the attachment
+        attachment = db_session.query(Attachment).filter_by(id=attachment_id).first()
+
+        if not attachment:
+            abort(404)
+
+        # Check if user has access to the parent record
+        if attachment.record_type == 'inventory_entry':
+            # Check if inventory entry belongs to user's company
+            entry = db_session.query(InventoryEntry).filter_by(
+                id=attachment.record_id,
+                app_id=app_id
+            ).first()
+            if not entry:
+                abort(403)
+
+        elif attachment.record_type == 'asset_movement':
+            # Check if asset movement belongs to user's company
+            movement = db_session.query(AssetMovement).filter_by(
+                id=attachment.record_id,
+                app_id=app_id
+            ).first()
+            if not movement:
+                abort(403)
+
+        # Check if file exists
+        if not os.path.exists(attachment.file_path):
+            abort(404)
+
+        # Serve the file
+        directory = os.path.dirname(attachment.file_path)
+        filename = os.path.basename(attachment.file_path)
+
+        return send_from_directory(directory, filename, as_attachment=True)
+
+    except Exception as e:
+        logger.error(f"Error serving attachment: {str(e)}")
+        abort(500)
+    finally:
+        if db_session:
+            db_session.close()
+
+
+@inventory_bp.route('/api/available_stock_by_department', methods=['GET'])
+@login_required
+def api_available_stock_by_department():
+    """
+    Get available stock grouped by department for a specific item and location
+    """
+    db_session = Session()
+    app_id = current_user.app_id
+
+    try:
+        item_id = request.args.get('item_id', type=int)
+        location_id = request.args.get('location_id', type=int)
+
+        if not item_id or not location_id:
+            return jsonify({'success': False, 'message': 'Item and location are required'}), 400
+
+        # Query transaction details grouped by project
+        results = db_session.query(
+            Project.id.label('project_id'),
+            Project.name.label('project_name'),
+            func.sum(
+                case(
+                    (InventoryTransactionDetail.movement_type == 'in',
+                     InventoryTransactionDetail.quantity),
+                    (InventoryTransactionDetail.movement_type == 'out',
+                     -InventoryTransactionDetail.quantity),
+                    else_=0
+                )
+            ).label('available_quantity')
+        ).join(
+            InventoryTransactionDetail.project
+        ).filter(
+            InventoryTransactionDetail.item_id == item_id,
+            InventoryTransactionDetail.location_id == location_id,
+            InventoryTransactionDetail.app_id == app_id,
+            Project.is_active == True
+        ).group_by(
+            Project.id, Project.name
+        ).having(
+            func.sum(
+                case(
+                    (InventoryTransactionDetail.movement_type == 'in',
+                     InventoryTransactionDetail.quantity),
+                    (InventoryTransactionDetail.movement_type == 'out',
+                     -InventoryTransactionDetail.quantity),
+                    else_=0
+                )
+            ) > 0
+        ).all()
+
+        departments = []
+        for row in results:
+            departments.append({
+                'project_id': row.project_id,
+                'project_name': row.project_name,
+                'available_quantity': float(row.available_quantity)
+            })
+
+        return jsonify({
+            'success': True,
+            'departments': departments
+        })
+
+    except Exception as e:
+        logger.error(f"Error in api_available_stock_by_department: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        db_session.close()

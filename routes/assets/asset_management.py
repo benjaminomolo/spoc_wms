@@ -25,7 +25,8 @@ from services.assets_helpers import process_asset_entries, process_edit_asset_en
 from services.inventory_helpers import handle_supplier_logic, \
     render_inventory_entry_form, \
     process_inventory_entries, reverse_inventory_entry, get_inventory_entry_with_details, \
-    render_edit_inventory_entry_form, process_inventory_entries_for_edit, remove_inventory_journal_entries
+    render_edit_inventory_entry_form, process_inventory_entries_for_edit, remove_inventory_journal_entries, \
+    get_user_accessible_locations
 from services.post_to_ledger_reversal import _delete_asset_movement_ledger_entries
 from services.vendors_and_customers import handle_party_logic
 from utils import ensure_default_location, generate_unique_lot, create_notification, empty_to_none, \
@@ -84,10 +85,20 @@ def asset_entry():
                 # Get reference (can be auto-generated if not provided)
                 reference = request.form.get('reference', '').strip()
 
-                # Get project (optional)
-                project_id = request.form.get('project_id')
                 handled_by = request.form.get('handled_by')
-                project_id = int(project_id) if project_id and project_id.isdigit() else None
+
+                # Get location
+                #  - ONLY for receiving and internal movements
+                out_movements = ['sale', 'donation_out', 'disposal']
+                if movement_type in out_movements:
+                    # Out movements don't use header location
+                    location_id = None
+                else:
+                    location_id = request.form.get('location_id')
+                    if location_id and location_id.isdigit():
+                        location_id = int(location_id)
+                    else:
+                        location_id = None
 
                 # Get accounting information
                 payable_account_id = request.form.get('payable_account')
@@ -116,6 +127,7 @@ def asset_entry():
                 serial_numbers = request.form.getlist('serial_number[]')
                 purchase_prices = request.form.getlist('purchase_price[]')
                 sale_notes = request.form.getlist('sale_notes[]')  # ✅ ADD THIS LINE
+                project_ids = request.form.getlist('project_id[]')
 
                 # Only get current_values for donation_in, otherwise use purchase_price
                 if movement_type == 'donation_in':
@@ -148,6 +160,9 @@ def asset_entry():
                 depreciation_notes = request.form.getlist('depreciation_notes[]')
 
                 transfer_reasons = request.form.getlist('transfer_reason[]')
+
+                print(f"DEBUG process_asset_entries: movement_type={movement_type}, location_id={location_id}")
+
                 # Process asset entries - get back Asset objects
                 processed_assets = process_asset_entries(
                     db_session=db_session,
@@ -174,7 +189,8 @@ def asset_entry():
                     currency_id=currency_id,
                     base_currency_id=base_currency_id,
                     reference=reference,
-                    project_id=project_id,
+                    project_ids=project_ids,
+                    location_id=location_id,
                     current_user_id=current_user.id,
                     payable_account_id=payable_account_id,
                     adjustment_account_id=adjustment_account_id,
@@ -186,9 +202,11 @@ def asset_entry():
                 # Get the asset_movement object
                 asset_movement = processed_assets['asset_movement']
 
-
+                # ===== PROCESS ATTACHMENTS =====
+                from services.inventory_helpers import process_attachments
+                process_attachments(request, 'asset_movement', asset_movement.id, current_user.id, db_session)
+                # ===== END ATTACHMENTS PROCESSING =====
                 db_session.commit()
-
                 # Create notification
                 create_notification(
                     db_session=db_session,
@@ -252,9 +270,8 @@ def render_asset_entry_form(db_session, app_id, company, role, modules_data, mov
     ).order_by(AssetItem.asset_name).all()
 
     # Get locations
-    locations = db_session.query(InventoryLocation).filter_by(
-        app_id=app_id
-    ).order_by(InventoryLocation.location).all()
+
+    locations = get_user_accessible_locations(current_user.id, app_id)
 
     # Get employees
     employees = db_session.query(Employee).filter_by(
@@ -344,9 +361,7 @@ def _load_edit_form_data(db_session, app_id, movement_type):
     ).order_by(AssetItem.asset_name).all()
 
     # Get locations
-    data['locations'] = db_session.query(InventoryLocation).filter_by(
-        app_id=app_id
-    ).order_by(InventoryLocation.location).all()
+    data['locations'] = get_user_accessible_locations(current_user.id, app_id)
 
     # Get employees
     data['employees'] = db_session.query(Employee).filter_by(
@@ -467,6 +482,12 @@ def asset_edit(movement_id):
 
                 project_id = request.form.get('project_id')
                 handled_by = request.form.get('handled_by')
+                # Get location
+                location_id = request.form.get('location_id')
+                if location_id and location_id.isdigit():
+                    location_id = int(location_id)
+                else:
+                    location_id = None
                 project_id = int(project_id) if project_id and project_id.isdigit() else asset_movement.project_id
 
                 # Get accounting information
@@ -490,6 +511,8 @@ def asset_edit(movement_id):
                 if not asset_item_ids:
                     return jsonify({'status': 'error', 'message': 'At least one asset is required'}), 400
 
+                project_ids = request.form.getlist('project_id[]')
+
                 # Get form data in bulk
                 form_data = {
                     'asset_ids': request.form.getlist('asset_id[]'),
@@ -505,7 +528,8 @@ def asset_edit(movement_id):
                     'depreciation_amounts': request.form.getlist('depreciation_amount[]'),
                     'depreciation_notes': request.form.getlist('depreciation_notes[]'),
                     'sale_notes': request.form.getlist('sale_notes[]'),
-                    'transfer_reasons': request.form.getlist('transfer_reason[]')
+                    'transfer_reasons': request.form.getlist('transfer_reason[]'),
+                    'project_ids': project_ids
                 }
 
                 # Handle current values based on movement type
@@ -554,7 +578,6 @@ def asset_edit(movement_id):
                             )
                         ).delete(synchronize_session=False)
 
-
                     db_session.flush()
 
                     db_session.flush()
@@ -570,6 +593,7 @@ def asset_edit(movement_id):
                     asset_movement.updated_by = current_user.id
                     asset_movement.updated_at = func.now()
                     asset_movement.handled_by = handled_by
+                    asset_movement.location_id = location_id
 
                     db_session.flush()
 
@@ -600,7 +624,8 @@ def asset_edit(movement_id):
                         currency_id=currency_id,
                         base_currency_id=base_currency_id,
                         reference=reference,
-                        project_id=project_id,
+                        project_ids=form_data['project_ids'],
+                        location_id=location_id,
                         current_user_id=current_user.id,
                         payable_account_id=payable_account_id,
                         adjustment_account_id=adjustment_account_id,
@@ -609,6 +634,9 @@ def asset_edit(movement_id):
                         original_line_items=line_items  # ADD THIS
                     )
 
+                    # Process attachments
+                    from services.inventory_helpers import process_attachments
+                    process_attachments(request, 'asset_movement', movement_id, current_user.id, db_session)
 
                     db_session.commit()
 
@@ -650,7 +678,12 @@ def asset_edit(movement_id):
         else:
             # GET request - Load ALL dropdown data matching create form structure
             dropdown_data = _load_edit_form_data(db_session, app_id, asset_movement.movement_type)
-
+            # Get existing attachments for this asset movement
+            from models import Attachment
+            attachments = db_session.query(Attachment).filter_by(
+                record_type='asset_movement',
+                record_id=movement_id
+            ).all()
             return render_template(
                 'assets/asset_edit.html',  # Note: using same template structure
                 company=company,
@@ -659,6 +692,7 @@ def asset_edit(movement_id):
                 asset_movement=asset_movement,
                 line_items=line_items,
                 assets_dict=assets_dict,
+                attachments=attachments,
                 **dropdown_data  # Unpack all dropdown data
             )
 
@@ -703,6 +737,9 @@ def movement_history():
 
         projects = db_session.query(Project).filter_by(app_id=app_id).order_by(Project.name).all()
 
+        # Get user's accessible locations (for filter dropdown)
+        user_locations = get_user_accessible_locations(current_user.id, app_id)
+
         # Get distinct references
         references = (
             db_session.query(AssetMovement.reference)
@@ -736,7 +773,8 @@ def movement_history():
             asset_items=asset_items,
             references=references,
             projects=projects,
-            movement_types=movement_types
+            movement_types=movement_types,
+            locations=user_locations  # Pass user's accessible locations
         )
 
     except Exception as e:
@@ -753,9 +791,11 @@ def movement_history():
 def api_movement_history():
     """
     Return JSON data of asset movement history with filtering and pagination
+    Returns ONLY line items that match the filters, not entire movements
     """
     db_session = Session()
     app_id = current_user.app_id
+    user_id = current_user.id
 
     try:
         # Get pagination and filter parameters
@@ -765,9 +805,14 @@ def api_movement_history():
         reference = request.args.get('reference', '')
         movement_type = request.args.get('movement_type', '')
         project_id = request.args.get('project_id', type=int)
+        location_id = request.args.get('location_id', type=int)
         start_date = request.args.get('start_date', '')
         end_date = request.args.get('end_date', '')
         search = request.args.get('search', '')
+
+        # Get user's accessible locations
+        user_locations = get_user_accessible_locations(user_id, app_id)
+        user_location_ids = [loc.id for loc in user_locations] if user_locations else []
 
         # Get base currency information
         base_currency_info = get_base_currency(db_session, app_id)
@@ -780,32 +825,65 @@ def api_movement_history():
         base_currency_id = base_currency_info["base_currency_id"]
         base_currency_code = base_currency_info["base_currency"]
 
-        # Build base query
-        query = db_session.query(AssetMovement).filter(
+        # ===== FIX: Query LINE ITEMS directly, not movements =====
+        query = db_session.query(AssetMovementLineItem).join(
+            AssetMovement, AssetMovementLineItem.asset_movement_id == AssetMovement.id
+        ).filter(
             AssetMovement.app_id == app_id
         )
 
-        # Apply filters
+        # ===== LOCATION PERMISSION FILTER =====
+        if user_location_ids:
+            location_filter = or_(
+                AssetMovement.location_id.in_(user_location_ids),
+                AssetMovementLineItem.from_location_id.in_(user_location_ids),
+                AssetMovementLineItem.to_location_id.in_(user_location_ids)
+            )
+            query = query.filter(location_filter)
+        else:
+            return jsonify({
+                'success': True,
+                'movements': [],
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total_pages': 0,
+                    'total_items': 0,
+                    'has_next': False,
+                    'has_prev': False
+                }
+            })
+
+        # Apply location filter if specified
+        if location_id:
+            if location_id not in user_location_ids:
+                return jsonify({
+                    'success': False,
+                    'message': 'You do not have permission to access this location'
+                }), 403
+            query = query.filter(
+                or_(
+                    AssetMovement.location_id == location_id,
+                    AssetMovementLineItem.from_location_id == location_id,
+                    AssetMovementLineItem.to_location_id == location_id
+                )
+            )
+
+        # ===== PROJECT FILTER - FILTERS LINE ITEMS DIRECTLY =====
+        if project_id:
+            query = query.filter(AssetMovementLineItem.project_id == project_id)
+
+        # Apply other filters
         if asset_item_id:
-            # Filter by asset item through line items and assets
-            query = query.join(
-                AssetMovementLineItem,
-                AssetMovement.id == AssetMovementLineItem.asset_movement_id
-            ).join(
-                Asset,
-                AssetMovementLineItem.asset_id == Asset.id
-            ).filter(
+            query = query.join(Asset, AssetMovementLineItem.asset_id == Asset.id).filter(
                 Asset.asset_item_id == asset_item_id
-            ).distinct()
+            )
 
         if reference:
             query = query.filter(AssetMovement.reference.ilike(f'%{reference}%'))
 
         if movement_type:
             query = query.filter(AssetMovement.movement_type == movement_type)
-
-        if project_id:
-            query = query.filter(AssetMovement.project_id == project_id)
 
         if start_date:
             try:
@@ -823,15 +901,8 @@ def api_movement_history():
 
         if search:
             search_term = f'%{search}%'
-            query = query.join(
-                AssetMovementLineItem,
-                AssetMovement.id == AssetMovementLineItem.asset_movement_id
-            ).outerjoin(
-                Asset,
-                AssetMovementLineItem.asset_id == Asset.id
-            ).outerjoin(
-                Vendor,  # Your party table is Vendor
-                AssetMovementLineItem.party_id == Vendor.id
+            query = query.outerjoin(Asset, AssetMovementLineItem.asset_id == Asset.id).outerjoin(
+                Vendor, AssetMovementLineItem.party_id == Vendor.id
             ).filter(
                 or_(
                     AssetMovement.reference.ilike(search_term),
@@ -839,178 +910,143 @@ def api_movement_history():
                     Asset.serial_number.ilike(search_term),
                     Vendor.vendor_name.ilike(search_term)
                 )
-            ).distinct()
+            )
 
-        # Get total count
+        # Get total count of LINE ITEMS (not movements)
         total_items = query.count()
 
         # Calculate pagination
-        total_pages = (total_items + per_page - 1) // per_page
+        if total_items == 0:
+            total_pages = 0
+        else:
+            total_pages = (total_items + per_page - 1) // per_page
 
-        # Get paginated results - newest first
-        movements = query.order_by(
+        # Get paginated line items
+        line_items = query.order_by(
             AssetMovement.transaction_date.desc(),
-            AssetMovement.id.desc()
+            AssetMovement.id.desc(),
+            AssetMovementLineItem.id
         ).offset((page - 1) * per_page).limit(per_page).all()
 
-        # Get line items for each movement with all necessary joins
-        movement_ids = [m.id for m in movements]
+        if not line_items:
+            return jsonify({
+                'success': True,
+                'movements': [],
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total_pages': 0,
+                    'total_items': 0,
+                    'has_next': False,
+                    'has_prev': False
+                }
+            })
 
-        # Get all locations and departments for from fields in a separate query to avoid too many joins
+        # Get unique movement IDs from the filtered line items
+        movement_ids = list(set([li.asset_movement_id for li in line_items]))
+
+        # Fetch all movements in bulk
+        movements_dict = {}
+        for movement in db_session.query(AssetMovement).filter(AssetMovement.id.in_(movement_ids)).all():
+            movements_dict[movement.id] = movement
+
+        # Collect all location IDs
+        all_location_ids = set()
+        for movement in movements_dict.values():
+            if movement.location_id:
+                all_location_ids.add(movement.location_id)
+        for li in line_items:
+            if li.from_location_id:
+                all_location_ids.add(li.from_location_id)
+            if li.to_location_id:
+                all_location_ids.add(li.to_location_id)
+
+        # Fetch locations
         locations_dict = {}
-        departments_dict = {}
-        if movement_ids:
-            all_location_ids = set()
-            all_department_ids = set()
-
-            # First get all line items to collect location/department IDs
-            line_items_for_locations = db_session.query(AssetMovementLineItem).filter(
-                AssetMovementLineItem.asset_movement_id.in_(movement_ids),
-                AssetMovementLineItem.app_id == app_id
+        if all_location_ids:
+            locations = db_session.query(InventoryLocation).filter(
+                InventoryLocation.id.in_(all_location_ids)
             ).all()
+            locations_dict = {loc.id: loc.location for loc in locations}
 
-            for li in line_items_for_locations:
-                if li.from_location_id:
-                    all_location_ids.add(li.from_location_id)
-                if li.to_location_id:
-                    all_location_ids.add(li.to_location_id)
-                if li.from_department_id:
-                    all_department_ids.add(li.from_department_id)
-                if li.to_department_id:
-                    all_department_ids.add(li.to_department_id)
+        # Collect all project/department IDs
+        all_project_ids = set([li.project_id for li in line_items if li.project_id])
 
-            # Fetch all locations and departments in bulk
-            if all_location_ids:
-                locations = db_session.query(InventoryLocation).filter(
-                    InventoryLocation.id.in_(all_location_ids)
-                ).all()
-                locations_dict = {loc.id: loc.location for loc in locations}
+        # Fetch projects
+        projects_dict = {}
+        if all_project_ids:
+            projects = db_session.query(Project).filter(Project.id.in_(all_project_ids)).all()
+            projects_dict = {p.id: p.name for p in projects}
 
-            if all_department_ids:
-                departments = db_session.query(Department).filter(
-                    Department.id.in_(all_department_ids)
-                ).all()
-                departments_dict = {dept.id: dept.department_name for dept in departments}
+        # Get asset IDs
+        asset_ids = list(set([li.asset_id for li in line_items if li.asset_id]))
+        assets_dict = {}
+        if asset_ids:
+            assets = db_session.query(Asset).filter(Asset.id.in_(asset_ids)).all()
+            assets_dict = {a.id: a for a in assets}
 
-        # Main line items query
-        line_items_query = db_session.query(
-            AssetMovementLineItem,
-            Asset,
-            AssetItem,
-            Vendor,
-            Employee
-        ).outerjoin(
-            Asset, AssetMovementLineItem.asset_id == Asset.id
-        ).outerjoin(
-            AssetItem, Asset.asset_item_id == AssetItem.id
-        ).outerjoin(
-            Vendor, AssetMovementLineItem.party_id == Vendor.id
-        ).outerjoin(
-            Employee, AssetMovementLineItem.assigned_to_id == Employee.id
-        ).filter(
-            AssetMovementLineItem.asset_movement_id.in_(movement_ids),
-            AssetMovementLineItem.app_id == app_id
-        ).all()
+        # Get asset item IDs
+        asset_item_ids = list(set([a.asset_item_id for a in assets_dict.values() if a.asset_item_id]))
+        asset_items_dict = {}
+        if asset_item_ids:
+            asset_items = db_session.query(AssetItem).filter(AssetItem.id.in_(asset_item_ids)).all()
+            asset_items_dict = {ai.id: ai for ai in asset_items}
 
-        # Group line items by movement_id
-        line_items_by_movement = {}
-        for line_item, asset, asset_item, vendor, employee in line_items_query:
-            movement_id = line_item.asset_movement_id
-            if movement_id not in line_items_by_movement:
-                line_items_by_movement[movement_id] = []
+        # Get party IDs
+        party_ids = list(set([li.party_id for li in line_items if li.party_id]))
+        parties_dict = {}
+        if party_ids:
+            parties = db_session.query(Vendor).filter(Vendor.id.in_(party_ids)).all()
+            parties_dict = {p.id: p for p in parties}
 
-            line_items_by_movement[movement_id].append({
+        # Get employee IDs
+        employee_ids = list(set([li.assigned_to_id for li in line_items if li.assigned_to_id]))
+        employees_dict = {}
+        if employee_ids:
+            employees = db_session.query(Employee).filter(Employee.id.in_(employee_ids)).all()
+            employees_dict = {e.id: e for e in employees}
+
+        # Build response - Group by movement for frontend structure
+        movements_by_id = {}
+        for line_item in line_items:
+            movement = movements_dict.get(line_item.asset_movement_id)
+            if not movement:
+                continue
+
+            if movement.id not in movements_by_id:
+                movements_by_id[movement.id] = {
+                    'id': movement.id,
+                    'movement_type': movement.movement_type,
+                    'transaction_date': movement.transaction_date.strftime('%Y-%m-%d'),
+                    'reference': movement.reference or '-',
+                    'handled_by': movement.handled_by_employee.first_name + ' ' + movement.handled_by_employee.last_name if movement.handled_by_employee else None,
+                    'movement_location': locations_dict.get(movement.location_id),
+                    'line_items': []
+                }
+
+            asset = assets_dict.get(line_item.asset_id)
+            asset_item = asset_items_dict.get(asset.asset_item_id) if asset else None
+            party = parties_dict.get(line_item.party_id)
+            employee = employees_dict.get(line_item.assigned_to_id)
+
+            movements_by_id[movement.id]['line_items'].append({
                 'id': line_item.id,
-                'asset_id': line_item.asset_id,
                 'asset_tag': asset.asset_tag if asset else None,
                 'serial_number': asset.serial_number if asset else None,
-                'asset_item_id': asset.asset_item_id if asset else None,
                 'asset_item_name': asset_item.asset_name if asset_item else None,
-                'asset_item_code': asset_item.asset_code if asset_item else None,
-                'party_id': line_item.party_id,
-                'party_name': vendor.vendor_name if vendor else None,
-                'transaction_value': float(line_item.transaction_value) if line_item.transaction_value else 0,
-                'from_location_id': line_item.from_location_id,
-                'from_location_name': locations_dict.get(
-                    line_item.from_location_id) if line_item.from_location_id else None,
-                'from_department_id': line_item.from_department_id,
-                'from_department_name': departments_dict.get(
-                    line_item.from_department_id) if line_item.from_department_id else None,
-                'to_location_id': line_item.to_location_id,
-                'to_location_name': locations_dict.get(line_item.to_location_id) if line_item.to_location_id else None,
-                'to_department_id': line_item.to_department_id,
-                'to_department_name': departments_dict.get(
-                    line_item.to_department_id) if line_item.to_department_id else None,
-                'assigned_to_id': line_item.assigned_to_id,
+                'party_name': party.vendor_name if party else None,
+                'from_location_name': locations_dict.get(line_item.from_location_id),
+                'to_location_name': locations_dict.get(line_item.to_location_id),
                 'assigned_to_name': f"{employee.first_name} {employee.last_name}".strip() if employee else None,
-                'line_notes': line_item.line_notes
+                'project_name': projects_dict.get(line_item.project_id),  # Department name from project
+                'project_id': line_item.project_id,
             })
 
-        # Serialize movements
-        movements_data = []
-        total_value_base = Decimal('0.00')
-
-        for movement in movements:
-            # Get line items for this movement
-            line_items = line_items_by_movement.get(movement.id, [])
-
-            # Calculate total transaction value
-            total_value = Decimal('0.00')
-            for item in line_items:
-                total_value += Decimal(str(item['transaction_value']))
-
-            # Get currency info
-            currency = movement.currency
-            currency_code = currency.user_currency if currency else base_currency_code
-
-            # Convert to base currency if needed
-            if movement.currency_id and movement.currency_id != base_currency_id:
-                # You can implement exchange rate lookup here if needed
-                exchange_rate = 1.0
-                total_value_base_converted = total_value * Decimal(str(exchange_rate))
-            else:
-                total_value_base_converted = total_value
-                exchange_rate = 1.0
-
-            total_value_base += total_value_base_converted
-
-            # Get creator name - using 'creator' relationship from your model
-            creator_name = movement.creator.name if movement.creator else 'Unknown'
-
-            # Your AssetMovement model doesn't have updated_at or updated_by fields
-            # So removing those entirely
-
-            movements_data.append({
-                'id': movement.id,
-                'movement_type': movement.movement_type,
-                'movement_type_label': movement.movement_type.replace('_', ' ').title(),
-                'transaction_date': movement.transaction_date.strftime('%Y-%m-%d'),
-                'reference': movement.reference or '-',
-                'project_id': movement.project_id,
-                'project_name': movement.project.name if movement.project else None,
-                'currency_id': movement.currency_id,
-                'handled_by': movement.handled_by_employee.first_name + ' ' + movement.handled_by_employee.last_name if movement.handled_by_employee else None,
-                'currency_code': currency_code,
-                'exchange_rate': float(exchange_rate),
-                'total_value': float(total_value),
-                'total_value_base': float(total_value_base_converted),
-                'status': movement.status,
-                'line_items': line_items,
-                'line_items_count': len(line_items),
-                'created_by': creator_name,
-                'created_at': movement.created_at.strftime('%Y-%m-%d %H:%M:%S') if movement.created_at else None,
-                # Removed updated_by and updated_at since they don't exist in your AssetMovement model
-            })
+        movements_data = list(movements_by_id.values())
 
         return jsonify({
             'success': True,
             'movements': movements_data,
-            'summary': {
-                'total_value_base': float(total_value_base),
-                'base_currency_id': base_currency_id,
-                'base_currency_code': base_currency_code,
-                'total_movements': total_items
-            },
             'pagination': {
                 'page': page,
                 'per_page': per_page,
@@ -1030,6 +1066,7 @@ def api_movement_history():
 
     finally:
         db_session.close()
+
 
 @asset_bp.route('/view_movement/<int:movement_id>')
 @login_required
@@ -1062,7 +1099,7 @@ def view_movement(movement_id):
 
         role = current_user.role
         modules_data = [mod.module_name for mod in
-                       db_session.query(Module).filter_by(app_id=app_id, included='yes').all()]
+                        db_session.query(Module).filter_by(app_id=app_id, included='yes').all()]
 
         return render_template(
             'assets/view_movement.html',
@@ -1111,9 +1148,10 @@ def api_movement_details(movement_id):
 
         # Get all locations and departments for lookup
         locations = {loc.id: loc.location for loc in db_session.query(InventoryLocation).filter_by(app_id=app_id).all()}
-        departments = {dept.id: dept.department_name for dept in db_session.query(Department).filter_by(app_id=app_id).all()}
+        departments = {dept.id: dept.department_name for dept in
+                       db_session.query(Department).filter_by(app_id=app_id).all()}
 
-        # Get line items with all related data
+        # Get line items with all related data - ADDED Project join
         line_items = db_session.query(
             AssetMovementLineItem,
             Asset,
@@ -1121,7 +1159,8 @@ def api_movement_details(movement_id):
             Vendor,
             Employee,
             InventoryLocation,
-            Department
+            Department,
+            Project  # ADDED
         ).outerjoin(
             Asset, AssetMovementLineItem.asset_id == Asset.id
         ).outerjoin(
@@ -1134,6 +1173,8 @@ def api_movement_details(movement_id):
             InventoryLocation, AssetMovementLineItem.to_location_id == InventoryLocation.id
         ).outerjoin(
             Department, AssetMovementLineItem.to_department_id == Department.id
+        ).outerjoin(
+            Project, AssetMovementLineItem.project_id == Project.id  # ADDED
         ).filter(
             AssetMovementLineItem.asset_movement_id == movement_id,
             AssetMovementLineItem.app_id == app_id
@@ -1143,10 +1184,11 @@ def api_movement_details(movement_id):
         line_items_data = []
         total_value = Decimal('0.00')
 
-        for line_item, asset, asset_item, vendor, employee, to_location, to_department in line_items:
+        for line_item, asset, asset_item, vendor, employee, to_location, to_department, project in line_items:
             # Get from location/department names
             from_location_name = locations.get(line_item.from_location_id) if line_item.from_location_id else None
-            from_department_name = departments.get(line_item.from_department_id) if line_item.from_department_id else None
+            from_department_name = departments.get(
+                line_item.from_department_id) if line_item.from_department_id else None
 
             # Get to location/department names (already joined)
             to_location_name = to_location.location if to_location else None
@@ -1156,6 +1198,9 @@ def api_movement_details(movement_id):
             employee_name = None
             if employee:
                 employee_name = f"{employee.first_name} {employee.last_name}".strip()
+
+            # Get project/department name
+            project_name = project.name if project else None
 
             line_total = line_item.transaction_value or Decimal('0.00')
             total_value += line_total
@@ -1188,6 +1233,8 @@ def api_movement_details(movement_id):
                 'to_department_name': to_department_name,
                 'assigned_to_id': line_item.assigned_to_id,
                 'assigned_to_name': employee_name,
+                'project_id': line_item.project_id,  # ADDED
+                'project_name': project_name,  # ADDED
                 'line_notes': line_item.line_notes
             })
 
@@ -1244,172 +1291,194 @@ def api_movement_details(movement_id):
 @role_required(['Admin', 'Supervisor'])
 def bulk_delete_movements():
     """
-    Bulk delete asset movements and their line items
-    Also updates asset status back to previous state
-    Only Admin and Supervisor can delete
+    Bulk delete asset movement line items (not entire movements)
+    Only deletes selected line items, keeps the movement if other line items exist
     """
     db_session = None
     try:
         data = request.get_json()
         movement_ids = data.get('movement_ids', [])
+        line_item_ids = data.get('line_item_ids', [])
 
-        if not movement_ids:
-            return jsonify({'success': False, 'message': 'No movements selected for deletion'}), 400
+        print(f"DEBUG: Received movement_ids: {movement_ids}")
+        print(f"DEBUG: Received line_item_ids: {line_item_ids}")
+
+        if not line_item_ids:
+            return jsonify({'success': False, 'message': 'No line items selected for deletion'}), 400
 
         db_session = Session()
         app_id = current_user.app_id
 
-        # Check which movements can be deleted
-        disallowed_movements = []
-        valid_movements = []
+        # Track what was deleted
+        deleted_line_items = []
+        deleted_movements = []
+        disallowed_items = []
 
-        for movement_id in movement_ids:
-            asset_movement = db_session.query(AssetMovement).filter_by(
-                id=movement_id,
+        # Store movement info for later empty check
+        movement_info = {}  # movement_id -> list of line_item_ids
+
+        # Process each selected line item
+        for line_item_id in line_item_ids:
+            line_item = db_session.query(AssetMovementLineItem).filter_by(
+                id=line_item_id,
                 app_id=app_id
             ).first()
 
-            if not asset_movement:
+            if not line_item:
+                print(f"DEBUG: Line item {line_item_id} not found")
                 continue
 
-            # Check if movement is posted to ledger
-            if asset_movement.is_posted_to_ledger:
-                disallowed_movements.append({
-                    'id': movement_id,
-                    'reference': asset_movement.reference or f'ID: {movement_id}',
-                    'reason': 'Already posted to ledger'
-                })
-            else:
-                valid_movements.append(movement_id)
-
-        if not valid_movements:
-            return jsonify({
-                'success': False,
-                'message': 'No valid movements selected for deletion',
-                'disallowed': disallowed_movements
-            }), 400
-
-        # Delete valid movements and update asset statuses
-        deleted_count = 0
-        updated_assets = []
-
-        for movement_id in valid_movements:
-            asset_movement = db_session.query(AssetMovement).filter_by(
-                id=movement_id,
+            # Get the movement for this line item
+            movement = db_session.query(AssetMovement).filter_by(
+                id=line_item.asset_movement_id,
                 app_id=app_id
             ).first()
 
-            if asset_movement:
-                # Get all line items before deleting
-                line_items = db_session.query(AssetMovementLineItem).filter(
-                    AssetMovementLineItem.asset_movement_id == movement_id,
-                    AssetMovementLineItem.app_id == app_id
-                ).all()
+            if not movement:
+                print(f"DEBUG: Movement for line item {line_item_id} not found")
+                continue
 
-                # Update asset statuses based on movement type
-                for line_item in line_items:
-                    asset = db_session.query(Asset).filter_by(
-                        id=line_item.asset_id,
-                        app_id=app_id
-                    ).first()
+            print(
+                f"DEBUG: Processing line item {line_item_id} for movement {movement.id} (type: {movement.movement_type})")
 
-                    if asset:
-                        # Reverse the movement based on type
-                        if asset_movement.movement_type == 'assignment':
-                            # Reverse assignment - set back to in_stock
-                            asset.status = 'in_stock'
-                            asset.assigned_to_id = None
-                            updated_assets.append({
-                                'asset_id': asset.id,
-                                'asset_tag': asset.asset_tag,
-                                'new_status': 'in_stock'
-                            })
+            # Check if movement is posted to ledger
+            if movement.is_posted_to_ledger:
+                disallowed_items.append({
+                    'line_item_id': line_item_id,
+                    'reference': movement.reference or f'Movement ID: {movement.id}',
+                    'reason': 'Movement already posted to ledger'
+                })
+                continue
 
-                        elif asset_movement.movement_type == 'return':
-                            # Reverse return - set back to assigned (but we don't know who)
-                            # Better to just mark as in_stock
-                            asset.status = 'in_stock'
-                            asset.assigned_to_id = None
-                            updated_assets.append({
-                                'asset_id': asset.id,
-                                'asset_tag': asset.asset_tag,
-                                'new_status': 'in_stock'
-                            })
+            # Store movement info for later
+            if movement.id not in movement_info:
+                movement_info[movement.id] = {
+                    'movement': movement,
+                    'line_item_ids': []
+                }
+            movement_info[movement.id]['line_item_ids'].append(line_item_id)
 
-                        elif asset_movement.movement_type == 'transfer':
-                            # Reverse transfer - send back to original location
-                            if line_item.from_location_id:
-                                asset.location_id = line_item.from_location_id
-                                updated_assets.append({
-                                    'asset_id': asset.id,
-                                    'asset_tag': asset.asset_tag,
-                                    'new_location': line_item.from_location_id
-                                })
+            # Get asset before deleting line item
+            asset = db_session.query(Asset).filter_by(
+                id=line_item.asset_id,
+                app_id=app_id
+            ).first()
 
-                        elif asset_movement.movement_type == 'acquisition':
-                            # Deleting acquisition - asset should be deactivated or removed
-                            asset.status = 'deleted'
-                            updated_assets.append({
-                                'asset_id': asset.id,
-                                'asset_tag': asset.asset_tag,
-                                'new_status': 'deleted'
-                            })
+            # Update asset status based on movement type
+            if asset:
+                print(f"DEBUG: Updating asset {asset.id} ({asset.asset_tag}) - Current status: {asset.status}")
 
-                        elif asset_movement.movement_type == 'sale' or asset_movement.movement_type == 'disposal':
-                            # Deleting sale/disposal - bring asset back
-                            asset.status = 'in_stock'
-                            updated_assets.append({
-                                'asset_id': asset.id,
-                                'asset_tag': asset.asset_tag,
-                                'new_status': 'in_stock'
-                            })
+                if movement.movement_type == 'assignment':
+                    # Reverse assignment - set back to in_stock
+                    asset.status = 'in_stock'
+                    asset.assigned_to_id = None
+                    print(f"DEBUG: Asset {asset.id} status changed to 'in_stock' (reversed assignment)")
 
-                        # For depreciation, opening_balance, donation_in/out - just keep as is
+                elif movement.movement_type == 'return':
+                    # Reverse return - set back to in_stock
+                    asset.status = 'in_stock'
+                    asset.assigned_to_id = None
+                    print(f"DEBUG: Asset {asset.id} status changed to 'in_stock' (reversed return)")
 
-                        db_session.flush()
+                elif movement.movement_type == 'transfer':
+                    # Reverse transfer - send back to original location
+                    if line_item.from_location_id:
+                        asset.location_id = line_item.from_location_id
+                        print(f"DEBUG: Asset {asset.id} location reverted to {line_item.from_location_id}")
 
-                # Delete line items
-                db_session.query(AssetMovementLineItem).filter(
-                    AssetMovementLineItem.asset_movement_id == movement_id,
-                    AssetMovementLineItem.app_id == app_id
-                ).delete(synchronize_session=False)
+                elif movement.movement_type == 'acquisition':
+                    # Deleting acquisition - asset should be deactivated
+                    asset.status = 'deleted'
+                    print(f"DEBUG: Asset {asset.id} status changed to 'deleted' (acquisition reversed)")
 
-                # Delete depreciation records if any
-                db_session.query(DepreciationRecord).filter(
-                    DepreciationRecord.asset_movement_line_item_id.in_(
-                        db_session.query(AssetMovementLineItem.id).filter(
-                            AssetMovementLineItem.asset_movement_id == movement_id,
-                            AssetMovementLineItem.app_id == app_id
-                        )
-                    )
-                ).delete(synchronize_session=False)
+                elif movement.movement_type == 'opening_balance':
+                    # Deleting opening balance - asset should be deleted
+                    asset.status = 'deleted'
+                    print(f"DEBUG: Asset {asset.id} status changed to 'deleted' (opening balance reversed)")
 
-                # Delete the movement header
-                db_session.delete(asset_movement)
-                deleted_count += 1
+                elif movement.movement_type == 'sale' or movement.movement_type == 'disposal':
+                    # Deleting sale/disposal - bring asset back
+                    asset.status = 'in_stock'
+                    print(f"DEBUG: Asset {asset.id} status changed to 'in_stock' (reversed {movement.movement_type})")
+
+                elif movement.movement_type == 'donation_out':
+                    # Deleting donation out - bring asset back
+                    asset.status = 'in_stock'
+                    print(f"DEBUG: Asset {asset.id} status changed to 'in_stock' (reversed donation out)")
+
+                elif movement.movement_type == 'donation_in':
+                    # Deleting donation in - asset should be deleted
+                    asset.status = 'deleted'
+                    print(f"DEBUG: Asset {asset.id} status changed to 'deleted' (donation in reversed)")
+
+                elif movement.movement_type == 'depreciation':
+                    # For depreciation, just keep asset as is
+                    # Depreciation doesn't change asset status
+                    print(f"DEBUG: Asset {asset.id} - depreciation reversal not needed")
+
+                else:
+                    print(f"DEBUG: Unknown movement type {movement.movement_type} - no status change")
+
+                db_session.flush()
+
+            # Delete depreciation records for this line item
+            db_session.query(DepreciationRecord).filter(
+                DepreciationRecord.asset_movement_line_item_id == line_item_id
+            ).delete(synchronize_session=False)
+
+            # Delete the line item
+            db_session.delete(line_item)
+            deleted_line_items.append(line_item_id)
+            print(f"DEBUG: Deleted line item {line_item_id}")
+
+        # Check each movement for remaining line items
+        for movement_id, info in movement_info.items():
+            movement = info['movement']
+
+            # Count remaining line items for this movement
+            remaining_line_items = db_session.query(AssetMovementLineItem).filter(
+                AssetMovementLineItem.asset_movement_id == movement_id,
+                AssetMovementLineItem.app_id == app_id
+            ).count()
+
+            print(f"DEBUG: Movement {movement_id} has {remaining_line_items} remaining line items")
+
+            # If no remaining line items, delete the movement header
+            if remaining_line_items == 0:
+                db_session.delete(movement)
+                deleted_movements.append(movement_id)
+                print(f"DEBUG: Deleted empty movement {movement_id}")
 
         db_session.commit()
 
-        message = f'Successfully deleted {deleted_count} movement(s)'
-        if updated_assets:
-            message += f' and updated {len(updated_assets)} asset(s)'
-        if disallowed_movements:
-            message += f'. {len(disallowed_movements)} movement(s) could not be deleted (posted to ledger)'
+        # Build response message
+        message_parts = []
+        if deleted_line_items:
+            message_parts.append(f'Deleted {len(deleted_line_items)} asset(s)')
+        if deleted_movements:
+            message_parts.append(f'Deleted {len(deleted_movements)} empty movement(s)')
+        if disallowed_items:
+            message_parts.append(f'{len(disallowed_items)} item(s) could not be deleted (posted to ledger)')
+
+        message = ', '.join(message_parts) if message_parts else 'No items were deleted'
+
+        print(f"DEBUG: Success - {message}")
 
         return jsonify({
             'success': True,
             'message': message,
-            'deleted_count': deleted_count,
-            'updated_assets': len(updated_assets),
-            'disallowed_count': len(disallowed_movements),
-            'disallowed': disallowed_movements
+            'deleted_line_items': len(deleted_line_items),
+            'deleted_movements': len(deleted_movements),
+            'disallowed_count': len(disallowed_items),
+            'disallowed': disallowed_items
         }), 200
 
     except Exception as e:
         if db_session:
             db_session.rollback()
         logger.error(f"Error in bulk_delete_movements: {str(e)}\n{traceback.format_exc()}")
-        return jsonify({'success': False, 'message': f'Error deleting movements: {str(e)}'}), 500
+        print(f"DEBUG: Error - {str(e)}")
+        return jsonify({'success': False, 'message': f'Error deleting items: {str(e)}'}), 500
     finally:
         if db_session:
             db_session.close()

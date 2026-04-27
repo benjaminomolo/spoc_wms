@@ -31,7 +31,7 @@ from models import Company, Module, InventoryLocation, ChartOfAccounts, Vendor, 
     DirectPurchaseTransaction, InventoryItem, DirectPurchaseItem, PurchasePaymentAllocation, GoodsReceipt, \
     GoodsReceiptItem, PurchaseReturn, PurchaseOrder, InventoryEntry, PurchaseOrderItem, InventoryCategory, \
     InventoryItemVariation, ExchangeRate, SalesInvoiceItem, InventoryEntryLineItem
-from services.inventory_helpers import safe_clear_stock_history_cache
+from services.inventory_helpers import safe_clear_stock_history_cache, get_user_accessible_locations
 from services.post_to_ledger import post_direct_sale_cogs_to_ledger, post_sales_transaction_to_ledger, \
     bulk_post_sales_transactions, post_customer_credit_to_ledger, \
     post_purchase_transaction_to_ledger, post_goods_receipt_to_ledger, bulk_post_goods_receipts
@@ -53,7 +53,6 @@ from . import sales_bp
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 
 @sales_bp.route('/reports/sales_by_item', methods=['GET'])
@@ -79,8 +78,6 @@ def sales_by_item_page():
             app_id=app_id,
             status="active"
         ).all()
-
-
 
         # Get categories
         categories = db_session.query(InventoryCategory).filter_by(app_id=app_id).all()
@@ -145,6 +142,11 @@ def sales_by_item_summary():
         per_page = request.args.get('per_page', 50, type=int)
 
         app_id = current_user.app_id
+        user_id = current_user.id
+
+        # ===== GET USER'S ACCESSIBLE LOCATIONS =====
+        user_locations = get_user_accessible_locations(user_id, app_id)
+        user_location_ids = [loc.id for loc in user_locations] if user_locations else []
 
         # Get base currency
         base_currency = db_session.query(Currency).filter_by(app_id=app_id, currency_index=1).first()
@@ -154,12 +156,42 @@ def sales_by_item_summary():
         base_currency_id = base_currency.id
         base_currency_code = base_currency.user_currency
 
-        # USE HELPER FUNCTION
+        # If user has no location access, return empty
+        if not user_location_ids:
+            return jsonify({
+                'success': True,
+                'data': [],
+                'pagination': {
+                    'page': 1,
+                    'per_page': per_page,
+                    'total_pages': 0,
+                    'total_items': 0,
+                    'has_next': False,
+                    'has_prev': False
+                },
+                'totals': {
+                    'total_quantity': 0,
+                    'total_revenue': 0,
+                    'currency': base_currency_code
+                }
+            }), 200
+
+        # If user selects a specific location, verify they have access
+        # If user selects a specific location, verify they have access - FIX TYPE CONVERSION
+        if location_id and location_id != 'None' and location_id != '':
+            try:
+                location_id_int = int(location_id)
+                if location_id_int not in user_location_ids:
+                    return jsonify({'success': False, 'message': 'You do not have permission to access this location'}), 403
+            except ValueError:
+                pass
+
+        # USE HELPER FUNCTION with user_location_ids
         all_items = _get_sales_by_item_summary_data(
             db_session, app_id, base_currency_id, base_currency_code,
             start_date, end_date, customer_id, item_id, category_id,
             transaction_type, currency_id, project_id, location_id,
-            sort_field, sort_order
+            sort_field, sort_order, user_location_ids  # ADD THIS PARAMETER
         )
 
         # Apply pagination
@@ -220,6 +252,11 @@ def sales_by_item_detail():
         per_page = request.args.get('per_page', 50, type=int)
 
         app_id = current_user.app_id
+        user_id = current_user.id
+
+        # ===== GET USER'S ACCESSIBLE LOCATIONS =====
+        user_locations = get_user_accessible_locations(user_id, app_id)
+        user_location_ids = [loc.id for loc in user_locations] if user_locations else []
 
         # Get base currency
         base_currency = db_session.query(Currency).filter_by(app_id=app_id, currency_index=1).first()
@@ -229,12 +266,37 @@ def sales_by_item_detail():
         base_currency_id = base_currency.id
         base_currency_code = base_currency.user_currency
 
-        # USE HELPER FUNCTION
+        # If user has no location access, return empty
+        if not user_location_ids:
+            return jsonify({
+                'success': True,
+                'data': [],
+                'pagination': {
+                    'page': 1,
+                    'per_page': per_page,
+                    'total_pages': 0,
+                    'total_items': 0,
+                    'has_next': False,
+                    'has_prev': False
+                }
+            }), 200
+
+        # If user selects a specific location, verify they have access
+        # If user selects a specific location, verify they have access - FIX TYPE CONVERSION
+        if location_id and location_id != 'None' and location_id != '':
+            try:
+                location_id_int = int(location_id)
+                if location_id_int not in user_location_ids:
+                    return jsonify({'success': False, 'message': 'You do not have permission to access this location'}), 403
+            except ValueError:
+                pass
+
+        # USE HELPER FUNCTION with user_location_ids
         all_transactions = _get_sales_by_item_detail_data(
             db_session, app_id, base_currency_id, base_currency_code,
             start_date, end_date, customer_id, item_id, category_id,
             transaction_type, currency_id, project_id, location_id,
-            sort_field, sort_order
+            sort_field, sort_order, user_location_ids  # ADD THIS PARAMETER
         )
 
         # Apply pagination
@@ -265,609 +327,20 @@ def sales_by_item_detail():
         db_session.close()
 
 
-# def _get_sales_by_item_summary_data(db_session, app_id, base_currency_id, base_currency_code,
-#                                      start_date, end_date, customer_id, item_id, category_id,
-#                                      transaction_type, currency_id, project_id, location_id,
-#                                      sort_field='total_revenue', sort_order='desc'):
-#     """Helper to get summary data for sales by item (no pagination)"""
-#     try:
-#         logger.info(f"Sales Summary - Start: {start_date}, End: {end_date}, Customer: {customer_id}, Item: {item_id}")
-#
-#         # Query for Invoice items (from SalesInvoice and SalesInvoiceItem)
-#         invoice_items_query = db_session.query(
-#             InventoryItemVariationLink.id.label('variation_link_id'),
-#             InventoryItem.id.label('item_id'),
-#             InventoryItem.item_name.label('base_item_name'),
-#             InventoryItemVariation.variation_name.label('variation_name'),
-#             InventoryItem.item_code.label('item_code'),
-#             InventoryCategory.category_name.label('category_name'),
-#             UnitOfMeasurement.abbreviation.label('uom'),
-#             SalesInvoiceItem.quantity.label('quantity'),
-#             SalesInvoiceItem.total_price.label('total_price_original'),
-#             SalesInvoiceItem.unit_price.label('unit_price'),
-#             SalesInvoice.invoice_date.label('sale_date'),
-#             SalesInvoice.currency.label('currency_id'),
-#             SalesInvoice.customer_id.label('customer_id'),
-#             Vendor.vendor_name.label('customer_name'),
-#             ExchangeRate.rate.label('exchange_rate')
-#         ).join(
-#             SalesInvoiceItem, SalesInvoiceItem.invoice_id == SalesInvoice.id
-#         ).join(
-#             InventoryItemVariationLink, InventoryItemVariationLink.id == SalesInvoiceItem.item_id
-#         ).join(
-#             InventoryItem, InventoryItem.id == InventoryItemVariationLink.inventory_item_id
-#         ).join(
-#             UnitOfMeasurement, UnitOfMeasurement.id == InventoryItem.uom_id
-#         ).join(
-#             Vendor, Vendor.id == SalesInvoice.customer_id
-#         ).join(
-#             InventoryLocation,
-#             InventoryLocation.id == SalesInvoiceItem.location_id
-#         ).join(
-#             Project,
-#             Project.id == SalesInvoice.project_id
-#         ).outerjoin(
-#             InventoryItemVariation, InventoryItemVariation.id == InventoryItemVariationLink.inventory_item_variation_id
-#         ).outerjoin(
-#             InventoryCategory, InventoryCategory.id == InventoryItem.item_category_id
-#         ).outerjoin(
-#             ExchangeRate, ExchangeRate.id == SalesInvoice.exchange_rate_id
-#         ).filter(
-#             SalesInvoice.app_id == app_id,
-#             SalesInvoice.status.in_(['approved', 'paid']),
-#             SalesInvoice.is_posted_to_ledger == True
-#         )
-#
-#         # Query for Direct Sale items
-#         direct_sale_items_query = db_session.query(
-#             InventoryItemVariationLink.id.label('variation_link_id'),
-#             InventoryItem.id.label('item_id'),
-#             InventoryItem.item_name.label('base_item_name'),
-#             InventoryItemVariation.variation_name.label('variation_name'),
-#             InventoryItem.item_code.label('item_code'),
-#             InventoryCategory.category_name.label('category_name'),
-#             UnitOfMeasurement.abbreviation.label('uom'),
-#             DirectSaleItem.quantity.label('quantity'),
-#             DirectSaleItem.total_price.label('total_price_original'),
-#             DirectSaleItem.unit_price.label('unit_price'),
-#             DirectSalesTransaction.payment_date.label('sale_date'),
-#             DirectSalesTransaction.currency_id.label('currency_id'),
-#             DirectSalesTransaction.customer_id.label('customer_id'),
-#             Vendor.vendor_name.label('customer_name'),
-#             ExchangeRate.rate.label('exchange_rate')
-#         ).join(
-#             InventoryItemVariationLink, InventoryItemVariationLink.id == DirectSaleItem.item_id
-#         ).join(
-#             InventoryItem, InventoryItem.id == InventoryItemVariationLink.inventory_item_id
-#         ).join(
-#             UnitOfMeasurement, UnitOfMeasurement.id == InventoryItem.uom_id
-#         ).join(
-#             DirectSalesTransaction, DirectSalesTransaction.id == DirectSaleItem.transaction_id
-#         ).join(
-#             Vendor, Vendor.id == DirectSalesTransaction.customer_id
-#         ).join(
-#             InventoryLocation,
-#             InventoryLocation.id == DirectSaleItem.location_id
-#         ).join(
-#             Project,
-#             Project.id == DirectSalesTransaction.project_id
-#         ).outerjoin(
-#             InventoryItemVariation, InventoryItemVariation.id == InventoryItemVariationLink.inventory_item_variation_id
-#         ).outerjoin(
-#             InventoryCategory, InventoryCategory.id == InventoryItem.item_category_id
-#         ).outerjoin(
-#             PaymentAllocation, PaymentAllocation.direct_sale_id == DirectSalesTransaction.id
-#         ).outerjoin(
-#             ExchangeRate, ExchangeRate.id == PaymentAllocation.exchange_rate_id
-#         ).filter(
-#             DirectSalesTransaction.app_id == app_id,
-#             DirectSalesTransaction.status.in_(['paid', 'approved']),
-#             DirectSalesTransaction.is_posted_to_ledger == True
-#         )
-#
-#         # Apply date filters
-#         if start_date:
-#             start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-#             invoice_items_query = invoice_items_query.filter(SalesInvoice.invoice_date >= start_date_obj)
-#             direct_sale_items_query = direct_sale_items_query.filter(DirectSalesTransaction.payment_date >= start_date_obj)
-#
-#         if end_date:
-#             end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
-#             invoice_items_query = invoice_items_query.filter(SalesInvoice.invoice_date <= end_date_obj)
-#             direct_sale_items_query = direct_sale_items_query.filter(DirectSalesTransaction.payment_date <= end_date_obj)
-#
-#         # Apply customer filter
-#         if customer_id and customer_id != 'None' and customer_id != '':
-#             invoice_items_query = invoice_items_query.filter(SalesInvoice.customer_id == customer_id)
-#             direct_sale_items_query = direct_sale_items_query.filter(DirectSalesTransaction.customer_id == customer_id)
-#
-#         # Apply item filter
-#         if item_id and item_id != 'None' and item_id != '':
-#             invoice_items_query = invoice_items_query.filter(InventoryItemVariationLink.id == item_id)
-#             direct_sale_items_query = direct_sale_items_query.filter(InventoryItemVariationLink.id == item_id)
-#
-#         # Apply category filter
-#         if category_id and category_id != 'None' and category_id != '':
-#             invoice_items_query = invoice_items_query.filter(InventoryItem.item_category_id == category_id)
-#             direct_sale_items_query = direct_sale_items_query.filter(InventoryItem.item_category_id == category_id)
-#
-#         # Apply currency filter
-#         if currency_id and currency_id != 'None' and currency_id != '':
-#             invoice_items_query = invoice_items_query.filter(SalesInvoice.currency == currency_id)
-#             direct_sale_items_query = direct_sale_items_query.filter(DirectSalesTransaction.currency_id == currency_id)
-#
-#         # Apply location filter
-#         if location_id and location_id != 'None' and location_id != '':
-#             invoice_items_query = invoice_items_query.filter(InventoryLocation.id == location_id)
-#             direct_sale_items_query = direct_sale_items_query.filter(InventoryLocation.id == location_id)
-#
-#         # Apply project filter
-#         if project_id and project_id != 'None' and project_id != '':
-#             invoice_items_query = invoice_items_query.filter(SalesInvoice.project_id == project_id)
-#             direct_sale_items_query = direct_sale_items_query.filter(DirectSalesTransaction.project_id == project_id)
-#
-#         # Apply transaction type filter
-#         if transaction_type == 'invoice':
-#             direct_sale_items_query = direct_sale_items_query.filter(False)
-#         elif transaction_type == 'direct_sale':
-#             invoice_items_query = invoice_items_query.filter(False)
-#         elif transaction_type == 'pos':
-#             invoice_items_query = invoice_items_query.filter(False)
-#             direct_sale_items_query = direct_sale_items_query.filter(DirectSalesTransaction.is_pos == True)
-#
-#         # Get all results
-#         invoice_results = invoice_items_query.all()
-#         direct_results = direct_sale_items_query.all()
-#
-#         logger.info(f"Invoice results: {len(invoice_results)}, Direct results: {len(direct_results)}")
-#
-#         # Combine results
-#         all_sales = []
-#
-#         def convert_to_base(amount, currency_id_val, exchange_rate):
-#             if currency_id_val == base_currency_id:
-#                 return float(amount)
-#             if exchange_rate:
-#                 return float(amount) * float(exchange_rate)
-#             return float(amount)
-#
-#         # Process invoice results
-#         for item in invoice_results:
-#             converted_revenue = convert_to_base(item.total_price_original, item.currency_id, item.exchange_rate)
-#             all_sales.append({
-#                 'variation_link_id': item.variation_link_id,
-#                 'item_id': item.item_id,
-#                 'item_name': item.base_item_name,
-#                 'variation_name': item.variation_name or '',
-#                 'item_code': item.item_code,
-#                 'category_name': item.category_name,
-#                 'uom': item.uom or 'pcs',
-#                 'quantity': float(item.quantity),
-#                 'total_revenue_base': converted_revenue,
-#                 'sale_date': item.sale_date
-#             })
-#
-#         # Process direct sale results
-#         for item in direct_results:
-#             converted_revenue = convert_to_base(item.total_price_original, item.currency_id, item.exchange_rate)
-#             all_sales.append({
-#                 'variation_link_id': item.variation_link_id,
-#                 'item_id': item.item_id,
-#                 'item_name': item.base_item_name,
-#                 'variation_name': item.variation_name or '',
-#                 'item_code': item.item_code,
-#                 'category_name': item.category_name,
-#                 'uom': item.uom or 'pcs',
-#                 'quantity': float(item.quantity),
-#                 'total_revenue_base': converted_revenue,
-#                 'sale_date': item.sale_date
-#             })
-#
-#         # Group by variation_link_id
-#         grouped_data = {}
-#         for sale in all_sales:
-#             key = sale['variation_link_id']
-#             if key not in grouped_data:
-#                 grouped_data[key] = {
-#                     'variation_link_id': key,
-#                     'item_id': sale['item_id'],
-#                     'item_name': sale['item_name'],
-#                     'variation_name': sale['variation_name'],
-#                     'item_code': sale['item_code'],
-#                     'category_name': sale['category_name'],
-#                     'uom': sale['uom'],
-#                     'total_quantity': 0,
-#                     'total_revenue': 0,
-#                     'last_sale_date': None
-#                 }
-#
-#             grouped_data[key]['total_quantity'] += sale['quantity']
-#             grouped_data[key]['total_revenue'] += sale['total_revenue_base']
-#
-#             if sale['sale_date']:
-#                 if not grouped_data[key]['last_sale_date'] or sale['sale_date'] > grouped_data[key]['last_sale_date']:
-#                     grouped_data[key]['last_sale_date'] = sale['sale_date']
-#
-#         # Convert to list
-#         items_list = []
-#         for key, data in grouped_data.items():
-#             avg_price = data['total_revenue'] / data['total_quantity'] if data['total_quantity'] > 0 else 0
-#
-#             if data['variation_name']:
-#                 item_name = f"{data['item_name']} ({data['variation_name']})"
-#             else:
-#                 item_name = data['item_name']
-#
-#             items_list.append({
-#                 'item_name': item_name,
-#                 'item_code': data['item_code'] or '-',
-#                 'category_name': data['category_name'] or '-',
-#                 'uom': data['uom'] or 'pcs',
-#                 'total_quantity': round(data['total_quantity'], 2),
-#                 'total_revenue': round(data['total_revenue'], 2),
-#                 'average_price': round(avg_price, 2),
-#                 'last_sale_date': data['last_sale_date'].isoformat() if data['last_sale_date'] else None
-#             })
-#
-#         # Sort
-#         sort_field_mapping = {
-#             'total_revenue': 'total_revenue',
-#             'total_quantity': 'total_quantity',
-#             'item_name': 'item_name',
-#             'last_sale_date': 'last_sale_date'
-#         }
-#         sort_by = sort_field_mapping.get(sort_field, 'total_revenue')
-#         reverse_order = sort_order == 'desc'
-#         items_list.sort(key=lambda x: x[sort_by], reverse=reverse_order)
-#
-#         return items_list
-#
-#     except Exception as e:
-#         logger.error(f"Error in _get_sales_by_item_summary_data: {e}\n{traceback.format_exc()}")
-#         return []
-#
-#
-# def _get_sales_by_item_detail_data(db_session, app_id, base_currency_id, base_currency_code,
-#                                     start_date, end_date, customer_id, item_id, category_id,
-#                                     transaction_type, currency_id, project_id, location_id,
-#                                     sort_field='transaction_date', sort_order='desc'):
-#     """Helper to get detail data for sales by item (no pagination)"""
-#     try:
-#         logger.info(f"Sales Detail - Start: {start_date}, End: {end_date}, Customer: {customer_id}, Item: {item_id}")
-#
-#         # Query for Invoice items
-#         invoice_detail_query = db_session.query(
-#             SalesInvoice.invoice_date.label('transaction_date'),
-#             literal('Sales Invoice').label('transaction_type'),
-#             SalesInvoice.invoice_number.label('transaction_number'),
-#             Vendor.vendor_name.label('customer_name'),
-#             InventoryItemVariationLink.id.label('variation_link_id'),
-#             InventoryItem.item_name.label('base_item_name'),
-#             InventoryItemVariation.variation_name.label('variation_name'),
-#             InventoryItem.item_code.label('item_code'),
-#             InventoryCategory.category_name.label('category_name'),
-#             UnitOfMeasurement.abbreviation.label('uom'),
-#             SalesInvoiceItem.quantity.label('quantity'),
-#             SalesInvoiceItem.unit_price.label('unit_price'),
-#             SalesInvoiceItem.total_price.label('total_revenue_original'),
-#             SalesInvoice.currency.label('currency_id'),
-#             SalesInvoice.id.label('transaction_id'),
-#             ExchangeRate.rate.label('exchange_rate')
-#         ).join(
-#             SalesInvoiceItem, SalesInvoiceItem.invoice_id == SalesInvoice.id
-#         ).join(
-#             InventoryItemVariationLink, InventoryItemVariationLink.id == SalesInvoiceItem.item_id
-#         ).join(
-#             InventoryItem, InventoryItem.id == InventoryItemVariationLink.inventory_item_id
-#         ).join(
-#             UnitOfMeasurement, UnitOfMeasurement.id == InventoryItem.uom_id
-#         ).join(
-#             Vendor, Vendor.id == SalesInvoice.customer_id
-#         ).join(
-#             InventoryLocation,
-#             InventoryLocation.id == SalesInvoiceItem.location_id
-#         ).join(
-#             Project,
-#             Project.id == SalesInvoice.project_id
-#         ).outerjoin(
-#             InventoryItemVariation, InventoryItemVariation.id == InventoryItemVariationLink.inventory_item_variation_id
-#         ).outerjoin(
-#             InventoryCategory, InventoryCategory.id == InventoryItem.item_category_id
-#         ).outerjoin(
-#             ExchangeRate, ExchangeRate.id == SalesInvoice.exchange_rate_id
-#         ).filter(
-#             SalesInvoice.app_id == app_id,
-#             SalesInvoice.status.in_(['approved', 'paid']),
-#             SalesInvoice.is_posted_to_ledger == True
-#         )
-#
-#         # Query for Direct Sale items
-#         direct_sale_detail_query = db_session.query(
-#             DirectSalesTransaction.payment_date.label('transaction_date'),
-#             literal('Direct Sale').label('transaction_type'),
-#             DirectSalesTransaction.direct_sale_number.label('transaction_number'),
-#             Vendor.vendor_name.label('customer_name'),
-#             InventoryItemVariationLink.id.label('variation_link_id'),
-#             InventoryItem.item_name.label('base_item_name'),
-#             InventoryItemVariation.variation_name.label('variation_name'),
-#             InventoryItem.item_code.label('item_code'),
-#             InventoryCategory.category_name.label('category_name'),
-#             UnitOfMeasurement.abbreviation.label('uom'),
-#             DirectSaleItem.quantity.label('quantity'),
-#             DirectSaleItem.unit_price.label('unit_price'),
-#             DirectSaleItem.total_price.label('total_revenue_original'),
-#             DirectSalesTransaction.currency_id.label('currency_id'),
-#             DirectSalesTransaction.id.label('transaction_id'),
-#             ExchangeRate.rate.label('exchange_rate')
-#         ).join(
-#             InventoryItemVariationLink, InventoryItemVariationLink.id == DirectSaleItem.item_id
-#         ).join(
-#             InventoryItem, InventoryItem.id == InventoryItemVariationLink.inventory_item_id
-#         ).join(
-#             UnitOfMeasurement, UnitOfMeasurement.id == InventoryItem.uom_id
-#         ).join(
-#             DirectSalesTransaction, DirectSalesTransaction.id == DirectSaleItem.transaction_id
-#         ).join(
-#             Vendor, Vendor.id == DirectSalesTransaction.customer_id
-#         ).join(
-#             InventoryLocation,
-#             InventoryLocation.id == DirectSaleItem.location_id
-#         ).join(
-#             Project,
-#             Project.id == DirectSalesTransaction.project_id
-#         ).outerjoin(
-#             InventoryItemVariation, InventoryItemVariation.id == InventoryItemVariationLink.inventory_item_variation_id
-#         ).outerjoin(
-#             InventoryCategory, InventoryCategory.id == InventoryItem.item_category_id
-#         ).outerjoin(
-#             PaymentAllocation, PaymentAllocation.direct_sale_id == DirectSalesTransaction.id
-#         ).outerjoin(
-#             ExchangeRate, ExchangeRate.id == PaymentAllocation.exchange_rate_id
-#         ).filter(
-#             DirectSalesTransaction.app_id == app_id,
-#             DirectSalesTransaction.status.in_(['paid', 'approved']),
-#             DirectSalesTransaction.is_posted_to_ledger == True
-#         )
-#
-#         # Apply date filters
-#         if start_date:
-#             start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-#             invoice_detail_query = invoice_detail_query.filter(SalesInvoice.invoice_date >= start_date_obj)
-#             direct_sale_detail_query = direct_sale_detail_query.filter(DirectSalesTransaction.payment_date >= start_date_obj)
-#
-#         if end_date:
-#             end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
-#             invoice_detail_query = invoice_detail_query.filter(SalesInvoice.invoice_date <= end_date_obj)
-#             direct_sale_detail_query = direct_sale_detail_query.filter(DirectSalesTransaction.payment_date <= end_date_obj)
-#
-#         # Apply customer filter
-#         if customer_id and customer_id != 'None' and customer_id != '':
-#             invoice_detail_query = invoice_detail_query.filter(SalesInvoice.customer_id == customer_id)
-#             direct_sale_detail_query = direct_sale_detail_query.filter(DirectSalesTransaction.customer_id == customer_id)
-#
-#         # Apply item filter
-#         if item_id and item_id != 'None' and item_id != '':
-#             invoice_detail_query = invoice_detail_query.filter(InventoryItemVariationLink.id == item_id)
-#             direct_sale_detail_query = direct_sale_detail_query.filter(InventoryItemVariationLink.id == item_id)
-#
-#         # Apply category filter
-#         if category_id and category_id != 'None' and category_id != '':
-#             invoice_detail_query = invoice_detail_query.filter(InventoryItem.item_category_id == category_id)
-#             direct_sale_detail_query = direct_sale_detail_query.filter(InventoryItem.item_category_id == category_id)
-#
-#         # Apply currency filter
-#         if currency_id and currency_id != 'None' and currency_id != '':
-#             invoice_detail_query = invoice_detail_query.filter(SalesInvoice.currency == currency_id)
-#             direct_sale_detail_query = direct_sale_detail_query.filter(DirectSalesTransaction.currency_id == currency_id)
-#
-#         # Apply location filter
-#         if location_id and location_id != 'None' and location_id != '':
-#             invoice_detail_query = invoice_detail_query.filter(InventoryLocation.id == location_id)
-#             direct_sale_detail_query = direct_sale_detail_query.filter(InventoryLocation.id == location_id)
-#
-#         # Apply project filter
-#         if project_id and project_id != 'None' and project_id != '':
-#             invoice_detail_query = invoice_detail_query.filter(SalesInvoice.project_id == project_id)
-#             direct_sale_detail_query = direct_sale_detail_query.filter(DirectSalesTransaction.project_id == project_id)
-#
-#         # Apply transaction type filter
-#         if transaction_type == 'invoice':
-#             direct_sale_detail_query = direct_sale_detail_query.filter(False)
-#         elif transaction_type == 'direct_sale':
-#             invoice_detail_query = invoice_detail_query.filter(False)
-#         elif transaction_type == 'pos':
-#             invoice_detail_query = invoice_detail_query.filter(False)
-#             direct_sale_detail_query = direct_sale_detail_query.filter(DirectSalesTransaction.is_pos == True)
-#
-#         # Union the queries
-#         union_query = invoice_detail_query.union_all(direct_sale_detail_query).subquery('sales_details')
-#
-#         # Query from the union
-#         main_query = db_session.query(
-#             union_query.c.transaction_date,
-#             union_query.c.transaction_type,
-#             union_query.c.transaction_number,
-#             union_query.c.customer_name,
-#             union_query.c.variation_link_id,
-#             union_query.c.base_item_name,
-#             union_query.c.variation_name,
-#             union_query.c.item_code,
-#             union_query.c.category_name,
-#             union_query.c.uom,
-#             union_query.c.quantity,
-#             union_query.c.unit_price,
-#             union_query.c.total_revenue_original,
-#             union_query.c.currency_id,
-#             union_query.c.transaction_id,
-#             union_query.c.exchange_rate
-#         )
-#
-#         # Sorting
-#         sort_column_map = {
-#             'transaction_date': union_query.c.transaction_date,
-#             'transaction_type': union_query.c.transaction_type,
-#             'transaction_number': union_query.c.transaction_number,
-#             'customer_name': union_query.c.customer_name,
-#             'item_name': union_query.c.base_item_name,
-#             'item_code': union_query.c.item_code,
-#             'category_name': union_query.c.category_name,
-#             'quantity': union_query.c.quantity,
-#             'unit_price': union_query.c.unit_price,
-#             'total_revenue': union_query.c.total_revenue_original
-#         }
-#         sort_col = sort_column_map.get(sort_field, union_query.c.transaction_date)
-#
-#         if sort_order == 'desc':
-#             main_query = main_query.order_by(desc(sort_col), desc(union_query.c.transaction_id))
-#         else:
-#             main_query = main_query.order_by(asc(sort_col), desc(union_query.c.transaction_id))
-#
-#         # Get all results
-#         all_results = main_query.all()
-#
-#         # Format results
-#         transactions = []
-#         for tx in all_results:
-#             if tx.currency_id == base_currency_id:
-#                 unit_price_converted = float(tx.unit_price)
-#                 total_revenue_converted = float(tx.total_revenue_original)
-#             else:
-#                 rate = tx.exchange_rate if tx.exchange_rate else 1
-#                 unit_price_converted = float(tx.unit_price) * float(rate)
-#                 total_revenue_converted = float(tx.total_revenue_original) * float(rate)
-#
-#             if tx.variation_name:
-#                 item_name = f"{tx.base_item_name} ({tx.variation_name})"
-#             else:
-#                 item_name = tx.base_item_name
-#
-#             transactions.append({
-#                 'transaction_date': tx.transaction_date.isoformat() if tx.transaction_date else None,
-#                 'transaction_type': tx.transaction_type,
-#                 'transaction_number': tx.transaction_number,
-#                 'transaction_id': tx.transaction_id,
-#                 'customer_name': tx.customer_name,
-#                 'item_name': item_name,
-#                 'item_code': tx.item_code or '-',
-#                 'category_name': tx.category_name or '-',
-#                 'uom': tx.uom or 'pcs',
-#                 'quantity': float(tx.quantity),
-#                 'unit_price': round(unit_price_converted, 2),
-#                 'total_revenue': round(total_revenue_converted, 2)
-#             })
-#
-#         return transactions
-#
-#     except Exception as e:
-#         logger.error(f"Error in _get_sales_by_item_detail_data: {e}\n{traceback.format_exc()}")
-#         return []
-#
-
-
-
 def _get_sales_by_item_summary_data(db_session, app_id, base_currency_id, base_currency_code,
-                                     start_date, end_date, customer_id, item_id, category_id,
-                                     transaction_type, currency_id, project_id, location_id,
-                                     sort_field='total_revenue', sort_order='desc'):
-    """Helper to get summary data for sales by item (no pagination)"""
+                                    start_date, end_date, customer_id, item_id, category_id,
+                                    transaction_type, currency_id, project_id, location_id,
+                                    sort_field='total_revenue', sort_order='desc', user_location_ids=None):
+    """Helper to get summary data for sales by item from Inventory Entry only"""
     try:
-        logger.info(f"Sales Summary - Start: {start_date}, End: {end_date}, Customer: {customer_id}, Item: {item_id}")
+        logger.info(f"Sales Summary - Start: {start_date}, End: {end_date}")
 
-        # Query for Invoice items (from SalesInvoice and SalesInvoiceItem)
-        invoice_items_query = db_session.query(
-            InventoryItemVariationLink.id.label('variation_link_id'),
-            InventoryItem.id.label('item_id'),
-            InventoryItem.item_name.label('base_item_name'),
-            InventoryItemVariation.variation_name.label('variation_name'),
-            InventoryItem.item_code.label('item_code'),
-            InventoryCategory.category_name.label('category_name'),
-            UnitOfMeasurement.abbreviation.label('uom'),
-            SalesInvoiceItem.quantity.label('quantity'),
-            SalesInvoiceItem.total_price.label('total_price_original'),
-            SalesInvoiceItem.unit_price.label('unit_price'),
-            SalesInvoice.invoice_date.label('sale_date'),
-            SalesInvoice.currency.label('currency_id'),
-            SalesInvoice.customer_id.label('customer_id'),
-            Vendor.vendor_name.label('customer_name'),
-            ExchangeRate.rate.label('exchange_rate')
-        ).join(
-            SalesInvoiceItem, SalesInvoiceItem.invoice_id == SalesInvoice.id
-        ).join(
-            InventoryItemVariationLink, InventoryItemVariationLink.id == SalesInvoiceItem.item_id
-        ).join(
-            InventoryItem, InventoryItem.id == InventoryItemVariationLink.inventory_item_id
-        ).join(
-            UnitOfMeasurement, UnitOfMeasurement.id == InventoryItem.uom_id
-        ).join(
-            Vendor, Vendor.id == SalesInvoice.customer_id
-        ).join(
-            InventoryLocation,
-            InventoryLocation.id == SalesInvoiceItem.location_id
-        ).join(
-            Project,
-            Project.id == SalesInvoice.project_id
-        ).outerjoin(
-            InventoryItemVariation, InventoryItemVariation.id == InventoryItemVariationLink.inventory_item_variation_id
-        ).outerjoin(
-            InventoryCategory, InventoryCategory.id == InventoryItem.item_category_id
-        ).outerjoin(
-            ExchangeRate, ExchangeRate.id == SalesInvoice.exchange_rate_id
-        ).filter(
-            SalesInvoice.app_id == app_id,
-            SalesInvoice.status.in_(['approved', 'paid']),
-            SalesInvoice.is_posted_to_ledger == True
-        )
+        # If user_location_ids is None or empty, return empty
+        if not user_location_ids:
+            return []
 
-        # Query for Direct Sale items
-        direct_sale_items_query = db_session.query(
-            InventoryItemVariationLink.id.label('variation_link_id'),
-            InventoryItem.id.label('item_id'),
-            InventoryItem.item_name.label('base_item_name'),
-            InventoryItemVariation.variation_name.label('variation_name'),
-            InventoryItem.item_code.label('item_code'),
-            InventoryCategory.category_name.label('category_name'),
-            UnitOfMeasurement.abbreviation.label('uom'),
-            DirectSaleItem.quantity.label('quantity'),
-            DirectSaleItem.total_price.label('total_price_original'),
-            DirectSaleItem.unit_price.label('unit_price'),
-            DirectSalesTransaction.payment_date.label('sale_date'),
-            DirectSalesTransaction.currency_id.label('currency_id'),
-            DirectSalesTransaction.customer_id.label('customer_id'),
-            Vendor.vendor_name.label('customer_name'),
-            ExchangeRate.rate.label('exchange_rate')
-        ).join(
-            InventoryItemVariationLink, InventoryItemVariationLink.id == DirectSaleItem.item_id
-        ).join(
-            InventoryItem, InventoryItem.id == InventoryItemVariationLink.inventory_item_id
-        ).join(
-            UnitOfMeasurement, UnitOfMeasurement.id == InventoryItem.uom_id
-        ).join(
-            DirectSalesTransaction, DirectSalesTransaction.id == DirectSaleItem.transaction_id
-        ).join(
-            Vendor, Vendor.id == DirectSalesTransaction.customer_id
-        ).join(
-            InventoryLocation,
-            InventoryLocation.id == DirectSaleItem.location_id
-        ).join(
-            Project,
-            Project.id == DirectSalesTransaction.project_id
-        ).outerjoin(
-            InventoryItemVariation, InventoryItemVariation.id == InventoryItemVariationLink.inventory_item_variation_id
-        ).outerjoin(
-            InventoryCategory, InventoryCategory.id == InventoryItem.item_category_id
-        ).outerjoin(
-            PaymentAllocation, PaymentAllocation.direct_sale_id == DirectSalesTransaction.id
-        ).outerjoin(
-            ExchangeRate, ExchangeRate.id == PaymentAllocation.exchange_rate_id
-        ).filter(
-            DirectSalesTransaction.app_id == app_id,
-            DirectSalesTransaction.status.in_(['paid', 'approved']),
-            DirectSalesTransaction.is_posted_to_ledger == True
-        )
-
-        # ========== ADD INVENTORY ENTRY QUERY (SALES) ==========
-        # For sales (stock out), use from_location (where stock is taken from)
-        inventory_sale_query = db_session.query(
+        # Build base query for Inventory Entry (stock out for sales)
+        query = db_session.query(
             InventoryItemVariationLink.id.label('variation_link_id'),
             InventoryItem.id.label('item_id'),
             InventoryItem.item_name.label('base_item_name'),
@@ -880,9 +353,10 @@ def _get_sales_by_item_summary_data(db_session, app_id, base_currency_id, base_c
             InventoryEntryLineItem.selling_price.label('unit_price'),
             InventoryEntry.transaction_date.label('sale_date'),
             InventoryEntry.currency_id.label('currency_id'),
-            InventoryEntry.supplier_id.label('customer_id'),  # For sales, customer might be stored here
+            InventoryEntry.supplier_id.label('customer_id'),
             Vendor.vendor_name.label('customer_name'),
-            ExchangeRate.rate.label('exchange_rate')
+            ExchangeRate.rate.label('exchange_rate'),
+            InventoryLocation.location.label('location_name')
         ).join(
             InventoryEntryLineItem, InventoryEntryLineItem.inventory_entry_id == InventoryEntry.id
         ).join(
@@ -892,13 +366,11 @@ def _get_sales_by_item_summary_data(db_session, app_id, base_currency_id, base_c
         ).join(
             UnitOfMeasurement, UnitOfMeasurement.id == InventoryItem.uom_id
         ).outerjoin(
-            Vendor, Vendor.id == InventoryEntry.supplier_id  # For sales, this might be customer
+            Vendor, Vendor.id == InventoryEntry.supplier_id
         ).outerjoin(
-            InventoryLocation,
-            InventoryLocation.id == InventoryEntry.from_location  # Use from_location for sales
+            InventoryLocation, InventoryLocation.id == InventoryEntry.from_location
         ).outerjoin(
-            Project,
-            Project.id == InventoryEntry.project_id
+            Project, Project.id == InventoryEntry.project_id
         ).outerjoin(
             InventoryItemVariation, InventoryItemVariation.id == InventoryItemVariationLink.inventory_item_variation_id
         ).outerjoin(
@@ -909,124 +381,64 @@ def _get_sales_by_item_summary_data(db_session, app_id, base_currency_id, base_c
             InventoryEntry.app_id == app_id,
             InventoryEntry.stock_movement == 'out',
             InventoryEntry.source_id.is_(None),
-            InventoryEntry.inventory_source.in_(['sale', 'adjustment_out', 'write_off'])
+            InventoryEntry.inventory_source.in_(['sale', 'adjustment_out', 'write_off']),
+            InventoryLocation.id.in_(user_location_ids)  # Location permission filter
         )
 
         # Apply date filters
         if start_date:
             start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-            invoice_items_query = invoice_items_query.filter(SalesInvoice.invoice_date >= start_date_obj)
-            direct_sale_items_query = direct_sale_items_query.filter(DirectSalesTransaction.payment_date >= start_date_obj)
-            inventory_sale_query = inventory_sale_query.filter(InventoryEntry.transaction_date >= start_date_obj)
+            query = query.filter(InventoryEntry.transaction_date >= start_date_obj)
 
         if end_date:
             end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
-            invoice_items_query = invoice_items_query.filter(SalesInvoice.invoice_date <= end_date_obj)
-            direct_sale_items_query = direct_sale_items_query.filter(DirectSalesTransaction.payment_date <= end_date_obj)
-            inventory_sale_query = inventory_sale_query.filter(InventoryEntry.transaction_date <= end_date_obj)
+            query = query.filter(InventoryEntry.transaction_date <= end_date_obj)
 
         # Apply customer filter
         if customer_id and customer_id != 'None' and customer_id != '':
-            invoice_items_query = invoice_items_query.filter(SalesInvoice.customer_id == customer_id)
-            direct_sale_items_query = direct_sale_items_query.filter(DirectSalesTransaction.customer_id == customer_id)
-            inventory_sale_query = inventory_sale_query.filter(InventoryEntry.supplier_id == customer_id)
+            query = query.filter(InventoryEntry.supplier_id == customer_id)
 
         # Apply item filter
         if item_id and item_id != 'None' and item_id != '':
-            invoice_items_query = invoice_items_query.filter(InventoryItemVariationLink.id == item_id)
-            direct_sale_items_query = direct_sale_items_query.filter(InventoryItemVariationLink.id == item_id)
-            inventory_sale_query = inventory_sale_query.filter(InventoryItemVariationLink.id == item_id)
+            query = query.filter(InventoryItemVariationLink.id == item_id)
 
         # Apply category filter
         if category_id and category_id != 'None' and category_id != '':
-            invoice_items_query = invoice_items_query.filter(InventoryItem.item_category_id == category_id)
-            direct_sale_items_query = direct_sale_items_query.filter(InventoryItem.item_category_id == category_id)
-            inventory_sale_query = inventory_sale_query.filter(InventoryItem.item_category_id == category_id)
+            query = query.filter(InventoryItem.item_category_id == category_id)
 
         # Apply currency filter
         if currency_id and currency_id != 'None' and currency_id != '':
-            invoice_items_query = invoice_items_query.filter(SalesInvoice.currency == currency_id)
-            direct_sale_items_query = direct_sale_items_query.filter(DirectSalesTransaction.currency_id == currency_id)
-            inventory_sale_query = inventory_sale_query.filter(InventoryEntry.currency_id == currency_id)
+            query = query.filter(InventoryEntry.currency_id == currency_id)
 
-        # Apply location filter - use from_location for inventory entries
+        # Apply location filter
         if location_id and location_id != 'None' and location_id != '':
-            invoice_items_query = invoice_items_query.filter(InventoryLocation.id == location_id)
-            direct_sale_items_query = direct_sale_items_query.filter(InventoryLocation.id == location_id)
-            inventory_sale_query = inventory_sale_query.filter(InventoryEntry.from_location == location_id)
+            query = query.filter(InventoryEntry.from_location == location_id)
 
         # Apply project filter
         if project_id and project_id != 'None' and project_id != '':
-            invoice_items_query = invoice_items_query.filter(SalesInvoice.project_id == project_id)
-            direct_sale_items_query = direct_sale_items_query.filter(DirectSalesTransaction.project_id == project_id)
-            inventory_sale_query = inventory_sale_query.filter(InventoryEntry.project_id == project_id)
-
-        # Apply transaction type filter
-        if transaction_type == 'invoice':
-            direct_sale_items_query = direct_sale_items_query.filter(False)
-            inventory_sale_query = inventory_sale_query.filter(False)
-        elif transaction_type == 'direct_sale':
-            invoice_items_query = invoice_items_query.filter(False)
-            inventory_sale_query = inventory_sale_query.filter(False)
-        elif transaction_type == 'inventory_entry':
-            invoice_items_query = invoice_items_query.filter(False)
-            direct_sale_items_query = direct_sale_items_query.filter(False)
-        elif transaction_type == 'pos':
-            invoice_items_query = invoice_items_query.filter(False)
-            direct_sale_items_query = direct_sale_items_query.filter(DirectSalesTransaction.is_pos == True)
-            inventory_sale_query = inventory_sale_query.filter(False)
+            query = query.filter(InventoryEntry.project_id == project_id)
 
         # Get all results
-        invoice_results = invoice_items_query.all()
-        direct_results = direct_sale_items_query.all()
-        inventory_results = inventory_sale_query.all()
+        results = query.all()
 
-        logger.info(f"Invoice results: {len(invoice_results)}, Direct results: {len(direct_results)}, Inventory results: {len(inventory_results)}")
+        logger.info(f"Inventory sales results: {len(results)}")
 
-        # Combine results
+        if not results:
+            return []
+
+        # Process results
         all_sales = []
 
         def convert_to_base(amount, currency_id_val, exchange_rate):
+            if not amount:
+                return 0.0
             if currency_id_val == base_currency_id:
                 return float(amount)
             if exchange_rate:
                 return float(amount) * float(exchange_rate)
             return float(amount)
 
-        # Process invoice results
-        for item in invoice_results:
-            converted_revenue = convert_to_base(item.total_price_original, item.currency_id, item.exchange_rate)
-            all_sales.append({
-                'variation_link_id': item.variation_link_id,
-                'item_id': item.item_id,
-                'item_name': item.base_item_name,
-                'variation_name': item.variation_name or '',
-                'item_code': item.item_code,
-                'category_name': item.category_name,
-                'uom': item.uom or 'pcs',
-                'quantity': float(item.quantity),
-                'total_revenue_base': converted_revenue,
-                'sale_date': item.sale_date
-            })
-
-        # Process direct sale results
-        for item in direct_results:
-            converted_revenue = convert_to_base(item.total_price_original, item.currency_id, item.exchange_rate)
-            all_sales.append({
-                'variation_link_id': item.variation_link_id,
-                'item_id': item.item_id,
-                'item_name': item.base_item_name,
-                'variation_name': item.variation_name or '',
-                'item_code': item.item_code,
-                'category_name': item.category_name,
-                'uom': item.uom or 'pcs',
-                'quantity': float(item.quantity),
-                'total_revenue_base': converted_revenue,
-                'sale_date': item.sale_date
-            })
-
-        # Process inventory entry results
-        for item in inventory_results:
+        for item in results:
             converted_revenue = convert_to_base(item.total_price_original, item.currency_id, item.exchange_rate)
             all_sales.append({
                 'variation_link_id': item.variation_link_id,
@@ -1105,27 +517,25 @@ def _get_sales_by_item_summary_data(db_session, app_id, base_currency_id, base_c
         return []
 
 
-
 def _get_sales_by_item_detail_data(db_session, app_id, base_currency_id, base_currency_code,
-                                    start_date, end_date, customer_id, item_id, category_id,
-                                    transaction_type, currency_id, project_id, location_id,
-                                    sort_field='transaction_date', sort_order='desc'):
-    """Helper to get detail data for sales by item (no pagination)"""
+                                   start_date, end_date, customer_id, item_id, category_id,
+                                   transaction_type, currency_id, project_id, location_id,
+                                   sort_field='transaction_date', sort_order='desc', user_location_ids=None):
+    """Helper to get detail data for sales by item from Inventory Entry only (no pagination)"""
     try:
+        # If user_location_ids is None or empty, return empty
+        if not user_location_ids:
+            return []
 
         all_transactions = []
 
         def convert_to_base(amount, currency_id_val, exchange_rate):
-            # If amount is None or 0, return 0
             if not amount:
                 return 0.0
-            # If currency is base currency, no conversion needed
             if currency_id_val == base_currency_id:
                 return float(amount)
-            # If exchange rate is available, convert
             if exchange_rate:
                 return float(amount) * float(exchange_rate)
-            # Fallback - assume amount is already in base currency
             return float(amount)
 
         # Parse date objects
@@ -1136,180 +546,7 @@ def _get_sales_by_item_detail_data(db_session, app_id, base_currency_id, base_cu
         if end_date:
             end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
 
-        # ========== 1. GET SALES INVOICE ITEMS ==========
-        invoice_detail_query = db_session.query(
-            SalesInvoice.invoice_date.label('transaction_date'),
-            literal('Sales Invoice').label('transaction_type'),
-            SalesInvoice.invoice_number.label('transaction_number'),
-            Vendor.vendor_name.label('customer_name'),
-            InventoryItemVariationLink.id.label('variation_link_id'),
-            InventoryItem.item_name.label('base_item_name'),
-            InventoryItemVariation.variation_name.label('variation_name'),
-            InventoryItem.item_code.label('item_code'),
-            InventoryCategory.category_name.label('category_name'),
-            UnitOfMeasurement.abbreviation.label('uom'),
-            SalesInvoiceItem.quantity.label('quantity'),
-            SalesInvoiceItem.unit_price.label('unit_price'),
-            SalesInvoiceItem.total_price.label('total_revenue_original'),
-            SalesInvoice.currency.label('currency_id'),
-            SalesInvoice.id.label('transaction_id'),
-            ExchangeRate.rate.label('exchange_rate')
-        ).join(
-            SalesInvoiceItem, SalesInvoiceItem.invoice_id == SalesInvoice.id
-        ).join(
-            InventoryItemVariationLink, InventoryItemVariationLink.id == SalesInvoiceItem.item_id
-        ).join(
-            InventoryItem, InventoryItem.id == InventoryItemVariationLink.inventory_item_id
-        ).join(
-            UnitOfMeasurement, UnitOfMeasurement.id == InventoryItem.uom_id
-        ).join(
-            Vendor, Vendor.id == SalesInvoice.customer_id
-        ).outerjoin(
-            InventoryItemVariation, InventoryItemVariation.id == InventoryItemVariationLink.inventory_item_variation_id
-        ).outerjoin(
-            InventoryCategory, InventoryCategory.id == InventoryItem.item_category_id
-        ).outerjoin(
-            ExchangeRate, ExchangeRate.id == SalesInvoice.exchange_rate_id
-        ).filter(
-            SalesInvoice.app_id == app_id,
-            SalesInvoice.status.in_(['approved', 'paid']),
-            SalesInvoice.is_posted_to_ledger == True
-        )
-
-        # Apply filters for Invoice
-        if start_date_obj:
-            invoice_detail_query = invoice_detail_query.filter(SalesInvoice.invoice_date >= start_date_obj)
-        if end_date_obj:
-            invoice_detail_query = invoice_detail_query.filter(SalesInvoice.invoice_date <= end_date_obj)
-        if customer_id and customer_id != 'None' and customer_id != '':
-            invoice_detail_query = invoice_detail_query.filter(SalesInvoice.customer_id == customer_id)
-        if item_id and item_id != 'None' and item_id != '':
-            invoice_detail_query = invoice_detail_query.filter(InventoryItemVariationLink.id == item_id)
-        if category_id and category_id != 'None' and category_id != '':
-            invoice_detail_query = invoice_detail_query.filter(InventoryItem.item_category_id == category_id)
-        if currency_id and currency_id != 'None' and currency_id != '':
-            invoice_detail_query = invoice_detail_query.filter(SalesInvoice.currency == currency_id)
-        if location_id and location_id != 'None' and location_id != '':
-            invoice_detail_query = invoice_detail_query.filter(SalesInvoiceItem.location_id == location_id)
-        if project_id and project_id != 'None' and project_id != '':
-            invoice_detail_query = invoice_detail_query.filter(SalesInvoice.project_id == project_id)
-
-        if transaction_type not in ['direct_sale', 'pos', 'inventory_entry']:
-            invoice_results = invoice_detail_query.all()
-            logger.info(f"Invoice results: {len(invoice_results)}")
-            for item in invoice_results:
-                # Convert both unit price and total revenue
-                converted_unit_price = convert_to_base(item.unit_price, item.currency_id, item.exchange_rate)
-                converted_revenue = convert_to_base(item.total_revenue_original, item.currency_id, item.exchange_rate)
-
-                all_transactions.append({
-                    'transaction_date': item.transaction_date,
-                    'transaction_type': item.transaction_type,
-                    'transaction_number': item.transaction_number,
-                    'transaction_id': item.transaction_id,
-                    'customer_name': item.customer_name,
-                    'base_item_name': item.base_item_name,
-                    'variation_name': item.variation_name or '',
-                    'item_code': item.item_code,
-                    'category_name': item.category_name,
-                    'uom': item.uom or 'pcs',
-                    'quantity': float(item.quantity),
-                    'unit_price': converted_unit_price,
-                    'total_revenue': converted_revenue,
-                    'currency_id': item.currency_id,
-                    'exchange_rate': item.exchange_rate
-                })
-
-        # ========== 2. GET DIRECT SALE ITEMS ==========
-        direct_sale_detail_query = db_session.query(
-            DirectSalesTransaction.payment_date.label('transaction_date'),
-            literal('Direct Sale').label('transaction_type'),
-            DirectSalesTransaction.direct_sale_number.label('transaction_number'),
-            Vendor.vendor_name.label('customer_name'),
-            InventoryItemVariationLink.id.label('variation_link_id'),
-            InventoryItem.item_name.label('base_item_name'),
-            InventoryItemVariation.variation_name.label('variation_name'),
-            InventoryItem.item_code.label('item_code'),
-            InventoryCategory.category_name.label('category_name'),
-            UnitOfMeasurement.abbreviation.label('uom'),
-            DirectSaleItem.quantity.label('quantity'),
-            DirectSaleItem.unit_price.label('unit_price'),
-            DirectSaleItem.total_price.label('total_revenue_original'),
-            DirectSalesTransaction.currency_id.label('currency_id'),
-            DirectSalesTransaction.id.label('transaction_id'),
-            ExchangeRate.rate.label('exchange_rate')
-        ).join(
-            InventoryItemVariationLink, InventoryItemVariationLink.id == DirectSaleItem.item_id
-        ).join(
-            InventoryItem, InventoryItem.id == InventoryItemVariationLink.inventory_item_id
-        ).join(
-            UnitOfMeasurement, UnitOfMeasurement.id == InventoryItem.uom_id
-        ).join(
-            DirectSalesTransaction, DirectSalesTransaction.id == DirectSaleItem.transaction_id
-        ).join(
-            Vendor, Vendor.id == DirectSalesTransaction.customer_id
-        ).outerjoin(
-            InventoryItemVariation, InventoryItemVariation.id == InventoryItemVariationLink.inventory_item_variation_id
-        ).outerjoin(
-            InventoryCategory, InventoryCategory.id == InventoryItem.item_category_id
-        ).outerjoin(
-            PaymentAllocation, PaymentAllocation.direct_sale_id == DirectSalesTransaction.id
-        ).outerjoin(
-            ExchangeRate, ExchangeRate.id == PaymentAllocation.exchange_rate_id
-        ).filter(
-            DirectSalesTransaction.app_id == app_id,
-            DirectSalesTransaction.status.in_(['paid', 'approved']),
-            DirectSalesTransaction.is_posted_to_ledger == True
-        )
-
-        # Apply filters for Direct Sale
-        if start_date_obj:
-            direct_sale_detail_query = direct_sale_detail_query.filter(DirectSalesTransaction.payment_date >= start_date_obj)
-        if end_date_obj:
-            direct_sale_detail_query = direct_sale_detail_query.filter(DirectSalesTransaction.payment_date <= end_date_obj)
-        if customer_id and customer_id != 'None' and customer_id != '':
-            direct_sale_detail_query = direct_sale_detail_query.filter(DirectSalesTransaction.customer_id == customer_id)
-        if item_id and item_id != 'None' and item_id != '':
-            direct_sale_detail_query = direct_sale_detail_query.filter(InventoryItemVariationLink.id == item_id)
-        if category_id and category_id != 'None' and category_id != '':
-            direct_sale_detail_query = direct_sale_detail_query.filter(InventoryItem.item_category_id == category_id)
-        if currency_id and currency_id != 'None' and currency_id != '':
-            direct_sale_detail_query = direct_sale_detail_query.filter(DirectSalesTransaction.currency_id == currency_id)
-        if location_id and location_id != 'None' and location_id != '':
-            direct_sale_detail_query = direct_sale_detail_query.filter(DirectSaleItem.location_id == location_id)
-        if project_id and project_id != 'None' and project_id != '':
-            direct_sale_detail_query = direct_sale_detail_query.filter(DirectSalesTransaction.project_id == project_id)
-
-        # Handle POS transactions
-        if transaction_type == 'pos':
-            direct_sale_detail_query = direct_sale_detail_query.filter(DirectSalesTransaction.is_pos == True)
-
-        if transaction_type not in ['invoice', 'inventory_entry']:
-            direct_results = direct_sale_detail_query.all()
-            logger.info(f"Direct sale results: {len(direct_results)}")
-            for item in direct_results:
-                converted_unit_price = convert_to_base(item.unit_price, item.currency_id, item.exchange_rate)
-                converted_revenue = convert_to_base(item.total_revenue_original, item.currency_id, item.exchange_rate)
-
-                all_transactions.append({
-                    'transaction_date': item.transaction_date,
-                    'transaction_type': item.transaction_type,
-                    'transaction_number': item.transaction_number,
-                    'transaction_id': item.transaction_id,
-                    'customer_name': item.customer_name,
-                    'base_item_name': item.base_item_name,
-                    'variation_name': item.variation_name or '',
-                    'item_code': item.item_code,
-                    'category_name': item.category_name,
-                    'uom': item.uom or 'pcs',
-                    'quantity': float(item.quantity),
-                    'unit_price': converted_unit_price,
-                    'total_revenue': converted_revenue,
-                    'currency_id': item.currency_id,
-                    'exchange_rate': item.exchange_rate
-                })
-
-        # ========== 3. GET INVENTORY ENTRY ITEMS (SALES) ==========
+        # ========== GET INVENTORY ENTRY ITEMS (SALES) ONLY ==========
         inventory_sale_query = db_session.query(
             InventoryEntry.transaction_date.label('transaction_date'),
             literal('Inventory Entry').label('transaction_type'),
@@ -1326,7 +563,8 @@ def _get_sales_by_item_detail_data(db_session, app_id, base_currency_id, base_cu
             (InventoryEntryLineItem.quantity * InventoryEntryLineItem.selling_price).label('total_revenue_original'),
             InventoryEntry.currency_id.label('currency_id'),
             InventoryEntry.id.label('transaction_id'),
-            ExchangeRate.rate.label('exchange_rate')
+            ExchangeRate.rate.label('exchange_rate'),
+            InventoryLocation.location.label('location_name')
         ).join(
             InventoryEntryLineItem, InventoryEntryLineItem.inventory_entry_id == InventoryEntry.id
         ).join(
@@ -1342,55 +580,74 @@ def _get_sales_by_item_detail_data(db_session, app_id, base_currency_id, base_cu
         ).outerjoin(
             Vendor, Vendor.id == InventoryEntry.supplier_id
         ).outerjoin(
+            InventoryLocation, InventoryLocation.id == InventoryEntry.from_location
+        ).outerjoin(
             ExchangeRate, ExchangeRate.id == InventoryEntry.exchange_rate_id
         ).filter(
             InventoryEntry.app_id == app_id,
             InventoryEntry.stock_movement == 'out',
             InventoryEntry.source_id.is_(None),
-            InventoryEntry.inventory_source.in_(['sale', 'adjustment_out', 'write_off'])
+            InventoryEntry.inventory_source.in_(['sale', 'adjustment_out', 'write_off']),
+            InventoryLocation.id.in_(user_location_ids)  # Location permission filter
         )
 
-        # Apply filters for Inventory
+        # Apply date filters
         if start_date_obj:
             inventory_sale_query = inventory_sale_query.filter(InventoryEntry.transaction_date >= start_date_obj)
         if end_date_obj:
             inventory_sale_query = inventory_sale_query.filter(InventoryEntry.transaction_date <= end_date_obj)
+
+        # Apply customer filter
         if customer_id and customer_id != 'None' and customer_id != '':
             inventory_sale_query = inventory_sale_query.filter(InventoryEntry.supplier_id == customer_id)
+
+        # Apply item filter
         if item_id and item_id != 'None' and item_id != '':
             inventory_sale_query = inventory_sale_query.filter(InventoryItemVariationLink.id == item_id)
+
+        # Apply category filter
         if category_id and category_id != 'None' and category_id != '':
             inventory_sale_query = inventory_sale_query.filter(InventoryItem.item_category_id == category_id)
+
+        # Apply currency filter
         if currency_id and currency_id != 'None' and currency_id != '':
             inventory_sale_query = inventory_sale_query.filter(InventoryEntry.currency_id == currency_id)
+
+        # Apply location filter
         if location_id and location_id != 'None' and location_id != '':
             inventory_sale_query = inventory_sale_query.filter(InventoryEntry.from_location == location_id)
+
+        # Apply project filter
         if project_id and project_id != 'None' and project_id != '':
             inventory_sale_query = inventory_sale_query.filter(InventoryEntry.project_id == project_id)
 
-        if transaction_type not in ['invoice', 'direct_sale', 'pos']:
-            inventory_results = inventory_sale_query.all()
-            for item in inventory_results:
-                converted_unit_price = convert_to_base(item.unit_price, item.currency_id, item.exchange_rate)
-                converted_revenue = convert_to_base(item.total_revenue_original, item.currency_id, item.exchange_rate)
+        inventory_results = inventory_sale_query.all()
+        logger.info(f"Inventory sales results: {len(inventory_results)}")
 
-                all_transactions.append({
-                    'transaction_date': item.transaction_date,
-                    'transaction_type': item.transaction_type,
-                    'transaction_number': item.transaction_number,
-                    'transaction_id': item.transaction_id,
-                    'customer_name': item.customer_name or '-',
-                    'base_item_name': item.base_item_name,
-                    'variation_name': item.variation_name or '',
-                    'item_code': item.item_code,
-                    'category_name': item.category_name,
-                    'uom': item.uom or 'pcs',
-                    'quantity': float(item.quantity),
-                    'unit_price': converted_unit_price,
-                    'total_revenue': converted_revenue,
-                    'currency_id': item.currency_id,
-                    'exchange_rate': item.exchange_rate
-                })
+        if not inventory_results:
+            return []
+
+        for item in inventory_results:
+            converted_unit_price = convert_to_base(item.unit_price, item.currency_id, item.exchange_rate)
+            converted_revenue = convert_to_base(item.total_revenue_original, item.currency_id, item.exchange_rate)
+
+            all_transactions.append({
+                'transaction_date': item.transaction_date,
+                'transaction_type': item.transaction_type,
+                'transaction_number': item.transaction_number,
+                'transaction_id': item.transaction_id,
+                'customer_name': item.customer_name or '-',
+                'base_item_name': item.base_item_name,
+                'variation_name': item.variation_name or '',
+                'item_code': item.item_code,
+                'category_name': item.category_name,
+                'uom': item.uom or 'pcs',
+                'quantity': float(item.quantity),
+                'unit_price': converted_unit_price,
+                'total_revenue': converted_revenue,
+                'currency_id': item.currency_id,
+                'exchange_rate': item.exchange_rate
+            })
 
         if not all_transactions:
             return []
@@ -1428,14 +685,8 @@ def _get_sales_by_item_detail_data(db_session, app_id, base_currency_id, base_cu
             else:
                 item_name = tx['base_item_name']
 
-            # Determine URL based on transaction type
-            transaction_url = '#'
-            if tx['transaction_type'] == 'Sales Invoice':
-                transaction_url = f"/sales/invoice/{tx['transaction_id']}"
-            elif tx['transaction_type'] == 'Direct Sale':
-                transaction_url = f"/sales/direct_sale/{tx['transaction_id']}"
-            elif tx['transaction_type'] == 'Inventory Entry':
-                transaction_url = f"/inventory/entry/{tx['transaction_id']}"
+            # URL for inventory entry
+            transaction_url = f"/inventory/entry/{tx['transaction_id']}"
 
             transactions.append({
                 'transaction_date': tx['transaction_date'].isoformat() if tx['transaction_date'] else None,
@@ -1458,6 +709,7 @@ def _get_sales_by_item_detail_data(db_session, app_id, base_currency_id, base_cu
         logger.error(f"Error in _get_sales_by_item_detail_data: {e}\n{traceback.format_exc()}")
         return []
 
+
 @sales_bp.route('/reports/sales_by_item/export/pdf', methods=['GET'])
 @login_required
 def export_sales_by_item_pdf():
@@ -1479,6 +731,11 @@ def export_sales_by_item_pdf():
         view_type = request.args.get('view', 'summary')
 
         app_id = current_user.app_id
+        user_id = current_user.id
+
+        # ===== GET USER'S ACCESSIBLE LOCATIONS =====
+        user_locations = get_user_accessible_locations(user_id, app_id)
+        user_location_ids = [loc.id for loc in user_locations] if user_locations else []
 
         # Get base currency
         base_currency = db_session.query(Currency).filter_by(app_id=app_id, currency_index=1).first()
@@ -1492,21 +749,25 @@ def export_sales_by_item_pdf():
         company = db_session.query(Company).filter_by(id=app_id).first()
         company_name = company.name if company else "Company"
 
-        # Get data based on view type
-        if view_type == 'summary':
-            data = _get_sales_by_item_summary_data(
-                db_session, app_id, base_currency_id, base_currency_code,
-                start_date, end_date, customer_id, item_id, category_id,
-                transaction_type, currency_id, project_id, location_id,
-                sort_field, sort_order
-            )
+        # If user has no location access, return empty report
+        if not user_location_ids:
+            data = []
         else:
-            data = _get_sales_by_item_detail_data(
-                db_session, app_id, base_currency_id, base_currency_code,
-                start_date, end_date, customer_id, item_id, category_id,
-                transaction_type, currency_id, project_id, location_id,
-                sort_field, sort_order
-            )
+            # Get data based on view type with location permissions
+            if view_type == 'summary':
+                data = _get_sales_by_item_summary_data(
+                    db_session, app_id, base_currency_id, base_currency_code,
+                    start_date, end_date, customer_id, item_id, category_id,
+                    transaction_type, currency_id, project_id, location_id,
+                    sort_field, sort_order, user_location_ids
+                )
+            else:
+                data = _get_sales_by_item_detail_data(
+                    db_session, app_id, base_currency_id, base_currency_code,
+                    start_date, end_date, customer_id, item_id, category_id,
+                    transaction_type, currency_id, project_id, location_id,
+                    sort_field, sort_order, user_location_ids
+                )
 
         if not data:
             data = []
@@ -1689,7 +950,6 @@ def export_sales_by_item_pdf():
                 Paragraph(f"{total_revenue:,.2f}", styles['AmountCell'])
             ])
 
-
             col_widths = [50, 60, 70, 80, 80, 50, 60, 40, 50, 80, 100]
 
         # Create table with REPEAT HEADER ON EVERY PAGE
@@ -1733,6 +993,7 @@ def export_sales_by_item_pdf():
         return jsonify({'success': False, 'message': str(e)}), 500
     finally:
         db_session.close()
+
 
 @sales_bp.route('/reports/sales_by_item/export/excel', methods=['GET'])
 @login_required

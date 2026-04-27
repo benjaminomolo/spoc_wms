@@ -200,7 +200,7 @@
                     <th>UOM</th>
                     <th class="text-center">Variations</th>
                     <th class="text-center">Status</th>
-                    <th class="text-center">Accounting</th>
+                    <th class="text-center" hidden>Accounting</th>
                     <th class="text-center">Actions</th>
                 </tr>
             </thead>
@@ -525,7 +525,7 @@
             <td class="text-center">
                 <span class="badge ${statusClass}">${statusText}</span>
             </td>
-            <td class="text-center">
+            <td class="text-center" hidden>
 
                    <div class="custom-tooltip-container">
                           <button class="button-outline" onclick="showAccountingInfo(${item.id})">

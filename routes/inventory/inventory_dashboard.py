@@ -14,6 +14,7 @@ from db import Session
 from models import Company, Module, Currency, Project, ChartOfAccounts, PaymentMode, Category, Department, Employee, \
     PayrollPeriod, InventoryCategory, InventorySubCategory, InventoryLocation, InventoryItem, InventoryItemVariation, \
     InventoryItemAttribute, Brand, InventoryItemVariationLink, AssetItem, Vendor
+from services.inventory_helpers import get_user_accessible_locations
 
 from . import inventory_bp
 
@@ -83,7 +84,6 @@ def inventory_dashboard():
         db_session.close()
 
 
-
 @inventory_bp.route('/wms_dashboard', methods=["GET"])
 @login_required
 @require_permission('Inventory', 'view')
@@ -96,18 +96,33 @@ def wms_dashboard():
         modules_data = [mod.module_name for mod in db_session.query(Module).filter_by(app_id=app_id, included='yes').all()]
         api_key = company.api_key
 
-        # Inventory filters data
+        # Get user's accessible locations
+        user_locations = get_user_accessible_locations(current_user.id, app_id)
+        user_location_ids = [loc.id for loc in user_locations]
+
+        # Inventory filters data - FILTER LOCATIONS BY USER ACCESS
         categories = db_session.query(InventoryCategory).filter_by(app_id=app_id).all()
         subcategories = db_session.query(InventorySubCategory).filter_by(app_id=app_id).all()
-        locations = db_session.query(InventoryLocation).filter_by(app_id=app_id).all()
-        items = db_session.query(InventoryItemVariationLink).join(InventoryItemVariationLink.inventory_item).filter(InventoryItemVariationLink.app_id == app_id).order_by(InventoryItem.item_name.asc()).all()
+
+        # Only show locations user has access to
+        if user_location_ids:
+            locations = db_session.query(InventoryLocation).filter(
+                InventoryLocation.app_id == app_id,
+                InventoryLocation.id.in_(user_location_ids)
+            ).all()
+        else:
+            locations = []
+
+        items = db_session.query(InventoryItemVariationLink).join(InventoryItemVariationLink.inventory_item).filter(
+            InventoryItemVariationLink.app_id == app_id
+        ).order_by(InventoryItem.item_name.asc()).all()
         variations = db_session.query(InventoryItemVariation).filter_by(app_id=app_id).all()
         brands = db_session.query(Brand).filter_by(app_id=app_id).all()
 
         # Asset filters data
         asset_types = db_session.query(AssetItem).filter_by(app_id=app_id, status='active').all()
         departments = db_session.query(Department).filter_by(app_id=app_id).all()
-        employees = db_session.query(Employee).filter_by(app_id=app_id, employment_status='active').all()
+        employees = db_session.query(Employee).filter_by(app_id=app_id, is_active=True).all()
         suppliers = db_session.query(Vendor).filter(Vendor.app_id == app_id, Vendor.is_active == True).all()
         projects = db_session.query(Project).filter_by(app_id=app_id, is_active=True).all()
         status_options = ['in_stock', 'assigned', 'maintenance', 'disposed', 'sold']

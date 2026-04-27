@@ -16,13 +16,14 @@ from models import Company, Module, Currency, Project, ChartOfAccounts, PaymentM
     PayrollPeriod, InventoryCategory, InventorySubCategory, InventoryLocation, InventoryItem, InventoryItemVariation, \
     InventoryItemAttribute, Brand, InventoryItemVariationLink, UnitOfMeasurement, Vendor, InventoryEntry, \
     InventoryEntryLineItem, ExchangeRate, InventoryTransactionDetail, CustomerGroup, ItemSellingPrice, DirectSaleItem, \
-    SalesOrderItem, QuotationItem, SalesInvoiceItem, JournalEntry, UserLocationAssignment, InventorySummary
+    SalesOrderItem, QuotationItem, SalesInvoiceItem, JournalEntry, UserLocationAssignment, InventorySummary, Attachment
 import logging
 
 from services.inventory_helpers import handle_supplier_logic, \
     render_inventory_entry_form, \
     process_inventory_entries, reverse_inventory_entry, get_inventory_entry_with_details, \
-    render_edit_inventory_entry_form, process_inventory_entries_for_edit, remove_inventory_journal_entries
+    render_edit_inventory_entry_form, process_inventory_entries_for_edit, remove_inventory_journal_entries, \
+    process_attachments, get_user_accessible_locations
 from utils import ensure_default_location, generate_unique_lot, create_notification, empty_to_none, \
     validate_quantity_and_selling_price, validate_quantity_and_price, handle_batch_variation_update
 from utils_and_helpers.amounts_utils import format_amount
@@ -67,6 +68,7 @@ def inventory_entry():
                 # Extract form data
                 movement_type = request.form.get('movement_type', 'in')
                 source_type = request.form.get('source_type')
+                handled_by = request.form.get('handled_by')
                 transaction_date = datetime.strptime(request.form['transaction_date'], '%Y-%m-%d').date()
 
                 # Handle location based on movement type
@@ -121,7 +123,6 @@ def inventory_entry():
                 if movement_type not in ['adjustment', 'missing', 'expired', 'damaged', 'opening_balance']:
                     supplier_id = handle_supplier_logic(request.form, app_id, db_session)
 
-                project_id = request.form.get('project_id') or None
                 expiration_date_str = request.form.get('expiration_date')
                 expiration_date = datetime.strptime(expiration_date_str,
                                                     '%Y-%m-%d').date() if expiration_date_str else None
@@ -169,6 +170,8 @@ def inventory_entry():
                 unit_prices = request.form.getlist('unit_price[]')
                 selling_prices = request.form.getlist(
                     'selling_price[]') if movement_type != 'stock_out_sale' else unit_prices
+                # Get project IDs per line item
+                project_ids = request.form.getlist('project_id[]')
 
                 # Get system quantities and adjustments for adjustment movements
                 system_quantities = request.form.getlist('system_quantity[]') if movement_type == 'adjustment' else None
@@ -195,7 +198,7 @@ def inventory_entry():
                     expiration_date=expiration_date,
                     reference=reference,
                     write_off_reason=write_off_reason,
-                    project_id=project_id,
+                    project_ids=project_ids,
                     movement_type=movement_type,
                     current_user_id=current_user.id,
                     source_type=source_type,
@@ -205,9 +208,12 @@ def inventory_entry():
                     write_off_account_id=write_off_account_id,
                     adjustment_account_id=adjustment_account_id,
                     sales_account_id=sales_account_id,
-                    is_posted_to_ledger=True
+                    is_posted_to_ledger=True,
+                    handled_by=handled_by
 
                 )
+
+                process_attachments(request, 'inventory_entry', inventory_ent.id, current_user.id, db_session)
 
                 db_session.commit()
 
@@ -242,15 +248,13 @@ def inventory_entry():
                                       'missing', 'expired', 'damaged', 'opening_balance',
                                       'stock_out_write_off']
 
-            logger.info(f'Movement types are {movement_type}')
-
             if movement_type not in allowed_movement_types:
                 movement_type = 'in'
 
             # Pass movement_type to the form template
             return render_inventory_entry_form(
                 db_session, app_id, company, role, modules_data,
-                movement_type=movement_type  # Add this parameter
+                movement_type=movement_type
             )
 
     except Exception as e:
@@ -272,6 +276,8 @@ def stock_movement_history():
     """
     db_session = Session()
     app_id = current_user.app_id
+
+    projects = db_session.query(Project).filter_by(app_id=app_id, is_active=True).all()
 
     company = db_session.query(Company).filter_by(id=app_id).first()
     # Get base currency PROPERLY - query it directly
@@ -299,7 +305,8 @@ def stock_movement_history():
             company=company,
             modules=modules_data,
             role=role,
-            base_currency=base_currency
+            base_currency=base_currency,
+            projects=projects
         )
 
     except Exception as e:
@@ -320,12 +327,14 @@ def api_stock_movement_history():
     """
     db_session = Session()
     app_id = current_user.app_id
+    user_id = current_user.id
 
     try:
         # Get pagination and filter parameters
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
         item_id = request.args.get('item_id', type=int)
+        project_id = request.args.get('project_id', type=int)
         reference = request.args.get('reference', '')
         ledger_status = request.args.get('ledger_status', '')
         location_id = request.args.get('location_id', type=int)
@@ -333,6 +342,10 @@ def api_stock_movement_history():
         source_type = request.args.get('source_type', '')
         start_date = request.args.get('start_date', '')
         end_date = request.args.get('end_date', '')
+
+        # Get user's accessible locations
+        user_locations = get_user_accessible_locations(user_id, app_id)
+        user_location_ids = [loc.id for loc in user_locations] if user_locations else []
 
         # Get base currency information
         base_currency_info = get_base_currency(db_session, app_id)
@@ -345,7 +358,7 @@ def api_stock_movement_history():
         base_currency_id = base_currency_info["base_currency_id"]
         base_currency_code = base_currency_info["base_currency"]
 
-        # Build base query with joins - use InventoryTransactionDetail instead of BatchVariationLink
+        # Build base query with joins
         query = db_session.query(InventoryTransactionDetail) \
             .join(
             InventoryEntryLineItem,
@@ -376,21 +389,76 @@ def api_stock_movement_history():
             joinedload(InventoryTransactionDetail.location)
         ).filter(InventoryTransactionDetail.app_id == app_id)
 
+        # ===== LOCATION PERMISSION FILTER - FIXED FOR TRANSFERS =====
+        if user_location_ids:
+            # For regular stock movements (in/out/adjustment): check transaction location
+            location_condition = InventoryTransactionDetail.location_id.in_(user_location_ids)
+
+            # For transfers: check both from_location AND to_location
+            # A user can see a transfer if they have access to EITHER location
+            from_location_condition = InventoryEntry.from_location.in_(user_location_ids)
+            to_location_condition = InventoryEntry.to_location.in_(user_location_ids)
+
+            # Transfer condition: movement_type is 'transfer' AND user has access to from OR to location
+            transfer_condition = and_(
+                InventoryTransactionDetail.movement_type == 'transfer',
+                or_(from_location_condition, to_location_condition)
+            )
+
+            # Combine: regular movements OR transfers user has access to
+            query = query.filter(
+                or_(
+                    location_condition,
+                    transfer_condition
+                )
+            )
+        else:
+            # No locations assigned - user sees nothing
+            return jsonify({
+                'success': True,
+                'entries': [],
+                'summary': {
+                    'total_value_base': 0,
+                    'base_currency_id': base_currency_id,
+                    'base_currency_code': base_currency_code,
+                    'total_entries': 0
+                },
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total_pages': 0,
+                    'total_items': 0,
+                    'has_next': False,
+                    'has_prev': False
+                }
+            })
+
         # Apply filters
         if item_id:
             query = query.filter(InventoryTransactionDetail.item_id == item_id)
 
+        # Project filter
+        # Project filter - now at line item level
+        if project_id:
+            query = query.filter(InventoryEntryLineItem.project_id == project_id)
+
         if location_id:
+            # Verify user has access to this location
+            if location_id not in user_location_ids:
+                return jsonify({
+                    'success': False,
+                    'message': 'You do not have permission to access this location'
+                }), 403
             query = query.filter(InventoryTransactionDetail.location_id == location_id)
 
         if movement_type:
             query = query.filter(InventoryTransactionDetail.movement_type == movement_type)
 
-        # Apply reference filter - change from exact match to partial search
+        # Apply reference filter - partial search
         if reference:
             query = query.filter(InventoryEntry.reference.ilike(f'%{reference}%'))
 
-        # Apply ledger status filter - exclude transfers entirely from this filter
+        # Apply ledger status filter
         if ledger_status == 'posted':
             query = query.filter(
                 InventoryTransactionDetail.is_posted_to_ledger == True,
@@ -422,7 +490,7 @@ def api_stock_movement_history():
         # Get total count
         total_items = query.count()
 
-        # Apply pagination and ordering - NEWEST FIRST for display
+        # Apply pagination
         total_pages = (total_items + per_page - 1) // per_page
 
         # Get all transactions for running totals calculation (in chronological order)
@@ -441,47 +509,40 @@ def api_stock_movement_history():
         for transaction in all_transactions:
             item_variation_key = transaction.item_id
 
-            # Initialize running totals for this item variation if not exists
             if item_variation_key not in running_totals:
                 running_totals[item_variation_key] = 0
                 running_values_base[item_variation_key] = Decimal('0.00')
 
-            # Calculate quantity impact
             quantity_impact = transaction.quantity
 
-            # Calculate value impact in base currency
             unit_price = Decimal(str(transaction.unit_cost)) if transaction.unit_cost else Decimal('0.00')
             value_impact = Decimal('0.00')
 
             if quantity_impact != 0 and unit_price > 0:
-                # Use the exchange rate from the transaction detail
                 if transaction.currency_id != base_currency_id and transaction.exchange_rate:
                     exchange_rate = Decimal(str(transaction.exchange_rate.rate))
                     unit_price_base = unit_price * exchange_rate
                 else:
-                    unit_price_base = unit_price  # Same currency or no exchange rate
+                    unit_price_base = unit_price
 
                 value_impact = Decimal(str(abs(quantity_impact))) * unit_price_base
 
-                # For out movements, value impact is negative
                 if quantity_impact < 0:
                     value_impact = -value_impact
 
-            # Update running totals
             running_totals[item_variation_key] += quantity_impact
             running_values_base[item_variation_key] += value_impact
 
-            # Store the running totals at the time of this transaction
             transaction_running_totals[transaction.id] = running_totals[item_variation_key]
             transaction_running_values_base[transaction.id] = running_values_base[item_variation_key]
 
-        # Now get the paginated results in DESCENDING order (newest first)
+        # Get paginated results in DESCENDING order (newest first)
         transaction_details = query.order_by(
-            InventoryTransactionDetail.transaction_date.desc(),  # CHANGED TO DESC
-            InventoryTransactionDetail.id.desc()  # CHANGED TO DESC
+            InventoryTransactionDetail.transaction_date.desc(),
+            InventoryTransactionDetail.id.desc()
         ).offset((page - 1) * per_page).limit(per_page).all()
 
-        # Serialize transaction details for the current page
+        # Serialize transaction details
         entries_data = []
         total_value_base = Decimal('0.00')
 
@@ -489,32 +550,34 @@ def api_stock_movement_history():
             line_item = transaction.inventory_entry_line_item
             entry = line_item.inventory_entry if line_item else None
 
-            # Get location name
             location_name = transaction.location.location if transaction.location else None
 
-            # Get item details
             variation_link = transaction.inventory_item_variation_link
             item = variation_link.inventory_item if variation_link else None
             attribute = variation_link.inventory_item_attributes if variation_link else None
             variation = variation_link.inventory_item_variation if variation_link else None
 
-            # Get the pre-calculated running totals for this transaction
             running_total = transaction_running_totals.get(transaction.id, 0)
             running_value_base = float(transaction_running_values_base.get(transaction.id, Decimal('0.00')))
 
-            # Calculate current transaction value in base currency
             unit_price = Decimal(str(transaction.unit_cost)) if transaction.unit_cost else Decimal('0.00')
             line_total = Decimal(str(abs(transaction.quantity))) * unit_price if transaction.quantity else Decimal(
                 '0.00')
 
-            # Use the exchange rate from the transaction
             if transaction.currency_id != base_currency_id and transaction.exchange_rate:
                 exchange_rate = Decimal(str(transaction.exchange_rate.rate))
                 line_total_base = line_total * exchange_rate
             else:
-                line_total_base = line_total  # Same currency or no exchange rate
+                line_total_base = line_total
 
             total_value_base += line_total_base
+
+            # Get project name
+            # Get project name from line item level
+            project_name = None
+            if line_item and line_item.project_id:
+                project = db_session.query(Project).filter_by(id=line_item.project_id).first()
+                project_name = f"{project.name} ({project.project_id})" if project else None
 
             entries_data.append({
                 'id': transaction.id,
@@ -523,13 +586,15 @@ def api_stock_movement_history():
                 'line_item_id': line_item.id if line_item else None,
                 'item_name': item.item_name if item else 'Unknown Item',
                 'item_code': item.item_code if item else '',
-                'uom': item.unit_of_measurement.abbreviation,
+                'uom': item.unit_of_measurement.abbreviation if item and item.unit_of_measurement else '',
                 'attribute': attribute.attribute_name if attribute else '',
                 'variation': variation.variation_name if variation else '',
                 'movement_type': transaction.movement_type,
                 'source_type': entry.source_type if entry else 'Manual',
                 'source_id': entry.source_id if entry else 'None',
                 'reference_number': entry.reference if entry else '',
+                'project_id': line_item.project_id if line_item else None,
+                'project_name': project_name,
                 'quantity': transaction.quantity,
                 'running_total': running_total,
                 'running_value_base': running_value_base,
@@ -546,18 +611,16 @@ def api_stock_movement_history():
                 'base_currency_code': base_currency_code,
                 'location': location_name,
                 'location_id': transaction.location_id,
-                'from_location': entry.from_inventory_location.location if entry.from_inventory_location else '',
-                'to_location': entry.to_inventory_location.location if entry.to_inventory_location else '',
+                'from_location': entry.from_inventory_location.location if entry and entry.from_inventory_location else '',
+                'to_location': entry.to_inventory_location.location if entry and entry.to_inventory_location else '',
                 'transaction_date': transaction.transaction_date.strftime('%Y-%m-%d'),
                 'created_at': transaction.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 'created_by': entry.created_user.name if entry and entry.created_user else 'Unknown',
                 'vendor_id': transaction.vendor_id,
-                'project_id': transaction.project_id,
-                'is_posted_to_ledger': transaction.is_posted_to_ledger
+                'vendor_name': transaction.vendor.vendor_name if transaction.vendor else '',
+                'is_posted_to_ledger': transaction.is_posted_to_ledger,
+                'handled_by': f"{entry.handled_by_employee.first_name} {entry.handled_by_employee.last_name}" if entry and entry.handled_by_employee else ''
             })
-
-        # No need to sort again since we already queried in descending order
-        # entries_data is already in the correct order (newest first)
 
         return jsonify({
             'success': True,
@@ -647,7 +710,11 @@ def inventory_entry_detail(entry_id):
         company = db_session.query(Company).filter_by(id=app_id).first()
         modules_data = [mod.module_name for mod in
                         db_session.query(Module).filter_by(app_id=app_id, included='yes').all()]
-
+        # In your view route
+        attachments = db_session.query(Attachment).filter_by(
+            record_type='inventory_entry',
+            record_id=entry.id
+        ).all()
         return render_template(
             'inventory/inventory_entry_details.html',
             entry=entry,
@@ -655,7 +722,8 @@ def inventory_entry_detail(entry_id):
             modules=modules_data,
             role=current_user.role,
             transaction_details=transaction_details,
-            now=datetime.now()
+            now=datetime.now(),
+            attachments=attachments
         )
 
     except Exception as e:
@@ -715,6 +783,7 @@ def edit_inventory_entry(entry_id):
 
                 # Extract form data (same as your original inventory_entry function)
                 movement_type = request.form.get('movement_type', inventory_entry.stock_movement)
+                handled_by = request.form.get('handled_by', inventory_entry.handled_by)
                 source_type = request.form.get('source_type', inventory_entry.source_type)
                 transaction_date = datetime.strptime(request.form['transaction_date'], '%Y-%m-%d').date()
 
@@ -760,7 +829,6 @@ def edit_inventory_entry(entry_id):
                 if movement_type not in ['adjustment', 'missing', 'expired', 'damaged', 'opening_balance']:
                     supplier_id = handle_supplier_logic(request.form, app_id, db_session)
 
-                project_id = request.form.get('project_id') or None
                 expiration_date_str = request.form.get('expiration_date')
                 expiration_date = datetime.strptime(expiration_date_str,
                                                     '%Y-%m-%d').date() if expiration_date_str else None
@@ -803,6 +871,7 @@ def edit_inventory_entry(entry_id):
                 quantities = request.form.getlist('quantity[]')
                 unit_prices = request.form.getlist('unit_price[]')
                 selling_prices = request.form.getlist('selling_price[]') if movement_type != 'out' else unit_prices
+                project_ids = request.form.getlist('project_id[]')
 
                 # Get system quantities and adjustments for adjustment movements
                 system_quantities = request.form.getlist('system_quantity[]') if movement_type == 'adjustment' else None
@@ -819,7 +888,6 @@ def edit_inventory_entry(entry_id):
                 inventory_entry.source_type = source_type
                 inventory_entry.transaction_date = transaction_date
                 inventory_entry.supplier_id = supplier_id
-                inventory_entry.project_id = project_id
                 inventory_entry.expiration_date = expiration_date
                 inventory_entry.currency_id = form_currency_id
                 inventory_entry.reference = reference
@@ -830,6 +898,7 @@ def edit_inventory_entry(entry_id):
                 inventory_entry.sales_account_id = sales_account_id
                 inventory_entry.updated_by = current_user.id
                 inventory_entry.updated_at = datetime.now()
+                inventory_entry.handled_by = handled_by
 
                 # Then process the new entries
                 updated_inventory_entry = process_inventory_entries_for_edit(
@@ -848,7 +917,7 @@ def edit_inventory_entry(entry_id):
                     base_currency_id=base_currency_id,
                     expiration_date=expiration_date,
                     reference=reference,
-                    project_id=project_id,
+                    project_ids=project_ids,
                     movement_type=movement_type,
                     current_user_id=current_user.id,
                     source_type=source_type,
@@ -871,6 +940,9 @@ def edit_inventory_entry(entry_id):
                 inventory_entry.is_posted_to_ledger = True
 
                 inventory_entry.version += 1
+
+                process_attachments(request, 'inventory_entry', entry_id, current_user.id, db_session)
+
                 db_session.commit()
 
                 # Clear cache after modification
@@ -2339,7 +2411,7 @@ def manage_inventory_locations():
 # -----------------------------
 # Add Location
 @inventory_bp.route('/inventory_location/add', methods=['POST'])
-@role_required(['Admin', 'Contributor'])
+@role_required(['Admin'])
 @login_required
 def add_inventory_location():
     try:
@@ -2383,7 +2455,7 @@ def add_inventory_location():
 
 # Edit Location
 @inventory_bp.route('/inventory_location/<int:loc_id>/edit', methods=['POST'])
-@role_required(['Admin', 'Contributor'])
+@role_required(['Admin'])
 @login_required
 def edit_inventory_location(loc_id):
     try:

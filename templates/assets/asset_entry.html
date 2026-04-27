@@ -960,7 +960,7 @@
         // Hide/show location field
         const locationFieldGroup = document.getElementById('location_field_group');
         if (locationFieldGroup) {
-            if (movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal') {
+            if (movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal' || movementType === 'transfer') {
                 locationFieldGroup.style.display = 'none';
                 document.getElementById('location_id').removeAttribute('required');
             } else {
@@ -982,6 +982,7 @@
             }
         });
     }
+
 
     // Call it on page load
     initializeFieldVisibility();
@@ -1293,7 +1294,7 @@
             </div>
             
             <!-- Condition -->
-            <div class="form-row">
+            <div class="form-row" style="display:none;">
                 <div class="form-group">
                     <label for="condition">Initial Condition</label>
                     <select name="condition[]" class="condition-input">
@@ -1309,15 +1310,15 @@
 
     
         <!-- Department field - appears for ALL movement types -->
-<div class="form-group department-field" style="display: ${movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal' ? 'none' : 'block'}">
-    <label for="project_id">Department</label>
-    <select name="project_id[]" class="project-dropdown form-select2" ${movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal' ? '' : 'required'}>
-        <option value="">Select Department</option>
-        {% for project in projects %}
-        <option value="{{ project.id }}">{{ project.name }}</option>
-        {% endfor %}
-    </select>
-</div>
+        <div class="form-group department-field" style="display: ${movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal' ? 'none' : 'block'}">
+            <label for="project_id">Department</label>
+            <select name="project_id[]" class="project-dropdown form-select2" ${movementType === 'sale' || movementType === 'donation_out' || movementType === 'disposal' ? '' : 'required'}>
+                <option value="">Select Department</option>
+                {% for project in projects %}
+                <option value="{{ project.id }}">{{ project.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
 
         
         <!-- Sales-specific fields -->
@@ -1393,10 +1394,10 @@
         </div>
         
         <!-- Transfer-specific fields -->
+        <!-- Transfer-specific fields -->
         <div class="conditional-field transfer-section" 
-             style="display: ${movementType === 'transfer' ? 'block' : 'none'}">
+            style="display: ${movementType === 'transfer' ? 'block' : 'none'}">
             <div class="form-section">
-                <h4>Transfer Details</h4>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="to_location_id">To Location</label>
@@ -1407,19 +1408,9 @@
                             {% endfor %}
                         </select>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="to_department_id">To Department</label>
-                        <select name="to_department_id[]" class="department-dropdown">
-                            <option value="">Select Destination Department</option>
-                            {% for department in departments %}
-                            <option value="{{ department.id }}">{{ department.department_name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
                 </div>
                 
-       
+              
                 
                 <div class="form-group">
                     <label for="transfer_reason">Transfer Reason</label>
@@ -3415,6 +3406,8 @@
             console.log(`Form validation result: ${isValid}`);
             return isValid;
         }
+
+
         // Helper function to check if a field is visible
         function isFieldVisible(field) {
             if (!field) return false;

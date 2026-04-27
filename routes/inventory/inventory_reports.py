@@ -18,6 +18,7 @@ from models import Company, Module, Currency, Project, ChartOfAccounts, PaymentM
     InventoryEntryLineItem, InventoryTransactionDetail, InventorySummary
 import logging
 
+from services.inventory_helpers import get_user_accessible_locations
 from utils import ensure_default_location, generate_unique_lot, create_notification, apply_date_filters
 from utils_and_helpers.cache_keys import stock_list_list_cache_key, stock_list_grid_cache_key
 from utils_and_helpers.cache_utils import clear_stock_list_grid_cache
@@ -34,6 +35,7 @@ def stock_list_list():
     Render stock list page (GET).
     """
     db_session = Session()
+    app_id = current_user.app_id
 
     try:
         # Default parameters for initial page load
@@ -50,10 +52,8 @@ def stock_list_list():
         location_id = request.args.get('location')
         status_filter = request.args.get('status')  # ✅ ADD THIS
         item_id = request.args.get('item')
-        sort_by = request.args.get('sort_by', 'item_name')      # ADD THIS
-        sort_order = request.args.get('sort_order', 'asc')      # ADD THIS
-
-
+        sort_by = request.args.get('sort_by', 'item_name')  # ADD THIS
+        sort_order = request.args.get('sort_order', 'asc')  # ADD THIS
 
         # Ensure proper boolean value
         hide_zero_items = bool(hide_zero_items)
@@ -75,7 +75,12 @@ def stock_list_list():
         attributes = db_session.query(InventoryItemAttribute).filter_by(app_id=current_user.app_id).all()
         variations = db_session.query(InventoryItemVariation).filter_by(app_id=current_user.app_id).all()
         locations = db_session.query(InventoryLocation).filter_by(app_id=current_user.app_id).all()
-        inventory_items = db_session.query(InventoryItemVariationLink).filter_by(app_id=current_user.app_id, status="active").all()
+        inventory_items = db_session.query(InventoryItemVariationLink).join(InventoryItem).filter(
+            InventoryItemVariationLink.app_id == app_id,
+            InventoryItemVariationLink.status == "active"
+        ).order_by(InventoryItem.item_name.asc()).all()
+
+        projects = db_session.query(Project).filter_by(app_id=app_id, is_active=True).all()
 
         # Fetch company details
         company = db_session.query(Company).filter_by(id=current_user.app_id).first()
@@ -88,6 +93,7 @@ def stock_list_list():
             stock_by_category=stock_data or {},
             modules=modules_data or [],
             company=company,
+            projects=projects,
             role=role or 'Viewer',
             filter_applied=filter_applied,
             module_name="Inventory",
@@ -112,7 +118,7 @@ def stock_list_list():
                 'location': location_id or '',
                 'status': status_filter or '',
                 'item_id': item_id or '',
-                'sort_by': sort_by,        # ADD THIS
+                'sort_by': sort_by,  # ADD THIS
                 'sort_order': sort_order
             },
             filter_options={
@@ -166,23 +172,24 @@ def stock_list_filter():
         location_id = data.get('location')
         status_filter = data.get('status')
         item_id = data.get('item')
-        sort_by = data.get('sort_by', 'item_name')      # ADD THIS
+        project_id = data.get('project_id')  # ADD DEPARTMENT FILTER
+        sort_by = data.get('sort_by', 'item_name')
         sort_order = data.get('sort_order', 'asc')
 
         # SMART SWITCHING: Use summary for current stock, transaction history for dates
-        if start_date or end_date_str:
-            # Use transaction-based calculation when dates are provided
+        if start_date or end_date_str or project_id:  # ADD project_id condition - department filtering requires transaction details
+            # Use transaction-based calculation when dates or department filter is provided
             stock_data, pagination_data = _get_stock_list_data_with_dates(
                 db_session, page, per_page, hide_zero_items, start_date, end_date_str,
                 category_id, subcategory_id, brand_id, attribute_id, variation_id,
-                location_id, status_filter, item_id, sort_by, sort_order
+                location_id, status_filter, item_id, project_id, sort_by, sort_order
             )
         else:
-            # Use InventorySummary for current stock (no dates)
+            # Use InventorySummary for current stock (no dates, no department filter)
             stock_data, pagination_data = _get_stock_list_data(
                 db_session, page, per_page, hide_zero_items, start_date, end_date_str,
                 category_id, subcategory_id, brand_id, attribute_id, variation_id,
-                location_id, status_filter, item_id, sort_by, sort_order
+                location_id, status_filter, item_id, project_id, sort_by, sort_order
             )
 
         return jsonify({
@@ -199,7 +206,8 @@ def stock_list_filter():
                 'variation': variation_id,
                 'location': location_id,
                 'status': status_filter,
-                'item': item_id
+                'item': item_id,
+                'project_id': project_id
             }
         }), 200
 
@@ -219,11 +227,28 @@ def stock_list_filter():
 def _get_stock_list_data(db_session, page, per_page, hide_zero_items=False, start_date=None,
                          end_date=None, category_id=None, subcategory_id=None, brand_id=None,
                          attribute_id=None, variation_id=None, location_id=None,
-                         status_filter=None, item_id=None, sort_by='item_name', sort_order='asc'):  # 🔴 ADD item_id
+                         status_filter=None, item_id=None, project_id=None,
+                         sort_by='item_name', sort_order='asc'):
     """
     Retrieve stock list data using InventorySummary for current quantities.
+    Note: InventorySummary doesn't have project_id, so department filter is not available here.
+    Use _get_stock_list_data_with_dates for department filtering.
     """
     app_id = current_user.app_id
+
+    # Get user's accessible locations
+    user_locations = get_user_accessible_locations(current_user.id, app_id)
+    user_location_ids = [loc.id for loc in user_locations]
+
+    if not user_location_ids:
+        return {}, {
+            'page': page,
+            'per_page': per_page,
+            'total_pages': 0,
+            'total_items': 0,
+            'has_next': False,
+            'has_prev': False
+        }
 
     # Build query
     query = db_session.query(
@@ -245,7 +270,7 @@ def _get_stock_list_data(db_session, page, per_page, hide_zero_items=False, star
         InventoryItem.reorder_point,
         InventorySummary.total_quantity.label('total_quantity'),
         UnitOfMeasurement.abbreviation.label('uom'),
-        InventoryItemVariationLink.id.label('variation_link_id')  # Add this for item filtering
+        InventoryItemVariationLink.id.label('variation_link_id')
     ).select_from(InventorySummary).join(
         InventoryItemVariationLink, InventorySummary.item_id == InventoryItemVariationLink.id
     ).join(
@@ -270,14 +295,13 @@ def _get_stock_list_data(db_session, page, per_page, hide_zero_items=False, star
         InventoryItem.status == 'active',
         InventoryCategory.app_id == app_id,
         InventorySubCategory.app_id == app_id,
-        InventoryLocation.app_id == app_id
+        InventoryLocation.app_id == app_id,
+        InventorySummary.location_id.in_(user_location_ids)
     )
 
-    # 🔴 ADD item filter
+    # Apply filters
     if item_id:
         query = query.filter(InventoryItemVariationLink.id == item_id)
-
-    # Apply other filters (same as before)
     if category_id:
         query = query.filter(InventoryCategory.id == category_id)
     if subcategory_id:
@@ -288,15 +312,39 @@ def _get_stock_list_data(db_session, page, per_page, hide_zero_items=False, star
         query = query.filter(InventoryItemAttribute.id == attribute_id)
     if variation_id:
         query = query.filter(InventoryItemVariation.id == variation_id)
+
+    # FIX: Convert location_id to int and verify user access
     if location_id:
-        query = query.filter(InventoryLocation.id == location_id)
+        try:
+            location_id = int(location_id)
+            if location_id not in user_location_ids:
+                return {}, {
+                    'page': page,
+                    'per_page': per_page,
+                    'total_pages': 0,
+                    'total_items': 0,
+                    'has_next': False,
+                    'has_prev': False
+                }
+            query = query.filter(InventoryLocation.id == location_id)
+        except (ValueError, TypeError):
+            # Invalid location_id, return empty
+            return {}, {
+                'page': page,
+                'per_page': per_page,
+                'total_pages': 0,
+                'total_items': 0,
+                'has_next': False,
+                'has_prev': False
+            }
+
     if hide_zero_items:
         query = query.filter(InventorySummary.total_quantity != 0)
 
     # Get ALL results
     all_results = query.all()
 
-    # Process and filter items (same as before, but now with item filter already applied in SQL)
+    # Process and filter items
     all_processed_items = []
     for item in all_results:
         quantity = item.total_quantity or 0
@@ -311,11 +359,11 @@ def _get_stock_list_data(db_session, page, per_page, hide_zero_items=False, star
         else:
             status = 'In Stock'
 
-        # Apply status filter (if provided)
+        # Apply status filter
         if status_filter and status != status_filter:
             continue
 
-        # Create item dictionary (same as before)
+        # Create item dictionary
         item_dict = {
             'id': item.id,
             'item_name': item.item_name,
@@ -338,8 +386,7 @@ def _get_stock_list_data(db_session, page, per_page, hide_zero_items=False, star
         }
         all_processed_items.append(item_dict)
 
-    # Sort, paginate, and return (same as before)
-    # Define sort key functions
+    # Sort all items
     def get_sort_key(item):
         if sort_by == 'item_name':
             return item['item_name']
@@ -356,7 +403,6 @@ def _get_stock_list_data(db_session, page, per_page, hide_zero_items=False, star
         else:
             return item['item_name']
 
-    # Sort all items
     all_processed_items.sort(key=get_sort_key, reverse=(sort_order == 'desc'))
 
     total_items = len(all_processed_items)
@@ -388,11 +434,73 @@ def _get_stock_list_data(db_session, page, per_page, hide_zero_items=False, star
 def _get_stock_list_data_with_dates(db_session, page, per_page, hide_zero_items=False, start_date=None,
                                     end_date=None, category_id=None, subcategory_id=None, brand_id=None,
                                     attribute_id=None, variation_id=None, location_id=None,
-                                    status_filter=None, item_id=None, sort_by='item_name', sort_order='asc'):  # 🔴 ADD item_id parameter
+                                    status_filter=None, item_id=None, project_id=None,
+                                    sort_by='item_name', sort_order='asc'):
     """
-    SIMPLIFIED: Uses a cleaner approach with separate queries to avoid JOIN complexity.
+    Uses transaction-based calculation for date filtering AND department filtering.
     """
     app_id = current_user.app_id
+
+    # Get user's accessible locations
+    user_locations = get_user_accessible_locations(current_user.id, app_id)
+    user_location_ids = [loc.id for loc in user_locations]
+
+    if not user_location_ids:
+        return {}, {
+            'page': page,
+            'per_page': per_page,
+            'total_pages': 0,
+            'total_items': 0,
+            'has_next': False,
+            'has_prev': False
+        }
+
+    # ===== DETERMINE LOCATIONS TO FILTER BY =====
+    # User can only see their assigned locations
+    locations_to_filter = []
+    if location_id:
+        try:
+            location_id = int(location_id)
+            # Verify user has access to this location
+            if location_id not in user_location_ids:
+                return {}, {
+                    'page': page,
+                    'per_page': per_page,
+                    'total_pages': 0,
+                    'total_items': 0,
+                    'has_next': False,
+                    'has_prev': False
+                }
+            locations_to_filter = [location_id]
+        except (ValueError, TypeError):
+            return {}, {
+                'page': page,
+                'per_page': per_page,
+                'total_pages': 0,
+                'total_items': 0,
+                'has_next': False,
+                'has_prev': False
+            }
+    else:
+        # Only use user's assigned locations, not ALL locations
+        locations_to_filter = user_location_ids
+
+    # ===== GET LOCATIONS (ONLY USER'S ASSIGNED ONES) =====
+    locations = db_session.query(InventoryLocation).filter(
+        InventoryLocation.app_id == app_id,
+        InventoryLocation.id.in_(locations_to_filter)
+    ).order_by(InventoryLocation.location).all()
+
+    # If no locations to show, return empty
+    if not locations:
+        return {}, {
+            'page': page,
+            'per_page': per_page,
+            'total_pages': 0,
+            'total_items': 0,
+            'has_next': False,
+            'has_prev': False
+        }
 
     # First get all base items
     base_query = db_session.query(
@@ -444,22 +552,8 @@ def _get_stock_list_data_with_dates(db_session, page, per_page, hide_zero_items=
         base_query = base_query.filter(InventoryItemAttribute.id == attribute_id)
     if variation_id:
         base_query = base_query.filter(InventoryItemVariation.id == variation_id)
-
-    # 🔴 ADD item filter
     if item_id:
         base_query = base_query.filter(InventoryItemVariationLink.id == item_id)
-
-    base_query = base_query.order_by(
-        InventoryCategory.category_name,
-        InventorySubCategory.subcategory_name,
-        InventoryItem.item_name
-    )
-
-    # Get locations
-    locations_query = db_session.query(InventoryLocation).filter(InventoryLocation.app_id == app_id)
-    if location_id:
-        locations_query = locations_query.filter(InventoryLocation.id == location_id)
-    locations = locations_query.order_by(InventoryLocation.location).all()
 
     base_results = base_query.all()
 
@@ -473,11 +567,10 @@ def _get_stock_list_data_with_dates(db_session, page, per_page, hide_zero_items=
             'has_prev': False
         }
 
-    # Get quantities in batch
+    # Get variation link IDs
     variation_link_ids = [r.variation_link_id for r in base_results if r.variation_link_id]
-    location_ids = [loc.id for loc in locations]
 
-    if not variation_link_ids or not location_ids:
+    if not variation_link_ids:
         return {}, {
             'page': page,
             'per_page': per_page,
@@ -487,6 +580,7 @@ def _get_stock_list_data_with_dates(db_session, page, per_page, hide_zero_items=
             'has_prev': False
         }
 
+    # ===== BUILD QUANTITY QUERY =====
     quantity_query = db_session.query(
         InventoryTransactionDetail.item_id,
         InventoryTransactionDetail.location_id,
@@ -494,8 +588,12 @@ def _get_stock_list_data_with_dates(db_session, page, per_page, hide_zero_items=
     ).filter(
         InventoryTransactionDetail.app_id == app_id,
         InventoryTransactionDetail.item_id.in_(variation_link_ids),
-        InventoryTransactionDetail.location_id.in_(location_ids)
+        InventoryTransactionDetail.location_id.in_(locations_to_filter)  # Only user's locations
     )
+
+    # ADD DEPARTMENT FILTER
+    if project_id:
+        quantity_query = quantity_query.filter(InventoryTransactionDetail.project_id == project_id)
 
     if start_date:
         try:
@@ -518,16 +616,18 @@ def _get_stock_list_data_with_dates(db_session, page, per_page, hide_zero_items=
 
     quantity_dict = {(q.item_id, q.location_id): (q.total_quantity or 0) for q in quantity_results}
 
-    # Build ALL items first (no pagination yet)
+    # Build items - ONLY for locations the user has access to
     all_items = []
 
     for base_item in base_results:
         if not base_item.variation_link_id:
             continue
 
+        # Only iterate through locations the user has access to
         for location in locations:
             quantity = quantity_dict.get((base_item.variation_link_id, location.id), 0)
 
+            # Skip zero quantity if hide_zero_items is True
             if hide_zero_items and quantity == 0:
                 continue
 
@@ -544,6 +644,12 @@ def _get_stock_list_data_with_dates(db_session, page, per_page, hide_zero_items=
             # Apply status filter
             if status_filter and status != status_filter:
                 continue
+
+            # IMPORTANT: Only include items that have NON-ZERO quantity OR we're showing zero items
+            # But don't include items with zero quantity from locations without any transactions
+            if not hide_zero_items and quantity == 0:
+                # Still include, but we'll show with Out of Stock status
+                pass
 
             item_data = {
                 'id': base_item.id,
@@ -569,7 +675,6 @@ def _get_stock_list_data_with_dates(db_session, page, per_page, hide_zero_items=
             all_items.append(item_data)
 
     # Sort all items
-    # Define sort key functions
     def get_sort_key(item):
         if sort_by == 'item_name':
             return item['item_name']
@@ -586,7 +691,8 @@ def _get_stock_list_data_with_dates(db_session, page, per_page, hide_zero_items=
         else:
             return item['item_name']
 
-    # Sort all items
+
+
     all_items.sort(key=get_sort_key, reverse=(sort_order == 'desc'))
 
     total_items = len(all_items)
@@ -616,103 +722,6 @@ def _get_stock_list_data_with_dates(db_session, page, per_page, hide_zero_items=
     return paginated_stock_by_category, pagination_data
 
 
-# Inventory Detail version
-# @inventory_bp.route('/stock_list_grid')
-# @login_required
-# @cached_route(timeout=300, key_func=stock_list_grid_cache_key)
-# def stock_list_grid():
-#     db_session = Session()
-#     try:
-#         app_id = current_user.app_id
-#         company = db_session.query(Company).filter_by(id=app_id).first()
-#         role = current_user.role
-#         modules_data = [mod.module_name for mod in
-#                         db_session.query(Module).filter_by(app_id=app_id).filter_by(included='yes').all()]
-#
-#         # Query to get CURRENT stock values grouped by category - USING InventorySummary
-#         results = db_session.query(
-#             InventoryItem.id,
-#             InventoryItem.item_name,
-#             InventoryItem.image_filename,
-#             InventoryCategory.category_name,
-#             InventorySubCategory.subcategory_name,
-#             func.coalesce(func.sum(InventorySummary.total_quantity), 0).label('total_quantity')
-#         ).join(
-#             InventoryCategory, InventoryItem.item_category_id == InventoryCategory.id
-#         ).join(
-#             InventorySubCategory, InventoryItem.item_subcategory_id == InventorySubCategory.id
-#         ).outerjoin(
-#             InventoryItemVariationLink, InventoryItem.id == InventoryItemVariationLink.inventory_item_id
-#         ).outerjoin(
-#             InventorySummary, InventorySummary.item_id == InventoryItemVariationLink.id
-#         ).filter(
-#             InventoryItem.app_id == app_id,
-#             InventoryItem.status == 'active',
-#             # app_id filters
-#             InventoryCategory.app_id == app_id,
-#             InventorySubCategory.app_id == app_id,
-#             or_(
-#                 InventoryItemVariationLink.app_id == app_id,
-#                 InventoryItemVariationLink.id.is_(None)
-#             ),
-#             InventorySummary.app_id == app_id
-#         ).group_by(
-#             InventoryItem.id,
-#             InventoryCategory.category_name,
-#             InventorySubCategory.subcategory_name
-#         ).all()
-#
-#         # Print results for debugging
-#         for item in results:
-#             print(
-#                 f"ItemID: {item.id} Item: {item.item_name}, Quantity: {item.total_quantity}, Image name: {item.image_filename}")
-#
-#         # Organize data by category
-#         stock_by_category = {}
-#         for item in results:
-#             category = item.category_name
-#             if category not in stock_by_category:
-#                 stock_by_category[category] = []
-#
-#             # Determine stock status based on quantity
-#             if item.total_quantity == 0:
-#                 status = 'Out of Stock'
-#             elif item.total_quantity < 0:
-#                 status = 'Negative Stock'
-#             elif item.total_quantity <= 5:  # You can adjust this threshold
-#                 status = 'Low Stock'
-#             else:
-#                 status = 'In Stock'
-#
-#             stock_by_category[category].append({
-#                 'id': item.id,
-#                 'item_name': item.item_name,
-#                 'quantity': item.total_quantity,
-#                 'image_filename': item.image_filename,
-#                 'subcategory_name': item.subcategory_name,
-#                 'status': status
-#             })
-#
-#         return render_template(
-#             'stock_list_grid.html',
-#             stock_by_category=stock_by_category,
-#             modules=modules_data,
-#             company=company,
-#             role=role,
-#             module_name="Inventory"
-#         )
-#
-#     except Exception as e:
-#         # Log the error and show a flash message to the user
-#         logger.error(f"Error retrieving stock list: {e}")
-#         flash("An error occurred while retrieving the stock list. Please try again later.", "error")
-#         return redirect(url_for('dashboard'))
-#
-#     finally:
-#         db_session.close()
-
-# Inventory Summary Version
-
 
 @inventory_bp.route('/stock_list_grid')
 @login_required
@@ -729,7 +738,25 @@ def stock_list_grid():
         # Get hide_zero_items parameter from request
         hide_zero_items = request.args.get('hide_zero_items', 'false').lower() == 'true'
 
-        # Query to get CURRENT stock values grouped by category - USING InventorySummary
+        # ===== GET USER'S ACCESSIBLE LOCATIONS =====
+        user_locations = get_user_accessible_locations(current_user.id, app_id)
+        user_location_ids = [loc.id for loc in user_locations] if user_locations else []
+
+        # If user has no location access, return empty result
+        if not user_location_ids:
+            return render_template(
+                'stock_list_grid.html',
+                stock_by_category={},
+                modules=modules_data,
+                company=company,
+                role=role,
+                module_name="Inventory",
+                hide_zero_items=hide_zero_items,
+                error_message="You don't have access to any inventory locations."
+            )
+
+        # ===== QUERY WITH LOCATION FILTER =====
+        # Query to get CURRENT stock values grouped by category, filtered by user's locations
         query = db_session.query(
             InventoryItem.id,
             InventoryItem.item_name,
@@ -746,12 +773,13 @@ def stock_list_grid():
         ).outerjoin(
             InventorySummary, and_(
                 InventorySummary.item_id == InventoryItemVariationLink.id,
-                InventorySummary.app_id == app_id  # ✅ Add this
+                InventorySummary.app_id == app_id,
+                # ===== ADD LOCATION FILTER =====
+                InventorySummary.location_id.in_(user_location_ids)
             )
         ).filter(
             InventoryItem.app_id == app_id,
             InventoryItem.status == 'active',
-            # app_id filters
             InventoryCategory.app_id == app_id,
             InventorySubCategory.app_id == app_id,
             or_(
@@ -774,11 +802,6 @@ def stock_list_grid():
 
         results = query.all()
 
-        # Print results for debugging
-        for item in results:
-            print(
-                f"ItemID: {item.id} Item: {item.item_name}, Quantity: {item.total_quantity}, Image name: {item.image_filename}")
-
         # Organize data by category
         stock_by_category = {}
         for item in results:
@@ -791,7 +814,7 @@ def stock_list_grid():
                 status = 'Out of Stock'
             elif item.total_quantity < 0:
                 status = 'Negative Stock'
-            elif item.total_quantity <= 5:  # You can adjust this threshold
+            elif item.total_quantity <= 5:
                 status = 'Low Stock'
             else:
                 status = 'In Stock'
@@ -812,11 +835,10 @@ def stock_list_grid():
             company=company,
             role=role,
             module_name="Inventory",
-            hide_zero_items=hide_zero_items  # Pass to template
+            hide_zero_items=hide_zero_items
         )
 
     except Exception as e:
-        # Log the error and show a flash message to the user
         logger.error(f"Error retrieving stock list: {e}")
         flash("An error occurred while retrieving the stock list. Please try again later.", "error")
         return redirect(url_for('dashboard'))

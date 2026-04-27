@@ -67,8 +67,8 @@
                                 <th>Type</th>
                                 <th>From</th>
                                 <th>To</th>
+                                <th class="text-center">Department</th>
                                 <th>Party</th>
-                                <th class="text-end" style="width: 100px;">Value</th>
                             </tr>
                         </thead>
                         <tbody id="lineItemsBody">
@@ -136,44 +136,52 @@
 
             let html = '';
             items.forEach((item, index) => {
-                // Compact from/to
-                let fromParts = [];
-                if (item.from_location_name) fromParts.push(`📍 ${item.from_location_name}`);
-                if (item.from_department_name) fromParts.push(`🏢 ${item.from_department_name}`);
+                // From location display - shows where asset came from
+                let fromDisplay = '—';
+                if (item.from_location_name && item.from_department_name) {
+                    fromDisplay = `${item.from_location_name} (${item.from_department_name})`;
+                } else if (item.from_location_name) {
+                    fromDisplay = item.from_location_name;
+                } else if (item.from_department_name) {
+                    fromDisplay = item.from_department_name;
+                }
 
-                let toParts = [];
-                if (item.to_location_name) toParts.push(`📍 ${item.to_location_name}`);
-                if (item.to_department_name) toParts.push(`🏢 ${item.to_department_name}`);
-                if (item.assigned_to_name) toParts.push(`👤 ${item.assigned_to_name}`);
+                // To location display - shows where asset went to
+                let toDisplay = '—';
+                if (item.to_location_name && item.to_department_name) {
+                    toDisplay = `${item.to_location_name} (${item.to_department_name})`;
+                } else if (item.to_location_name) {
+                    toDisplay = item.to_location_name;
+                } else if (item.to_department_name) {
+                    toDisplay = item.to_department_name;
+                } else if (item.assigned_to_name) {
+                    toDisplay = `Assigned to: ${item.assigned_to_name}`;
+                }
 
                 html += `
-            <tr>
-                <td class="fw-light text-muted">${index + 1}</td>
-                <td>
-                    <div class="d-flex flex-column">
-                        <span class="fw-medium">${item.asset_tag || '—'}</span>
-                        ${item.asset_status ? `<span class="badge bg-light text-dark mt-1" style="font-size: 0.65rem;">${item.asset_status}</span>` : ''}
-                    </div>
-                </td>
-                <td><span style="font-family: monospace; font-size: 0.8rem;">${item.serial_number || '—'}</span></td>
-                <td>
-                    ${item.asset_item_name || '—'}
-                    ${item.asset_item_code ? `<br><span class="text-muted" style="font-size: 0.7rem;">${item.asset_item_code}</span>` : ''}
-                </td>
-                <td><span style="font-size: 0.8rem;">${fromParts.join('<br>') || '—'}</span></td>
-                <td><span style="font-size: 0.8rem;">${toParts.join('<br>') || '—'}</span></td>
-                <td><span style="font-size: 0.8rem;">${item.party_name || '—'}</span></td>
-                <td class="text-end">
-                    <span class="fw-medium">${formatNumber(item.transaction_value)}</span>
-                    <br><span class="text-muted" style="font-size: 0.7rem;">${currencyCode || BASE_CURRENCY_CODE}</span>
-                </td>
-            </tr>
-            `;
+        <tr>
+            <td class="fw-light text-muted">${index + 1}</td>
+            <td>
+                <div class="d-flex flex-column">
+                    <span class="fw-medium">${item.asset_tag || '—'}</span>
+                    ${item.asset_status ? `<span class="badge bg-light text-dark mt-1" style="font-size: 0.65rem;">${item.asset_status}</span>` : ''}
+                </div>
+            </td>
+            <td><span style="font-family: monospace; font-size: 0.8rem;">${item.serial_number || '—'}</span></td>
+            <td>
+                ${item.asset_item_name || '—'}
+                ${item.asset_item_code ? `<br><span class="text-muted" style="font-size: 0.7rem;">${item.asset_item_code}</span>` : ''}
+            </td>
+            <td><span style="font-size: 0.8rem;">${fromDisplay}</span></td>
+            <td><span style="font-size: 0.8rem;">${toDisplay}</span></td>
+            <td class="text-center"><span class="badge bg-info">${item.project_name || '—'}</span></td>
+            <td><span style="font-size: 0.8rem;">${item.party_name || '—'}</span></td>
+         `
+                    ;
             });
 
             tbody.innerHTML = html;
         }
-
         // Utility functions
         function formatDate(dateStr) {
             if (!dateStr) return '-';

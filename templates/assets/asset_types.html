@@ -19,10 +19,8 @@
                     {% if role == 'Admin' or role == 'Supervisor' or role == 'Viewer' %}
                     <li><a href="{{ url_for('assets.asset_types') }}">Asset Types</a></li>
                     {% endif %}
-                    {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
-                    <li><a href="{{ url_for('assets.asset_entry') }}">New Asset</a></li>
-                    {% endif %}
-                    <li><a href="#">Asset List</a></li>
+
+                    <li><a href="{{ url_for('assets.asset_list') }}">Asset List</a></li>
                 </ul>
             </nav>
         </div>
@@ -75,9 +73,7 @@
         <!-- Dashboard Shortcuts for Navigation -->
         <nav aria-label="dashboard-shortcuts">
             <ol class="dashboard-shortcuts">
-                {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
-                <li class="shortcut-item"><a href="{{ url_for('assets.asset_entry') }}">New Asset</a></li>
-                {% endif %}
+
 
                 {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
                 <li class="shortcut-item"><a href="{{ url_for('assets.add_new_asset_type') }}">New Asset Type</a></li>

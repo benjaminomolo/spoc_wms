@@ -430,9 +430,6 @@
                     <p>Party: <span id="summarysupplier">-</span></p>
                 </div>
 
-                <div class="currency-section" style="display: none;">
-                    <p>Currency: <span id="summaryCurrency">-</span></p>
-                </div>
                 <p>Movement Type: <span id="summaryMovementType">-</span></p>
                 <p>Total Items: <span id="totalItems">0</span></p>
 
@@ -636,26 +633,12 @@
 
                     </div>
 
-
-                    <div class="form-group" style="display: none;">
-                        <div class="form-group">
-                            <input type="hidden" id="is_one_time_hidden" name="is_one_time" value="0" />
-                        </div>
-                        <div class="form-group conditional-field currency-section" id="currency_section">
-                            <label for="currency">Currency <span class="required">*</span></label>
-                            <select id="currency" name="currency" required disabled>
-                                <option value="">Select Currency</option>
-                                {% for currency in currencies %}
-                                {% if currency.currency_index == 1 %}
-                                <option value="{{ currency.id }}" selected>
-                                    {{ currency.user_currency }}
-                                </option>
-                                {% endif %}
-                                {% endfor %}
-                            </select>
-                            <input type="hidden" name="currency" value="{{ base_currency_id }}" />
-                        </div>
+                    <div class="form-group">
+                        <input type="hidden" id="is_one_time_hidden" name="is_one_time" value="0" />
                     </div>
+
+
+
                     <div class="form-section">
 
 
@@ -1116,8 +1099,6 @@
 
         const supplierInput = document.getElementById('supplier_id');
 
-        // Define element groups to toggle
-        const priceElements = ['.price-container', '.line-item-total.conditional-field', '.summary-details', '.currency-section', '.party-section'];
 
         const fromLocationSelect = document.getElementById('location');
         const toLocationSelect = document.getElementById('to_location');
@@ -1200,8 +1181,7 @@
                 if (
                     field.id !== 'movement_type' &&
                     field.id !== 'reference' &&
-                    field.id !== 'transaction_date' &&
-                    field.id !== 'currency'
+                    field.id !== 'transaction_date'
                 ) {
 
                     if (field.tagName.toLowerCase() === 'select') {
@@ -1396,10 +1376,13 @@
 
 
 
-
         function updateFormVisibility(movementType) {
             const sourceType = document.getElementById('source_type').value;
             const isDonation = sourceType === 'donation';
+            // Get label elements (these exist in your HTML already)
+            const locationLabel = document.getElementById('location_label');
+            const toLocationLabel = document.getElementById('to_location_label');
+
 
             // Reset all conditional fields
             document.querySelectorAll('.conditional-field').forEach(field => {
@@ -1414,22 +1397,13 @@
                 case 'in':
                     document.getElementById('source_type_group').classList.add('visible');
                     document.getElementById('supplier_group').classList.add('visible');
-                    document.getElementById('payment_mode_group').classList.add('visible');
-                    document.getElementById('currency_section').classList.add('visible');
                     document.getElementById('write_off_reason_group').classList.remove('visible');
-                    // Unit price and selling price to be displayed
 
-                    // Show price containers for all line items
-                    toggleElementGroups('block', priceElements);
-                    // Only show accounting-related fields if not donation
+                    // JUST CHANGE THE LABEL TEXT - ID stays "location"
+                    if (locationLabel) locationLabel.textContent = 'Receiving Location:';
 
 
-                    // Hide price elements for donations
-                    if (isDonation) {
-                        toggleElementGroups('none', priceElements);
-                    } else {
-                        toggleElementGroups('block', priceElements);
-                    }
+
 
                     document.querySelectorAll('.selling-price-group').forEach(container => {
                         container.style.display = 'block';
@@ -1447,13 +1421,12 @@
                     // Sales/usage might need different accounting treatment
                     document.getElementById('supplier_group').classList.add('visible');
                     document.getElementById('write_off_reason_group').classList.remove('visible');
-                    toggleElementGroups('block', priceElements);
 
-                    // Hide Unit Price price containers for all line items
-                    document.querySelectorAll('.selling-price-group').forEach(container => {
-                        container.style.display = 'none';
+                    // JUST CHANGE THE LABEL TEXT - ID stays "location"
+                    if (locationLabel) locationLabel.textContent = 'Dispatching Location:';
 
-                    });
+
+
 
                     if (supplierLabel) {
                         supplierLabel.textContent = 'Recipient:';
@@ -1464,12 +1437,12 @@
                 case 'stock_out_write_off':
                     // Sales/usage might need different accounting treatment
 
-                    toggleElementGroups('none', priceElements);
-
                     // 🆕 FIX THIS LINE - use classList instead of style
                     document.getElementById('write_off_reason_group').classList.add('visible');
 
-
+                    // JUST CHANGE THE LABEL TEXT - ID stays "location"
+                    if (locationLabel) locationLabel.textContent = 'Write-off Location:';
+                    break;
 
                     break;
 
@@ -1479,14 +1452,15 @@
 
                     document.getElementById('to_location_group').classList.add('visible');
                     document.getElementById('write_off_reason_group').classList.remove('visible');
+                    // CHANGE BOTH LABELS but keep their IDs
+                    if (locationLabel) locationLabel.textContent = 'From Location:';
+                    if (toLocationLabel) toLocationLabel.textContent = 'To Location:';
 
                     // Show price-related elements for sales/usage
-                    toggleElementGroups('none', priceElements);
                     break;
 
                 case 'adjustment':
-                    // Show price-related elements for sales/usage
-                    toggleElementGroups('none', priceElements);
+
                     break;
 
                 case 'missing':
@@ -1494,17 +1468,19 @@
                 case 'expired':
                     // Missing items might need write-off accounting
                     // Show adjustment account for missing items (write-off)
+
                     document.getElementById('write_off_reason_group').classList.remove('visible');
-                    toggleElementGroups('none', priceElements);
+
                     break;
 
                 case 'opening_balance':
 
-                    toggleElementGroups('block', priceElements);
-
                     if (partySummary) {
                         partySummary.style.display = 'none';
                     }
+
+                    if (locationLabel) locationLabel.textContent = 'Location:';
+                    if (toLocationLabel) toLocationLabel.textContent = 'To Location:';
 
 
                     break;
@@ -1549,9 +1525,6 @@
                         }
 
 
-                        // Hide unit price and selling price for adjustments
-
-                        toggleElementGroups('none', priceElements);
 
                         if (adjustmentDisplay) {
                             adjustmentDisplay.style.display = 'block';
@@ -1561,9 +1534,6 @@
                         break;
 
                     case 'in':
-
-                        // Show price containers for all line items
-                        toggleElementGroups('block', priceElements);
 
                         if (quantityLabel) {
                             quantityLabel.textContent = 'Quantity:';
@@ -1584,11 +1554,6 @@
 
 
 
-                        // Hide price elements for donations
-                        if (isDonation) {
-                            toggleElementGroups('none', priceElements);
-                        }
-
                         break;
 
                     case 'stock_out_sale':
@@ -1607,9 +1572,6 @@
                         }
 
 
-
-                        // Hide price container for adjustments
-                        toggleElementGroups('block', priceElements);
 
                         if (adjustmentDisplay) {
                             adjustmentDisplay.style.display = 'none';
@@ -1633,10 +1595,6 @@
 
 
 
-
-                        // Hide price container for adjustments
-                        toggleElementGroups('none', priceElements);
-
                         if (adjustmentDisplay) {
                             adjustmentDisplay.style.display = 'none';
                         }
@@ -1648,8 +1606,6 @@
 
 
                     case 'opening_balance':
-
-                        toggleElementGroups('block', priceElements);
 
                         if (sellingPriceLabel) {
                             sellingPriceLabel.textContent = 'Unit Price:';
@@ -1676,7 +1632,6 @@
 
 
                     case 'transfer':
-                        toggleElementGroups('none', priceElements);
 
                         if (quantityLabel) {
                             quantityLabel.textContent = 'Quantity to Transfer';
@@ -1688,7 +1643,6 @@
 
                     case 'missing':
 
-                        toggleElementGroups('none', priceElements);
 
                         if (quantityLabel) {
                             quantityLabel.textContent = 'Quantity missing';
@@ -1699,7 +1653,6 @@
                         break;
 
                     case 'damaged':
-                        toggleElementGroups('none', priceElements);
 
                         if (quantityLabel) {
                             quantityLabel.textContent = 'Quantity Damaged';
@@ -1709,7 +1662,6 @@
                         }
                         break;
                     case 'expired':
-                        toggleElementGroups('none', priceElements);
 
                         if (quantityLabel) {
                             quantityLabel.textContent = 'Quantity Expired';
@@ -1732,9 +1684,6 @@
                         if (sellingPriceLabel) {
                             sellingPriceLabel.textContent = 'Selling Price (Optional)';
                         }
-
-                        // Hide price container for adjustments
-                        toggleElementGroups('block', priceElements);
 
                         if (adjustmentDisplay) {
                             adjustmentDisplay.style.display = 'none';
@@ -1765,15 +1714,11 @@
             // Update totals in the summary
             document.getElementById('totalItems').textContent = document.querySelectorAll('.line-item').length;
 
-            // Optionally, update the supplier and currency section
             const supplierInput = document.getElementById('supplier_name');
-            const currencySelect = document.getElementById('currency');
 
             const supplierName = supplierInput.value.trim();
             document.getElementById('summarysupplier').textContent = supplierName || '-';
 
-            const currencyText = currencySelect.options[currencySelect.selectedIndex].text;
-            document.getElementById('summaryCurrency').textContent = currencyText || '-';
 
         }
 
@@ -1790,7 +1735,6 @@
 
 
 
-        // Enhanced validation function that considers field visibility
         // Enhanced validation function that considers field visibility
         function validateForm() {
             const movementType = document.getElementById('movement_type').value;
@@ -1817,22 +1761,34 @@
             // Movement-specific validations
             switch (movementType) {
                 case 'in':
-                    // Validate supplier for purchases
-                    if (isFieldVisible(document.getElementById('supplier_group')) && !document.getElementById('supplier_id').value) {
-                        isValid = false;
-                        document.getElementById('supplier_name').style.border = '2px solid red';
-                        errorMessages.push('Supplier is required for stock in movements');
+                    // Check if supplier group is visible
+                    if (isFieldVisible(document.getElementById('supplier_group'))) {
+                        const supplierId = document.getElementById('supplier_id').value;
+                        const supplierName = document.getElementById('supplier_name').value.trim();
+
+                        if (!supplierId && !supplierName) {
+                            isValid = false;
+                            document.getElementById('supplier_name').style.border = '2px solid red';
+                            errorMessages.push('Supplier/Vendor is required for stock in movements');
+                        }
                     }
                     break;
 
-                case 'out':
-                    // Validate sales account for stock out
-                    if (isFieldVisible(document.getElementById('sales_account_section')) && !document.getElementById('sales_account').value) {
-                        isValid = false;
-                        document.getElementById('sales_account').style.border = '2px solid red';
-                        errorMessages.push('Sales account is required for stock out movements');
+
+                case 'stock_out_sale':
+                    if (isFieldVisible(document.getElementById('supplier_group'))) {
+                        const supplierId = document.getElementById('supplier_id').value;
+                        const supplierName = document.getElementById('supplier_name').value.trim();
+
+                        if (!supplierId && !supplierName) {
+                            isValid = false;
+                            document.getElementById('supplier_name').style.border = '2px solid red';
+                            errorMessages.push('Recipient is required for stock out movements');
+                        }
                     }
                     break;
+
+
 
 
                 case 'transfer':
@@ -1854,16 +1810,12 @@
             }
 
             // Validate line item details
+            // Validate line item details
             lineItems.forEach((lineItem, index) => {
                 const itemSelect = lineItem.querySelector('.inventory-dropdown');
                 const quantityInput = lineItem.querySelector('input[name="quantity[]"]');
                 const uomSelect = lineItem.querySelector('input[name="uom[]"]');
-
-
-                // Check if price fields should be validated based on visibility
-                const priceContainer = lineItem.querySelector('.price-container');
-                const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
-                const shouldValidatePrice = priceContainer && priceContainer.style.display !== 'none';
+                const departmentSelect = lineItem.querySelector('.project-dropdown'); // ADD THIS
 
                 if (!itemSelect?.value) {
                     isValid = false;
@@ -1877,10 +1829,13 @@
                     errorMessages.push(`Valid quantity is required for line item ${index + 1}`);
                 }
 
-
-
+                // ADD DEPARTMENT VALIDATION
+                if (departmentSelect && !departmentSelect.value) {
+                    isValid = false;
+                    departmentSelect.style.border = '2px solid red';
+                    errorMessages.push(`Department is required for line item ${index + 1}`);
+                }
             });
-
             // Show error messages if any
             if (!isValid && errorMessages.length > 0) {
                 showNotification(errorMessages.join('<br>'), 'error');
@@ -1888,6 +1843,7 @@
 
             return isValid;
         }
+
 
         // Helper function to check if a field is visible
         function isFieldVisible(field) {
@@ -1919,7 +1875,6 @@
 
 
         // Helper function to dynamically update required attributes based on visibility
-        // Helper function to dynamically update required attributes based on visibility
         function updateRequiredAttributes() {
             const movementType = document.getElementById('movement_type').value;
 
@@ -1927,12 +1882,7 @@
             const conditionalRequiredFields = [
                 '#supplier_name',
                 '#to_location',
-                '#payable_account',
-                '#adjustment_account',
-                '#currency',
-                '#sales_account',
-                '#write_off_reason'  // 🆕 ADD THIS LINE
-
+                '#write_off_reason'
             ];
 
             conditionalRequiredFields.forEach(selector => {
@@ -1946,34 +1896,21 @@
                 }
             });
 
-            // Handle line item required fields
-            document.querySelectorAll('.line-item').forEach(lineItem => {
-                const priceContainer = lineItem.querySelector('.price-container');
-                const unitPriceInput = lineItem.querySelector('input[name="unit_price[]"]');
-                const sellingPriceInput = lineItem.querySelector('input[name="selling_price[]"]');
+            // Make department (project_id) required for ALL line items
+            document.querySelectorAll('.project-dropdown').forEach((departmentSelect, index) => {
+                const lineItem = departmentSelect.closest('.line-item');
+                if (lineItem) {
+                    // Check if the line item is visible (not removed)
+                    if (lineItem.offsetParent !== null) {
+                        departmentSelect.setAttribute('required', 'required');
 
-                // For adjustment and transfer movements, remove required attribute from price fields
-                if (movementType === 'adjustment' || movementType === 'transfer') {
-                    if (unitPriceInput) {
-                        unitPriceInput.removeAttribute('required');
-                    }
-                    if (sellingPriceInput) {
-                        sellingPriceInput.removeAttribute('required');
-                    }
-                } else {
-                    // For other movements, set required based on visibility
-                    if (unitPriceInput) {
-                        if (priceContainer && priceContainer.style.display !== 'none') {
-                            unitPriceInput.setAttribute('required', 'required');
-                        } else {
-                            unitPriceInput.removeAttribute('required');
-                        }
-                    }
-                    if (sellingPriceInput) {
-                        if (priceContainer && priceContainer.style.display !== 'none') {
-                            sellingPriceInput.setAttribute('required', 'required');
-                        } else {
-                            sellingPriceInput.removeAttribute('required');
+                        // Add visual indicator
+                        const formGroup = departmentSelect.closest('.form-group');
+                        if (formGroup && !formGroup.querySelector('.required-star')) {
+                            const label = formGroup.querySelector('label');
+                            if (label && !label.innerHTML.includes('*')) {
+                                label.innerHTML = label.textContent + ' <span class="required-star" style="color: red;">*</span>';
+                            }
                         }
                     }
                 }
@@ -2102,11 +2039,6 @@
         });
 
 
-        document.getElementById('currency').addEventListener('change', function () {
-            updateSummary();
-            updateRequiredAttributes(); // Add this line to update required status when currency changes
-        });
-
 
 
         // Initialize required attributes on page load
@@ -2145,7 +2077,6 @@
 
 
         document.getElementById('supplier_name').addEventListener('input', updateSummary);
-        document.getElementById('currency').addEventListener('change', updateSummary);
 
         // Also, add event listeners for other fields that trigger the summary update
         document.querySelectorAll('.line-item input').forEach(input => {
@@ -2153,7 +2084,6 @@
         });
 
         document.getElementById('supplier_id').addEventListener('input', updateSummary);
-        document.getElementById('currency').addEventListener('change', updateSummary);
 
         // Add Line Item Functionality 
         // Add Line Item Functionality 
@@ -2614,8 +2544,6 @@
                     'is_one_time',
                     'location',
                     'to_location',
-                    'currency',
-                    'payment_mode',
                     'amount_paid',
                     'funding_account',
                     'payable_account',
@@ -2722,8 +2650,7 @@
                 document.getElementById('lineItemsContainer').innerHTML = '';
 
                 // List of fields to preserve (movement type only in this case)
-                // Preserve movement type, transaction date, and currency
-                const fieldsToPreserve = ['movement_type', 'transaction_date', 'currency'];
+                const fieldsToPreserve = ['movement_type', 'transaction_date'];
 
 
                 // Reset all form fields
@@ -2799,7 +2726,6 @@
             // Helper function to reset specific elements
             // Helper function to reset specific elements
             function resetSpecificElements() {
-                // Reset hidden fields (exclude currency)
                 if (document.getElementById('supplier_id')) {
                     document.getElementById('supplier_id').value = '';
                 }
@@ -2807,22 +2733,13 @@
                     document.getElementById('is_one_time_hidden').value = '0';
                 }
 
-                // Reset Select2 dropdowns except currency
                 const select2Selectors = [
                     '.inventory-dropdown',
                     '.account-dropdown',
-                    '#source_type',
-                    '#payment_mode'
+                    '#source_type'
                 ];
 
-                select2Selectors.forEach(selector => {
-                    const elements = document.querySelectorAll(selector);
-                    elements.forEach(el => {
-                        if (el.id !== 'currency' && $(el).hasClass('select2-hidden-accessible')) {
-                            $(el).val('').trigger('change');
-                        }
-                    });
-                });
+
 
                 // Clear any dynamic datalist dropdowns
                 const dynamicDropdowns = document.querySelectorAll('datalist');

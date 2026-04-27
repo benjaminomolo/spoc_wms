@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+import pandas as pd
 import traceback
 from collections import defaultdict
 from decimal import Decimal
@@ -34,6 +35,7 @@ from models import PayrollPeriod, Company, PayrollTransaction, Deduction, Benefi
 from report_routes import calculate_account_summary, get_bank_transactions, get_latest_exchange_rate, \
     get_historical_exchange_rate, calculate_net_income, convert_amount
 from services.chart_of_accounts_helpers import get_retained_earnings_account_id
+from services.inventory_helpers import get_user_accessible_locations
 from utils import get_cash_balances, is_cash_related, get_cash_balances_with_base, get_monetary_accounts, \
     calculate_fx_revaluation, get_item_details, get_converted_cost
 from utils_and_helpers.amounts_utils import format_amount
@@ -7854,33 +7856,38 @@ def download_account_transactions():
         logger.error(f"Error generating account transactions PDF report: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to generate report"}), 500
 
-
 @download_route.route('/download_stock_movement_history', methods=['POST'])
 @login_required
 def download_stock_movement_history():
     """
     Download stock movement history as PDF with filtering
-    Using the new InventoryTransactionDetail model (same as API)
     """
     db_session = Session()
     app_id = current_user.app_id
+    user_id = current_user.id
 
     try:
-        # Get filter parameters from request
         filters = request.get_json() or {}
 
-        # Extract and validate filters
+        # Extract filters
         item_id = filters.get('item_id')
         reference = filters.get('reference', '')
         location_id = filters.get('location_id')
+        project_id = filters.get('project_id')
         movement_type = filters.get('movement_type', '')
         source_type = filters.get('source_type', '')
         start_date = filters.get('start_date', '')
         end_date = filters.get('end_date', '')
 
-        # Build base query with joins - use InventoryTransactionDetail (same as API)
-        query = db_session.query(InventoryTransactionDetail) \
-            .join(
+        # Get user's accessible locations
+        user_locations = get_user_accessible_locations(user_id, app_id)
+        user_location_ids = [loc.id for loc in user_locations] if user_locations else []
+
+        if not user_location_ids:
+            return generate_empty_pdf_response(start_date, end_date, message="You don't have access to any locations.")
+
+        # Build query
+        query = db_session.query(InventoryTransactionDetail).join(
             InventoryEntryLineItem,
             InventoryTransactionDetail.inventory_entry_line_item_id == InventoryEntryLineItem.id
         ).join(
@@ -7889,42 +7896,30 @@ def download_stock_movement_history():
         ).join(
             InventoryItemVariationLink,
             InventoryTransactionDetail.item_id == InventoryItemVariationLink.id
-        ).options(
-            joinedload(InventoryTransactionDetail.inventory_entry_line_item)
-            .joinedload(InventoryEntryLineItem.inventory_entry)
-            .joinedload(InventoryEntry.created_user),
-            joinedload(InventoryTransactionDetail.inventory_item_variation_link)
-            .joinedload(InventoryItemVariationLink.inventory_item),
-            joinedload(InventoryTransactionDetail.inventory_item_variation_link)
-            .joinedload(InventoryItemVariationLink.inventory_item_attributes),
-            joinedload(InventoryTransactionDetail.inventory_item_variation_link)
-            .joinedload(InventoryItemVariationLink.inventory_item_variation),
-            joinedload(InventoryTransactionDetail.location)
-        ).filter(InventoryTransactionDetail.app_id == app_id)
+        ).filter(
+            InventoryTransactionDetail.app_id == app_id,
+            InventoryTransactionDetail.location_id.in_(user_location_ids)
+        )
 
-        # Apply filters (same as API)
+        # Apply filters
         if item_id:
             query = query.filter(InventoryTransactionDetail.item_id == item_id)
-
-        if location_id:
+        if location_id and location_id in user_location_ids:
             query = query.filter(InventoryTransactionDetail.location_id == location_id)
-
         if movement_type:
             query = query.filter(InventoryTransactionDetail.movement_type == movement_type)
-
         if reference:
             query = query.filter(InventoryEntry.reference == reference)
-
         if source_type:
             query = query.filter(InventoryEntry.source_type == source_type)
-
+        if project_id:
+            query = query.filter(InventoryEntryLineItem.project_id == project_id)
         if start_date:
             try:
                 start_date_obj = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
                 query = query.filter(func.date(InventoryTransactionDetail.transaction_date) >= start_date_obj)
             except ValueError:
                 pass
-
         if end_date:
             try:
                 end_date_obj = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -7932,68 +7927,192 @@ def download_stock_movement_history():
             except ValueError:
                 pass
 
-        # Get all entries without pagination for download - sorted newest first
+        # Get all transactions
         transaction_details = query.order_by(
-            InventoryTransactionDetail.transaction_date.desc(),  # Changed to desc for newest first
-            InventoryTransactionDetail.id.desc()  # Changed to desc for newest first
+            InventoryTransactionDetail.transaction_date.desc(),
+            InventoryTransactionDetail.id.desc()
         ).all()
 
         if not transaction_details:
             return generate_empty_pdf_response(start_date, end_date)
 
-        # For running totals, we need to process in chronological order first
-        # So we'll create a temporary chronological list for calculation
-        chronological_transactions = sorted(
-            transaction_details,
-            key=lambda x: (x.transaction_date, x.id)
-        )
-
-        # Calculate running totals (same logic as API) - using chronological order
+        # Calculate running totals (chronological order first)
+        chronological = sorted(transaction_details, key=lambda x: (x.transaction_date, x.id))
         running_totals = {}
         transaction_running_totals = {}
 
-        for transaction in chronological_transactions:
-            item_variation_key = transaction.item_id
+        for trans in chronological:
+            key = trans.item_id
+            running_totals[key] = running_totals.get(key, 0) + trans.quantity
+            transaction_running_totals[trans.id] = running_totals[key]
 
-            # Initialize running totals for this item variation if not exists
-            if item_variation_key not in running_totals:
-                running_totals[item_variation_key] = 0
+        # Prepare PDF data
+        pdf_data = []
+        source_map = {
+            'purchase': 'Receipt', 'sale': 'Dispatch', 'transfer': 'Transfer',
+            'adjustment': 'Adjustment', 'opening_balance': 'Opening Stock',
+            'write_off': 'Write Off', 'missing': 'Missing', 'damaged': 'Damaged',
+            'expired': 'Expired', 'manual': 'Manual'
+        }
 
-            # Calculate quantity impact
-            quantity_impact = transaction.quantity
+        for trans in transaction_details:
+            line_item = trans.inventory_entry_line_item
+            entry = line_item.inventory_entry if line_item else None
+            variation_link = trans.inventory_item_variation_link
+            item = variation_link.inventory_item if variation_link else None
 
-            # Update running totals
-            running_totals[item_variation_key] += quantity_impact
+            # Location display
+            if trans.movement_type == 'transfer' and entry:
+                from_loc = entry.from_inventory_location.location if entry.from_inventory_location else '-'
+                to_loc = entry.to_inventory_location.location if entry.to_inventory_location else '-'
+                location_display = f"{from_loc} → {to_loc}"
+            else:
+                location_display = trans.location.location if trans.location else '-'
 
-            # Store the running totals at the time of this transaction
-            transaction_running_totals[transaction.id] = running_totals[item_variation_key]
+            # Department
+            department = '-'
+            if line_item and line_item.project_id:
+                project = db_session.query(Project).filter_by(id=line_item.project_id).first()
+                department = project.name if project else '-'
 
-        # Prepare data for PDF - using the original newest-first order
-        pdf_data = prepare_pdf_data(db_session, transaction_details, transaction_running_totals)
+            # Party name
+            party = '-'
+            if entry and entry.source_type in ['purchase', 'sale'] and entry.source_id:
+                vendor = db_session.query(Vendor).filter_by(id=entry.source_id).first()
+                party = vendor.vendor_name if vendor else '-'
+
+            # Handled by
+            handled_by = '-'
+            if entry and entry.handled_by_employee:
+                handled_by = f"{entry.handled_by_employee.first_name} {entry.handled_by_employee.last_name}".strip()
+
+            pdf_data.append({
+                'date': trans.transaction_date.strftime('%Y-%m-%d'),
+                'source': source_map.get(entry.source_type if entry else 'manual', 'Manual'),
+                'movement_type': trans.movement_type.replace('_', ' ').title() if trans.movement_type else '-',
+                'reference': entry.reference if entry else '-',
+                'item_name': item.item_name if item else '-',
+                'attribute': variation_link.inventory_item_attributes.attribute_name if variation_link and variation_link.inventory_item_attributes else '-',
+                'variation': variation_link.inventory_item_variation.variation_name if variation_link and variation_link.inventory_item_variation else '-',
+                'uom': item.unit_of_measurement.abbreviation if item and item.unit_of_measurement else '-',
+                'quantity': trans.quantity,
+                'running_total': transaction_running_totals.get(trans.id, 0),
+                'location': location_display,
+                'department': department,
+                'party': party,
+                'handled_by': handled_by
+            })
 
         # Generate PDF
-        buffer = generate_pdf_buffer(pdf_data, filters)
+        buffer = generate_movement_history_pdf(pdf_data, filters)
+        filename = f"stock_movement_history_{start_date}_to_{end_date}.pdf" if start_date or end_date else "stock_movement_history.pdf"
 
-        # Generate filename
-        filename = generate_filename(start_date, end_date)
-
-        return send_file(
-            buffer,
-            as_attachment=True,
-            download_name=filename,
-            mimetype='application/pdf'
-        )
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
     except Exception as e:
         logger.error(f"Error generating stock movement history PDF: {str(e)}\n{traceback.format_exc()}")
-        return jsonify({
-            'success': False,
-            'message': 'An error occurred while generating the PDF report'
-        }), 500
-
+        return jsonify({'success': False, 'message': 'An error occurred while generating the PDF report'}), 500
     finally:
         db_session.close()
 
+
+def generate_movement_history_pdf(pdf_data, filters):
+    """Generate PDF buffer for movement history"""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=20, leftMargin=20, topMargin=30, bottomMargin=30)
+    styles = getSampleStyleSheet()
+
+    # Custom styles
+    styles.add(ParagraphStyle(name='Heading', fontName='Helvetica-Bold', fontSize=16, spaceAfter=12, alignment=TA_CENTER))
+    styles.add(ParagraphStyle(name='Wrap', fontName='Helvetica', fontSize=8, leading=10, wordWrap='CJK'))
+    styles.add(ParagraphStyle(name='AmountPositive', fontName='Helvetica', fontSize=8, textColor=colors.green, alignment=TA_RIGHT))
+    styles.add(ParagraphStyle(name='AmountNegative', fontName='Helvetica', fontSize=8, textColor=colors.red, alignment=TA_RIGHT))
+
+    elements = []
+
+    # Header
+    elements.append(Paragraph("Stock Movement History Report", styles['Heading']))
+    elements.append(Spacer(1, 10))
+
+    # Filter info
+    filter_parts = []
+    if filters.get('start_date'):
+        filter_parts.append(f"From: {filters['start_date']}")
+    if filters.get('end_date'):
+        filter_parts.append(f"To: {filters['end_date']}")
+    if filters.get('project_id'):
+        filter_parts.append(f"Department Filter Applied")
+    if filter_parts:
+        elements.append(Paragraph(" | ".join(filter_parts), styles['Normal']))
+        elements.append(Spacer(1, 12))
+
+    # Table
+    headers = ['Date', 'Source', 'Movement', 'Reference', 'Item', 'Variation', 'UOM', 'Qty', 'Running', 'Location', 'Dept']
+    table_data = [[Paragraph(h, styles['Wrap']) for h in headers]]
+
+    for entry in pdf_data:
+        qty_style = 'AmountPositive' if entry['quantity'] >= 0 else 'AmountNegative'
+        running_style = 'AmountPositive' if entry['running_total'] >= 0 else 'AmountNegative'
+
+        variation = entry['variation'] if entry['variation'] else entry['attribute'] if entry['attribute'] else '-'
+
+        table_data.append([
+            Paragraph(entry['date'], styles['Wrap']),
+            Paragraph(entry['source'], styles['Wrap']),
+            Paragraph(entry['movement_type'], styles['Wrap']),
+            Paragraph(entry['reference'], styles['Wrap']),
+            Paragraph(entry['item_name'], styles['Wrap']),
+            Paragraph(variation, styles['Wrap']),
+            Paragraph(entry['uom'], styles['Wrap']),
+            Paragraph(str(entry['quantity']), styles[qty_style]),
+            Paragraph(str(entry['running_total']), styles[running_style]),
+            Paragraph(entry['location'], styles['Wrap']),
+            Paragraph(entry['department'], styles['Wrap']),
+        ])
+
+    col_widths = [60, 70, 60, 80, 120, 90, 35, 45, 55, 100, 40]
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#f8f9fa")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('ALIGN', (7, 0), (8, -1), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.grey),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+        ('PADDING', (0, 0), (-1, -1), 3),
+    ]))
+
+    elements.append(table)
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph(f"Total Entries: {len(pdf_data)}", styles['Normal']))
+    elements.append(Paragraph(f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+def generate_empty_pdf_response(start_date, end_date, message=None):
+    """Generate empty PDF response"""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    elements = [
+        Paragraph("Stock Movement History Report", styles['Heading1']),
+        Spacer(1, 20),
+        Paragraph(message or "No stock movement records found for the selected filters", styles['Normal']),
+    ]
+    if start_date:
+        elements.append(Paragraph(f"From: {start_date}", styles['Normal']))
+    if end_date:
+        elements.append(Paragraph(f"To: {end_date}", styles['Normal']))
+    doc.build(elements)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name="stock_movement_history_empty.pdf", mimetype='application/pdf')
 
 def prepare_pdf_data(db_session, transaction_details, running_totals):
     """Prepare data for PDF generation using InventoryTransactionDetail"""
@@ -8254,39 +8373,225 @@ def generate_filename(start_date, end_date):
     return "_".join(filename_parts) + ".pdf"
 
 
-def generate_empty_pdf_response(start_date, end_date):
-    """Generate response for empty results"""
-    buffer = BytesIO()
 
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=letter,
-        rightMargin=36,
-        leftMargin=36,
-        topMargin=36,
-        bottomMargin=36
-    )
+@download_route.route('/download_stock_movement_history_excel', methods=['POST'])
+@login_required
+def download_stock_movement_history_excel():
+    """
+    Download stock movement history as Excel with filtering
+    """
+    import pandas as pd
+    from io import BytesIO
 
-    styles = getSampleStyleSheet()
-    elements = [
-        Paragraph("Stock Movement History Report", styles['Heading']),
-        Spacer(1, 20),
-        Paragraph("No data found for the selected filters", styles['Normal']),
-        Spacer(1, 10),
-        Paragraph(f"Date Range: {start_date or 'N/A'} to {end_date or 'N/A'}", styles['Normal'])
-    ]
+    db_session = Session()
+    app_id = current_user.app_id
+    user_id = current_user.id
 
-    doc.build(elements)
-    buffer.seek(0)
+    try:
+        filters = request.get_json() or {}
 
-    filename = generate_filename(start_date, end_date)
+        # Extract filters
+        item_id = filters.get('item_id')
+        reference = filters.get('reference', '')
+        location_id = filters.get('location_id')
+        project_id = filters.get('project_id')
+        movement_type = filters.get('movement_type', '')
+        source_type = filters.get('source_type', '')
+        start_date = filters.get('start_date', '')
+        end_date = filters.get('end_date', '')
 
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=filename,
-        mimetype='application/pdf'
-    )
+        # Get user's accessible locations
+        user_locations = get_user_accessible_locations(user_id, app_id)
+        user_location_ids = [loc.id for loc in user_locations] if user_locations else []
+
+        if not user_location_ids:
+            return generate_empty_excel_response(start_date, end_date, message="You don't have access to any locations.")
+
+        # Build query
+        query = db_session.query(InventoryTransactionDetail).join(
+            InventoryEntryLineItem,
+            InventoryTransactionDetail.inventory_entry_line_item_id == InventoryEntryLineItem.id
+        ).join(
+            InventoryEntry,
+            InventoryEntryLineItem.inventory_entry_id == InventoryEntry.id
+        ).join(
+            InventoryItemVariationLink,
+            InventoryTransactionDetail.item_id == InventoryItemVariationLink.id
+        ).filter(
+            InventoryTransactionDetail.app_id == app_id,
+            InventoryTransactionDetail.location_id.in_(user_location_ids)
+        )
+
+        # Apply filters
+        if item_id:
+            query = query.filter(InventoryTransactionDetail.item_id == item_id)
+        if location_id and location_id in user_location_ids:
+            query = query.filter(InventoryTransactionDetail.location_id == location_id)
+        if movement_type:
+            query = query.filter(InventoryTransactionDetail.movement_type == movement_type)
+        if reference:
+            query = query.filter(InventoryEntry.reference == reference)
+        if source_type:
+            query = query.filter(InventoryEntry.source_type == source_type)
+        if project_id:
+            query = query.filter(InventoryEntryLineItem.project_id == project_id)
+        if start_date:
+            try:
+                start_date_obj = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
+                query = query.filter(func.date(InventoryTransactionDetail.transaction_date) >= start_date_obj)
+            except ValueError:
+                pass
+        if end_date:
+            try:
+                end_date_obj = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
+                query = query.filter(func.date(InventoryTransactionDetail.transaction_date) <= end_date_obj)
+            except ValueError:
+                pass
+
+        # Get all transactions
+        transaction_details = query.order_by(
+            InventoryTransactionDetail.transaction_date.desc(),
+            InventoryTransactionDetail.id.desc()
+        ).all()
+
+        if not transaction_details:
+            return generate_empty_excel_response(start_date, end_date)
+
+        # Calculate running totals (chronological order first)
+        chronological = sorted(transaction_details, key=lambda x: (x.transaction_date, x.id))
+        running_totals = {}
+        transaction_running_totals = {}
+
+        for trans in chronological:
+            key = trans.item_id
+            running_totals[key] = running_totals.get(key, 0) + trans.quantity
+            transaction_running_totals[trans.id] = running_totals[key]
+
+        # Prepare Excel data
+        source_map = {
+            'purchase': 'Receipt', 'sale': 'Dispatch', 'transfer': 'Transfer',
+            'adjustment': 'Adjustment', 'opening_balance': 'Opening Stock',
+            'write_off': 'Write Off', 'missing': 'Missing', 'damaged': 'Damaged',
+            'expired': 'Expired', 'manual': 'Manual'
+        }
+
+        excel_data = []
+
+        for trans in transaction_details:
+            line_item = trans.inventory_entry_line_item
+            entry = line_item.inventory_entry if line_item else None
+            variation_link = trans.inventory_item_variation_link
+            item = variation_link.inventory_item if variation_link else None
+
+            # Location display
+            if trans.movement_type == 'transfer' and entry:
+                from_loc = entry.from_inventory_location.location if entry.from_inventory_location else '-'
+                to_loc = entry.to_inventory_location.location if entry.to_inventory_location else '-'
+                location_display = f"{from_loc} → {to_loc}"
+            else:
+                location_display = trans.location.location if trans.location else '-'
+
+            # Department
+            department = '-'
+            if line_item and line_item.project_id:
+                project = db_session.query(Project).filter_by(id=line_item.project_id).first()
+                department = project.name if project else '-'
+
+            # Party name
+            party = '-'
+            if entry and entry.source_type in ['purchase', 'sale'] and entry.source_id:
+                vendor = db_session.query(Vendor).filter_by(id=entry.source_id).first()
+                party = vendor.vendor_name if vendor else '-'
+
+            # Handled by
+            handled_by = '-'
+            if entry and entry.handled_by_employee:
+                handled_by = f"{entry.handled_by_employee.first_name} {entry.handled_by_employee.last_name}".strip()
+
+            excel_data.append({
+                'Date': trans.transaction_date.strftime('%Y-%m-%d'),
+                'Source': source_map.get(entry.source_type if entry else 'manual', 'Manual'),
+                'Movement Type': trans.movement_type.replace('_', ' ').title() if trans.movement_type else '-',
+                'Reference': entry.reference if entry else '-',
+                'Item Name': item.item_name if item else '-',
+                'Attribute': variation_link.inventory_item_attributes.attribute_name if variation_link and variation_link.inventory_item_attributes else '-',
+                'Variation': variation_link.inventory_item_variation.variation_name if variation_link and variation_link.inventory_item_variation else '-',
+                'UOM': item.unit_of_measurement.abbreviation if item and item.unit_of_measurement else '-',
+                'Quantity': trans.quantity,
+                'Running Total': transaction_running_totals.get(trans.id, 0),
+                'Location': location_display,
+                'Department': department,
+                'Party': party,
+                'Handled By': handled_by
+            })
+
+        # Create DataFrame
+        df = pd.DataFrame(excel_data)
+
+        # Create Excel file
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Stock Movement History', index=False)
+
+            # Add summary sheet
+            summary_data = {
+                'Metric': ['Total Transactions', 'Generated Date', 'Start Date', 'End Date'],
+                'Value': [
+                    len(excel_data),
+                    datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    start_date or 'N/A',
+                    end_date or 'N/A'
+                ]
+            }
+            if project_id:
+                summary_data['Metric'].append('Department Filter')
+                summary_data['Value'].append('Applied')
+            if location_id:
+                summary_data['Metric'].append('Location Filter')
+                summary_data['Value'].append('Applied')
+
+            summary_df = pd.DataFrame(summary_data)
+            summary_df.to_excel(writer, sheet_name='Summary', index=False)
+
+        output.seek(0)
+
+        # Generate filename
+        filename = f"stock_movement_history_{start_date}_to_{end_date}.xlsx" if start_date or end_date else "stock_movement_history.xlsx"
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+    except Exception as e:
+        logger.error(f"Error generating stock movement history Excel: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'success': False, 'message': 'An error occurred while generating the Excel report'}), 500
+    finally:
+        db_session.close()
+
+
+def generate_empty_excel_response(start_date, end_date, message=None):
+    """Generate empty Excel response"""
+    import pandas as pd
+    from io import BytesIO
+
+    output = BytesIO()
+    df = pd.DataFrame({'Message': [message or 'No stock movement records found for the selected filters']})
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Stock Movement History', index=False)
+
+        summary_data = {
+            'Metric': ['Start Date', 'End Date', 'Generated Date'],
+            'Value': [start_date or 'N/A', end_date or 'N/A', datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
+        }
+        summary_df = pd.DataFrame(summary_data)
+        summary_df.to_excel(writer, sheet_name='Summary', index=False)
+
+    output.seek(0)
+    return send_file(output, as_attachment=True, download_name="stock_movement_history_empty.xlsx", mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
 @download_route.route('/download_stock_list', methods=['POST'])
@@ -8311,18 +8616,18 @@ def download_stock_list():
         attribute_id = filters.get('attribute')
         variation_id = filters.get('variation')
         location_id = filters.get('location')
+        project_id = filters.get('project_id')  # ===== ADD PROJECT/DEPARTMENT FILTER =====
         start_date = filters.get('start_date')
         end_date = filters.get('end_date')
         hide_zero_items = filters.get('hide_zero_items', False)
         status_filter = filters.get('status')
         item_id = filters.get('item')
-        sort_by = filters.get('sort_by', 'item_name')        # ADD THIS
+        sort_by = filters.get('sort_by', 'item_name')
         sort_order = filters.get('sort_order', 'asc')
 
-
         # IMPORTANT: Use the same logic as the frontend with status and item filters
-        if start_date or end_date:
-            # Use transaction-based calculation for historical data
+        if start_date or end_date or project_id:  # ===== ADD project_id condition =====
+            # Use transaction-based calculation for historical data or department filter
             stock_data, _ = _get_stock_list_data_with_dates(
                 db_session,
                 page=1,
@@ -8336,9 +8641,10 @@ def download_stock_list():
                 attribute_id=attribute_id,
                 variation_id=variation_id,
                 location_id=location_id,
+                project_id=project_id,  # ===== PASS PROJECT FILTER =====
                 status_filter=status_filter,
                 item_id=item_id,
-                sort_by=sort_by,          # ADD THIS
+                sort_by=sort_by,
                 sort_order=sort_order
             )
         else:
@@ -8356,9 +8662,10 @@ def download_stock_list():
                 attribute_id=attribute_id,
                 variation_id=variation_id,
                 location_id=location_id,
+                project_id=project_id,  # ===== PASS PROJECT FILTER =====
                 status_filter=status_filter,
                 item_id=item_id,
-                sort_by=sort_by,          # ADD THIS
+                sort_by=sort_by,
                 sort_order=sort_order
             )
 
@@ -8389,15 +8696,18 @@ def download_stock_list():
     finally:
         db_session.close()
 
-
 def generate_stock_list_filename(filters):
-    """Generate filename for the stock list PDF (updated to include status, item, and sort)"""
+    """Generate filename for the stock list PDF"""
     filename_parts = ["stock_list"]
 
     # Add status if applied
     if filters.get('status'):
         status_value = filters['status'].lower().replace(' ', '_')
         filename_parts.append(status_value)
+
+    # Add department if applied
+    if filters.get('project_id'):
+        filename_parts.append("department_filtered")
 
     # Add item indicator if specific item selected
     if filters.get('item'):
@@ -8426,7 +8736,6 @@ def generate_stock_list_filename(filters):
         filename_parts.append("filtered")
 
     return "_".join(filename_parts) + ".pdf"
-
 
 def generate_stock_list_pdf_buffer(stock_data, filters):
     """Generate PDF buffer for stock list with hierarchical structure"""
@@ -8779,4 +9088,302 @@ def generate_empty_stock_list_pdf_response(filters):
         as_attachment=True,
         download_name=filename,
         mimetype='application/pdf'
+    )
+
+
+
+@download_route.route('/download_stock_list_excel', methods=['POST'])
+@login_required
+def download_stock_list_excel():
+    """
+    Download stock list as Excel with filtering
+    Uses the same logic as the frontend - switches between summary and transaction-based
+    """
+    from routes.inventory.inventory_reports import _get_stock_list_data, _get_stock_list_data_with_dates
+    import pandas as pd
+    from io import BytesIO
+
+    db_session = Session()
+    app_id = current_user.app_id
+
+    try:
+        # Get filter parameters from request
+        filters = request.get_json() or {}
+
+        # Extract filters
+        category_id = filters.get('category')
+        subcategory_id = filters.get('subcategory')
+        brand_id = filters.get('brand')
+        attribute_id = filters.get('attribute')
+        variation_id = filters.get('variation')
+        location_id = filters.get('location')
+        project_id = filters.get('project_id')  # ===== ADD PROJECT/DEPARTMENT FILTER =====
+        start_date = filters.get('start_date')
+        end_date = filters.get('end_date')
+        hide_zero_items = filters.get('hide_zero_items', False)
+        status_filter = filters.get('status')
+        item_id = filters.get('item')
+        sort_by = filters.get('sort_by', 'item_name')
+        sort_order = filters.get('sort_order', 'asc')
+
+        # IMPORTANT: Use the same logic as the frontend with status and item filters
+        if start_date or end_date or project_id:  # ===== ADD project_id condition =====
+            # Use transaction-based calculation for historical data or department filter
+            stock_data, _ = _get_stock_list_data_with_dates(
+                db_session,
+                page=1,
+                per_page=100000,  # Get all records for Excel
+                hide_zero_items=hide_zero_items,
+                start_date=start_date,
+                end_date=end_date,
+                category_id=category_id,
+                subcategory_id=subcategory_id,
+                brand_id=brand_id,
+                attribute_id=attribute_id,
+                variation_id=variation_id,
+                location_id=location_id,
+                project_id=project_id,  # ===== PASS PROJECT FILTER =====
+                status_filter=status_filter,
+                item_id=item_id,
+                sort_by=sort_by,
+                sort_order=sort_order
+            )
+        else:
+            # Use InventorySummary for current stock
+            stock_data, _ = _get_stock_list_data(
+                db_session,
+                page=1,
+                per_page=100000,
+                hide_zero_items=hide_zero_items,
+                start_date=start_date,
+                end_date=end_date,
+                category_id=category_id,
+                subcategory_id=subcategory_id,
+                brand_id=brand_id,
+                attribute_id=attribute_id,
+                variation_id=variation_id,
+                location_id=location_id,
+                project_id=project_id,  # ===== PASS PROJECT FILTER =====
+                status_filter=status_filter,
+                item_id=item_id,
+                sort_by=sort_by,
+                sort_order=sort_order
+            )
+
+        # Check if stock_data is empty
+        if not stock_data:
+            return generate_empty_stock_list_excel_response(filters)
+
+        # Prepare data for Excel
+        excel_data = []
+        for category, items in stock_data.items():
+            for item in items:
+                # Format variation
+                variation = f"{item.get('attribute', '')} {item.get('variation', '')}".strip() or '-'
+
+                excel_data.append({
+                    'Category': category,
+                    'Subcategory': item.get('subcategory_name', '-'),
+                    'Item Name': item.get('item_name', '-'),
+                    'Variation': variation,
+                    'UOM': item.get('uom', '-'),
+                    'Location': item.get('location', '-'),
+                    'Quantity': item.get('quantity', 0),
+                    'Status': item.get('status', '-')
+                })
+
+        # Create DataFrame
+        df = pd.DataFrame(excel_data)
+
+        # Apply sorting if needed
+        sort_column_map = {
+            'item_name': 'Item Name',
+            'quantity': 'Quantity',
+            'category': 'Category',
+            'status': 'Status',
+            'location': 'Location'
+        }
+
+        if sort_by in sort_column_map:
+            df = df.sort_values(
+                by=sort_column_map[sort_by],
+                ascending=(sort_order == 'asc')
+            )
+
+        # Create Excel file
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            # Write main data sheet
+            df.to_excel(writer, sheet_name='Stock List', index=False)
+
+            # Add summary sheet
+            summary_data = {
+                'Metric': [
+                    'Total Items',
+                    'Categories',
+                    'Generated Date',
+                    'As Of Date',
+                    'Hide Zero Items'
+                ],
+                'Value': [
+                    len(df),
+                    len(df['Category'].unique()) if not df.empty else 0,
+                    datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    filters.get('end_date') or datetime.datetime.now().strftime('%Y-%m-%d'),
+                    'Yes' if hide_zero_items else 'No'
+                ]
+            }
+
+            # Add filter info to summary
+            if category_id:
+                summary_data['Metric'].append('Category Filter')
+                summary_data['Value'].append(category_id)
+            if subcategory_id:
+                summary_data['Metric'].append('Subcategory Filter')
+                summary_data['Value'].append(subcategory_id)
+            if location_id:
+                summary_data['Metric'].append('Location Filter')
+                summary_data['Value'].append(location_id)
+            if project_id:  # ===== ADD DEPARTMENT TO SUMMARY =====
+                summary_data['Metric'].append('Department Filter')
+                summary_data['Value'].append(project_id)
+            if start_date:
+                summary_data['Metric'].append('Start Date')
+                summary_data['Value'].append(start_date)
+            if end_date:
+                summary_data['Metric'].append('End Date')
+                summary_data['Value'].append(end_date)
+            if status_filter:
+                summary_data['Metric'].append('Status Filter')
+                summary_data['Value'].append(status_filter)
+            if item_id:
+                summary_data['Metric'].append('Item Filter')
+                summary_data['Value'].append('Specific Item')
+
+            summary_df = pd.DataFrame(summary_data)
+            summary_df.to_excel(writer, sheet_name='Summary', index=False)
+
+            # Add status breakdown sheet
+            if not df.empty:
+                status_counts = df['Status'].value_counts().reset_index()
+                status_counts.columns = ['Status', 'Count']
+                status_counts.to_excel(writer, sheet_name='Status Breakdown', index=False)
+
+                # Add category breakdown sheet
+                category_counts = df.groupby(['Category', 'Subcategory']).size().reset_index(name='Item Count')
+                category_counts.to_excel(writer, sheet_name='Category Breakdown', index=False)
+
+        output.seek(0)
+
+        # Generate filename
+        filename = generate_stock_list_excel_filename(filters)
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+    except Exception as e:
+        logger.error(f"Error generating stock list Excel: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred while generating the Excel report'
+        }), 500
+
+    finally:
+        db_session.close()
+
+
+def generate_stock_list_excel_filename(filters):
+    """Generate filename for the stock list Excel"""
+    filename_parts = ["stock_list"]
+
+    # Add status if applied
+    if filters.get('status'):
+        status_value = filters['status'].lower().replace(' ', '_')
+        filename_parts.append(status_value)
+
+    # Add department if applied
+    if filters.get('project_id'):
+        filename_parts.append("by_department")
+
+    # Add item indicator if specific item selected
+    if filters.get('item'):
+        filename_parts.append("specific_item")
+
+    # Add sort info to filename
+    sort_by = filters.get('sort_by', 'item_name')
+    sort_order = filters.get('sort_order', 'asc')
+    filename_parts.append(f"sorted_by_{sort_by}_{sort_order}")
+
+    # Add date range if applied
+    if filters.get('start_date'):
+        filename_parts.append(f"from_{filters['start_date']}")
+    if filters.get('end_date'):
+        filename_parts.append(f"to_{filters['end_date']}")
+
+    # Add indicator if it's current stock (no dates)
+    if not filters.get('start_date') and not filters.get('end_date'):
+        filename_parts.append("current")
+
+    # Add other indicators
+    if filters.get('hide_zero_items'):
+        filename_parts.append("no_zero_items")
+
+    if filters.get('category'):
+        filename_parts.append("filtered")
+
+    return "_".join(filename_parts) + ".xlsx"
+
+
+def generate_empty_stock_list_excel_response(filters):
+    """Generate response for empty stock list results (Excel format)"""
+    output = BytesIO()
+
+    # Create minimal DataFrame with "No data" message
+    df = pd.DataFrame({'Message': ['No stock items found for the selected filters']})
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Stock List', index=False)
+
+        # Add filter info
+        filter_data = {
+            'Filter': [],
+            'Value': []
+        }
+
+        if filters.get('category'):
+            filter_data['Filter'].append('Category')
+            filter_data['Value'].append(filters['category'])
+        if filters.get('subcategory'):
+            filter_data['Filter'].append('Subcategory')
+            filter_data['Value'].append(filters['subcategory'])
+        if filters.get('location'):
+            filter_data['Filter'].append('Location')
+            filter_data['Value'].append(filters['location'])
+        if filters.get('project_id'):  # ===== ADD DEPARTMENT TO EMPTY RESPONSE =====
+            filter_data['Filter'].append('Department')
+            filter_data['Value'].append(filters['project_id'])
+        if filters.get('start_date'):
+            filter_data['Filter'].append('Start Date')
+            filter_data['Value'].append(filters['start_date'])
+        if filters.get('end_date'):
+            filter_data['Filter'].append('End Date')
+            filter_data['Value'].append(filters['end_date'])
+
+        if filter_data['Filter']:
+            filter_df = pd.DataFrame(filter_data)
+            filter_df.to_excel(writer, sheet_name='Applied Filters', index=False)
+
+    output.seek(0)
+
+    filename = generate_stock_list_excel_filename(filters)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )

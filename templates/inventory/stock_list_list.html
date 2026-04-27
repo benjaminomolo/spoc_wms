@@ -17,7 +17,7 @@
             <nav>
                 <ul>
                     {% if role == 'Admin' or role == 'Supervisor' or role == 'Viewer' %}
-                    <li><a href="{{ url_for('inventory.inventory_dashboard') }}">Inventory Dashboard</a></li>
+                    <li><a href="{{ url_for('inventory.wms_dashboard') }}">Dashboard</a></li>
                     {% endif %}
                     {% if role == 'Admin' or role == 'Contributor' %}
                     <li><a href="#">Add Inventory Item</a></li>
@@ -29,6 +29,7 @@
             </nav>
         </div>
 
+        <!-- In the header-buttons section, add Excel button next to PDF button -->
         <div class="header-buttons">
             <button class="filter-button" type="button" id="toggleFilterForm">
                 <i class="fas fa-filter"></i> Filter
@@ -39,8 +40,6 @@
                 <i class="fas fa-th-large"></i> Shortcuts
             </button>
 
-
-
             <!-- Hide 0 items toggle -->
             <div class="form-check form-switch ms-3">
                 <input class="form-check-input" type="checkbox" id="hideZeroItems" {% if hide_zero_items %}checked{%
@@ -48,16 +47,17 @@
                 <label class="form-check-label" for="hideZeroItems">Hide Zero Items</label>
             </div>
 
-
-
-
-            <!-- 🆕 NEW: Download PDF Button -->
+            <!-- PDF Download Button -->
             <button class="button-outline" type="button" id="downloadPdfBtn">
-                <i class="fas fa-download"></i> PDF
+                <i class="fas fa-file-pdf"></i> PDF
+            </button>
+
+            <!-- ===== ADD EXCEL DOWNLOAD BUTTON ===== -->
+            <button class="button-outline" type="button" id="downloadExcelBtn">
+                <i class="fas fa-file-excel"></i> Excel
             </button>
 
             <div class="custom-tooltip-container">
-
                 <!-- Refresh Cache Button -->
                 <button class="refresh-btn" id="refreshCacheBtn">
                     <span class="icon">🔄</span>
@@ -90,7 +90,7 @@
                 {% if role == 'Admin' or role == 'Contributor' %}
                 <li class="shortcut-item"><a href="{{ url_for('inventory.inventory_items') }}">Items</a>
                 </li>
-                <li class="shortcut-item"><a href="{{ url_for('inventory.inventory_dashboard') }}">Dashboard</a>
+                <li class="shortcut-item"><a href="{{ url_for('inventory.wms_dashboard') }}">Dashboard</a>
                 </li>
                 {% endif %}
 
@@ -740,6 +740,7 @@
             variation: document.getElementById('variation').value,
             location: document.getElementById('location').value,
             start_date: document.getElementById('start_date').value,
+            project_id: document.getElementById('project_id').value,
             end_date: document.getElementById('end_date').value,
             status: document.getElementById('status').value,
             item: document.getElementById('item').value,
@@ -855,7 +856,72 @@
         document.getElementById('filter-section').classList.toggle('visible');
     });
 
+    // Excel Download functionality with loading state
+    document.getElementById('downloadExcelBtn').addEventListener('click', function () {
+        const filters = {
+            category: document.getElementById('category').value,
+            subcategory: document.getElementById('subcategory').value,
+            brand: document.getElementById('brand').value,
+            attribute: document.getElementById('attribute').value,
+            variation: document.getElementById('variation').value,
+            location: document.getElementById('location').value,
+            project_id: document.getElementById('project_id').value,
+            start_date: document.getElementById('start_date').value,
+            end_date: document.getElementById('end_date').value,
+            status: document.getElementById('status').value,
+            item: document.getElementById('item').value,
+            sort_by: document.getElementById('sort_by').value,
+            sort_order: document.getElementById('sort_order').value,
+            hide_zero_items: document.getElementById('hideZeroItems').checked
+        };
 
+        // Show loading state
+        const originalHTML = this.innerHTML;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+        this.disabled = true;
+
+        fetch('/download_stock_list_excel', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(filters)
+        })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                }
+                throw new Error('Network response was not ok.');
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+
+                // Better filename
+                let filename = 'stock_list_report';
+                if (filters.start_date) filename += `_from_${filters.start_date}`;
+                if (filters.end_date) filename += `_to_${filters.end_date}`;
+                if (filters.project_id) filename += '_by_department';
+                filename += '.xlsx';
+
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                this.innerHTML = '<i class="fas fa-file-excel"></i> Excel';
+                this.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error generating Excel report');
+                this.innerHTML = '<i class="fas fa-file-excel"></i> Excel';
+                this.disabled = false;
+            });
+    });
 
         // 🆕 REMOVED: No initial loadStockList() call - we already rendered server data
     });

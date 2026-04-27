@@ -4223,15 +4223,13 @@ def get_trial_balance_summary():
 
 
 @api_routes.route('/api/assets/transactions', methods=["GET"])
+@login_required
 def get_asset_transactions():
     """
     API endpoint for asset dashboard data
+    Filtered by user's assigned locations
+    Includes opening balance assets (NULL purchase_date)
     """
-    # Authentication
-    api_key = request.headers.get("X-API-Key")
-    if not api_key:
-        return jsonify({"error": "API key is missing"}), 401
-
     # Get filter parameters
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
@@ -4250,12 +4248,19 @@ def get_asset_transactions():
 
     with Session() as db_session:
         try:
-            # Validate company
-            company = db_session.query(Company).filter_by(api_key=api_key).first()
-            if not company:
-                return jsonify({"error": "Invalid API key"}), 403
+            app_id = current_user.app_id
+            user_id = current_user.id
 
-            app_id = company.id
+            # ===== GET USER'S ACCESSIBLE LOCATIONS =====
+            user_locations = get_user_accessible_locations(user_id, app_id)
+            user_location_ids = [loc.id for loc in user_locations] if user_locations else []
+
+            # If user has no location access, return empty results
+            if not user_location_ids:
+                return jsonify({
+                    "error": "You don't have access to any locations",
+                    "data": []
+                }), 403
 
             # Get base currency
             base_currency_info = get_base_currency(db_session, app_id)
@@ -4285,18 +4290,28 @@ def get_asset_transactions():
 
             # ============================================
             # QUERY 1: ASSET SUMMARY STATISTICS - AS OF END DATE
+            # INCLUDES OPENING BALANCE (NULL purchase_date)
             # ============================================
 
-            # Get all assets that existed as of end_date
             asset_query = db_session.query(Asset).filter(
                 Asset.app_id == app_id,
-                Asset.purchase_date <= end_date_obj  # ✅ Show assets purchased up to end date
+                Asset.location_id.in_(user_location_ids)
+            )
+
+            # Include assets with NULL purchase_date (opening balance) OR purchase_date <= end_date
+            asset_query = asset_query.filter(
+                or_(
+                    Asset.purchase_date.is_(None),
+                    Asset.purchase_date <= end_date_obj
+                )
             )
 
             # Apply asset filters
             if asset_type_id:
                 asset_query = asset_query.filter(Asset.asset_item_id == asset_type_id)
             if location_id:
+                if int(location_id) not in user_location_ids:
+                    return jsonify({"error": "You do not have permission to access this location"}), 403
                 asset_query = asset_query.filter(Asset.location_id == location_id)
             if department_id:
                 asset_query = asset_query.filter(Asset.department_id == department_id)
@@ -4319,7 +4334,6 @@ def get_asset_transactions():
                 if brand_id:
                     asset_query = asset_query.filter(AssetItem.brand_id == brand_id)
 
-            # Get all assets as of end date
             all_assets = asset_query.all()
 
             total_assets = len(all_assets)
@@ -4377,7 +4391,12 @@ def get_asset_transactions():
             ).filter(
                 AssetMovement.app_id == app_id,
                 AssetMovement.transaction_date >= start_date_obj,
-                AssetMovement.transaction_date <= end_date_obj
+                AssetMovement.transaction_date <= end_date_obj,
+                or_(
+                    AssetMovement.location_id.in_(user_location_ids),
+                    AssetMovementLineItem.from_location_id.in_(user_location_ids),
+                    AssetMovementLineItem.to_location_id.in_(user_location_ids)
+                )
             )
 
             # Apply movement filters
@@ -4386,10 +4405,14 @@ def get_asset_transactions():
             if asset_type_id:
                 movement_query = movement_query.filter(Asset.asset_item_id == asset_type_id)
             if location_id:
-                movement_query = movement_query.filter(
-                    (AssetMovementLineItem.from_location_id == location_id) |
-                    (AssetMovementLineItem.to_location_id == location_id)
-                )
+                location_id_int = int(location_id)
+                if location_id_int in user_location_ids:
+                    movement_query = movement_query.filter(
+                        (AssetMovementLineItem.from_location_id == location_id_int) |
+                        (AssetMovementLineItem.to_location_id == location_id_int)
+                    )
+                else:
+                    return jsonify({"error": "You do not have permission to access this location"}), 403
             if department_id:
                 movement_query = movement_query.filter(
                     (AssetMovementLineItem.from_department_id == department_id) |
@@ -4414,6 +4437,7 @@ def get_asset_transactions():
 
             # ============================================
             # QUERY 3: ASSET TYPE DISTRIBUTION - AS OF END DATE
+            # INCLUDES OPENING BALANCE (NULL purchase_date)
             # ============================================
 
             asset_type_query = db_session.query(
@@ -4429,14 +4453,21 @@ def get_asset_transactions():
             ).filter(
                 AssetItem.app_id == app_id,
                 AssetItem.status == 'active',
-                Asset.purchase_date <= end_date_obj  # ✅ Assets purchased up to end date
+                Asset.location_id.in_(user_location_ids)
+            ).filter(
+                or_(
+                    Asset.purchase_date.is_(None),
+                    Asset.purchase_date <= end_date_obj
+                )
             )
 
             # Apply all asset filters to type distribution
             if asset_type_id:
                 asset_type_query = asset_type_query.filter(AssetItem.id == asset_type_id)
             if location_id:
-                asset_type_query = asset_type_query.filter(Asset.location_id == location_id)
+                location_id_int = int(location_id)
+                if location_id_int in user_location_ids:
+                    asset_type_query = asset_type_query.filter(Asset.location_id == location_id_int)
             if department_id:
                 asset_type_query = asset_type_query.filter(Asset.department_id == department_id)
             if assigned_to_id:
@@ -4464,6 +4495,7 @@ def get_asset_transactions():
 
             # ============================================
             # QUERY 4: LOCATION DISTRIBUTION - AS OF END DATE
+            # INCLUDES OPENING BALANCE (NULL purchase_date)
             # ============================================
 
             location_query = db_session.query(
@@ -4476,7 +4508,12 @@ def get_asset_transactions():
                 Asset.location_id == InventoryLocation.id
             ).filter(
                 InventoryLocation.app_id == app_id,
-                Asset.purchase_date <= end_date_obj  # ✅ Assets purchased up to end date
+                InventoryLocation.id.in_(user_location_ids)
+            ).filter(
+                or_(
+                    Asset.purchase_date.is_(None),
+                    Asset.purchase_date <= end_date_obj
+                )
             )
 
             # Apply all asset filters to location distribution
@@ -4512,6 +4549,7 @@ def get_asset_transactions():
 
             # ============================================
             # QUERY 5: ASSETS BY ACQUISITION DATE (WITHIN DATE RANGE)
+            # ONLY FOR ASSETS WITH PURCHASE DATES (excludes opening balance)
             # ============================================
 
             timeline_query = db_session.query(
@@ -4521,15 +4559,18 @@ def get_asset_transactions():
             ).filter(
                 Asset.app_id == app_id,
                 Asset.purchase_date.isnot(None),
-                Asset.purchase_date >= start_date_obj,  # ✅ Start date filter
-                Asset.purchase_date <= end_date_obj     # ✅ End date filter
+                Asset.purchase_date >= start_date_obj,
+                Asset.purchase_date <= end_date_obj,
+                Asset.location_id.in_(user_location_ids)
             )
 
             # Apply filters to timeline
             if asset_type_id:
                 timeline_query = timeline_query.filter(Asset.asset_item_id == asset_type_id)
             if location_id:
-                timeline_query = timeline_query.filter(Asset.location_id == location_id)
+                location_id_int = int(location_id)
+                if location_id_int in user_location_ids:
+                    timeline_query = timeline_query.filter(Asset.location_id == location_id_int)
             if department_id:
                 timeline_query = timeline_query.filter(Asset.department_id == department_id)
             if assigned_to_id:
@@ -4558,6 +4599,7 @@ def get_asset_transactions():
 
             # ============================================
             # QUERY 6: WARRANTY EXPIRING SOON - AS OF END DATE
+            # INCLUDES OPENING BALANCE (NULL purchase_date)
             # ============================================
 
             today = date.today()
@@ -4569,14 +4611,21 @@ def get_asset_transactions():
                 Asset.warranty_expiry >= today,
                 Asset.warranty_expiry <= ninety_days,
                 Asset.status.in_(['in_stock', 'assigned']),
-                Asset.purchase_date <= end_date_obj  # ✅ Assets purchased up to end date
+                Asset.location_id.in_(user_location_ids)
+            ).filter(
+                or_(
+                    Asset.purchase_date.is_(None),
+                    Asset.purchase_date <= end_date_obj
+                )
             )
 
             # Apply filters to warranty query
             if asset_type_id:
                 warranty_query = warranty_query.filter(Asset.asset_item_id == asset_type_id)
             if location_id:
-                warranty_query = warranty_query.filter(Asset.location_id == location_id)
+                location_id_int = int(location_id)
+                if location_id_int in user_location_ids:
+                    warranty_query = warranty_query.filter(Asset.location_id == location_id_int)
             if department_id:
                 warranty_query = warranty_query.filter(Asset.department_id == department_id)
             if assigned_to_id:
@@ -4603,6 +4652,7 @@ def get_asset_transactions():
 
             # ============================================
             # QUERY 7: TOP ASSETS BY VALUE - AS OF END DATE
+            # INCLUDES OPENING BALANCE (NULL purchase_date)
             # ============================================
 
             top_assets_query = db_session.query(
@@ -4625,14 +4675,21 @@ def get_asset_transactions():
             ).filter(
                 Asset.app_id == app_id,
                 Asset.status.in_(['in_stock', 'assigned', 'maintenance']),
-                Asset.purchase_date <= end_date_obj  # ✅ Assets purchased up to end date
+                Asset.location_id.in_(user_location_ids)
+            ).filter(
+                or_(
+                    Asset.purchase_date.is_(None),
+                    Asset.purchase_date <= end_date_obj
+                )
             )
 
             # Apply all filters to top assets query
             if asset_type_id:
                 top_assets_query = top_assets_query.filter(Asset.asset_item_id == asset_type_id)
             if location_id:
-                top_assets_query = top_assets_query.filter(Asset.location_id == location_id)
+                location_id_int = int(location_id)
+                if location_id_int in user_location_ids:
+                    top_assets_query = top_assets_query.filter(Asset.location_id == location_id_int)
             if department_id:
                 top_assets_query = top_assets_query.filter(Asset.department_id == department_id)
             if assigned_to_id:
@@ -4660,18 +4717,15 @@ def get_asset_transactions():
             # Format top assets data
             top_assets_data = []
             for asset, asset_type_name, location_name, department_name, employee, supplier_name in top_assets_query:
-                # Calculate depreciation
                 purchase_price = float(asset.purchase_price or 0)
                 current_value = float(asset.current_value or 0)
                 depreciation = purchase_price - current_value
                 dep_pct = (depreciation / purchase_price * 100) if purchase_price > 0 else 0
 
-                # Format assigned to
                 assigned_to_name = None
                 if employee:
                     assigned_to_name = f"{employee.first_name} {employee.last_name}".strip()
 
-                # Determine location display
                 location_display = location_name or department_name or assigned_to_name or '—'
 
                 top_assets_data.append({
@@ -4690,44 +4744,13 @@ def get_asset_transactions():
                 })
 
             # ============================================
-            # FORMAT RESPONSE DATA
+            # FORMAT MOVEMENT DATA
             # ============================================
 
-            # Summary metrics
-            summary_metrics = [
-                {"total_assets": total_assets},
-                {"total_current_value": round(total_current_value, 2)},
-                {"total_depreciation": round(total_depreciation, 2)},
-                {"depreciation_rate": round(depreciation_rate, 1)},
-                {"total_movements": len(movements)}
-            ]
-
-            # Status distribution
-            status_data = []
-            for status_key, count in status_counts.items():
-                if status_key:
-                    status_data.append({
-                        "status": status_key.replace('_', ' ').title(),
-                        "count": count,
-                        "value": status_key
-                    })
-
-            # Condition distribution
-            condition_data = []
-            for condition_key, count in condition_counts.items():
-                if condition_key:
-                    condition_data.append({
-                        "condition": condition_key.title(),
-                        "count": count,
-                        "value": condition_key
-                    })
-
-            # Movement transactions for charts
             movement_data = []
             for movement in movements:
                 line_item, header, asset, asset_item, location, department, employee, vendor = movement
 
-                # Determine from/to display
                 from_display = None
                 to_display = None
 
@@ -4765,6 +4788,39 @@ def get_asset_transactions():
                     "transaction_value": float(line_item.transaction_value or 0),
                     "line_notes": line_item.line_notes
                 })
+
+            # ============================================
+            # FORMAT OTHER DATA
+            # ============================================
+
+            # Summary metrics
+            summary_metrics = [
+                {"total_assets": total_assets},
+                {"total_current_value": round(total_current_value, 2)},
+                {"total_depreciation": round(total_depreciation, 2)},
+                {"depreciation_rate": round(depreciation_rate, 1)},
+                {"total_movements": len(movements)}
+            ]
+
+            # Status distribution
+            status_data = []
+            for status_key, count in status_counts.items():
+                if status_key:
+                    status_data.append({
+                        "status": status_key.replace('_', ' ').title(),
+                        "count": count,
+                        "value": status_key
+                    })
+
+            # Condition distribution
+            condition_data = []
+            for condition_key, count in condition_counts.items():
+                if condition_key:
+                    condition_data.append({
+                        "condition": condition_key.title(),
+                        "count": count,
+                        "value": condition_key
+                    })
 
             # Asset type distribution
             asset_type_data = []
@@ -4828,7 +4884,6 @@ def get_asset_transactions():
         except Exception as e:
             logger.error(f'Error retrieving asset transactions: {str(e)}\n{traceback.format_exc()}')
             return jsonify({"error": str(e)}), 500
-
 
 @api_routes.route('/api/wms/dashboard', methods=["GET"])
 def get_wms_dashboard_data():

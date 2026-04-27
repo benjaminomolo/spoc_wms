@@ -1869,6 +1869,7 @@ def calculate_inventory_quantities(db_session, app_id, item_ids, use_variation_i
                           If False, item_ids are InventoryItem IDs (default)
         **kwargs: Optional filters:
             - location_id: Filter by specific location
+            - user_location_ids: Filter by user's assigned locations
             - only_positive: Only include positive quantities (default: False)
             - include_negative: Include negative quantities (default: True)
             - group_by_location: Return quantities by location
@@ -1897,15 +1898,26 @@ def calculate_inventory_quantities(db_session, app_id, item_ids, use_variation_i
     if not target_ids:
         return {}
 
-    # Build the base query - USE INVENTORY SUMMARY INSTEAD OF TRANSACTION DETAILS
+    # Build the base query - USE INVENTORY SUMMARY
     query = db_session.query(InventorySummary).filter(
         InventorySummary.app_id == app_id,
         InventorySummary.item_id.in_(target_ids)
     )
 
-    # Location filter
+    # ===== LOCATION FILTERS =====
+    # Build list of locations to filter by
+    locations_to_filter = []
+
+    # First, check for specific location filter
     if kwargs.get('location_id'):
-        query = query.filter(InventorySummary.location_id == kwargs['location_id'])
+        locations_to_filter = [kwargs['location_id']]
+    # Then, check for user's assigned locations
+    elif kwargs.get('user_location_ids'):
+        locations_to_filter = kwargs['user_location_ids']
+
+    # Apply location filter if we have locations to filter by
+    if locations_to_filter:
+        query = query.filter(InventorySummary.location_id.in_(locations_to_filter))
 
     # Quantity filters
     if kwargs.get('only_positive', False):

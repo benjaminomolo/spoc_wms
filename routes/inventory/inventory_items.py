@@ -23,7 +23,8 @@ from models import Company, Module, Currency, Project, ChartOfAccounts, PaymentM
 import logging
 
 from services.inventory_helpers import calculate_inventory_quantities, get_last_purchase_price, \
-    get_weighted_average_cost, calculate_inventory_valuation, safe_clear_stock_history_cache
+    get_weighted_average_cost, calculate_inventory_valuation, safe_clear_stock_history_cache, \
+    get_user_accessible_locations
 from utils import empty_to_none, calculate_net_quantity
 from utils_and_helpers.amounts_utils import format_amount
 from utils_and_helpers.cache_keys import inventory_items_cache_key
@@ -757,45 +758,61 @@ def inventory_items():
 def api_inventory_items():
     """
     Return JSON data of inventory items with accounting information and selling prices
+    Filtered by user's assigned locations
     """
     db_session = Session()
     app_id = current_user.app_id
+    user_id = current_user.id
 
     try:
         # Get pagination parameters
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
-        status = request.args.get('status', 'active')  # active, discontinued, or all
-        location_id = request.args.get('location_id', type=int)  # Optional location filter
-        include_prices = request.args.get('include_prices', 'false').lower() == 'true'  # Optional price inclusion
-        # FIXED: description_search should be a search term, not a boolean
+        status = request.args.get('status', 'active')
+        location_id = request.args.get('location_id', type=int)
+        include_prices = request.args.get('include_prices', 'false').lower() == 'true'
         description_search_term = request.args.get('description_search', '').strip()
-        # NEW: Add search filters from the search route
         search_term = request.args.get('q', '')
         category_id = request.args.get('category_id', type=int)
         subcategory_id = request.args.get('subcategory_id', type=int)
         brand_id = request.args.get('brand_id', type=int)
-        # NEW: Sort by parameter
-        sort_by = request.args.get('sort_by', 'item_name')  # Default sort by item_name
-        sort_order = request.args.get('sort_order', 'asc')  # Default ascending order
+        sort_by = request.args.get('sort_by', 'item_name')
+        sort_order = request.args.get('sort_order', 'asc')
+
+        # ===== GET USER'S ACCESSIBLE LOCATIONS =====
+        user_locations = get_user_accessible_locations(user_id, app_id)
+        user_location_ids = [loc.id for loc in user_locations] if user_locations else []
+
+        # If user has no location access, return empty results
+        if not user_location_ids:
+            return jsonify({
+                'success': True,
+                'items': [],
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total_pages': 0,
+                    'total_items': 0,
+                    'has_next': False,
+                    'has_prev': False
+                }
+            })
 
         # Build base query
         query = db_session.query(InventoryItem).filter_by(app_id=app_id)
 
-        # FIXED: Use or_ from sqlalchemy instead of db.or_
+        # Apply search filters
         if description_search_term:
-            # If description search term is provided, search in name, code, AND description
             query = query.filter(
-                or_(  # Use or_ directly, not db.or_
+                or_(
                     InventoryItem.item_name.ilike(f'%{description_search_term}%'),
                     InventoryItem.item_code.ilike(f'%{description_search_term}%'),
                     InventoryItem.item_description.ilike(f'%{description_search_term}%')
                 )
             )
         elif search_term:
-            # If only main search term is provided, search only in name and code
             query = query.filter(
-                or_(  # Use or_ directly, not db.or_
+                or_(
                     InventoryItem.item_name.ilike(f'%{search_term}%'),
                     InventoryItem.item_code.ilike(f'%{search_term}%')
                 )
@@ -810,28 +827,22 @@ def api_inventory_items():
         if brand_id:
             query = query.filter_by(brand_id=brand_id)
 
-        # Filter by status
         if status != 'all':
             query = query.filter_by(status=status)
 
-        # Apply sorting - ADD THIS SECTION
-        if sort_by == 'item_name':
-            order_column = InventoryItem.item_name
-        elif sort_by == 'item_code':
-            order_column = InventoryItem.item_code
-        elif sort_by == 'category':
-            order_column = InventoryItem.item_category_id
-        elif sort_by == 'status':
-            order_column = InventoryItem.status
-        elif sort_by == 'total_quantity':
-            # For quantity sorting, we need to handle it after fetching
-            # We'll sort after calculating quantities
-            pass
-        else:
-            order_column = InventoryItem.item_name
-
-        # Apply order by if not sorting by quantity (handled later)
+        # Apply sorting (except quantity)
         if sort_by != 'total_quantity':
+            if sort_by == 'item_name':
+                order_column = InventoryItem.item_name
+            elif sort_by == 'item_code':
+                order_column = InventoryItem.item_code
+            elif sort_by == 'category':
+                order_column = InventoryItem.item_category_id
+            elif sort_by == 'status':
+                order_column = InventoryItem.status
+            else:
+                order_column = InventoryItem.item_name
+
             if sort_order == 'desc':
                 query = query.order_by(order_column.desc())
             else:
@@ -841,44 +852,40 @@ def api_inventory_items():
         total_items = query.count()
 
         # Apply pagination
-        total_pages = (total_items + per_page - 1) // per_page
+        total_pages = (total_items + per_page - 1) // per_page if total_items > 0 else 1
         items = query.offset((page - 1) * per_page).limit(per_page).all()
 
-        # Pre-fetch all item IDs (these are InventoryItem.id values)
+        # Pre-fetch all item IDs
         item_ids = [item.id for item in items]
 
-        # Calculate total quantities using the utility function
+        # ===== CALCULATE QUANTITIES WITH USER LOCATION FILTER =====
         quantity_dict = calculate_inventory_quantities(
             db_session=db_session,
             app_id=app_id,
             item_ids=item_ids,
-            location_id=location_id  # Pass location filter if provided
-            # use_variation_ids=False by default, which is what we want
+            location_id=location_id,
+            user_location_ids=user_location_ids  # Pass user's assigned locations
         )
 
-        # If sorting by total_quantity, sort items after calculating quantities
+        # If sorting by total_quantity, sort after calculating
         if sort_by == 'total_quantity':
-            # Add quantity to each item for sorting
             items_with_quantity = []
             for item in items:
                 total_quantity = quantity_dict.get(item.id, 0.0)
                 items_with_quantity.append((item, total_quantity))
 
-            # Sort by quantity
             items_with_quantity.sort(key=lambda x: x[1], reverse=(sort_order == 'desc'))
             items = [item for item, _ in items_with_quantity]
 
         # Pre-fetch selling prices if requested
         selling_prices_dict = {}
         if include_prices:
-            # Get all variation link IDs for these items
             variation_link_ids = []
             for item in items:
                 for variation_link in item.inventory_item_variation_link:
                     variation_link_ids.append(variation_link.id)
 
             if variation_link_ids:
-                # Fetch selling prices for these variation links
                 selling_prices = db_session.query(ItemSellingPrice).options(
                     joinedload(ItemSellingPrice.currency),
                     joinedload(ItemSellingPrice.customer_group)
@@ -888,7 +895,6 @@ def api_inventory_items():
                     ItemSellingPrice.is_active == True
                 ).all()
 
-                # Group prices by variation link ID
                 for price in selling_prices:
                     if price.inventory_item_variation_link_id not in selling_prices_dict:
                         selling_prices_dict[price.inventory_item_variation_link_id] = []
@@ -908,12 +914,11 @@ def api_inventory_items():
                         'margin_percentage': float(price.margin_percentage) if price.margin_percentage else None
                     })
 
-        # Serialize items with accounting information
+        # Serialize items
         items_data = []
         for item in items:
             total_quantity = quantity_dict.get(item.id, 0.0)
 
-            # Get variations with prices
             variations_data = []
             for variation_link in item.inventory_item_variation_link:
                 variation_data = {
@@ -923,7 +928,6 @@ def api_inventory_items():
                     'status': variation_link.status
                 }
 
-                # Add selling prices if requested and available
                 if include_prices and variation_link.id in selling_prices_dict:
                     variation_data['selling_prices'] = selling_prices_dict[variation_link.id]
 
@@ -935,7 +939,7 @@ def api_inventory_items():
                 'item_code': item.item_code,
                 'status': item.status,
                 'reorder_point': item.reorder_point,
-                'total_quantity': total_quantity,  # Add total quantity here
+                'total_quantity': total_quantity,
                 'category': {
                     'id': item.inventory_category.id if item.inventory_category else None,
                     'name': item.inventory_category.category_name if item.inventory_category else None
@@ -1000,8 +1004,6 @@ def api_inventory_items():
 
     finally:
         db_session.close()
-
-
 @inventory_bp.route('/api/inventory_items/<int:item_id>', methods=['GET'])
 @login_required
 def api_inventory_item_detail(item_id):

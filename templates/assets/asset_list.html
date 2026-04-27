@@ -76,9 +76,7 @@
         <!-- Dashboard Shortcuts for Navigation -->
         <nav aria-label="dashboard-shortcuts">
             <ol class="dashboard-shortcuts">
-                {% if role == 'Admin' or role == 'Contributor' or role == 'Supervisor' %}
-                <li class="shortcut-item"><a href="{{ url_for('assets.asset_entry') }}">New Asset</a></li>
-                {% endif %}
+
                 <li class="shortcut-item"><a href="{{ url_for('assets.asset_list') }}">Asset List</a></li>
                 <li class="shortcut-item"><a href="{{ url_for('assets.asset_types') }}">Asset Types</a></li>
             </ol>
